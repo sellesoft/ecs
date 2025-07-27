@@ -1,5 +1,7 @@
 $ local cmn = require "common"
+$ require "reflect.AST2"
 $ local event = require "event.Event"
+
 
 #include "iro/Logger.h"
 #include "iro/fs/FileSystem.h"

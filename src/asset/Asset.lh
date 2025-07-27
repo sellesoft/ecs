@@ -1,0 +1,160 @@
+/*
+ *  An Asset is any information loaded from disk, with the exception of 
+ *  SourceDataFiles.
+ *
+ *  TODO(sushi) rework the ref counting RAII stuff we're doing as its kinda
+ *              annoying and its implementation is extremely complex.
+ */
+
+$ local cmn = require "common"
+$ local Ref = require "asset.Ref"
+$ local metadata = require "reflect.Metadata"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "asset/Ref.lh"
+
+@@lpp.import "asset/CompiledData.lh"
+
+@@lpp.import "reflect/RTR.lh"
+
+using namespace iro;
+
+struct AssetMgr;
+struct SourceData;
+
+/* ============================================================================
+ *  The base of all Assets, including an interface that allows an Asset 
+ *  to define behavior on load, reload, and unload.
+ */
+struct Asset 
+{
+  u64 hash = 0;
+
+  static u64 getHash(const Asset* asset) { return asset->hash; }
+
+  // Note that this String is owned by this Asset, so only point to it 
+  // if you know that pointer will be used only during the lifetime of the 
+  // Asset it was retrieved from.
+  String name;
+
+  // A Asset's position in the linked pool. This kinda sucks really bad.
+  // TODO(sushi) manually implement a better linked list solution here.
+  void* node;
+
+  void* data = nullptr;
+  u64   size = 0;
+};
+
+/* ============================================================================
+ */
+@metadata.ref
+struct AssetRef
+{
+  // The name of the asset, which is specified in source data.
+  String name = {};
+  
+  // The data being referenced.
+  @metadata.hidden
+  Asset* asset = nullptr;
+
+  static AssetRef invalid() { return {{}, nullptr}; }
+
+  void invalidate() { *this = invalid(); }
+
+  b8 isValid() const
+  {
+    return asset != nullptr && asset->data != nullptr;
+  }
+
+  void* getData() const
+  {
+    return isValid()? asset->data : nullptr;
+  }
+
+  bool operator == (const AssetRef& rhs) const
+  {
+    return asset == rhs.asset;
+  }
+
+  void compiledData_compile(IDataCompiler* interface) const
+  {
+    interface->writeString(name);
+    interface->writeData(&asset);
+  }
+
+  void compiledData_fixPointers(IFixPointers* interface)
+  {
+    interface->fixString(&name);
+  }
+
+  b8 pack(const SourceData& data, mem::Allocator* allocator);
+
+  b8 load(const RefLoadParams& params);
+};
+
+/* ============================================================================
+ *  A reference to an asset providing source data.
+ */
+struct SourceDataAssetRef : AssetRef 
+{ 
+  b8 load(const RefLoadParams& params);
+};
+
+/* ============================================================================
+ *  A typed variant of the above for convenience. Aliases the loaded asset 
+ *  as CompiledData representing the type 'T' and returns the data that was 
+ *  loaded.
+ */
+template<typename T>
+struct TypedSourceAssetRef : SourceDataAssetRef
+{
+  T* operator ->()
+  {
+    assert(isValid());
+    return ((CompiledData*)asset->data)->getRootAs<T>();
+  }
+
+  const T* operator ->() const
+  {
+    assert(isValid());
+    return ((CompiledData*)asset->data)->getRootAs<T>();
+  }
+
+  T& operator *()
+  {
+    assert(isValid());
+    return *((CompiledData*)asset->data)->getRootAs<T>();
+  }
+
+  const T& operator *() const
+  {
+    assert(isValid());
+    return *((CompiledData*)asset->data)->getRootAs<T>();
+  }
+};
+
+/* ============================================================================
+ */
+template<typename T>
+struct TypedAssetRef : AssetRef
+{
+  T* operator ->() 
+  {
+    assert(isValid());
+    return (T*)getData();
+  }
+
+  T& operator*()
+  {
+    assert(isValid());
+    return *(T*)getData();
+  }
+
+  const T& operator*() const
+  {
+    assert(isValid());
+    return *(T*)getData();
+  }
+};

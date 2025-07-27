@@ -1,0 +1,198 @@
+$ require "common"
+
+@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/Shader.defs.lh"
+
+@@lpp.import "asset/AssetMgr.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "asset/SourceData.lh"
+
+@@lpp.import "graphics/Renderer.lh"
+
+@@lpp.import "Profiling.lh"
+
+#include "iro/Platform.h"
+#include "iro/Logger.h"
+
+namespace gfx
+{
+
+@log.ger(ref.texture, Debug);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ResourceRef::pack(const SourceData& data, mem::Allocator* allocator)
+{
+  if (!data.hasStringValue())
+    return ERROR("expected string value to pack ResourceRef\n");
+
+  name = data.val.str.allocateCopy(allocator);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static String formName(PathBuffer* buf, String name, String ext)
+{
+  io::formatv(buf, name, ext);
+  return buf->asStr();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename T>
+static TypedSourceAssetRef<T> loadDef(
+    String name, 
+    String ext, 
+    const RefLoadParams& params)
+{
+  TypedSourceAssetRef<T> defref = {};
+
+  PathBuffer path;
+  defref.name = formName(&path, name, ext);
+
+  RefLoadParams def_params = params;
+  def_params.type = rtr::getTypename<T>();
+
+  if (!defref.load(def_params))
+  {
+     ERROR("failed to load def ", defref.name, "\n");
+     return defref;
+  }
+
+  return defref;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 TextureRef::load(const RefLoadParams& params)
+{
+  // TODO(sushi) need a way to determine this outside of this function.
+  //             like when we have TextureDefs that are not set in data.
+  if (isnil(name))
+    return true;
+
+  auto defref = loadDef<TextureDef>(name, ".texture"_str, params);
+  if (!defref.isValid())
+    return false;
+  const auto* def = &*defref;
+
+  if (isnil(def->name))
+    return ERROR("loaded texture def has a nil name\n");
+
+  gfx::CompiledTexture::CompileParams texture_params =
+  {
+    .name = def->name,
+    .format = def->format,
+    .filter = def->filter,
+    .usage = def->usage,
+    .address_mode = def->address_mode,
+    .allocator = &mem::stl_allocator,
+    .assetmgr = &params.assetmgr,
+  };
+
+  if (!gfx::CompiledTexture::compilePNG(texture_params))
+    return ERROR("failed to compile texture\n");
+
+  String name = def->name.subToLast('.');
+
+  resource =
+    gfx::CompiledTexture::load(name, params.assetmgr, params.renderer);
+
+  if (resource == nullptr)
+    return ERROR("failed to load texture '", name, "'\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 FontRef::load(const RefLoadParams& params)
+{
+  if (isnil(name))
+    return true;
+
+  auto defref = loadDef<FontDef>(name, ".font"_str, params);
+  if (!defref.isValid())
+    return false;
+  const auto* def = &*defref;
+
+  if (isnil(def->name))
+    return ERROR("loaded font def has a nil name\n");
+  if (isnil(def->asset_path))
+    return ERROR("loaded font def has a nil asset path\n");
+
+  gfx::Font::CompileParams font_params =
+  {
+    .name = name,
+    .ranges = def->ranges.asSlice(),
+    .allocator = &mem::stl_allocator,
+    .assetmgr = &params.assetmgr,
+  };
+
+  if (!gfx::Font::compileBDF(font_params))
+    return ERROR("failed to compile font ", name, "\n");
+
+  resource = 
+    gfx::Font::load(name, params.assetmgr, params.renderer);
+  
+  if (resource == nullptr)
+    return ERROR("failed to load compiled font ", name, "\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ShaderRef::load(const RefLoadParams& params)
+{
+  if (isnil(name))
+    return true;
+
+  auto defref = loadDef<ShaderDef>(name, ".shader"_str, params);
+  if (!defref.isValid())
+    return false;
+  const auto* def = &*defref;
+
+  if (isnil(def->source))
+    return ERROR("loaded shader def has a nil source path\n");
+
+  PathBuffer source_name_buffer;
+  switch (def->stage)
+  {
+  case ShaderStage::Vertex:
+    io::formatv(&source_name_buffer, def->source, ".vert"_str);
+    break;
+  case ShaderStage::Fragment:
+    io::formatv(&source_name_buffer, def->source, ".frag"_str);
+    break;
+  default:
+    assert(!"unhandled shader kind");
+  }
+
+  String source_name = source_name_buffer.asStr();
+  
+  gfx::CompiledShader::CompileParams shader_params = 
+  {
+    .name = source_name,
+    .stage = def->stage,
+    .allocator = &mem::stl_allocator,
+    .assetmgr = &params.assetmgr,
+  };
+
+  if (!gfx::CompiledShader::compileGLSL(shader_params))
+    return ERROR("failed to compile shader ", name, "\n");
+
+  resource = 
+    gfx::CompiledShader::load(source_name, params.assetmgr, params.renderer);
+
+  if (resource == nullptr)
+    return ERROR("failed to load compiled shader ", name, "\n");
+
+  return true;
+}
+
+}
+

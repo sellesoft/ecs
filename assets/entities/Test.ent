@@ -1,0 +1,11 @@
+return EntityDef
+{
+  name = "Test",
+  components =
+  {
+    Movement
+    {
+      speed = 0.2,
+    },
+  }
+}

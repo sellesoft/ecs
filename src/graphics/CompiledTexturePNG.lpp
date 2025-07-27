@@ -1,0 +1,128 @@
+$ require "common"
+
+@@lpp.import "asset/AssetMgr.lh"
+
+@@lpp.import "graphics/Font.lh"
+@@lpp.import "graphics/CompiledTexture.lh"
+
+#include "iro/fs/File.h"
+#include "iro/fs/Path.h"
+#include "iro/Logger.h"
+#include "iro/memory/Bump.h"
+#include "iro/Platform.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "external/stb_image.h"
+
+namespace gfx
+{
+
+@defFileLogger(texture.png, Debug)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 CompiledTexture::compilePNG(CompileParams& params)
+{
+  PathBuffer asset_path_buffer;
+  
+  String name = params.name;
+    
+  if (name.endsWith(".png"_str))
+  {
+    io::formatv(&asset_path_buffer, params.name);
+    name = name.subToLast('.');
+  }
+  else
+    io::formatv(&asset_path_buffer, params.name, ".png"_str);
+
+  String asset_path = asset_path_buffer.asStr();
+
+  PathBuffer data_path_buffer;
+  io::formatv(&data_path_buffer, 
+    params.assetmgr->getDataDir(), '/', name, ".cmp_texture"_str);
+  String data_path = data_path_buffer.asStr();
+
+  if (!fs::Path::exists(asset_path))
+    return ERROR("attempt to compile texture '", params.name, "' but there"
+      " is no asset at path '", asset_path, "'\n");
+
+  //TODO add a way to force an asset recompile when
+  //  we need to update the compiled data format
+  if (!AssetMgr::checkNeedsCompiled(asset_path, data_path))
+    return true;
+
+  INFO("compiling '", asset_path, "'\n");
+  SCOPED_INDENT;
+
+  // TODO take in an allocator to use for temp data.
+  mem::LenientBump allocator;
+  if (!allocator.init())
+    return ERROR("failed to initialize temp allocator\n");
+  defer { allocator.deinit(); };
+
+  // Ensure the data directories exist.
+  if (!platform::makeDir(fs::Path::removeBasename(data_path), true))
+    return ERROR("failed to make directories\n");
+
+  auto asset_file = fs::File::from(asset_path, fs::OpenFlag::Read);
+  if (isnil(asset_file))
+    return ERROR("failed to open font asset file at '",
+                 data_path, "'\n");
+  defer { asset_file.close(); };
+  u64 asset_file_size = asset_file.getInfo().byte_size;
+
+  auto data_file =
+    fs::File::from(data_path,
+        fs::OpenFlag::Write
+      | fs::OpenFlag::Truncate
+      | fs::OpenFlag::Create);
+
+  if (isnil(data_file))
+    return ERROR(
+      "failed to open data file for writing at '", data_path, "'\n");
+  defer { data_file.close(); };
+
+  auto delete_data_file_if_failure = deferWithCancel
+  {
+    data_file.close();
+    fs::File::unlink(data_path);
+  };
+
+  io::Memory buffer;
+  if (!buffer.open(asset_file_size, &allocator))
+    return ERROR("failed to open buffer for reading file data\n");
+  defer { buffer.close(); };
+
+  if (asset_file_size != buffer.consume(&asset_file, asset_file_size))
+    return ERROR("failed to read entire asset file\n");
+
+  int desired_channels = 0;
+  switch (params.format)
+  {
+    case ImageFormat::BW:   desired_channels = STBI_grey;       break;
+    case ImageFormat::BWA:  desired_channels = STBI_grey_alpha; break;
+    case ImageFormat::RGB:  desired_channels = STBI_rgb;        break;
+    case ImageFormat::RGBA: desired_channels = STBI_rgb_alpha;  break;
+  }
+  assert(desired_channels != 0);
+
+  int width, height, channels;
+  stbi_uc* pixels = stbi_load_from_memory(
+    buffer.ptr,
+    asset_file_size,
+    &width,
+    &height,
+    &channels,
+    desired_channels);
+
+  params.width = width;
+  params.height = height;
+
+  if (!CompiledTexture::compileFromMemory(pixels, &data_file, params))
+    return false;
+  
+  delete_data_file_if_failure.cancel();
+  return true;
+}
+
+}

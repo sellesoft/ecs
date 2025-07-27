@@ -1,0 +1,176 @@
+/*
+ *  Internal representation of our source data format.
+ */
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/containers/Array.h"
+#include "iro/containers/AVL.h"
+#include "iro/io/IO.h"
+
+// TODO(sushi) this sucks.
+#include "math/vec.h"
+
+using namespace iro;
+
+struct SourceDataFile;
+
+/* ============================================================================
+ */
+struct SourceData
+{
+  // NOTE(sushi) all Strings on a SourceData are ALWAYS assumed to be 
+  //             stored elsewhere! A SourceData will NEVER clean up 
+  //             Strings stored on it upon deletion!!!
+  //             Typically, the Strings are allocated from the SourceDataFile
+  //             containing this SourceData, however this may not always
+  //             be the case!
+
+  String name = nil;
+
+  struct Value
+  {
+    enum class Kind : u8
+    {
+      String,
+      Number,
+      NumberHex,
+      True,
+      False,
+    };
+
+    String str = nil;
+    Kind kind = Kind::String;
+  };
+
+  Value val = {};
+  String type = nil;
+  Array<SourceData*> children = nil;
+
+  SourceData* base = nullptr;
+
+  SourceData() {}
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasStringValue() const
+  {
+    return notnil(val.str) && val.kind == Value::Kind::String;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasNumberValue() const
+  {
+    return notnil(val.str) && val.kind == Value::Kind::Number;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasNumberHexValue() const
+  {
+    return notnil(val.str) && val.kind == Value::Kind::NumberHex;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasBooleanValue() const
+  {
+    return  
+      val.kind == Value::Kind::True ||
+      val.kind == Value::Kind::False;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 testBooleanValue() const
+  {
+    assert(hasBooleanValue());
+    return val.kind == Value::Kind::True;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasObjectData() const
+  {
+    return notnil(children);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasChildren() const
+  {
+    return hasObjectData() && children.len() != 0;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasData() const
+  {
+    return hasObjectData()  || 
+           hasStringValue() || 
+           hasNumberValue() ||
+           hasNumberHexValue();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void destroy()
+  {
+    children.destroy();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  const SourceData* findChildByName(String name) const
+  {
+    if (hasObjectData())
+    {
+      for (const SourceData* child : children)
+      {
+        if (child->name == name)
+          return child;
+      }
+    }
+    
+    // If we dont have the child, try asking base for it if we have one.
+    if (base != nullptr)
+      return base->findChildByName(name);
+
+    return nullptr;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  SourceData* findChildByName(String name)
+  {
+    return (SourceData*)((const SourceData*)this)->findChildByName(name);
+  } 
+
+  /* --------------------------------------------------------------------------
+   */
+  SourceData* deepCopy(SourceDataFile* sfile);
+
+  void dump(u32 depth = 0) const;
+  void dump(io::IO* out, u32 depth = 0) const;
+
+  /* --------------------------------------------------------------------------
+   *  Editing helpers.
+   */
+
+  void        setObject(String name);
+  SourceData* addObject(SourceDataFile& file, String name);
+
+  void        setVec2(SourceDataFile& file, vec2f v);
+  SourceData* addVec2(SourceDataFile& file, String name, vec2f v);
+
+  void setStringValue(String value)
+  {
+    val.kind = Value::Kind::String;
+    val.str = value;
+  }
+
+  void setNumberValue(f32 val, SourceDataFile& file);
+  SourceData* addNumberValue(f32 val, SourceDataFile& file);
+  SourceData* addNumberValue(String name, f32 val, SourceDataFile& file);
+};

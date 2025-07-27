@@ -1,0 +1,94 @@
+$ local cmn = require "common"
+
+#include "iro/time/Time.h"
+#include "iro/containers/AVL.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "window/Window.lh"
+
+@@lpp.import "asset/AssetMgr.lh"
+@@lpp.import "asset/SourceDataFileReg.lh"
+
+@@lpp.import "input/InputMgr.lh"
+
+// TODO(sushi) move this stuff elsewhere and remove this pure C++ header,
+//             I have absolutely no idea why I implemented it like this
+//             way back then.
+#include "event/BroadcastEventBus.h"
+
+namespace ui
+{
+struct Inspector;
+}
+
+namespace hr
+{
+struct Reloader;
+}
+
+struct Client;
+struct Server;
+
+/* ============================================================================
+ */
+struct LaunchArg { u64 key; String value; };
+static u64 getLaunchArgKey(const LaunchArg* a) { return a->key; }
+typedef iro::AVL<LaunchArg, getLaunchArgKey> LaunchArgs;
+
+/* ============================================================================
+ * NOTE(delle) fields are in order of initialization
+ */
+struct Engine
+{
+  f64 frame_start_time;
+
+  LaunchArgs launch_args;
+
+  SourceDataFileReg source_data_file_reg;
+
+  struct
+  {
+    BroadcastEventBus broadcast;
+  } eventbus;
+
+  AssetMgr assetmgr;
+
+  hr::Reloader* reloader;
+
+  // The client/server threads, allocated depending on the situation ECS
+  // is running under.
+  // These are how the Engine runs the game, and the Engine has little to 
+  // no access to game systems.
+  Client* client;
+  void* server_thread;
+
+  // Time point at which the Engine finished initialization.
+  TimePoint init_time;
+
+  b8 init();
+  void deinit();
+
+  b8 wantHotReload();
+
+  struct UpdateResult
+  {
+    // Something has caused the Engine to want to close and exit the process.
+    b8 should_close = false;
+  };
+
+  UpdateResult update();
+
+  template<typename E, typename S>
+  void subscribeToBroadcast(S* sub, void (S::* in)(E&))
+  {
+    // Evil magic necessary to convince clang that passing this
+    // as the sub of the callback is ok.
+    static union
+    {
+      void (S::* x)(E&);
+      void (*y)(void*, E&);
+    } x { in };
+
+    eventbus.broadcast.subscribeTo<E>(sub, x.y);
+  }
+};

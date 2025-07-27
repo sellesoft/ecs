@@ -1,0 +1,109 @@
+/*
+ *  A Texture we compile from some raw asset on disk.
+ */
+
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/memory/Allocator.h"
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/OffsetPtr.lh"
+@@lpp.import "graphics/Texture.lh"
+@@lpp.import "graphics/Image.lh"
+@@lpp.import "graphics/ImageView.lh"
+@@lpp.import "graphics/Sampler.lh"
+
+struct AssetMgr;
+
+namespace iro::fs
+{
+struct File;
+}
+
+namespace iro::io
+{
+struct IO;
+}
+
+namespace gfx
+{
+
+struct Renderer;
+
+/* ============================================================================
+ *  Note that this structure represents exactly what we save to disk.
+ */
+@metadata.data_type(cmp_texture)
+struct CompiledTextureData
+{
+  ImageFormat      format;
+  ImageUsageFlags  usage;
+  ImageFilter      filter;
+  ImageAddressMode address_mode;
+
+  s32 width;
+  s32 height;
+
+  OffsetPtr<void> pixels;
+};
+
+typedef TypedAssetRef<CompiledTextureData> CompiledTextureDataRef;
+
+/* ============================================================================
+ */
+struct CompiledTexture
+{
+  CompiledTextureDataRef asset;
+
+  const CompiledTextureData& getData() const
+  {
+    return *asset;
+  }
+
+  u32 gfx_id;
+
+  // gfx objects representing this texture.
+  Image image;
+  ImageView view;
+  Sampler sampler;
+  Texture texture; // This is what is actually bound to display this texture.
+
+  static s64 writeDataPath(io::IO* io, String name, AssetMgr& assetmgr);
+
+  static CompiledTexture* load(
+    String name,
+    AssetMgr& assetmgr,
+    Renderer& renderer);
+
+  void unload(AssetMgr& assetmgr, Renderer& renderer);
+
+  struct CompileParams
+  {
+    String           name;
+    u32              width;
+    u32              height;
+    ImageFormat      format;
+    ImageUsageFlags  usage;
+    ImageFilter      filter;
+    ImageAddressMode address_mode;
+    mem::Allocator*  allocator;
+    AssetMgr*        assetmgr;
+  };
+
+  static b8 compilePNG(CompileParams& params);
+  static b8 compileASE(CompileParams& params);
+
+  // In this case 'asset_path' is unused.
+  static b8 compileFromMemory(void* data, CompileParams& params);
+
+  // Compiles some memory into the given file.
+  static b8 compileFromMemory(
+    void* data, fs::File* file, CompileParams& params);
+};
+
+typedef TypedAssetRef<CompiledTexture> CompiledTextureRef;
+
+}

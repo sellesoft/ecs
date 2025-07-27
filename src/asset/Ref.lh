@@ -1,0 +1,76 @@
+/*
+ *  Ref serves as a base for any def type that is a reference to something
+ *  outside of the def it is used in, like other assets or gfx resources.
+ *
+ *  Anything that inherits this type will be collected by CompiledData in
+ *  getRefs.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "reflect/RTR.lh"
+
+using namespace iro;
+
+namespace gfx 
+{
+struct Renderer;
+}
+
+struct AssetMgr;
+struct SourceDataFileReg;
+
+/* ============================================================================
+ *  Parameters needed to load referenced data.
+ */
+struct RefLoadParams
+{
+  gfx::Renderer& renderer;
+  AssetMgr& assetmgr;
+  SourceDataFileReg* sfile_reg = nullptr;
+
+  // The type of data being loaded.
+  String type = nil;
+
+  // Whether to automatically load references contained by the loaded data
+  // recursively.
+  b8 recursive = true;
+};
+
+b8 loadRef(void* ptr, const RefLoadParams& params);
+
+template<typename T>
+b8 loadRef(T* ptr, const RefLoadParams& params)
+{
+  return ptr->load(params);
+}
+
+/* ============================================================================
+ *  Asset loading helper that contains the stuff needed to load an asset
+ *  and can be passed around nicely, yay!
+ */
+struct AssetLoader
+{
+  gfx::Renderer& renderer;
+  AssetMgr& assetmgr;
+  SourceDataFileReg& sfilereg;
+  
+  template<typename T>
+  b8 load(T* ref)
+  {
+    return loadRef(
+      ref, {renderer, assetmgr, &sfilereg, rtr::getTypename<T>()});
+  }
+
+  template<typename T>
+  b8 load(T* ref, String name)
+  {
+    ref->name = name;
+    return load(ref);
+  }
+};
+
+

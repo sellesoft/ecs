@@ -1,0 +1,62 @@
+$ require "common"
+$ local ui = require "ui.UI"
+
+@@lpp.import "graphics/Font.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/SourceDataEditorSkin.defs.lh"
+
+#include "iro/memory/Bump.h"
+
+namespace ui
+{
+struct UI;
+}
+
+struct SourceData;
+struct DatumState;
+
+/* ============================================================================
+ */
+struct SourceDataEditor
+{
+  // The SourceData we are editing. This is not owned by the editor, and 
+  // so is not cleaned up when setSourceData is called, and is expected to
+  // be kept in memory until released from the editor.
+  SourceData* sdata = nullptr;
+  SourceDataFile* sfile = nullptr;
+
+  SourceDataFile default_data = {};
+
+  mem::Bump datum_allocator;
+
+  u64 type_id = 0;
+
+  f32 name_column_width = 0.f;
+  f32 max_name_extent = 0.f;
+
+  DatumState* current_datum = nullptr;
+  DatumState* hovered = nullptr;
+
+  // An interface for recieving notifications when the source data editor does
+  // certain things.
+  struct Interface
+  {
+    // Called when some SourceData has been changed.
+    virtual void onEdit(SourceData* data) = 0;
+  };
+
+  Interface* interface = nullptr;
+
+  b8 init(ui::UI& ui);
+  void deinit(ui::UI& ui);
+
+  void setSourceData(
+      ui::UI& ui, 
+      SourceData* data, 
+      SourceDataFile* file, 
+      u64 type_id = 0);
+
+  void update(ui::UI& ui, Rect bounds, const SourceDataEditorSkinDef& skin);
+
+  SourceData* parseDefaultData(String s);
+};

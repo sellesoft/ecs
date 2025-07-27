@@ -1,0 +1,81 @@
+/*
+ *  The highest level interface to running and controlling the game, as well
+ *  as containing all memory allocated in it.
+ *
+ *  This is implemented on both server and client side, this Shared variant 
+ *  is not useful by itself!
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+
+#include "math/Rect.h"
+
+@@lpp.import "game/shared/entity/EntityMgr.lh"
+@@lpp.import "asset/Ref.lh"
+
+struct Engine;
+
+/* ============================================================================
+ */
+struct SharedGameSim
+{
+  EntityMgr entmgr;
+
+  String current_map;
+
+  /* --------------------------------------------------------------------------
+   */
+  struct InitParams
+  {
+  };
+
+  b8 init(const InitParams& params) 
+  { 
+    if (!entmgr.init())
+      return false;
+
+    return true; 
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void deinit() 
+  {  
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Adds some input that will be applied in the next frame update.
+   */
+  void addFrameInput();
+
+  /* --------------------------------------------------------------------------
+   *  Performs a single step of the simulation.
+   */
+  struct UpdateParams
+  {
+    
+  };
+
+  b8 update(UpdateParams& params) { return true; }
+
+  /* --------------------------------------------------------------------------
+   *  Renders the current state of the simulation.
+   */
+  b8 render() { return true; }
+
+  /* --------------------------------------------------------------------------
+   *  Instructs the simulation to load a map. How this is done depends on if
+   *  the sim is running on server or client side.
+   *
+   *  Eventually this will likely be changed to loading a scene, which is a 
+   *  collection of maps that clients may move between.
+   *
+   *  TODO(sushi) we probably want to change this to take in the actual map
+   *              (eventually scene) asset, as in the case of running a 
+   *              server locally for solo play we can load the map once then
+   *              have the clent/server load into them in parallel (probably).
+   */
+  b8 loadMap(String name);
+};

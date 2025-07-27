@@ -1,0 +1,54 @@
+/*
+ * Graphics shader representation and management
+ */
+
+$ require "common"
+
+#include "iro/containers/Slice.h"
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/io/Format.h"
+
+@@lpp.import "graphics/ShaderParams.lh"
+
+using namespace iro;
+
+namespace gfx
+{
+
+struct Renderer;
+
+/* ============================================================================
+ */
+struct Shader
+{
+  void* handle = nullptr;
+
+  struct CreateParams
+  {
+    ShaderStage stage;
+    Bytes spv_binary;
+
+    String debug_name;
+  };
+
+  static Shader create(Renderer& renderer, const CreateParams& params);
+  void destroy(Renderer& renderer);
+
+  inline bool operator==(const Shader& other) const
+  {
+    return handle == other.handle;
+  }
+
+  DefineNilTrait(Shader, {nullptr}, x.handle == nullptr);
+};
+
+}
+
+namespace iro::io
+{
+static s64 format(io::IO* io, const gfx::Shader& shader)
+{
+  return formatv(io, "gfx::Shader("_str, shader.handle, ')');
+}
+}

@@ -1,0 +1,40 @@
+/*
+ *  Unique opaque id representing an entity.
+ */
+
+$ require "common"
+$ local ui = require "ui.UI"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/io/IO.h"
+#include "iro/io/Format.h"
+
+/* ============================================================================
+ */
+struct EntityId
+{
+  u32 value = 0;
+  u32 salt = 0;
+
+  bool operator == (const EntityId& rhs) const { return value == rhs.value; }
+
+  DefineNilTrait(EntityId, {0}, x.value == 0);
+};
+
+/* ============================================================================
+ */
+template<typename TComp>
+struct EntComp
+{
+  EntityId ent;
+  TComp& comp;
+};
+
+namespace iro::io
+{
+static s64 format(io::IO* io, EntityId& id)
+{
+  return formatv(io, id.value, ':', id.salt);
+}
+}

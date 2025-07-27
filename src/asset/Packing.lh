@@ -1,0 +1,55 @@
+$ local cmn = require "common"
+$ local Schema = require "asset.Schema"
+
+@@lpp.import "asset/SourceData.lh"
+@@lpp.import "asset/PackedData.lh"
+
+#include "iro/containers/SmallArray.h"
+#include "iro/memory/Bump.h"
+
+struct AssetMgr;
+struct AssetRef;
+
+namespace gfx
+{
+struct Renderer;
+}
+
+namespace iro::io
+{
+struct IO;
+}
+
+struct PackContext
+{
+  // Optional systems only required when the type being packed
+  // has members that need these to load it.
+  AssetMgr* assetmgr;
+  gfx::Renderer* renderer;
+
+  PackedData* packed;
+};
+
+template<typename T>
+b8 packSourceDataIntoType(const SourceData& data, T* out, PackContext& ctx);
+
+template<typename T>
+b8 packSourceDataIntoType(
+  const SourceData& data, 
+  PackContext& ctx)
+{
+  ctx.packed->buffer.init();
+  ctx.packed->data.ptr = (u8*)ctx.packed->buffer.allocateType<T>();
+  ctx.packed->data.len = sizeof(T);
+  return packSourceDataIntoType(data, (T*)ctx.packed->data.ptr, ctx);
+}
+
+// Packs some SourceData based on what its type value is.
+b8 packSourceDataFromType(
+  const SourceData& data, 
+  PackContext& ctx);
+
+static b8 packSourceDataFromType(
+  const SourceData& data,
+  void* ptr,
+  PackContext& ctx) { return false; }

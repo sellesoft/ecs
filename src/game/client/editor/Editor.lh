@@ -1,0 +1,94 @@
+/*
+ *  System for UI that's used to edit assets and control game state.
+ *
+ *  The Editor organizes various widgets used for editing and provides
+ *  helpers for interacting with assets and game state.
+ */
+
+$ require "common"
+
+$ local ui = require "ui.UI"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/Flags.h"
+#include "iro/time/Time.h"
+#include "iro/io/IO.h"
+
+@@lpp.import "game/client/editor/GameView.lh"
+@@lpp.import "game/client/editor/EntityList.lh"
+
+@@lpp.import "ui/UI.lh"
+@@lpp.import "game/client/editor/Skin.defs.lh"
+
+struct Client;
+
+namespace cl
+{
+
+struct GameSim;
+
+struct Editor
+{
+  Client* client = nullptr;
+
+  EditorSkinDefRef skinref;
+
+  TimePoint start_time;
+
+  b8 paused = false;
+
+  ui::UI ui;
+
+  enum class Tool
+  {
+    None,
+    Map,
+  };
+
+  Tool active_tool = Tool::None;
+
+  struct InitParams
+  {
+    Client& client;
+    AssetLoader& loader;
+    gfx::Texture white_texture;
+    gfx::Renderer& renderer;
+  };
+
+  b8   init(InitParams& params);
+  void deinit(gfx::Renderer& renderer);
+
+  f32 getTimer() const 
+  { 
+    return (TimePoint::monotonic() - start_time).toSeconds(); 
+  }
+
+  b8 update(cl::GameSim& sim);
+
+  struct RenderParams
+  {
+    cl::GameSim& sim;
+    gfx::Renderer& renderer;
+    gfx::RenderTarget& target;
+  };
+  b8 render(const RenderParams& params);
+
+  void putUI(cl::GameSim& sim, const EditorSkinDef& skin);
+
+  Editor_GameView view;
+  Editor_EntityList entity_list;
+
+  // Places the left tool panel.
+  void putToolPanel(const EditorSkinDef& skin);
+
+  struct MapTool
+  {
+    io::StaticBuffer<128> selected_tile_kind;
+  };
+
+  MapTool tool_map;
+  void putMapTool(const EditorSkinDef& skin);
+};
+
+}

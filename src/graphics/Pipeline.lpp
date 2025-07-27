@@ -1,0 +1,158 @@
+$ require "common"
+$ local helpers = require "graphics.Helpers"
+
+@@lpp.import "graphics/Pipeline.lh"
+@@lpp.import "graphics/Vulkan.lh"
+@@lpp.import "graphics/Renderer.lh"
+
+@@lpp.import "graphics/Pipeline.defs.lh"
+
+@log.ger(gfx.pipeline, Info)
+
+namespace gfx 
+{
+
+/* ----------------------------------------------------------------------------
+ */
+Pipeline Pipeline::create(Renderer& r, const CreateParams& params)
+{
+  String name = resolved(params.debug_name, "unnamed"_str);
+
+  DEBUG("creating gfx::Pipeline '", name, "'\n");
+
+$ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
+
+  if (isnil(params.vertex_shader))
+  {
+    @cerr("vertex shader not provided");
+    return nil;
+  }
+
+  if (isnil(params.fragment_shader))
+  {
+    @cerr("fragment shader not provided");
+    return nil;
+  }
+
+  SmallArray<VkPushConstantRange, 8> push_constant_ranges;
+  for (const PushConstant& pc : params.layout.push_constant_ranges)
+  {
+    if (pc.size > r.vk->physical_device_properties.limits.maxPushConstantsSize)
+    {
+      @cerr("requested push constant size is greater than the selected "
+            "device's maximum (", pc.size, " > ", 
+            r.vk->physical_device_properties.limits.maxPushConstantsSize, ')');
+      return nil;
+    }
+
+    if (pc.size != 0)
+    {
+      push_constant_ranges.push(
+      {
+        .offset = pc.offset,
+        .size = pc.size,
+        .stageFlags = shaderStageFlagsToVulkan(pc.stages),
+      });
+    }
+  }
+
+  // This could maybe be aliased but idk i dont wanna do that.
+  SmallArray<VkDescriptorSetLayout, 8> descriptor_set_layouts;
+  for (const DescriptorSetLayout& layout : 
+       params.layout.descriptor_set_layouts)
+  {
+    descriptor_set_layouts.push((VkDescriptorSetLayout)layout.handle);
+  }
+
+  VkPipelineLayout layout;
+  if (!r.vk->createVkPipelineLayout(
+        &layout,
+        descriptor_set_layouts.asSlice(),
+        push_constant_ranges.asSlice(),
+        name))
+  {
+    @cerr("failed to create VkPipelineLayout");
+    return nil;
+  }
+
+  auto failsafe_destroy_layout = deferWithCancel
+  {
+    r.vk->destroyVkPipelineLayout(layout);
+  };
+
+  auto* vert_shader = (DeviceShader*)params.vertex_shader.handle;
+  auto* frag_shader = (DeviceShader*)params.fragment_shader.handle;
+
+  VkPipeline pipeline;
+  if (!r.vk->createVkPipeline(
+        &pipeline,
+        layout,
+        vert_shader->module,
+        frag_shader->module,
+        params.has_vertex_input,
+        name))
+  {
+    @cerr("failed to create VkPipeline");
+    return nil;
+  }
+
+  DevicePipeline* dev_pipeline = r.vk->pipeline_pool.add();
+  dev_pipeline->pipeline = pipeline;
+  dev_pipeline->layout = layout;
+
+  failsafe_destroy_layout.cancel();
+
+  return {(void*)dev_pipeline};
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Pipeline Pipeline::create(Renderer& r, const PipelineDef& def)
+{
+  DescriptorSetLayout layouts[2] = 
+  {
+    r.default_ubo_set_layout,
+    r.default_sampler_set_layout,
+  };
+
+  PushConstant push_constant = 
+  {
+    .offset = 0,
+    .size = def.push_constant_size,
+    .stages = ShaderStage::Vertex,
+  };
+
+  CreateParams params = 
+  {
+    .vertex_shader = def.vertex_shader->gfx_shader,
+    .fragment_shader = def.fragment_shader->gfx_shader,
+    .has_vertex_input = def.has_vertex_input,
+    .layout = 
+    {
+      .descriptor_set_layouts = makeSlice(layouts),
+      .push_constant_ranges = makeSlice(&push_constant, 1),
+    },
+    .debug_name = def.name,
+  };
+
+  return create(r, params);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Pipeline::destroy(Renderer& r)
+{
+  if (isnil(*this))
+    return;
+
+  auto* pipeline = (DevicePipeline*)handle;
+
+  r.vk->destroyVkPipeline(pipeline->pipeline);
+  r.vk->destroyVkPipelineLayout(pipeline->layout);
+
+  handle = nullptr;
+  r.vk->pipeline_pool.remove(pipeline);
+}
+
+}
+

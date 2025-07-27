@@ -1,0 +1,161 @@
+$ local cmn = require "common"
+
+@@lpp.import "asset/AssetMgr.lh"
+
+#include "iro/memory/Memory.h"
+#include "iro/fs/File.h"
+#include "iro/Platform.h"
+#include "iro/Logger.h"
+
+@cmn.defFileLogger(rsrcmgr, Info)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 AssetMgr::init(mem::Allocator* allocator)
+{
+  INFO("initializing AssetMgr\n");
+  
+  this->allocator = allocator;
+
+  if (!map.init(allocator))
+    return ERROR("failed to init asset map\n");
+
+  if (!pool.init(allocator))
+    return @log.error("failed to init asset pool\n");
+
+  INFO("finished\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void AssetMgr::deinit()
+{
+  INFO("deinitializing AssetMgr\n");
+
+// TODO(sushi) properly clean up assets. Currently we lose a lot of them,
+//             specifically when loading gfx resource defs because they 
+//             do not store the loaded source asset data used to find the 
+//             asset desired. I'm not going to do this now because I plan to
+//             rework how all of that works soon.
+$ if false then
+  if (!map.isEmpty())
+  {
+    ERROR("AssetMgr::deinit called but Assets still exist!\n",
+          "  Currently allocated resources are: \n");
+    for (Asset& asset : map)
+    {
+      ERROR("    ", asset.name, "\n");
+    }
+
+    assert(!"AssetMgr::deinit called while Assets are still active!");
+  }
+$ end
+  
+  map.deinit();
+
+  INFO("done\n");
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Asset* AssetMgr::allocateAsset(String name)
+{
+  u64 name_hash = name.hash();
+  assert(map.find(name_hash) == nullptr && 
+    "a Asset has already been allocated with the given name");
+
+  AssetPool::Node* node = pool.pushTail();
+
+  Asset* asset = node->data;
+
+  asset->node = node;
+  asset->hash = name_hash;
+  asset->name = name.allocateCopy(allocator);
+
+  map.insert(asset);
+
+  return asset;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Asset* AssetMgr::loadAssetFromDisk(String name)
+{
+  using namespace fs;
+
+  u64 name_hash = name.hash();
+  if (Asset* existing = map.find(name_hash))
+  {
+    @log.debug("asset '", name, "' already loaded\n");
+    return existing;
+  }
+
+  @log.debug("loading asset '", name, "' from disk\n");
+
+  if (!Path::exists(name))
+  {
+    @log.error("no asset exists at path '", name, "'\n");
+    return nullptr;
+  }
+
+  auto file = File::from(name, OpenFlag::Read);
+  if (isnil(file))
+  {
+    @log.error("failed to open asset file at '", name, "'\n");
+    return nullptr;
+  }
+
+  Asset* asset = allocateAsset(name);
+  if (asset == nullptr)
+  {
+    @log.error("failed to allocate asset '", name, "'\n");
+    return nullptr;
+  }
+
+  asset->size = file.getInfo().byte_size;
+  asset->data = allocator->allocate(asset->size);
+
+  assert(asset->size == file.read({(u8*)asset->data, asset->size}));
+
+  return asset;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void AssetMgr::unloadAsset(Asset* asset)
+{
+// NOTE(sushi) disabling because something is currently broken in the AVL
+//             type that causes this to crash and I don't want to deal with it
+//             right now. Just want to get proper closing of the engine to 
+//             work and I'm gonna be reworking all of this pretty soon anyways.
+$ if false then
+  INFO("unloading ", asset->name, '\n');
+
+  map.remove(asset);
+
+  allocator->free(asset->data);
+  asset->size = 0;
+  asset->name = nil;
+  asset->hash = 0;
+
+  pool.remove((AssetPool::Node*)asset->node);
+$ end
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Asset* AssetMgr::findAsset(String name) const
+{
+  return map.find(name.hash());
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 AssetMgr::checkNeedsCompiled(String asset_path, String data_path)
+{
+  using namespace fs;
+  return !Path::exists(data_path) ||
+         1 ==  Path::compareModTimes(asset_path, data_path);
+}

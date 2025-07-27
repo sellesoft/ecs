@@ -1,0 +1,28 @@
+return EntityDef
+{
+  name = "Locker",
+  components = 
+  {
+    Appearance {},
+    cl::Sprite 
+    { 
+      states = "assets/entities/locker/Locker" 
+    },
+    cl::Visualizer
+    {
+      visuals = 
+      {
+        // Appearance data key.
+        IsOpen = 
+        { 
+          // Appearance data value mapped to what the 
+          // Sprite's state should be set to.
+          True = "Open",
+          False = "Closed",
+        }
+      }
+    },
+    Openable { open = false },
+    Interactable {},
+  }
+}

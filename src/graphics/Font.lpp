@@ -1,0 +1,161 @@
+$ local cmn = require "common"
+
+#include "math.h"
+
+#include "iro/io/IO.h"
+#include "iro/fs/File.h"
+#include "iro/Platform.h"
+#include "iro/Logger.h"
+
+@@lpp.import "graphics/Font.lh"
+
+@@lpp.import "graphics/Renderer.lh"
+
+@@lpp.import "asset/AssetMgr.lh"
+
+@defFileLogger(font, Debug)
+
+typedef io::StaticBuffer<512> PathBuffer;
+
+namespace gfx
+{
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 codepointInRange(PackRange* range, u32 codepoint)
+{
+  return codepoint >= range->first_codepoint &&
+         codepoint < range->first_codepoint + range->chars.len;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+PackRange* Font::getRangeOfCodepoint(u32 codepoint) const
+{
+  const FontData& data = getData();
+  const Slice<PackRange> ranges = data.ranges.getSlice();
+
+  if (ranges.len == 1)
+  {
+    if (codepointInRange(ranges.ptr, codepoint))
+      return ranges.ptr;
+    else
+      return nullptr;
+  }
+
+  for (s32 rangeidx = 0; rangeidx < ranges.len; ++rangeidx)
+  {
+    PackRange* range = ranges.ptr + rangeidx;
+    
+    if (codepointInRange(range, codepoint))
+      return range;
+  }
+
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Font::getPackedChar(PackedChar* out, u32 codepoint) const
+{
+  PackRange* range = getRangeOfCodepoint(codepoint);
+  if (!range)
+    return false;
+  getPackedChar(out, range, codepoint);
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+vec2f Font::getGlyphSize(u32 codepoint) const
+{
+  PackedChar pc;
+  if (!getPackedChar(&pc, codepoint))
+    return {};
+
+  return vec2f(pc.x1 - pc.x0, pc.y1 - pc.y0);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Font::getPackedChar(
+    PackedChar* out, 
+    PackRange* range, 
+    u32 codepoint) const
+{
+  *out = *(range->chars.ptr.get() + codepoint - range->first_codepoint);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+s64 Font::writeDataPath(io::IO* io, String name, AssetMgr& assetmgr)
+{
+  return io::formatv(
+    io, assetmgr.getDataDir(), '/', name, ".cmp_font");
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Font* Font::load(
+    String name, 
+    AssetMgr& assetmgr,
+    gfx::Renderer& renderer)
+{
+  using namespace fs;
+
+  if (Font* existing = renderer.resource_mgr.findFont(name))
+    return existing;
+
+  PathBuffer data_path_buf;
+  writeDataPath(&data_path_buf, name, assetmgr);
+
+  String data_path = data_path_buf.asStr();
+
+  assert(nullptr == assetmgr.findAsset(data_path));
+
+  if (!Path::exists(data_path))
+  {
+    ERROR("attempt to load font '", name, "' but there is no data at "
+          "path '", data_path, "'\n");
+    return nullptr;
+  }
+
+  Asset* asset = assetmgr.loadAssetFromDisk(data_path);
+  if (asset == nullptr)
+  {
+    @log.error("failed to load font asset '", data_path, "'\n");
+    return nullptr;
+  }
+
+  // TODO(sushi) need somewhere to put these.
+  auto* font = renderer.resource_mgr.createFont(name);
+  if (font == nullptr)
+  {
+    ERROR("failed to allocate font asset\n");
+    return nullptr;
+  }
+
+  font->asset.asset = asset;
+
+  INFO("loading font's texture\n");
+
+  // Load the texture.
+  font->texture = gfx::CompiledTexture::load(name, assetmgr, renderer);
+  if (font->texture == nullptr)
+  {
+    ERROR("failed to load font texture\n");
+    return nullptr;
+  }
+
+  return font;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Font::unload(AssetMgr& assetmgr, Renderer& renderer)
+{
+  texture->unload(assetmgr, renderer);
+  assetmgr.unloadAsset(asset.asset);
+}
+
+}

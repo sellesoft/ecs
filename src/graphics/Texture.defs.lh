@@ -1,0 +1,34 @@
+/*
+ *  Defs for specifying metadata about texture assets.
+ */
+
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "graphics/TextureParams.lh"
+@@lpp.import "asset/Asset.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+@metadata.source_types(texture)
+@metadata.def
+struct TextureDef
+{
+  @metadata.source_types(png)
+  String name;
+
+  ImageFormat format;
+  ImageFilter filter;
+
+  @metadata.default({ "Sampled" })
+  ImageUsageFlags usage;
+
+  ImageAddressMode address_mode;
+};
+
+typedef TypedSourceAssetRef<TextureDef> TextureDefRef;
+
+}

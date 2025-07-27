@@ -1,0 +1,68 @@
+/*
+ * Graphics pipeline that defines shader programs and states
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "graphics/Shader.lh"
+@@lpp.import "graphics/DescriptorSetLayout.lh"
+
+using namespace iro;
+
+namespace gfx
+{
+
+struct Renderer;
+struct PipelineDef;
+
+struct Pipeline
+{
+  void* handle = nullptr;
+
+  struct PushConstant
+  {
+    u32 offset;
+    u32 size;
+    ShaderStageFlags stages;
+  };
+
+  struct Layout
+  {
+    Slice<PushConstant> push_constant_ranges;
+    Slice<DescriptorSetLayout> descriptor_set_layouts;
+  };
+
+  struct CreateParams
+  {
+    Shader vertex_shader;
+    Shader fragment_shader;
+
+    b8 has_vertex_input;
+
+    Layout layout;
+
+    String debug_name;
+  };
+
+  // TODO(sushi) maybe just make all the gfx objects have a Def and 
+  //             use that instead of a CreateParams?
+  static Pipeline create(Renderer& renderer, const CreateParams& params);
+  static Pipeline create(Renderer& renderer, const PipelineDef& def);
+
+  void destroy(Renderer& renderer);
+
+  DefineNilTrait(Pipeline, {nullptr}, x.handle == nullptr);
+};
+
+}
+
+namespace iro::io
+{
+static s64 format(io::IO* io, gfx::Pipeline& pipeline)
+{
+  return formatv(io, "gfx::Pipeline("_str, pipeline.handle, ')');
+}
+}

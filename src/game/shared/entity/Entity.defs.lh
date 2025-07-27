@@ -1,0 +1,20 @@
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "asset/ArrayDef.lh"
+@@lpp.import "game/shared/component/Component.lh"
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/TypedStringMap.lh"
+
+/* ============================================================================
+ */
+@metadata.def
+@metadata.source_types(entity)
+struct EntityDef
+{
+  String name;
+  ArrayDef<TypedStringMap<Component>> components;
+};
+
+struct EntityDefRef : TypedSourceAssetRef<EntityDef> {};
+

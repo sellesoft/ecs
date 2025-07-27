@@ -1,0 +1,29 @@
+$ require "common"
+$ local m = require "reflect.Metadata"
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "graphics/Ref.defs.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+@m.def
+struct PipelineDef
+{
+  String name;
+
+  ShaderRef vertex_shader;
+  ShaderRef fragment_shader;
+
+  u32 push_constant_size;
+
+  @m.default "true"
+  b8 has_vertex_input;
+};
+
+@m.source_types(pipeline)
+struct PipelineDefRef : TypedSourceAssetRef<PipelineDef> {};
+
+}

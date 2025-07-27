@@ -1,0 +1,413 @@
+$ require "common"
+
+@@lpp.import "game/client/graphics/GameRenderer.lh"
+
+@@lpp.import "game/client/graphics/Sprite.comp.lh"
+
+@@lpp.import "Engine.lh"
+
+@@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "graphics/Geo.lh"
+
+@@lpp.import "game/client/GameMgr.lh"
+@@lpp.import "game/shared/Transform.comp.lh"
+
+@@lpp.import "game/shared/map/Map.defs.lh"
+@@lpp.import "game/shared/map/Map.sys.lh"
+@@lpp.import "game/shared/Eye.sys.lh"
+
+@@lpp.import "Profiling.lh"
+
+#include "iro/Logger.h"
+#include "iro/time/Time.h"
+
+namespace cl
+{
+
+static Logger logger =
+  Logger::create("rendersys"_str, Logger::Verbosity::Info);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 GameRenderer::init(InitParams& params)
+{
+  gfx::Renderer& renderer = params.renderer;
+  AssetMgr& assetmgr = params.assetmgr;
+  AssetLoader& loader = params.loader;
+
+  white_texture = params.white_texture;
+
+  if (!loader.load(&null_texture, "assets/textures/null"_str))
+    return ERROR("failed to load null texture");
+
+  //init scene uniform buffer
+  scene_uniform_buffer = gfx::Buffer::create(
+    renderer,
+    {
+      .data = nullptr,
+      .size = sizeof(Scene),
+      .usage = gfx::Buffer::UniformBuffer,
+      .properties = gfx::Buffer::DeviceMappable,
+      .behavior = gfx::Buffer::Occasional,
+      .debug_name = "game.renderer.scene"_str,
+    });
+  if (isnil(scene_uniform_buffer))
+    return ERROR("failed to init scene uniform buffer\n");
+
+  quads_vertex_buffer = gfx::Buffer::create(
+    renderer,
+    {
+      .data       = nullptr,
+      .size       = MAX_QUADS * 4 * sizeof(gfx::Vertex),
+      .usage      = gfx::Buffer::VertexBuffer,
+      .properties = gfx::Buffer::DeviceMappable,
+      .behavior   = gfx::Buffer::Occasional,
+      .debug_name = "game.renderer.quads.vertex"_str,
+    });
+
+  if (isnil(quads_vertex_buffer))
+    return ERROR("failed to init the quads vertex buffer\n");
+  
+  gfx::Index quad_indices[MAX_QUADS * 6];
+  for (int i = 0, j = 0; i < 6*MAX_QUADS; j++, i += 6)
+  {
+    quad_indices[i+0] = 4*j + 0;
+    quad_indices[i+1] = 4*j + 1;
+    quad_indices[i+2] = 4*j + 2;
+    quad_indices[i+3] = 4*j + 0;
+    quad_indices[i+4] = 4*j + 2;
+    quad_indices[i+5] = 4*j + 3;
+  }
+
+  quads_index_buffer = gfx::Buffer::create(
+    renderer,
+    {
+      .data = quad_indices,
+      .size = MAX_QUADS * 6 * sizeof(gfx::Index),
+      .usage = gfx::Buffer::IndexBuffer,
+      .properties = gfx::Buffer::DeviceOnly,
+      .behavior = gfx::Buffer::Never,
+      .debug_name = "game.renderer.quads.index"_str,
+    });
+
+  if (isnil(quads_index_buffer))
+    return ERROR("failed to init the quads index buffer\n");
+
+  //init quads batches
+  batches[0].texture = null_texture->texture;
+  batch_count = 1;
+  quad_count = 0;
+
+  // Initialize the quad pipeline.
+  if (!loader.load(&quad_pipeline_defref, "assets/shaders/Quad"_str))
+    return ERROR("failed to load quad pipeline def\n");
+
+  quad_pipeline = gfx::Pipeline::create(renderer, *quad_pipeline_defref);
+  if (isnil(quad_pipeline))
+    return ERROR("failed to initialize quad pipeline\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::deinit(gfx::Renderer& renderer)
+{
+  white_texture = nil;
+  scene_uniform_buffer.destroy(renderer);
+  quads_vertex_buffer.destroy(renderer);
+  quads_index_buffer.destroy(renderer);
+  quad_pipeline.destroy(renderer);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void drawBatches(GameRenderer& sys, gfx::Renderer& renderer)
+{
+  ZoneScopedN("cl::GameRenderer::drawBatches");
+
+  assert(sys.batch_count <= GameRenderer::MAX_BATCHES);
+  assert(sys.quad_count <= GameRenderer::MAX_QUADS);
+
+  renderer.bindVertexBuffer(sys.quads_vertex_buffer);
+  renderer.bindIndexBuffer(sys.quads_index_buffer);
+
+  u32 index_offset = 0;
+  for (u32 i = 0; i < sys.batch_count; i++)
+  {
+    assert(notnil(sys.batches[i].texture));
+    renderer.bindTexture(sys.batches[i].texture);
+    renderer.draw(index_offset, 6*sys.batches[i].quad_count, 0);
+    index_offset += 6*sys.batches[i].quad_count;
+  }
+  assert(index_offset == 6*sys.quad_count);
+
+  sys.batches[0].quad_count = 0;
+  sys.batches[0].texture = sys.null_texture->texture;
+  sys.batch_count = 1;
+  sys.quad_count = 0;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+IRO_FORCE_INLINE
+void GameRenderer::drawQuad(
+  gfx::Renderer& renderer,
+  vec2f pos,
+  gfx::Texture texture,
+  vec4f uv,
+  Color color)
+{
+  ZoneScopedN("cl::GameRenderer::drawQuad");
+
+  if (texture != batches[batch_count-1].texture)
+  {
+    if (batches[batch_count-1].quad_count > 0)
+    {
+      if (batch_count >= GameRenderer::MAX_BATCHES)
+      {
+        // TODO(delle) investigate if this stalls
+        quads_vertex_buffer.flush(renderer, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+        quads_vertex_buffer.unmap(renderer);
+        drawBatches(*this, renderer);
+        quads_vertex_buffer.map(renderer);
+      }
+      else
+      {
+        batch_count++;
+      }
+    }
+
+    batches[batch_count-1].quad_count = 0;
+    batches[batch_count-1].texture = texture;
+  }
+
+  static const vec2f offsets[4] = 
+  {
+    vec2f(-0.f,-0.f),
+    vec2f( 1.f,-0.f),
+    vec2f( 1.f, 1.f),
+    vec2f(-0.f, 1.f),
+  };
+
+  gfx::Vertex quad_verts[4] = {};
+
+  quad_verts[0].pos = pos + offsets[0];
+  quad_verts[1].pos = pos + offsets[1];
+  quad_verts[2].pos = pos + offsets[2];
+  quad_verts[3].pos = pos + offsets[3];
+
+  quad_verts[0].uv = vec2f(uv.x, uv.w);
+  quad_verts[1].uv = vec2f(uv.z, uv.w);
+  quad_verts[2].uv = vec2f(uv.z, uv.y);
+  quad_verts[3].uv = vec2f(uv.x, uv.y);
+
+  quad_verts[0].color = color.rgba;
+  quad_verts[1].color = color.rgba;
+  quad_verts[2].color = color.rgba;
+  quad_verts[3].color = color.rgba;
+
+  auto vp = (gfx::Vertex*)quads_vertex_buffer.mapped_data + 4*quad_count;
+  mem::copy(vp, quad_verts, 4 * sizeof(quad_verts));
+
+  batches[batch_count-1].quad_count++;
+  quad_count++;
+
+  if (quad_count >= GameRenderer::MAX_QUADS)
+  {
+    // TODO(delle) investigate if this stalls
+    quads_vertex_buffer.flush(renderer, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+    quads_vertex_buffer.unmap(renderer);
+    drawBatches(*this, renderer);
+    quads_vertex_buffer.map(renderer);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 GameRenderer::render(const RenderParams& params)
+{
+  // TODO(delle) We might want to sort quads by texture before
+  // building their vertexes so we can produce bigger batches.
+  // Alternatively, we could use instancing.
+  // Alternatively, we could build a sprite sheet so we don't need
+  // to change the texture (this is probably the better option).
+  TRACE("render.sys update\n");
+
+  ZoneScopedN("cl::GameRenderer::update");
+
+  gfx::Renderer& renderer = params.renderer;
+
+  assert(notnil(params.target));
+
+  ///////////////////////////////////////////////
+  // 0. Update Scene
+  {
+    ZoneScopedN("cl::GameRenderer update scene");
+
+    mat3x2 proj = mat3x2::identity();
+    proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / (f32)params.viewport.w);
+    proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / (f32)params.viewport.h);
+    proj.toMat4(scene.proj);
+
+    params.view.toTransposedMat4(scene.view);
+
+    f32 time = (TimePoint::monotonic() - TimePoint{}).toSeconds();
+
+    scene.resolution_and_time[0] = (f32)params.viewport.w;
+    scene.resolution_and_time[1] = (f32)params.viewport.h;
+    scene.resolution_and_time[2] = time;
+
+    scene_uniform_buffer.map(renderer);
+    scene_uniform_buffer.copyAndFlush(renderer, &scene, sizeof(scene));
+    scene_uniform_buffer.unmap(renderer);
+  }
+
+  if (!renderer.beginRenderPass(
+        vec2i(params.viewport.pos()),
+        vec2u(params.viewport.size()),
+        params.target,
+        0x000000ff))
+    return false;
+
+  renderer.setViewport(params.viewport.pos(), params.viewport.size());
+  renderer.setScissor(
+    vec2i(params.viewport.pos()), vec2u(params.viewport.size()));
+
+  ///////////////////////////////////////////////
+  // 1. Draw Background
+  {
+    TRACE("render.sys draw background\n");
+
+    // renderer.bindFramebuffer(stars_framebuffer);
+    // renderer.bindPipeline(stars_pipeline);
+    // renderer.bindUniformBuffer(scene_uniform_buffer);
+    // renderer.bindVertexBuffer(background_vertex_buffer);
+    // renderer.bindIndexBuffer(background_index_buffer);
+    // renderer.draw(0, 6, 0);
+    //
+    // renderer.bindFramebuffer(framebuffer);
+    // renderer.bindPipeline(dither_pipeline);
+    // renderer.bindTexture(stars_texture);
+    // renderer.draw(0, 6, 0);
+  }
+
+
+  ///////////////////////////////////////////////
+  // 2. Draw Map Tiles
+  // TODO(delle) only update changed tiles after init
+  TRACE("render.sys draw map tiles\n");
+
+  renderer.bindPipeline(quad_pipeline);
+  renderer.bindUniformBuffer(scene_uniform_buffer);
+  quads_vertex_buffer.map(renderer);
+
+  if (params.map)
+  {
+    ZoneScopedN("cl::GameRenderer draw map tiles");
+
+    MapSys& map = *params.map;
+
+    u32 layer_idx = 0;
+    for (const Layer& layer : map.layers)
+    {
+      Color tint = Color(0xffffffff) * (1.0f - (layer_idx * 0.25f));
+
+      for (const Tile& tile : layer.tiles)
+      {
+        if (!tile.kind.isValid())
+          continue;
+
+        const TileKindDef& tilekind = *tile.kind;
+
+        gfx::Texture texture = 
+          tilekind.texture.isValid() 
+          ? tilekind.texture->texture
+          : null_texture->texture;
+
+        vec2f pos = map.getTilePos(layer, tile);
+        drawQuad(renderer, pos, texture, {0.f,0.f,1.f,1.f}, tint);
+      }
+
+      layer_idx++;
+    }
+  }
+
+  ///////////////////////////////////////////////
+  // 3. Draw Sprite Components
+  TRACE("render.sys draw sprite components\n");
+
+  if (params.entmgr && params.map)
+  {
+    ZoneScopedN("cl::GameRenderer draw sprites");
+
+    MapSys&       map    = *params.map;
+    EntityMgr&    entmgr = *params.entmgr;
+    ComponentMgr& cmpmgr = entmgr.cmpmgr;
+
+    for (Sprite& sprite : cmpmgr.iterate<Sprite>())
+    {
+      Entity* owner = entmgr.getEntity(sprite.owner);
+      if (owner == nullptr)
+      {
+        ERROR("sprite component for entity ", sprite.owner.value,
+          " has no owner\n");
+        continue;
+      }
+      
+      gfx::Texture texture = null_texture->texture;
+      vec4f uv = {0.f, 0.f, 1.f, 1.f};
+      Color color = 0xff0000ff;
+      if (sprite.states.isValid())
+      {
+        const SpriteTexture* stex =
+          sprite.states->map.getAtIndex(sprite.state);
+
+        if (stex != nullptr && stex->texture.isValid())
+        {
+          const gfx::CompiledTextureData& tex_data = stex->texture->getData();
+
+          // Sooo many dereferences. 
+          // TODO(sushi) it would be nice to cache this somehow but I'm not 
+          //             sure if that's possible given our current setup.
+          texture = stex->texture->texture;
+          color = stex->color;
+
+          vec2f uv_min = stex->uv.pos();
+          vec2f uv_max = stex->uv.extent();
+
+          // TODO(sushi) it would be nice to cache these as well.
+          uv.x = uv_min.x / f32(tex_data.width);
+          uv.y = uv_min.y / f32(tex_data.height);
+          uv.z = uv_max.x / f32(tex_data.width);
+          uv.w = uv_max.y / f32(tex_data.height);
+        }
+      }
+
+      if (auto* transform = owner->tryComp<Transform>())
+      {
+        Layer& layer = map.layers[transform->placement_layer];
+
+        vec2f pos = transform->pos;
+        pos.x += layer.pos.x;
+        pos.y += layer.pos.y;
+
+        drawQuad(renderer, pos, texture, uv, color);
+      }
+    }
+  }
+
+  quads_vertex_buffer.flush(renderer, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  quads_vertex_buffer.unmap(renderer);
+  if (batch_count > 0)
+  {
+    drawBatches(*this, renderer);
+  }
+
+  renderer.endRenderPass();
+
+  return true;
+}
+
+}

@@ -1,0 +1,68 @@
+/*
+ *  Component used for displaying an entity as a sprite.
+ */
+
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "game/shared/component/Component.lh"
+@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "asset/StringMap.lh"
+@@lpp.import "asset/Asset.lh"
+
+#include "Color.h"
+#include "math/vec.h"
+#include "math/Rect.h"
+
+namespace gfx
+{
+struct CompiledTexture;
+}
+
+/* ============================================================================
+ */
+@metadata.def
+struct SpriteTexture
+{
+  gfx::TextureRef texture;
+
+  @metadata.default "{0,0,1,1}"
+  Rect uv;
+
+  @metadata.default "{255,255,255,255}"
+  Color color;
+};
+
+/* ============================================================================
+ */
+@metadata.def
+struct SpriteStatesDef
+{
+  StringMap<SpriteTexture> map;
+};
+
+@metadata.source_types(sprite_states)
+struct SpriteStatesRef : TypedSourceAssetRef<SpriteStatesDef> {};
+
+namespace cl
+{
+
+/* ============================================================================
+ */
+struct Sprite : Component
+{
+  @metadata.data_field
+  vec2f bbx;
+
+  @metadata.data_field
+  @metadata.default "{r=255,g=255,b=255,a=255}"
+  Color color;
+
+  u32 state;
+
+  // The states this sprite may use.
+  @metadata.data_field
+  SpriteStatesRef states;
+};
+
+}

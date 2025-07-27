@@ -1,0 +1,190 @@
+$ local cmn = require "common"
+
+@@lpp.import "asset/SourceData.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+
+#include "iro/io/IO.h"
+#include "iro/fs/File.h"
+
+using namespace iro;
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::deepCopy(SourceDataFile* sfile)
+{
+  SourceData* nu = sfile->allocateSourceData();
+
+  if (notnil(name))
+    nu->name = name.allocateCopy(&sfile->string_cache);
+  if (notnil(type))
+    nu->type = type.allocateCopy(&sfile->string_cache);
+
+  if (!hasObjectData())
+  {
+    nu->val.kind = val.kind;
+    if (notnil(val.str))
+      nu->val.str = val.str.allocateCopy(&sfile->string_cache);
+  }
+  else
+  {
+    nu->children.init();
+    for (SourceData* child : children)
+      nu->children.push(child->deepCopy(sfile));
+  }
+
+  return nu;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::dump(io::IO* out, u32 depth) const
+{
+  auto indent = [&]()
+  {
+    for (u32 i = 0; i < depth; ++i)
+      out->write("  "_str);
+  };
+
+  indent();
+  if (notnil(name))
+    io::formatv(out, name, " = ");
+
+  if (notnil(val.str))
+  {
+    if (matchAny(val.kind, Value::Kind::Number, Value::Kind::NumberHex))
+      io::format(out, val.str);
+    else
+      io::formatv(out, '"', val.str, '"');
+  }
+  else if (hasObjectData())
+  {
+    if (base != nullptr)
+      io::formatv(out, base->name, " : ");
+
+    if (notnil(type))
+      io::formatv(out, type);
+
+    if (hasChildren())
+    {
+      io::format(out, '\n');
+      indent();
+      io::format(out, "{\n");
+
+      for (const SourceData* child : children)
+      {
+        child->dump(out, depth + 1);
+        io::format(out, ",\n");
+      }
+
+      indent();
+      io::format(out, '}');
+    }
+    else
+    {
+      io::format(out, "{}");
+    }
+    
+  }
+  else
+  {
+    // This is not defined, and is more to indicate invalid source data.
+    // We could maybe define it in its language though
+    io::format(out, "nil");
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::dump(u32 depth) const
+{
+  dump(&fs::stdout, depth);
+  io::format(&fs::stdout, '\n');
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setObject(String name)
+{
+  if (!hasObjectData())
+    children.init();
+  else
+    children.clear();
+
+  if (notnil(name))
+    this->name = name;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addObject(SourceDataFile& file, String name)
+{
+  SourceData* child = file.allocateSourceData();
+  child->children.init();
+
+  children.push(child);
+
+  child->name = name;
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setVec2(SourceDataFile& file, vec2f v)
+{
+  setObject(nil);
+
+  addNumberValue("x"_str, v.x, file);
+  addNumberValue("y"_str, v.y, file);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addVec2(SourceDataFile& file, String name, vec2f v)
+{
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setVec2(file, v);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setNumberValue(f32 value, SourceDataFile& file)
+{
+  io::StaticBuffer<64> buffer;
+  io::format(&buffer, value);
+
+  val.kind = Value::Kind::String;
+  val.str = buffer.asStr().allocateCopy(&file.string_cache);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addNumberValue(f32 val, SourceDataFile& file)
+{
+  return addNumberValue(nil, val, file);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addNumberValue(
+    String name, 
+    f32 value, 
+    SourceDataFile& file)
+{
+  assert(notnil(children));
+
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setNumberValue(value, file);
+
+  return child;
+}

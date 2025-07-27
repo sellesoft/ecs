@@ -1,0 +1,110 @@
+$ if false then
+
+/*
+ *  Debug tool for inspecting the state of the Engine.
+ */
+$ require "common"
+$ local ui = require "ui.UI"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/containers/AVL.h"
+#include "iro/memory/Bump.h"
+
+@@lpp.import "ui/UI.lh"
+@@lpp.import "ui/widgets/Text.lh"
+
+struct Engine;
+
+namespace ui
+{
+
+struct TypeState;
+struct MemState;
+struct TreeWorkingData;
+
+/* ============================================================================
+ */
+struct AddressSet
+{
+  struct Elem
+  {
+    void* addr;
+    void* state;
+  };
+
+  typedef AVL<Elem, [](const Elem* elem) { return (u64)elem->addr; }> Map;
+
+  Pool<Elem> pool;
+  Map map;
+
+  b8 init()
+  {
+    if (!pool.init()) return false;
+    if (!map.init()) return false;
+    return true;
+  }
+
+  void deinit()
+  {
+    pool.deinit();
+    map.deinit();
+  }
+
+  template<typename T>
+  b8 getOrCreateState(void* addr, void** out_state, mem::Allocator* allocator);
+};
+
+/* ============================================================================
+ */
+struct InspectorEngineTree : Item
+{
+  Engine* eng = nullptr;
+
+  f32 max_name_width = 0.f;
+  f32 max_value_width = 0.f;
+
+  TypeState* tstate = nullptr;
+  MemState* mem_state = nullptr;
+  TreeWorkingData* wdata = nullptr;
+
+  void* current_state;
+  u64   current_type;
+  void* current_addr;
+
+  AddressSet addresses;
+  mem::LenientBump states;
+
+  vec2f content_pos;
+  vec2f content_size;
+
+  DrawCmd* bg;
+  
+  static InspectorEngineTree* create(UI& ui, Engine* engine);
+
+  b8 focusAddress(UI& ui, void* addr, u64 type_idx);
+
+  template<typename T>
+  b8 focusAddress(UI& ui, T* addr);
+
+  void evaluate(UI& ui) override;
+  void reportDrawCmds(UI& ui, DrawCmdLists& lists) override;
+
+  void update(ItemUpdateContext& ctx) override;
+};
+
+/* ============================================================================
+ */
+struct Inspector : Item
+{
+  InspectorEngineTree* tree;
+
+  Text* fps;
+
+  static Inspector* create(UI& ui, Engine* engine);
+  void destroy();
+};
+
+}
+
+$ end

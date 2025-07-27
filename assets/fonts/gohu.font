@@ -1,0 +1,10 @@
+return FontDef
+{
+  name = "gohu",
+  asset_path = "assets/fonts/gohu.bdf",
+  ranges =
+  {
+    // ascii
+    { first_codepoint = 32, num_codepoints = 94 },
+  }
+}

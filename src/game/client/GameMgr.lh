@@ -1,0 +1,78 @@
+/*
+ *  Manager of the highest level *client* game state, handling states such as 
+ *  the main menu, options, being in a game session, the transitions 
+ *  between each state, and the UI that is displayed in them.
+ */
+
+$ local cmn = require "common"
+
+@@lpp.import "game/shared/entity/EntityMgr.lh"
+@@lpp.import "game/shared/component/Component.lh"
+@@lpp.import "game/shared/map/Map.defs.lh"
+
+@@lpp.import "game/client/entity/EntitySysMgr.lh"
+@@lpp.import "game/client/graphics/GameRenderer.lh"
+
+struct InputState;
+
+namespace gfx { struct View; }
+
+namespace cl
+{
+
+struct GameSim;
+
+/* ============================================================================
+ */
+struct GameMgr
+{
+  GameSim* sim;
+
+  EntitySysMgr entsysmgr;
+  GameRenderer game_renderer;
+
+  MapDefRef loaded_map;
+
+  struct InitParams
+  {
+    GameSim* sim;
+
+    gfx::Renderer& renderer;
+    AssetMgr& assetmgr;
+
+    gfx::Texture white_texture;
+
+    AssetLoader loader;
+  };
+
+  b8 init(InitParams& params);
+  void deinit(gfx::Renderer& renderer);
+
+  struct UpdateParams
+  { 
+    InputState& input;
+  };
+
+  b8 update(UpdateParams& params);
+
+  struct RenderParams
+  {
+    gfx::Renderer& renderer;
+    gfx::RenderTarget& target;
+
+    // An optional view to render the game from which will overload the 
+    // eye sys' view.
+    gfx::View* view;
+  };
+
+  b8 render(const RenderParams& params);
+
+  /* --------------------------------------------------------------------------
+   *  Loads the client into some map.
+   */
+  b8 loadMap(String name, AssetLoader loader);
+
+  void setViewport(Rect viewport);
+};
+
+}

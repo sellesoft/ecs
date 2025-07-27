@@ -1,0 +1,509 @@
+return MapDef
+{
+  name = "Test",
+  size = { x = 6, y = 6 },
+  layers =
+  {
+    {
+      size = { x = 5, y = 5 },
+      pos = { x = -2, y = -6 },
+      tiles =
+      {
+        // --------------------------------------------------------------------
+        // y = 0
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 1
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 2
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 3
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 4
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+      }
+    },
+    {
+      size = { x = 10, y = 10 },
+      pos = { x = 0, y = 2 },
+      tiles =
+      {
+        // --------------------------------------------------------------------
+        // y = 0
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 1
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 2
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 3
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 4
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 5
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/spawners/Player" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/spawners/Player" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 6
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 7
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/glass/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 8
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/locker/Locker" }
+          // entities =
+          // {
+          //   Entity
+          //   {
+          //     name = "Locker",
+          //     components =
+          //     {
+          //       Sprite
+          //       {
+          //         texture = "assets/textures/LockerLightGray",
+          //       },
+          //     },
+          //   },
+          // },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/tables/steel/Table" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        // --------------------------------------------------------------------
+        // y = 9
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+        {
+          kind = "assets/floors/tiles/Floor",
+          entities = { "assets/entities/walls/iron/Wall" },
+        },
+      }
+    }
+  }
+}

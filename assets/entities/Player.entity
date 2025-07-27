@@ -1,0 +1,9 @@
+return EntityDef
+{
+  name = "Player",
+  components = 
+  {
+    cl::Sprite {  },
+    Movement { speed = 0.02, }
+  }
+}

@@ -1,0 +1,80 @@
+$ require "common"
+
+@@lpp.import "game/client/GameSim.lh"
+
+@@lpp.import "Engine.lh"
+
+@log.ger(cl.gamesim, Debug)
+
+@@lpp.import "Profiling.lh"
+
+namespace cl
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 GameSim::init(InitParams& params)
+{
+  if (!SharedGameSim::init(params))
+    return false;
+
+  GameMgr::InitParams gamemgr_params = 
+  {
+    .sim = this,
+    .renderer = params.renderer,
+    .assetmgr = params.assetmgr,
+    .white_texture = params.white_texture,
+    .loader = params.loader,
+  };
+  if (!gamemgr.init(gamemgr_params))
+    return false;
+
+  setViewport(params.viewport);
+
+  loadMap("assets/maps/Test.map"_str, params.loader);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void GameSim::deinit(gfx::Renderer& renderer)
+{
+  SharedGameSim::deinit();
+  gamemgr.deinit(renderer);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 GameSim::update(UpdateParams& params)
+{
+  ZoneScopedN("cl::GameSim::update");
+
+  if (!SharedGameSim::update(params))
+    return false;
+
+  GameMgr::UpdateParams gamemgr_params = 
+  {
+    .input = params.input,
+  };
+
+  return gamemgr.update(gamemgr_params);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 GameSim::render(const RenderParams& params)
+{
+  ZoneScopedN("cl::GameSim::render");
+
+  GameMgr::RenderParams render_params = 
+  {
+    .renderer = params.renderer,
+    .target = params.target,
+    .view = params.view,
+  };
+
+  return gamemgr.render(render_params);
+}
+
+}

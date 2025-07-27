@@ -1,0 +1,5 @@
+return TileKindDef
+{
+  name = "light-grey-floor",
+  texture = "assets/floors/tiles/LightGray"
+}

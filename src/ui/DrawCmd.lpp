@@ -1,0 +1,285 @@
+$ if false then
+$ local cmn = require "common"
+
+@lpp.import "ui/UI.lh"
+@lpp.import "ui/DrawCmd.lh"
+
+@lpp.import "graphics/Renderer.lh"
+
+namespace ui
+{
+
+/* ----------------------------------------------------------------------------
+ */
+Pair<s32, b8> DrawCmd::findVertex(UI* ui)
+{
+  auto& varr = ui->free_drawcmds_vertex_sorted;
+
+  if (0 == varr.len())
+    return { 0, false };
+
+  s32 l = 0, 
+      m = 0, 
+      r = varr.len() - 1;
+
+  while (l <= r)
+  {
+    m = l + (r - l) / 2;
+    if (varr[m]->vertex_offset == vertex_offset)
+      return { m, true };
+    else if (varr[m]->vertex_offset < vertex_offset)
+      l = m + 1;
+    else 
+      r = m - 1;
+  }
+
+  return { m, false };
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Pair<s32, b8> DrawCmd::findIndex(UI* ui)
+{
+  auto& varr = ui->free_drawcmds_index_sorted;
+
+  if (0 == varr.len())
+    return { 0, false };
+
+  s32 l = 0, 
+      m = 0, 
+      r = varr.len() - 1;
+
+  while (l <= r)
+  {
+    m = l + (r - l) / 2;
+    if (varr[m]->index_offset == index_offset)
+      return { m, true };
+    else if (varr[m]->index_offset < index_offset)
+      l = m + 1;
+    else 
+      r = m - 1;
+  }
+
+  return { m, false };
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DrawCmd::alloc(UI* ui, vec2i counts)
+{
+  u32 v_next = -1;
+  u32 i_next = -1;
+
+  auto& fvsorted = ui->free_drawcmds_vertex_sorted;
+  auto& fisorted = ui->free_drawcmds_index_sorted;
+
+  for (s32 i = 0; i < fvsorted.len(); ++i)
+  {
+    DrawCmd* dc = fvsorted[i];
+
+    s64 vremain = dc->counts_reserved.x - counts.x;
+    if (vremain >= 0)
+    {
+      v_next = dc->vertex_offset;
+      if (vremain == 0)
+      {
+        fvsorted.remove(i);
+        dc->counts_reserved.x = 0;
+        if (dc->counts_reserved.y == 0)
+        {
+          auto [index, found] = dc->findIndex(ui);
+          if (found)
+            fisorted.remove(index);
+          ui->drawcmds.remove(dc);
+        }
+      }
+      else
+      {
+        dc->vertex_offset += counts.x;
+        dc->counts_reserved.x -= counts.x;
+      }
+      break;
+    }
+  }
+
+  for (s32 i = 0; i < fisorted.len(); ++i)
+  {
+    DrawCmd* dc = fisorted[i];
+
+    s64 iremain = dc->counts_reserved.y - counts.y;
+    if (iremain >= 0)
+    {
+      i_next = dc->index_offset;
+      if (iremain == 0)
+      {
+        fisorted.remove(i);
+        dc->counts_reserved.y = 0;
+        if (dc->counts_reserved.x == 0)
+          ui->drawcmds.remove(dc);
+      }
+      else
+      {
+        dc->index_offset += counts.y;
+        dc->counts_reserved.y -= counts.y;
+      }
+      break;
+    }
+  }
+
+  if (v_next == -1)
+  {
+    vertex_offset = ui->vertex_next;
+    ui->vertex_next += counts.x;
+    assert(ui->vertex_next < UI::MaxVertices &&
+           "UI has run out of vertex space on the GPU buffer!");
+  }
+  else
+    vertex_offset = v_next;
+  
+  if (i_next == -1)
+  {
+    index_offset = ui->index_next;
+    ui->index_next += counts.y;
+    assert(ui->index_next < UI::MaxIndices &&
+           "UI has run out of index space on the GPU buffer!");
+  }
+  else
+    index_offset = i_next;
+
+  counts_reserved = counts;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Pair<gfx::Vertex*, gfx::Index*> DrawCmd::realloc(UI* ui, vec2i counts)
+{
+  if (counts_reserved.x >= counts.x && counts_reserved.y >= counts.y)
+    return getPtrs(ui);
+
+  auto restore_texture = tex;
+  auto restore_counts_used = counts_used;
+
+  auto [ovp, oip] = getPtrs(ui);
+
+  // The given drawcmd needs to release its drawinfo but still be usable
+  // by whatever is calling this function, so we make a copy of it, 
+  // call remove on it, then reallocate this one.
+  // TODO(sushi) try to factor out the logic for deleting drawcmds 
+  //             from remove() and make it so that it just tells you 
+  //             what needs deleted. Not sure if this is possible.
+  auto dummy = ui->drawcmds.add();
+  *dummy = *this;
+  dummy->remove(ui);
+
+  *this = {};
+  tex = restore_texture;
+  counts_used = restore_counts_used;
+
+  alloc(ui, counts);
+  
+  auto [nvp, nip] = getPtrs(ui);
+
+  mem::copy(nvp, ovp, sizeof(gfx::Vertex) * counts_used.x);
+  mem::copy(nip, oip, sizeof(gfx::Index) * counts_used.y);
+
+  return getPtrs(ui);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DrawCmd::remove(UI* ui)
+{
+  if (counts_reserved.x == 0 &&
+      counts_reserved.y == 0)
+  {
+    ui->drawcmds.remove(this);
+    return;
+  }
+
+  auto& varr = ui->free_drawcmds_vertex_sorted;
+  auto& iarr = ui->free_drawcmds_index_sorted;
+
+  if (0 != varr.len())
+  {
+    auto [index, found] = findVertex(ui);
+    assert(!found && "this drawcmd should not already be in the list");
+
+    varr.insert(index, this);
+
+    if (index != varr.len() - 1)
+    {
+      DrawCmd* right = varr[index+1];
+      if (right->vertex_offset - counts_reserved.x == vertex_offset)
+      {
+        counts_reserved.x += right->counts_reserved.x;
+        right->counts_reserved.x = 0;
+        varr.remove(index+1);
+        if (right->counts_reserved.y == 0)
+          ui->drawcmds.remove(right);
+      }
+    }
+    if (index != 0)
+    {
+      DrawCmd* left = varr[index-1];
+      if (left->vertex_offset + left->counts_reserved.x == vertex_offset)
+      {
+        left->counts_reserved.x += counts_reserved.x;
+        counts_reserved.x = 0;
+        varr.remove(index);
+      }
+    }
+  }
+  else
+    varr.push(this);
+
+  if (0 != iarr.len())
+  {
+    auto [index, found] = findIndex(ui);
+    assert(!found && "this drawcmd should not already be in the list");
+
+    iarr.insert(index, this);
+
+    if (index != iarr.len() - 1)
+    {
+      DrawCmd* right = iarr[index+1];
+      if (right->index_offset - counts_reserved.y == index_offset)
+      {
+        counts_reserved.y += right->counts_reserved.y;
+        right->counts_reserved.y = 0;
+        iarr.remove(index+1);
+        if (right->counts_reserved.x == 0)
+          ui->drawcmds.remove(right);
+      }
+    }
+    if (index != 0)
+    {
+      DrawCmd* left = iarr[index-1];
+      if (left->index_offset + left->counts_reserved.y == index_offset)
+      {
+        left->counts_reserved.y += counts_reserved.y;
+        counts_reserved.y = 0;
+        iarr.remove(index);
+        if (counts_reserved.x == 0)
+          ui->drawcmds.remove(this);
+      }
+    }
+  }
+  else
+    iarr.push(this);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Pair<gfx::Vertex*, gfx::Index*> DrawCmd::getPtrs(UI* ui)
+{
+  return
+  {
+    (gfx::Vertex*)ui->vertex_buffer.mapped_data + vertex_offset,
+    (gfx::Index*)ui->index_buffer.mapped_data + index_offset
+  };
+}
+
+
+}
+
+$ end

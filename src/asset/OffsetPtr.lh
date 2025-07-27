@@ -1,0 +1,108 @@
+/*
+ *  A pointer to T who's value is relative to its own address.
+ */
+
+#include "iro/Common.h"
+#include "iro/containers/Slice.h"
+#include "iro/traits/Nil.h"
+#include "iro/Unicode.h"
+
+using namespace iro;
+
+/* ============================================================================
+ */
+template<typename T>
+struct OffsetPtr
+{
+  s32 offset = 0;
+
+  template<typename TPtr>
+  static TPtr* getPtrAsOffsetPtr(TPtr** ptr)
+  {
+    return ((OffsetPtr<TPtr>*)ptr)->get();
+  }
+
+  template<typename TPtr>
+  static void setPtrAsOffsetPtr(TPtr** ptr, TPtr* realptr)
+  {
+    ((OffsetPtr<TPtr>*)ptr)->set(realptr);
+  }
+
+  T* get() const
+  {
+    return offset == 0? nullptr : (T*)((u8*)(this) + offset);
+  }
+
+  void set(T* x)
+  {
+    if (x != nullptr)
+      offset = ((u8*)x) - ((u8*)this);
+    else
+      offset = 0;
+  }
+
+  DefineNilTrait(OffsetPtr<T>, {0}, x.offset == 0);
+};
+
+/* ============================================================================
+ *  A helper for pointing at an array
+ */
+template<typename T>
+struct OffsetSlice
+{
+  OffsetPtr<T> ptr;
+  u64 len;
+
+  Slice<T> getSlice() const
+  {
+    if (notnil(ptr))
+      return Slice<T>::from(ptr.get(), len);
+    else
+      return nil;
+  }
+
+  void setSlice(Slice<T> slice)
+  {
+    if (notnil(slice))
+    {
+      ptr.set(slice.ptr);
+      len = slice.len;
+    }
+    else
+    {
+      ptr.set(nullptr);
+      len = 0;
+    }
+  }
+
+  void setSlice(T* ptr, u64 len)
+  {
+    setSlice(Slice<T>::from(ptr, len));
+  }
+
+  DefineNilTrait(OffsetSlice<T>, {nil}, isnil(x.ptr));
+};
+
+/* ============================================================================
+ */
+struct OffsetString : OffsetSlice<u8>
+{
+  utf8::String getString() const { return utf8::String::from(getSlice()); }
+  void setString(utf8::String s) { setSlice(s); }
+
+  // Coerces a String into an OffsetString and sets it as though it
+  // were pointing at 'realstr'. Ideally String never gets smaller so
+  // this never breaks :).
+  static void setStringAsOffsetString(utf8::String* s, utf8::String realstr)
+  {
+    auto* ostr = (OffsetString*)s;
+    ostr->setString(realstr);
+  }
+
+  // Does the opposite of the above function.
+  static utf8::String getStringAsOffsetString(utf8::String* s)
+  {
+    auto* ostr = (OffsetString*)s;
+    return ostr->getString();
+  }
+};

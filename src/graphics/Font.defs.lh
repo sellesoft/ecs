@@ -1,0 +1,34 @@
+$ local cmn = require "common"
+$ local metadata = require "reflect.Metadata"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/containers/Array.h"
+#include "iro/containers/Slice.h"
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/ArrayDef.lh"
+
+using namespace iro;
+
+/* ============================================================================
+ */
+struct CodepointRange
+{
+  s32 first_codepoint;
+  s32 num_codepoints;
+};
+
+typedef Slice<CodepointRange> CodepointRanges;
+
+/* ============================================================================
+ */
+@metadata.def
+struct FontDef
+{
+  String name;
+  String asset_path;
+  ArrayDef<CodepointRange> ranges;
+};
+
+typedef TypedSourceAssetRef<FontDef> FontDefRef;

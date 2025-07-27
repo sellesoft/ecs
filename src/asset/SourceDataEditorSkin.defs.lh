@@ -1,0 +1,74 @@
+$ require "common"
+$ local m = require "reflect.Metadata"
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "ui/Skin.defs.lh"
+
+/* ============================================================================
+ */
+struct SourceDataEditorRowSkin
+{
+  // The height of each datum row that is collapsed or only has a collapsed 
+  // value.
+  f32 height;
+
+  // The padding of some data's name from the left edge.
+  f32 name_padding;
+
+  // Padding from the right edge of the row.
+  f32 right_padding;
+
+  // The minimum width of the name column.
+  f32 min_name_width;
+
+  // The separation between the name and value columns.
+  f32 name_value_spacing;
+
+  // The background color of data falling in even data rows.
+  Color even_color;
+
+  // The background color of data falling in odd data rows.
+  Color odd_color;
+};
+
+/* ============================================================================
+ */
+struct SourceDataEditorVectorSkin
+{
+  // The minimum width of component text boxes.
+  f32 min_comp_width;
+
+  // The spacing between component text boxes.
+  f32 comp_spacing;
+
+  // The spacing between a component name and its value text box.
+  f32 comp_name_spacing;
+};
+
+/* ============================================================================
+ */
+@m.def
+struct SourceDataEditorSkinDef
+{
+  Color bg_color;
+
+  ui::TextSkin      text;
+  ui::TextFieldSkin text_field;
+  ui::DropDownSkin  dropdown;
+  ui::ButtonSkin    button;
+  ui::ScrollBarSkin scroll_bar;
+
+  SourceDataEditorRowSkin row;
+
+  SourceDataEditorVectorSkin vec2_data;
+  SourceDataEditorVectorSkin color_data;
+
+  Color missing_data_color;
+
+  vec2f padding;
+
+  f32 children_indent;
+};
+
+struct SourceDataEditorSkinDefRef : 
+  TypedSourceAssetRef<SourceDataEditorSkinDef> {};

@@ -1,0 +1,345 @@
+/*
+ *  Definition of the Client, as well as its interface.
+ *
+ *  TODO(sushi) move the client-specific stuff from Engine into here, such
+ *              as the Renderer, since the server should never use it.
+ */
+
+$ require "common"
+$ local ui = require "ui.UI"
+
+@@lpp.import "Engine.lh"
+@@lpp.import "ui/UI.lh"
+@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "input/InputMgr.lh"
+@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "graphics/Geo.lh"
+@@lpp.import "game/client/Client.lh"
+@@lpp.import "game/client/GameSim.lh"
+@@lpp.import "game/server/Server.lh"
+@@lpp.import "game/shared/Console.events.lh"
+@@lpp.import "game/shared/entity/Entity.defs.lh"
+@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "input/InputMgr.lh"
+@@lpp.import "net/Address.lh"
+@@lpp.import "ui/UI.lh"
+
+#include "iro/memory/LinkedHeap.h"
+
+#include "external/tracy/tracy/Tracy.hpp"
+
+@log.ger(client, Debug)
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleConnectCommand(void* context, const CommandArgs& args)
+{
+  Client* client = (Client*)context;
+  if (args.len < 1)
+    return;
+  else if (args[0] == "offline"_str)
+    client->connectToServer(net::Address::createOffline());
+  else if (args[0] == "localhost"_str)
+    client->connectToServer(net::Address::createLocalHost(0));
+  else
+    client->connectToServer(args[0]);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Client::init(Engine* engine)
+{
+  this->engine = engine;
+
+$ local function init(act, name)
+  {
+    auto start = TimePoint::monotonic();
+    if (!$(act))
+      return FATAL("failed to initialize $(name)\n");
+    INFO("finished initializing ", color::cyan("$(name)"), " in ",
+         WithUnits(TimePoint::monotonic() - start), "\n");
+  }
+$ end
+
+  @init(input.init(), InputMgr);
+
+  // TODO(delle) client allocators
+  @init(netmgr.init(&mem::stl_allocator), NetMgr);
+
+  @init(Window::initializeBackend(), Window backend);
+  @init(window.init(*engine, "ecs"_str, input), Window);
+
+  gfx::Renderer::InitParams renderer_params =
+  {
+    .assetmgr  = engine->assetmgr,
+    .window    = window,
+    .allocator = mem::stl_allocator,
+  };
+  @init(renderer.init(renderer_params), Renderer);
+
+  // TODO(sushi) this is dumb, get rid of it by just making the texture
+  //             manually through gfx::Texture.
+  gfx::CompiledTexture::CompileParams white_texture_params =
+  {
+    .name         = "assets/textures/white"_str,
+    .width        = 2,
+    .height       = 2,
+    .format       = gfx::ImageFormat::BW,
+    .usage        = gfx::ImageUsage::Sampled,
+    .filter       = gfx::ImageFilter::Nearest,
+    .address_mode = gfx::ImageAddressMode::ClampToWhite,
+    .allocator    = &mem::stl_allocator,
+    .assetmgr     = &engine->assetmgr,
+  };
+
+  u8 pixels[16] =
+  {
+    0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff,
+  };
+
+  gfx::CompiledTexture::compileFromMemory(pixels, white_texture_params);
+
+  auto* white_texture_compiled =
+    gfx::CompiledTexture::load(
+      "assets/textures/white"_str, engine->assetmgr, renderer);
+  if (white_texture_compiled == nullptr)
+    return ERROR("failed to load white texture\n");
+  white_texture = white_texture_compiled->texture;
+
+  AssetLoader asset_loader =
+  {
+    .renderer = renderer,
+    .assetmgr = engine->assetmgr,
+    .sfilereg = engine->source_data_file_reg,
+  };
+
+$ if false then
+  @init(console.init(*engine, asset_loader, true), Console);
+
+  engine->eventbus.broadcast.raise(AddCommandEvent{
+    .context = this,
+    .name = "connect"_str,
+    .func = handleConnectCommand,
+  });
+$ end
+
+  cl::GameSim::InitParams sim_params =
+  {
+    .loader   = asset_loader,
+    .viewport = Rect::from({0,0}, vec2f(window.size)),
+    .renderer = renderer,
+    .assetmgr = engine->assetmgr,
+    .sfilereg = engine->source_data_file_reg,
+  };
+  @init(sim.init(sim_params), cl::GameSim);
+
+  cl::Editor::InitParams editor_params = 
+  {
+    .client        = *this,
+    .loader        = asset_loader,
+    .white_texture = white_texture,
+    .renderer      = renderer,
+  };
+  @init(editor.init(editor_params), Editor);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Client::deinit()
+{
+  // We need to wait for the device to idle to ensure that its not still using
+  // any resources during a render pass.
+  renderer.waitForDeviceIdle();
+
+  editor.deinit(renderer);
+  sim.deinit(renderer);
+$ if false then
+  console.deinit();
+$ end
+  renderer.deinit(&mem::stl_allocator, engine->assetmgr);
+  window.deinit();
+  netmgr.deinit();
+  input.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Client::UpdateResult Client::update()
+{
+  ZoneScopedN("Client::update");
+
+  UpdateResult result = {};
+
+  // Prepares input state for this frame.
+  input.update();
+
+  // Handles OS window events and notifies the inputmgr about any input
+  // events.
+  Window::UpdateResult window_result = window.update(input);
+
+  if (window_result.closed)
+  {
+    // When the Window is closed, notify the caller that the Client is no 
+    // longer able to do anything and needs to be deinitialized.
+    result.should_deinit = true;
+    return result;
+  }
+  
+  // TODO(sushi) go back to handling this via events. I don't know why but 
+  //             SOMEBODY got rid of that at some point.
+  if (window_result.size_changed)
+    renderer.onWindowResized(vec2u(window.size));
+
+  // Receives messages from the server.
+  netmgr.receiveMessages();
+
+  if (input.real_state.wasKeyPressed(Key::F1))
+    editor_active = !editor_active;
+
+  if (editor_active)
+  {
+    if (!editor.update(sim))
+      ERROR("failed to update editor\n");
+
+    //console.updateUI(window, input, ui);
+  }
+  else
+  {
+    InputState sim_input = {};
+    input.cloneInputState(&sim_input);
+
+    cl::GameSim::UpdateParams sim_params =
+    {
+      .input = sim_input,
+    };
+
+    if (sim.update(sim_params))
+      result.sim_updated = true;
+  }
+
+  // TODO(sushi) I would like to get rid of this check for window resizing
+  //             but not having it allows the window size and swapchain 
+  //             size to get out of sync which causes validation to 
+  //             FREAK out so. This also causes a very annoying flashing 
+  //             effect while resizing the window as we just draw nothing 
+  //             while that's happening.
+  if (!window_result.size_changed && renderer.beginFrame())
+  {
+    gfx::RenderTarget swapchain_target;
+    if (!renderer.getSwapchainRenderTarget(&swapchain_target))
+      ERROR("Client failed to get swapchain render target\n");
+
+    if (editor_active)
+    {
+      cl::Editor::RenderParams render_params = 
+      {
+        .sim = sim,
+        .renderer = renderer,
+        .target = swapchain_target,
+      };
+
+      editor.render(render_params);
+    }
+    else
+    {
+      cl::GameSim::RenderParams render_params = 
+      {
+        .renderer = renderer,
+        .target = swapchain_target,
+        // Render from the point of view of the eye sys.
+        .view = nullptr,
+      };
+
+      if (window_result.size_changed)
+        sim.setViewport(Rect::from({0,0}, vec2f(window.size)));
+
+      if (!sim.render(render_params))
+        ERROR("failed to render game sim\n");
+    }
+
+    renderer.endFrame();
+
+    if (!renderer.submitQueue())
+      ERROR("failed to submit command queue\n");
+
+    if (!renderer.present())
+      ERROR("failed to present frame\n");
+
+    result.rendered = true;
+  }
+
+  // Sends messages to the server.
+  netmgr.sendMessages();
+
+  // TODO(sushi) this should be pulled out to the Engine since it will 
+  //             want to work with the Server as well.
+  FrameMark;
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Client::wantHotReload()
+{
+  // TODO(sushi) do this some other way later.
+  if (input.real_state.wasKeyPressed(Key::F11))
+    return true;
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Client::connectToServer(net::Address address)
+{
+  @log.trace("connecting to a server\n");
+  if (address.type == net::AddressType::Invalid)
+    return @log.error("invalid address\n");
+
+  if (address.type == net::AddressType::Offline)
+  {
+    sv::CreateParams server_params =
+    {
+      .engine = *this->engine,
+      .global_allocation_size = unit::megabytes(1),
+      .match_allocation_size = unit::megabytes(1),
+      .tick_allocation_size = unit::megabytes(2),
+      .target_tickrate_ms = 48,
+      .publicity = sv::ServerPublicity::Offline,
+      .max_sessions = 1,
+      .password = {},
+    };
+    engine->server_thread = sv::create(server_params);
+    if (engine->server_thread == nullptr)
+      return FATAL("failed to create server thread\n");
+  }
+
+  return netmgr.connectToServer(address);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Client::disconnectFromServer()
+{
+  if (netmgr.connection.address.type == net::AddressType::Offline)
+    sv::destroy(engine->server_thread);
+  netmgr.disconnectFromServer();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+AssetLoader Client::getAssetLoader()
+{
+  return 
+  { 
+    .renderer = renderer,
+    .assetmgr = engine->assetmgr,
+    .sfilereg = engine->source_data_file_reg,
+  };
+}

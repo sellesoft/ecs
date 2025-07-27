@@ -1,0 +1,58 @@
+/*
+ *  Some parameters used for textures uploaded to the GPU that need to be
+ *  shared.
+ */
+
+#include "iro/Common.h"
+#include "iro/Flags.h"
+
+using namespace iro;
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+enum class ImageFormat : u8
+{
+  BW,
+  BWA,
+  RGB,
+  RGBA,
+  BGRA,
+};
+
+/* ============================================================================
+ */
+enum class ImageUsage
+{
+  Sampled,
+  ColorAttachment,
+
+  COUNT
+};
+
+typedef Flags<ImageUsage> ImageUsageFlags;
+DefineFlagsOrOp(ImageUsageFlags, ImageUsage);
+
+/* ============================================================================
+ */
+enum class ImageFilter : u8
+{
+  Nearest,
+  Linear,
+};
+
+/* ============================================================================
+ */
+enum class ImageAddressMode : u8
+{
+  Repeat,
+  MirroredRepeat,
+  ClampToEdge,
+  ClampToWhite,
+  ClampToBlack,
+  ClampToTransparent,
+};
+
+}

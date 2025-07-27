@@ -1,0 +1,9 @@
+$ local metadata = require "reflect.Metadata"
+
+#include "math/vec.h"
+
+@metadata.event(broadcast)
+struct WindowResized 
+{
+  vec2f size;
+};

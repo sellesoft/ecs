@@ -1,0 +1,58 @@
+$ require "common"
+
+@@lpp.import "game/shared/interaction/Interaction.sys.lh"
+
+@@lpp.import "game/shared/interaction/Interactable.comp.lh"
+@@lpp.import "game/shared/interaction/Interaction.events.lh"
+
+@@lpp.import "game/shared/Transform.comp.lh"
+
+@@lpp.import "game/shared/map/Map.sys.lh"
+
+@@lpp.import "game/shared/input/Input.events.lh"
+
+#include "input/Keys.h"
+
+@log.ger(sh.sys.interact, Info)
+
+#include "iro/Platform.h"
+
+/* ----------------------------------------------------------------------------
+ */
+b8 InteractionSys::update()
+{
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InteractionSys::onUsePrimary(UsePrimaryInputEvent& ev)
+{
+  if (ev.released)
+    return;
+
+  Layer* cursor_layer;
+  Tile*  cursor_tile;
+  if (!map->getTileAndLayerAtPos(&cursor_layer, &cursor_tile, ev.pos))
+    return;
+
+  for (auto& interactable : iterateComp<Interactable>())
+  {
+    auto* transform = tryComp<Transform>(interactable.owner);
+
+    const Layer& transform_layer = map->layers[transform->placement_layer];
+    vec2f interactable_pos =
+      vec2f(transform_layer.pos) +
+      transform->pos;
+
+    Layer* layer;
+    Tile* tile;
+    if (map->getTileAndLayerAtPos(&layer, &tile, interactable_pos))
+    {
+      // TODO(sushi) we need to properly choose the topmost item and
+      //             also hit test the visual size of the thing and yeah 
+      if (tile == cursor_tile)
+        raise(interactable.owner, Interact{});
+    }
+  }
+}

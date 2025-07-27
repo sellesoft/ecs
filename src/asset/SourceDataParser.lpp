@@ -1,0 +1,735 @@
+$ local cmn = require "common"
+
+@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+
+#include "iro/Logger.h"
+#include "iro/Platform.h"
+
+@cmn.defFileLogger(srcdata.parse, Info)
+
+/* ============================================================================
+ */
+struct Token
+{
+$$$
+  local tkinds =
+  {
+    "Invalid",
+
+    "Return",
+    "Identifier",
+    "String",
+    "Number",
+    "NumberHex",
+    "True",
+    "False",
+
+    "LBrace",
+    "RBrace",
+
+    "Comma",
+    "Equal",
+
+    "Colon",
+
+    "Eof",
+  }
+$$$
+
+  enum class Kind
+  {
+$ for _,v in ipairs(tkinds) do
+    $(v),
+$ end
+  };
+
+  Kind kind;
+
+  // When applicable. Strings are cached into the SourceDataFile.
+  String raw;
+
+  u64 line, column;
+
+  DefineNilTrait(Token, { Kind::Invalid }, x.kind == Kind::Invalid);
+};
+
+using TK = Token::Kind;
+
+String getTokenKindString(TK tk)
+{
+  switch (tk)
+  {
+$ for _,v in ipairs(tkinds) do
+  case TK::$(v): return "$(v)"_str;
+$ end
+  }
+  return "** invalid token kind **"_str;
+}
+
+/* ============================================================================
+ */
+struct Parser
+{
+  Token           curt    = nil;
+  Token           peek    = nil;
+  SourceDataFile* file    = nullptr;
+  String          in_name = nil;
+  Scanner         scanner = {};
+
+  b8 init(SourceDataFile* file, io::IO* in, String in_name)
+  {
+    this->file = file;
+    this->in_name = in_name;
+    
+    if (!scanner.init(in))
+      return ERROR("failed to init scanner\n");
+
+    return true;
+  }
+
+  void deinit()
+  {
+    scanner.deinit();
+  }
+
+  b8 parse();
+
+  b8 parseReturn();
+  b8 parseAuxData(Token tok);
+
+  // Parse data that may start with an identifier followed by an '='.
+  b8 parsePossiblyNamedData(SourceData* data);
+
+  // Same as above, but when the token has already been parsed.
+  b8 parsePossiblyNamedData(Token tok, SourceData* data);
+
+  // Parse data that may start with an identifier specifying a typename or 
+  // some aux data to derive from.
+  b8 parsePossiblyTypedOrDerivedData(SourceData* data);
+
+  // Similar to the above, but disambiguate using 'tok', which should be 
+  // either a ':' in the case of derivation or a '{' in the case of typed
+  // data.
+  b8 parseTypedOrDerivedData(Token id, Token tok, SourceData* data);
+
+  // Parses some object data that may be typed.
+  b8 parsePossiblyTypedData(SourceData* data);
+
+  // Parses some object data, eg. data wrapped in '{}'.
+  b8 parseObjectData(SourceData* data);
+
+  // Parses a value or untyped object data.
+  b8 parseValueOrUntypedObject(Token tok, SourceData* data);
+
+  Token nextToken(b8 peek = false);
+  Token peekToken() { return nextToken(true); }
+  Token consumePeek() 
+  {
+    assert(notnil(peek));
+    curt = peek;
+    peek = nil;
+    return curt;
+  }
+  void consumePeekIfNeeded()
+  {
+    if (notnil(peek))
+    {
+      curt = peek;
+      peek = nil;
+    }
+  }
+
+  template<typename... Args>
+  b8 errorAt(Token tok, Args... args);
+
+  u32 stage_depth = 0;
+
+  struct ScopedStage
+  {
+    Parser& parser;
+
+    const char* funcname;
+
+    ScopedStage(Parser& parser, const char* funcname)
+      : parser(parser), funcname(funcname)
+    {
+      onEnter(funcname);
+      parser.stage_depth += 1;
+    }
+
+    ~ScopedStage()
+    {
+      parser.stage_depth -= 1;
+      onLeave();
+    }
+
+    void onEnter(const char* funcname);
+    void onLeave();
+
+    template<typename... T>
+    void log(T... args);
+  };
+};
+
+/* ----------------------------------------------------------------------------
+ */
+b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name)
+{
+  Parser parser;
+
+  if (!parser.init(file, io, name))
+    return false;
+
+  if (!parser.parse())
+    return false;
+
+  parser.deinit();
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* parsePossiblyTypedSourceData(
+    SourceDataFile* file, 
+    io::IO* io,
+    String name)
+{
+  Parser parser;
+
+  if (!parser.init(file, io, name))
+    return nullptr;
+  defer { parser.deinit(); };
+
+  SourceData* result = file->allocateSourceData();
+
+  if (!parser.parsePossiblyTypedData(result))
+    return nullptr;
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* parsePossiblyTypedOrDerivedSourceData(
+    SourceDataFile* file,
+    io::IO* io,
+    String name)
+{
+  Parser parser;
+
+  if (!parser.init(file, io, name))
+    return nullptr;
+  defer { parser.deinit(); };
+
+  SourceData* result = file->allocateSourceData();
+
+  if (!parser.parsePossiblyTypedOrDerivedData(result))
+    return nullptr;
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Parser::ScopedStage::onEnter(const char* funcname)
+{
+  String preview = 
+    String::from(
+      parser.scanner.cache.ptr + parser.scanner.cache_offset, 
+      min<u64>(10, 
+        parser.scanner.cache.len - parser.scanner.cache_offset));
+
+  log("> ", color::green(funcname), ": '", 
+      io::SanitizeControlCharacters(preview), "' (",
+      parser.scanner.line, ':', parser.scanner.column, ")\n");
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Parser::ScopedStage::onLeave()
+{
+  log("< ", color::blue(funcname), '\n');
+}
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename... T>
+void Parser::ScopedStage::log(T... args)
+{
+  for (u32 i = 0; i < parser.stage_depth; ++i)
+    DEBUG(" ");
+  DEBUG(args...);
+}
+
+#define PARSER_STAGE \
+  ScopedStage stage(*this, __func__)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parse()
+{
+  PARSER_STAGE;
+  for (;;)
+  {
+    auto tok = nextToken();
+
+    switch (tok.kind)
+    {
+    case TK::Return:
+      if (!parseReturn())
+        return false;
+      return true;
+
+    case TK::Identifier:
+      if (!parseAuxData(tok))
+        return false;
+      break;
+
+    default:
+      return errorAt(tok, "expected auxillary data or return\n");
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parseAuxData(Token tok)
+{
+  PARSER_STAGE;
+  SourceData* data = file->addAuxData();
+
+  data->name = tok.raw;
+
+  tok = nextToken();
+
+  if (tok.kind != TK::Equal)
+    return errorAt(tok, "expected '=' after aux data name\n");
+
+  if (!parsePossiblyTypedOrDerivedData(data))
+    return false;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parseReturn()
+{
+  PARSER_STAGE;
+  SourceData* data = file->addReturnData();
+
+  if (!parsePossiblyTypedData(data))
+    return false;
+
+  auto tok = nextToken();
+  if (tok.kind != TK::Eof)
+    return errorAt(tok, "expected eof after return data\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parsePossiblyNamedData(SourceData* data)
+{
+  return parsePossiblyNamedData(nextToken(), data);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parsePossiblyNamedData(Token tok, SourceData* data)
+{
+  PARSER_STAGE;
+  switch (tok.kind)
+  {
+  case TK::Identifier:
+    {
+      // Peek the next token to see if its an assignment.
+      auto id = tok;
+      tok = peekToken();
+
+      switch (tok.kind)
+      {
+      case TK::Equal:
+        {
+          consumePeek();
+
+          // This is some named data.
+          data->name = id.raw;
+
+          stage.log("named data (", id.raw, ")\n");
+
+          if (!parsePossiblyTypedOrDerivedData(data))
+            return false;
+        }
+        break;
+
+      default:
+        // This is either a typename or some aux data to derive from.
+        stage.log("typename or aux data derivation\n");
+        if (!parseTypedOrDerivedData(id, tok, data))
+          return false;
+      }
+    }
+    break;
+
+  default:
+    stage.log("value or untyped object\n");
+    if (!parseValueOrUntypedObject(tok, data))
+      return false;
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parsePossiblyTypedOrDerivedData(SourceData* data)
+{
+  PARSER_STAGE;
+
+  auto tok = nextToken();
+
+  switch (tok.kind)
+  {
+  case TK::Identifier:
+    {
+      // Parse the next token and disambiguate.
+      auto id = tok;
+      tok = peekToken();
+
+      if (!parseTypedOrDerivedData(id, tok, data))
+        return false;
+    }
+    break;
+
+  default:
+    if (!parseValueOrUntypedObject(tok, data))
+      return false;
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parseTypedOrDerivedData(
+    Token id, 
+    Token tok, 
+    SourceData* data)
+{
+  PARSER_STAGE;
+
+  // Disambiguate whether this id is being used as a typename or aux data
+  // id to derive from.
+
+  switch (tok.kind)
+  {
+  case TK::Colon:
+    {
+      consumePeekIfNeeded();
+
+      SourceData* aux = file->findAuxData(id.raw);
+      if (aux == nullptr)
+        return errorAt(id, "no aux data named '", id.raw, "' to inherit");
+
+      if (aux->hasObjectData())
+        data->base = aux;
+      else
+        data->val = aux->val;
+
+        stage.log("aux data derivation (", id.raw, ")\n");
+
+      // Parse the following possibly typed data.
+      if (!parsePossiblyTypedData(data))
+        return false;
+    }
+    break;
+
+  case TK::LBrace:
+    {
+      consumePeekIfNeeded();
+
+      // The id is being used as a typename, so set type and parse the 
+      // following object.
+      data->type = id.raw;
+
+      if (!parseObjectData(data))
+        return false;
+    }
+    break;
+
+  default:
+    {
+      SourceData* aux = file->findAuxData(id.raw);
+      if (aux == nullptr)
+        return errorAt(id, 
+          "no aux data named '", id.raw, "'; did you mean to use '{' for "
+          "defining object data of some type?");
+
+      if (aux->hasObjectData())
+        data->base = aux;
+      else
+        data->val = aux->val;
+
+      stage.log("aux data assignment (", id.raw, ")\n");
+    }
+    break;
+  }
+  
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parsePossiblyTypedData(SourceData* data)
+{
+  PARSER_STAGE;
+  auto tok = nextToken();
+
+  if (tok.kind == TK::Identifier)
+  {
+    data->type = tok.raw;
+    tok = nextToken();
+
+    if (tok.kind != TK::LBrace)
+      return errorAt(tok, "expected object data after typename\n");
+  }
+  else if (tok.kind != TK::LBrace)
+    return errorAt(tok, "expected typename or object data\n");
+
+  return parseObjectData(data);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parseObjectData(SourceData* obj)
+{
+  PARSER_STAGE;
+  SourceData* first = nullptr;
+
+  obj->children.init();
+
+  for (;;)
+  {
+    auto tok = nextToken();
+    if (tok.kind == TK::RBrace)
+      break;
+
+    auto* data = file->allocateSourceData();
+
+    if (!parsePossiblyNamedData(tok, data))
+      return false;
+
+    if (first == nullptr)
+    {
+      first = data;
+    }
+    else
+    {
+      if (isnil(first->name) != isnil(data->name))
+        return errorAt(tok, "named and unnamed source data cannot be mixed in "
+                            "objects\n");
+    }
+
+    obj->children.push(data);
+
+    if (curt.kind != TK::Comma)
+    {
+      tok = nextToken();
+      if (tok.kind != TK::Comma)
+      {
+        if (tok.kind != TK::RBrace)
+          return errorAt(tok, "expected ',' or '}'\n");
+
+        stage.log("obj finished (encountered '}')\n");
+        break;
+      }
+    }
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Parser::parseValueOrUntypedObject(Token tok, SourceData* data)
+{
+  PARSER_STAGE;
+  switch (tok.kind)
+  {
+  case TK::LBrace:
+    if (!parseObjectData(data))
+      return false;
+    break;
+
+  case TK::Number:
+    data->val.kind = SourceData::Value::Kind::Number;
+    data->val.str = tok.raw;
+    break;
+
+  case TK::NumberHex:
+    data->val.kind = SourceData::Value::Kind::NumberHex;
+    data->val.str = tok.raw;
+    break;
+
+  case TK::String:
+    data->val.kind = SourceData::Value::Kind::String;
+    data->val.str = tok.raw;
+    break;
+
+  case TK::True:
+    data->val.kind = SourceData::Value::Kind::True;
+    break;
+
+  case TK::False:
+    data->val.kind = SourceData::Value::Kind::False;
+    break;
+
+  default:
+    return errorAt(tok, "expected a value or object\n");
+  }
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Token Parser::nextToken(b8 peek)
+{
+  PARSER_STAGE;
+  using TK = Token::Kind;
+
+  if (notnil(this->peek))
+  {
+    if (peek)
+      return this->peek;
+
+    return consumePeek();
+  }
+
+  Token out = {};
+  out.kind = TK::Invalid;
+  out.raw = nil;
+
+  scanner.skipWhitespaceAndComments();
+
+  out.line = scanner.line;
+  out.column = scanner.column;
+
+  if (scanner.eof())
+  {
+    out.kind = TK::Eof;
+  }
+  else if (scanner.atFirstIdentifierChar())
+  {
+    auto id = scanner.scanIdentifier();
+    if (id == "return"_str)
+    {
+      out.kind = TK::Return;
+    }
+    else if (id == "true"_str)
+    {
+      out.kind = TK::True;
+    }
+    else if (id == "false"_str)
+    {
+      out.kind = TK::False;
+    }
+    else if (scanner.at(':'))
+    {
+      scanner.advance();
+
+      io::SmallBuffer<255> fullid;
+      io::formatv(&fullid, id);
+
+      for (;;)
+      {
+        if (!scanner.at(':'))
+        {
+          errorAt(out, 
+            "expected a ':' after ':' for scope resolution operator\n");
+          return out;
+        }
+
+        scanner.advance();
+
+        auto part = scanner.scanIdentifier();
+        if (isnil(part))
+        {
+          errorAt(out, "expected an identifier after '::'\n");
+          return out;
+        }
+
+        io::formatv(&fullid, "::", part);
+
+        if (!scanner.at(':'))
+          break;
+
+        scanner.advance();
+      }
+
+      out.kind = TK::Identifier;
+      out.raw = fullid.asStr().allocateCopy(&file->string_cache);
+    }
+    else
+    {
+      out.kind = TK::Identifier;
+      out.raw = id.allocateCopy(&file->string_cache);
+    }
+  }
+  else if (scanner.atDigit() || scanner.at('-'))
+  {
+    out.raw = scanner.scanNumber().allocateCopy(&file->string_cache);
+    if (out.raw.startsWith("0x"_str))
+      out.kind = TK::NumberHex;
+    else
+      out.kind = TK::Number;
+  }
+  else if (scanner.at('"'))
+  {
+    out.kind = TK::String;
+    out.raw = scanner.scanString().allocateCopy(&file->string_cache);
+  }
+  else if (scanner.at('!'))
+  {
+    @dbgBreak;
+    scanner.advance();
+    return nextToken(peek);
+  }
+  else
+  {
+    switch (scanner.current())
+    {
+$$$
+local map =
+{
+  LBrace = "{",
+  RBrace = "}",
+  Comma = ",",
+  Equal = "=",
+  Colon = ":",
+}
+$$$
+$ for k,v in pairs(map) do
+    case '$(v)': out.kind = TK::$(k); scanner.advance(); break;
+$ end
+    }
+  }
+
+  stage.log("Token(", getTokenKindString(out.kind), ", ", out.raw, ")\n");
+
+  if (peek)
+    this->peek = out;
+  else
+    curt = out;
+
+  return out;
+}
+
+template<typename... Args>
+b8 Parser::errorAt(Token tok, Args... args)
+{
+  return ERROR(in_name,":",tok.line,":",tok.column,": ", args...);
+}

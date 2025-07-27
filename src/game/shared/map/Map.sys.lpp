@@ -1,0 +1,232 @@
+$ local cmn = require "common"
+
+@@lpp.import "game/shared/map/Map.sys.lh"
+@@lpp.import "game/shared/map/Map.events.lh"
+@@lpp.import "game/shared/map/Map.defs.lh"
+
+@@lpp.import "Engine.lh"
+
+@@lpp.import "asset/AssetMgr.lh"
+@@lpp.import "asset/SourceData.lh"
+
+@@lpp.import "game/shared/Transform.comp.lh"
+
+@@lpp.import "game/shared/entity/Entity.defs.lh"
+@@lpp.import "game/shared/entity/EntityLoader.lh"
+
+#include "iro/Logger.h"
+#include "math/util.h"
+#include "iro/Platform.h"
+
+@cmn.defFileLogger(game.map, Info)
+
+b8 debug_tile = false;
+vec2i debug_tile_pos;
+u32 debug_tile_layer_idx = 0;
+
+/* ============================================================================
+ */
+struct MapLoader
+{
+  struct QueuedEnt
+  {
+    const EntityDefRef* ref;
+    vec2f pos;
+    u32 layer;
+  };
+
+  SmallArray<QueuedEnt, 64> entities;
+
+  MapSys* map;
+  EntityMgr* entmgr;
+
+  static b8 load(MapSys& map, const MapDef& def, MapSys::LoadParams& params)
+  {
+    MapLoader loader;
+    loader.map = &map;
+    loader.entmgr = &params.entmgr;
+
+    return loader.loadMap(def);
+  }
+
+  b8 loadMap(const MapDef& def)
+  {
+    if (!map->layers.init())
+      return ERROR("failed to initialize map layers array\n");
+
+    map->layers.resize(def.layers.len);
+
+    for (u32 i = 0; i < def.layers.len; ++i)
+    {
+      const MapLayerDef* layer_def = def.layers.arr + i;
+      Layer* layer = map->layers.arr + i;
+
+      if (!loadLayer(layer, i, *layer_def))
+        return false;
+    }
+
+    // Load deferred entities. This is done so that systems that rely on 
+    // the positions of entities during their initialization can use the
+    // map properly.
+    for (auto& qent : entities)
+    {
+      if (isnil(entmgr->spawnEntity(**qent.ref, qent.pos, qent.layer)))
+        return false;
+    }
+
+    return true;
+  }
+
+  b8 loadLayer(Layer* layer, u32 idx, const MapLayerDef& def)
+  {
+    if (!layer->tiles.init())
+      return ERROR("failed to initialize layer tiles array (", idx, ")\n");
+
+    layer->pos = def.pos;
+    layer->size = def.size;
+    layer->tiles.resize(def.size.x * def.size.y);
+
+    if (layer->tiles.len() != def.tiles.len)
+      return ERROR("expected ", layer->tiles.len(), " tiles in layer ",
+                   idx, " but got ", def.tiles.len, "\n");
+
+    for (u32 i = 0; i < def.tiles.len; ++i)
+    {
+      const MapTileDef* tile_def = def.tiles.arr + i;
+      Tile* tile = layer->tiles.arr + i;
+
+      if (!loadTile(tile, layer->getTilePos(*tile), idx, *tile_def))
+        return false;
+    }
+
+    return true;
+  }
+
+  b8 loadTile(Tile* tile, vec2f pos, u32 layer_idx, const MapTileDef& def)
+  {
+    tile->kind = def.kind;
+
+    for (const EntityDefRef& ent : def.entities)
+    {
+      entities.push(
+      {
+        .ref = &ent,
+        .pos = pos,
+        .layer = layer_idx,
+      });
+    }
+
+    return true;
+  }
+};
+
+/* ----------------------------------------------------------------------------
+ */
+vec2f Layer::getTilePos(const Tile& tile) const
+{
+  u32 tile_idx = getTileIndex(tile);
+  return { f32(tile_idx % size.x), f32(tile_idx / size.x) };
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Tile* Layer::getTileAtPos(s32 x, s32 y)
+{ 
+  if (x < 0 || x >= size.x ||
+      y < 0 || y >= size.y)
+    return nullptr;
+
+  u32 tile_idx = x + size.x * y;
+  if (tile_idx < size.y * size.x)
+    return &tiles[tile_idx];
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 MapSys::init()
+{
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void MapSys::deinit()
+{
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 MapSys::load(const MapDef& def, LoadParams& params)
+{
+  // INFO("initializing map '",def.name,"'\n");
+  assert(isnil(layers));
+
+  raise(MapPreLoad{});
+
+  this->def = &def;
+
+  if (!MapLoader::load(*this, def, params))
+    return false;
+
+  raise(MapPostLoad{});
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Layer* MapSys::getLayerByIndex(u32 index)
+{
+  if (index > layers.len())
+  {
+    ERROR("attempt to get a Layer by out-of-bounds index (", index, " > ",
+          layers.len(), ")\n");
+    return nullptr;
+  }
+
+  return &layers[index];
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 MapSys::getTileAndLayerAtPos(
+    Layer** out_layer,
+    Tile**  out_tile,
+    vec2f   pos)
+{
+  for (s32 layer_idx = layers.len()-1; layer_idx >= 0; --layer_idx)
+  {
+    Layer* layer = &layers[layer_idx];
+    vec2f layer_pos = vec2f(layer->pos);
+    vec2f layer_size = vec2f(layer->size);
+    if (math::pointInRect<f32>(pos, layer_pos, layer_size))
+    {
+      for (s32 tile_idx = layer->tiles.len()-1; tile_idx >= 0; --tile_idx)
+      {
+        Tile* tile = &layer->tiles[tile_idx];
+        vec2f tile_pos = layer->getTilePos(*tile);
+
+        if (math::pointInRect<f32>(
+              pos,
+              layer_pos + tile_pos,
+              {1,1}))
+        {
+          if (out_layer)
+            *out_layer = layer;
+          if (out_tile)
+            *out_tile = tile;
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+vec2f MapSys::getTilePos(const Layer& layer, const Tile& tile) const
+{
+  return vec2f(layer.pos) + layer.getTilePos(tile);
+}

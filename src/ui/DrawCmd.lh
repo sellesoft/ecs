@@ -1,0 +1,49 @@
+$ if false then
+
+$ local cmn = require "common"
+$ local reflect = require "reflect.Reflector"
+
+#include "iro/Common.h"
+#include "iro/memory/Allocator.h"
+#include "iro/Pair.h"
+#include "math/vec.h"
+
+@lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/Texture.lh"
+@lpp.import "graphics/Framebuffer.lh"
+
+using namespace iro;
+
+namespace ui
+{
+
+struct UI;
+
+struct DrawCmd
+{
+  u32 vertex_offset = 0;
+  u32 index_offset = 0;
+
+  vec2i counts_reserved = {};
+  vec2i counts_used = {};
+
+  gfx::Texture tex = nil;
+
+  // Ignored when no component is in bounds of the screen.
+  vec4f scissor = {-1.f,-1.f,-1.f,-1.f};
+
+  void resetScissor() { scissor = {-1.f, -1.f, -1.f, -1.f}; }
+
+  Pair<s32, b8> findVertex(UI* ui);
+  Pair<s32, b8> findIndex(UI* ui);
+
+  void alloc(UI* ui, vec2i counts);
+  Pair<gfx::Vertex*, gfx::Index*> realloc(UI* ui, vec2i counts);
+  void remove(UI* ui);
+
+  Pair<gfx::Vertex*, gfx::Index*> getPtrs(UI* ui);
+};
+
+}
+
+$ end

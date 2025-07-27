@@ -1,0 +1,62 @@
+/* 
+ *  Manager for blobs of memory that need to be ref counted and garbage 
+ *  collected. 
+ *
+ *  Assets may be named, allowing us to reuse them as needed. But they can
+ *  also be anonymous. It is good practice, though, to try and consistently
+ *  name resources such that they may be reused!
+ */  
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/containers/AVL.h"
+#include "iro/containers/LinkedPool.h"
+#include "iro/fs/Path.h"
+#include "iro/memory/Allocator.h"
+#include "iro/memory/Bump.h"
+
+$ local cmn = require "common"
+$ local Ref = require "asset.Ref"
+
+@@lpp.import "Asset.lh"
+
+using namespace iro;
+
+typedef io::StaticBuffer<512> PathBuffer;
+
+/* ============================================================================
+ */
+struct AssetMgr
+{
+  typedef DLinkedPool<Asset> AssetPool;
+  typedef AVL<Asset, Asset::getHash> AssetMap;
+
+  AssetPool pool;
+  AssetMap map;
+
+  mem::Allocator* allocator;
+
+  b8 init(mem::Allocator* allocator);
+  void deinit();
+
+  // Allocates a block of memory as an Asset, returns a reference to it 
+  // and registers it with 'name'. The given size is allocated AFTER 
+  // the Asset structure.
+  //
+  // This will assert if an Asset with the given name already exists, as 
+  // these functions are expected to be called when we know that the 
+  // wanted Asset doesn't already exist!
+  Asset* allocateAsset(String name);
+
+  Asset* loadAssetFromDisk(String path);
+
+  void unloadAsset(Asset* asset);
+
+  // Attempts to find an asset from a given name and returns it.
+  Asset* findAsset(String name) const;
+
+  static b8 checkNeedsCompiled(String asset_path, String data_path);
+
+  String getAssetDir() const { return "assets"_str; }
+  String getDataDir() const { return "data"_str; }
+};

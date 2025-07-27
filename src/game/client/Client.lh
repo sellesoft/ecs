@@ -1,0 +1,77 @@
+/*
+ *  Functions for creating a Client, which contains the client-side systems
+ *  and memory needed when the game is running as a client.
+ *
+ *  It's probably more appropriate for this to be an engine level interface
+ *  as well, that simply hooks into the game (as I would like this project
+ *  to try and keep the Engine agnostic of the Game running in it for
+ *  possible reuse in future projects), but for now I'm going to keep it
+ *  under game/ to simplify implementing it, as it avoids needing to design
+ *  the Client and Server to be modular in what they run.
+ */
+
+$ require "common"
+
+@@lpp.import "asset/SourceDataEditor.lh"
+@@lpp.import "game/client/Console.lh"
+@@lpp.import "game/client/editor/Editor.lh"
+@@lpp.import "game/client/GameSim.lh"
+@@lpp.import "game/client/NetMgr.lh"
+@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "input/InputMgr.lh"
+@@lpp.import "ui/TextEdit.lh"
+@@lpp.import "ui/UI.lh"
+@@lpp.import "window/Window.lh"
+@@lpp.import "graphics/RenderTarget.lh"
+
+#include "iro/time/Time.h"
+
+struct AssetLoader;
+
+/* ============================================================================
+ */
+struct Client
+{
+  Engine* engine;
+
+  cl::Console console;
+  InputMgr input;
+  cl::NetMgr netmgr;
+  Window window;
+  gfx::Renderer renderer;
+  ui::UI ui;
+  cl::GameSim sim;
+  cl::Editor editor;
+
+  gfx::Texture white_texture;
+
+  b8 editor_active = false;
+
+  b8 init(Engine* engine);
+  void deinit();
+
+  struct UpdateResult
+  {
+    // The Client has been put in a situation where it needs deinitialized 
+    // and no more calls to update() should occur.
+    b8 should_deinit = false;
+
+    // The simulation was updated this frame.
+    b8 sim_updated = false;
+
+    // The Client rendered this frame.
+    b8 rendered = false;
+  };
+
+  UpdateResult update();
+
+  b8 compileRequiredAssets(AssetMgr& assetmgr);
+
+  b8 wantHotReload();
+
+  b8 connectToServer(net::Address address);
+
+  void disconnectFromServer();
+
+  AssetLoader getAssetLoader();
+};

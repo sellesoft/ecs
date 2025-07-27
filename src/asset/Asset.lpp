@@ -1,0 +1,147 @@
+$ local cmn = require "common"
+$ local ast = require "reflect.AST"
+
+@log.ger(asset, Info)
+
+$$$
+local importer = require "reflect.Importer"
+{
+  patterns =
+  {
+    "src/**/*.defs.lh",
+    "src/**/*.comp.lh",
+  },
+}
+$$$
+@importer:get
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/AssetMgr.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "asset/SourceData.lh"
+
+#include "iro/fs/Path.h"
+#include "iro/fs/File.h"
+#include "iro/Logger.h"
+
+using namespace fs;
+
+/* ----------------------------------------------------------------------------
+ */
+static String resolveExpectedType(String s)
+{
+  switch (s.hash())
+  {
+$ importer:eachDecl(function(name, decl)
+$   if decl:is(ast.Struct) then
+$     local base = decl.bases[1]
+$     if base and base:is(ast.TemplateSpecialization) and 
+$        base.specialized_name == "TypedSourceAssetRef" 
+$     then
+  case "$(importer.removeTag(decl.name))"_hashed:
+$       local name = importer.removeTag(base.template_args[1].name)
+    return "$(name)"_str;
+$     end
+$   end
+$ end)
+  }
+
+  return s;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 SourceDataAssetRef::load(const RefLoadParams& params)
+{
+  if (isnil(name))
+    return true;
+
+  PathBuffer src_path_buffer;
+
+  String actual_type = resolveExpectedType(params.type);
+  String source_type = rtr::getMetadataValue(params.type, "source_types"_str);
+
+  // TODO(sushi) this is fragile. Really need to redo a lot of the asset 
+  //             loading system. We should take in the name and type of an 
+  //             asset separately (where the type is optional) because some 
+  //             assets (such as shader source data) can be appending the 
+  //             asset type to a name containing an extension.
+  //             eg. assets/shaders/UI.vert
+  //             being the asset name and its type being 'shader', in which
+  //             case we want to load the asset 
+  //             assets/shaders/UI.vert.shader
+  if (notnil(source_type) && !name.endsWith(source_type))
+    io::formatv(&src_path_buffer, name, '.', source_type);
+  else
+    io::format(&src_path_buffer, name);
+
+  String src_path = src_path_buffer.asStr();
+
+  @log.debug("loading asset '", src_path, "'\n");
+
+  if (params.sfile_reg != nullptr)
+  {
+    CompiledData::CompileParams compile_params = 
+    {
+      .name = src_path,
+      .type = actual_type,
+      .assetmgr = params.assetmgr,
+      .sfile_reg = *params.sfile_reg,
+    };
+
+    if (!CompiledData::compile(compile_params))
+      return false;
+  }
+
+  auto compiled_data = 
+    CompiledData::load(src_path, actual_type, params.assetmgr, &asset);
+  if (compiled_data == nullptr)
+    return ERROR("failed to load data from '", src_path, "'\n");
+
+  if (params.recursive)
+  {
+    CompiledData::Refs refs;
+    compiled_data->getRefs(&refs);
+
+    for (auto& ref : refs)
+    {
+      RefLoadParams sub_params = params;
+      sub_params.type = ref.type;
+
+      loadRef(ref.ptr, sub_params);
+    }
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 AssetRef::load(const RefLoadParams& params)
+{
+  if (isnil(name))
+    return ERROR(
+      "TypedAssetRef::load called on a reference that has no name\n");
+
+  if (!Path::hasExtension(name))
+    return ERROR("AssetRef::load called on a reference whose name has "
+                 "no extension\n");
+  
+  asset = params.assetmgr.loadAssetFromDisk(name);
+  if (asset == nullptr)
+    return ERROR("failed to load asset '", name, "' from disk\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 AssetRef::pack(const SourceData& data, mem::Allocator* allocator)
+{
+  if (!data.hasStringValue())
+    return ERROR("expected a string value for AssetRef\n");
+
+  name = data.val.str.allocateCopy(allocator);
+
+  return true;
+}

@@ -1,0 +1,95 @@
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "asset/Ref.lh"
+@@lpp.import "asset/CompiledDataInterfaces.lh"
+
+#include "iro/Unicode.h"
+
+using namespace iro;
+
+struct SourceData;
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+@metadata.ref
+struct ResourceRef
+{
+  String name = {};
+
+  @metadata.hidden
+  void* resource;
+
+  IRO_FORCE_INLINE
+  b8 isValid() const
+  {
+    return resource != nullptr;
+  }
+
+  void compiledData_compile(IDataCompiler* interface) const
+  {
+    interface->writeString(name);
+    interface->writeData(&resource);
+  }
+
+  void compiledData_fixPointers(IFixPointers* interface)
+  {
+    interface->fixString(&name);
+  }
+
+  b8 pack(const SourceData& data, mem::Allocator* allocator);
+};
+
+/* ============================================================================
+ */
+template<typename TResource>
+struct TypedResourceRef : ResourceRef
+{
+  TResource* operator->()
+  {
+    assert(isValid());
+    return (TResource*)resource;
+  }
+
+  const TResource* operator->() const
+  {
+    assert(isValid());
+    return (TResource*)resource;
+  }
+
+  TResource& operator*()
+  {
+    assert(isValid());
+    return *(TResource*)resource;
+  }
+
+  const TResource& operator*() const
+  {
+    assert(isValid());
+    return *(TResource*)resource;
+  }
+};
+
+struct CompiledTexture;
+struct CompiledShader;
+struct Font;
+
+struct TextureRef : TypedResourceRef<CompiledTexture> 
+{
+  b8 load(const RefLoadParams& params);
+};
+
+struct ShaderRef : TypedResourceRef<CompiledShader> 
+{
+  b8 load(const RefLoadParams& params);
+};
+
+struct FontRef : TypedResourceRef<Font> 
+{
+  b8 load(const RefLoadParams& params);
+};
+
+}

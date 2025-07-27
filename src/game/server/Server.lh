@@ -1,0 +1,54 @@
+/*
+ *  Functions for creating a Server, which contains the server-side systems
+ *  and memory needed when the game is running as a server.
+ */
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/io/IO.h"
+
+struct Engine;
+struct Server;
+
+namespace sv
+{
+
+/* ============================================================================
+ */
+static constexpr u64 MAX_PASSWORD_LENGTH = 64;
+
+typedef iro::io::StaticBuffer<MAX_PASSWORD_LENGTH-1> PasswordBuffer;
+
+/* ============================================================================
+ */
+enum struct ServerPublicity : u8
+{
+  Offline,
+  Friend,
+  Password,
+  Public,
+};
+
+/* ============================================================================
+ */
+struct CreateParams
+{
+  Engine& engine;
+  u64 global_allocation_size;
+  u64 match_allocation_size;
+  u64 tick_allocation_size;
+  s64 target_tickrate_ms;
+  ServerPublicity publicity;
+  u16 max_sessions;
+  PasswordBuffer password;
+};
+
+/* ----------------------------------------------------------------------------
+ */
+void* create(CreateParams& params);
+
+/* ----------------------------------------------------------------------------
+ */
+void destroy(void* server_thread);
+
+} // namespace sv

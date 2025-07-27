@@ -1,0 +1,37 @@
+/*
+ *  Parser for source data.
+ */
+
+$ local cmn = require "common"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+#include "iro/memory/Allocator.h"
+#include "iro/io/IO.h"
+#include "iro/Scanner.h"
+
+using namespace iro;
+
+@@lpp.import "asset/SourceData.lh"
+
+using namespace iro;
+
+struct SourceDataFile;
+
+/* ----------------------------------------------------------------------------
+ */
+b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name);
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* parsePossiblyTypedSourceData(
+  SourceDataFile* file, 
+  io::IO* io, 
+  String name);
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* parsePossiblyTypedOrDerivedSourceData(
+  SourceDataFile* file,
+  io::IO* io,
+  String name);

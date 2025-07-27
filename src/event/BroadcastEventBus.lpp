@@ -1,0 +1,79 @@
+$ local cmn = require "common"
+$ local event = require "event.Event"
+$ local beb = require "event.BroadcastEventBus"
+$ local glob = require "Glob"
+$ local buffer = require "string.buffer"
+$ local ast = require "reflect.AST"
+
+$$$
+local importer = require "reflect.Importer"
+{
+  patterns = { "src/**/*.events.lh" },
+
+  filter = function(p, decl)
+    if decl.metadata.event then
+      return true
+    end
+  end,
+}
+$$$
+@@importer:get
+
+#include "event/BroadcastEventBus.h"
+
+$ local TEvent = importer.p.decls.map["struct Event"]
+$ local TBroadcastEvent = importer.p.decls.map["struct BroadcastEvent"]
+
+$ local function eachEvent(f)
+$   importer:eachDecl(function(name, decl)
+$     if decl.metadata.event == "broadcast" then
+$       f(name, decl)
+$     end
+$   end)
+$ end
+
+struct BroadcastEventBusData
+{
+$ eachEvent(function(name, decl)
+  struct $(name)Subscriber
+  {
+    void* subscriber;
+    void (*callback)(void*, $(name)& event);
+  };
+  Pool<$(name)Subscriber> $(name)Subscriber_pool;
+  SList<$(name)Subscriber> $(name)Subscriber_list;
+$ end)
+};
+
+$ eachEvent(function(name, decl)
+template<>
+void BroadcastEventBus::subscribeTo<$(name)>(
+  void* subscriber, 
+  void (*callback)(void*, $(name)&))
+{
+  auto* sub = data->$(name)Subscriber_pool.add();
+  sub->subscriber = subscriber;
+  sub->callback = callback;
+  data->$(name)Subscriber_list.push(sub);
+}
+
+template<>
+void BroadcastEventBus::raise<$(name)>($(name)& event) const
+{
+  for (auto& sub : data->$(name)Subscriber_list)
+  {
+    sub.callback(sub.subscriber, event);
+  }
+}
+$ end)
+
+b8 BroadcastEventBus::init()
+{
+  data = (BroadcastEventBusData*)mem::stl_allocator.allocate(
+    sizeof(BroadcastEventBusData));
+$ eachEvent(function(name, decl)
+  if (!data->$(name)Subscriber_list.init()) return false;
+  if (!data->$(name)Subscriber_pool.init()) return false;
+$ end)
+  return true;
+}

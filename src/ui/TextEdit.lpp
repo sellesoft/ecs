@@ -1,0 +1,455 @@
+$ require "common"
+
+@@lpp.import "ui/TextEdit.lh"
+
+#include "iro/Unicode.h"
+
+#include "ctype.h"
+#include "math.h"
+
+using namespace utf8;
+
+namespace ui
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void TextEdit::setBuffer(Buffer buffer)
+{
+  assert(buffer.len && buffer.ptr);
+
+  // Ensure cursor has a valid position for new buffer.
+  if (*buffer.len < cursor.pos)
+    cursor.pos = *buffer.len;
+
+  this->buffer = buffer;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveRight(b8 select)
+{
+  if (cursorAtEnd())
+    return 0;
+
+  Codepoint codepoint = getCodepointAtCursor();
+
+  cursor.pos += codepoint.advance;
+
+  if (select)
+    cursor.len -= codepoint.advance;
+  else
+    cursor.len = 0;
+
+  return codepoint.advance;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveRightWord(b8 select)
+{
+  if (cursorAtEnd())
+    return 0;
+
+  s32 start = cursor.pos;
+  u32 punc_codepoint = 0;
+
+  Codepoint cp = getCodepointAtCursor();
+
+  if (!isalnum(cp.codepoint))
+    punc_codepoint = cp.codepoint;
+
+  for (;;)
+  {
+    if (0 == cursorMoveRight(select) || cursorAtEnd())
+      break;
+
+    cp = getCodepointAtCursor();
+
+    if (punc_codepoint != 0)
+    {
+      if (cp.codepoint != punc_codepoint)
+        break;
+    }
+    else if (!isWordCodepoint(cp.codepoint))
+      break;
+  }
+
+  return abs(start - cursor.pos);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveRightWordPart(b8 select)
+{
+  if (cursorAtEnd())
+    return 0;
+
+  s32 start = cursor.pos;
+
+  Codepoint cp = getCodepointAtCursor();
+
+  if (!isalnum(cp.codepoint))
+  {
+    u32 punc_codepoint = cp.codepoint;
+
+    for (;;)
+    {
+      if (0 == cursorMoveRight(select) || cursorAtEnd())
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (cp.codepoint != punc_codepoint)
+        break;
+    }
+  }
+  else if (isupper(cp.codepoint))
+  {
+    for (;;)
+    {
+      if (0 == cursorMoveRight(select) || cursorAtEnd())
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (!isupper(cp.codepoint) || !isWordCodepoint(cp.codepoint)) 
+        break;
+    }
+  }
+  else
+  {
+    for (;;)
+    {
+      if (0 == cursorMoveRight(select) || cursorAtEnd())
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (isupper(cp.codepoint) || !isWordCodepoint(cp.codepoint))
+        break;
+    }
+  }
+
+  return abs(start - cursor.pos);    
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveLeft(b8 select)
+{
+  if (cursorAtStart())
+    return 0;
+
+  s32 start = cursor.pos;
+
+  while (!cursorAtStart() && isContinuationByte(*(buffer.ptr + cursor.pos)))
+    cursor.pos -= 1;
+
+  cursor.pos -= 1;
+
+  u32 delta = abs(start - cursor.pos);
+
+  if (select)
+    cursor.len += delta;
+  else
+    cursor.len = 0;
+
+  return delta;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveLeftWord(b8 select)
+{
+  if (cursorAtStart())
+    return 0;
+
+  s32 start = cursor.pos;
+
+  cursorMoveLeft(select);
+
+  Codepoint cp = getCodepointAtCursor();
+
+  if (!isalnum(cp.codepoint))
+  {
+    u32 punc_codepoint = cp.codepoint;
+
+    for (;;)
+    {
+      if (0 == cursorMoveLeft(select))
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (cp.codepoint != punc_codepoint)
+        break;
+    }
+  }
+  else
+  {
+    for (;;)
+    {
+      if (0 == cursorMoveLeft(select))
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (!isWordCodepoint(cp.codepoint))
+        break;
+    }
+  }
+
+  return abs(start - cursor.pos);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveLeftWordPart(b8 select)
+{
+  if (cursorAtStart())
+    return 0;
+
+  s32 start = cursor.pos;
+
+  cursorMoveLeft(select);
+
+  Codepoint cp = getCodepointAtCursor();
+
+  if (!isalnum(cp.codepoint))
+  {
+    u32 punc_codepoint = cp.codepoint;
+
+    for (;;)
+    {
+      if (0 == cursorMoveLeft(select))
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (cp.codepoint != punc_codepoint)
+        break;
+    }
+  }
+  else if (isupper(cp.codepoint))
+  {
+    for (;;)
+    {
+      if (0 == cursorMoveLeft(select))
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (!isupper(cp.codepoint) || !isWordCodepoint(cp.codepoint)) 
+        break;
+    }
+  }
+  else
+  {
+    for (;;)
+    {
+      if (0 == cursorMoveLeft(select))
+        break;
+
+      cp = getCodepointAtCursor();
+
+      if (isupper(cp.codepoint) || !isWordCodepoint(cp.codepoint))
+        break;
+    }
+  }
+
+  return abs(start - cursor.pos);    
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveToStart(b8 select)
+{
+  u32 dist = cursor.pos;
+
+  if (select)
+    cursor.len = dist;
+
+  cursor.pos = 0;
+
+  return dist;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::cursorMoveToEnd(b8 select)
+{
+  u32 dist = *buffer.len - cursor.len;
+
+  if (select)
+    cursor.len = -dist;
+
+  cursor.pos = *buffer.len;
+
+  return dist;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteSelection()
+{
+  if (cursor.len == 0)
+    return 0;
+
+  if (cursor.len < 0)
+  {
+    cursor.pos += cursor.len;
+    cursor.len = -cursor.len;
+  }
+
+  u8* selection_start = buffer.ptr + cursor.pos;
+  u8* selection_end   = selection_start + cursor.len;
+  u32 tail_len = (buffer.ptr + *buffer.len) - selection_end;
+
+  mem::move(selection_start, selection_end, tail_len);
+
+  *buffer.len = cursor.pos + tail_len;
+
+  u32 delta = cursor.len;
+  cursor.len = 0;
+  return delta;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteRight()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtEnd())
+    return 0;
+
+  // Move the cursor right with selection then delete it.
+  // Probably inefficient but idk this isn't happening constantly so 
+  // whatever.
+  cursorMoveRight(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteRightWord()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtEnd())
+    return 0;
+
+  cursorMoveRightWord(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteRightWordPart()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtEnd())
+    return 0;
+
+  cursorMoveRightWordPart(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteLeft()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtStart())
+    return 0;
+
+  cursorMoveLeft(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteLeftWord()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtStart())
+    return 0;
+
+  cursorMoveLeftWord(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::deleteLeftWordPart()
+{
+  if (cursor.len != 0)
+    return deleteSelection();
+
+  if (cursorAtStart())
+    return 0;
+
+  cursorMoveLeftWordPart(true);
+  return deleteSelection();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u32 TextEdit::insertString(String str)
+{
+  s32 initial_len = *buffer.len;
+  if (cursor.len != 0)
+    deleteSelection();
+
+  u32 space_needed = *buffer.len + str.len;
+
+  // If the current buffer does not have enough space to place this text,
+  // just report that we didn't insert anything.
+  if (space_needed > buffer.space)
+    return 0;
+
+  u8* src = buffer.ptr + cursor.pos;
+  u8* dst = src + str.len;
+  u32 move_len = (buffer.ptr + *buffer.len) - src;
+
+  mem::move(dst, src, move_len);
+  mem::copy(src, str.ptr, str.len);
+
+  cursor.pos += str.len;
+  *buffer.len += str.len;
+
+  return (u32)abs(initial_len - (s32)*buffer.len);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void TextEdit::clear()
+{
+  *buffer.len = 0;
+  cursor.pos = cursor.len = 0;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+utf8::Codepoint TextEdit::getCodepointAtCursor()
+{
+  return decodeCharacter(buffer.ptr + cursor.pos, *buffer.len - cursor.pos);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 TextEdit::isWordCodepoint(u32 c)
+{
+  return c == '_' || isalnum(c);
+}
+
+}

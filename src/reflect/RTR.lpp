@@ -1,0 +1,114 @@
+$ local cmn = require "common"
+$ local ast = require "reflect.AST"
+
+$$$
+local importer = require "reflect.Importer"
+{
+  patterns = { "src/**/*.lh", },
+  excludes = { "src/graphics/Vulkan.lh" },
+}
+$$$
+
+@importer:get
+
+@@lpp.import "reflect/RTR.lh"
+
+$ local function eachDecl(f)
+$   importer:eachDecl(function(name, decl)
+$     if decl.is_anonymous then return end
+$     if decl.has_unhandled_arg_kind then return end
+$     f(name, decl)
+$   end)
+$ end
+
+namespace rtr
+{
+
+$ local decls_with_metadata = {}
+$ eachDecl(function(name, decl)
+$   local has_metadata = false
+$   for _ in pairs(decl.metadata) do
+$     has_metadata = true
+$     decls_with_metadata[name] = true
+$     break
+$   end
+$   if decl:is(ast.TypedefDecl) then return end
+
+/* ----------------------------------------------------------------------------
+ */
+template<>
+String getTypename<$(name)>()
+{
+  return "$(name)"_str;
+}
+
+$ if has_metadata then
+/* ----------------------------------------------------------------------------
+ */
+template<>
+String getMetadataValue<$(name)>(String name)
+{
+  switch (name.hash())
+  {
+$ for k,v in pairs(decl.metadata) do
+  case "$(k)"_hashed:
+    return "$(v)"_str;
+$ end
+  }
+  return nil;
+}
+$ end
+
+$ if decl:is(ast.Enum) then
+/* ----------------------------------------------------------------------------
+ */
+template<>
+String getEnumElementName($(name) x)
+{
+$ local placed_values = {}
+  switch (x)
+  {
+$ for elem in decl.elems:each() do
+$   if not placed_values[elem.value] then
+$     placed_values[elem.value] = true
+  case $(name)::$(elem.name):
+    return "$(elem.name)"_str;
+$   end
+$ end
+  }
+
+  return "** Invalid value for enum $(name) **"_str;
+}
+
+$ end
+
+$ end)
+
+/* ----------------------------------------------------------------------------
+ */
+String getMetadataValue(String type, String name)
+{
+  switch (type.hash())
+  {
+$ eachDecl(function(name, decl)
+$   if decls_with_metadata[name] then
+  case "$(name)"_hashed:
+$     if decl:is(ast.TypedefDecl) then
+    switch (name.hash())
+    {
+$       for k,v in pairs(decl.metadata) do
+    case "$(k)"_hashed:
+      return "$(v)"_str;
+$       end
+    }
+    break;
+$     else
+    return getMetadataValue<$(name)>(name);
+$     end
+$   end
+$ end)
+  }
+  return nil;
+}
+
+}

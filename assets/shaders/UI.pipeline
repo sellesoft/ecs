@@ -1,0 +1,9 @@
+return gfx::PipelineDef
+{
+  name = "UI",
+
+  vertex_shader = "assets/shaders/UI.vert",
+  fragment_shader = "assets/shaders/UI.frag",
+
+  push_constant_size = 64,
+}

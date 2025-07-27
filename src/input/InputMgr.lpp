@@ -1,0 +1,94 @@
+$ local cmn = require "common"
+
+@lpp.import "Engine.lh"
+@lpp.import "input/InputMgr.lh"
+
+#include "iro/Logger.h"
+
+@log.ger(inputmgr, Info)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 InputMgr::init()
+{
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::deinit()
+{
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onKeyPress(Key key)
+{
+  real_state.keys_pressed.set(key);
+  real_state.keys_down.set(key);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onKeyRelease(Key key)
+{
+  real_state.keys_released.set(key);
+  real_state.keys_down.unset(key);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onMButtonPress(MouseButton mbutton)
+{
+  real_state.mouse_pressed.set(mbutton);
+  real_state.mouse_down.set(mbutton);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onMButtonRelease(MouseButton mbutton)
+{
+  real_state.mouse_released.set(mbutton);
+  real_state.mouse_down.unset(mbutton);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onCursorMove(vec2f new_pos)
+{
+  real_state.cursor_delta = new_pos - real_state.cursor_pos;
+  real_state.cursor_pos = new_pos;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onCharInput(String chars)
+{
+  s32 can_place = 
+    min<s32>(chars.len, InputState::CharsLen - real_state.char_count);
+  if (can_place)
+  {
+    mem::copy(
+      real_state.chars + real_state.char_count, 
+      chars.ptr, 
+      can_place);
+
+    real_state.char_count += can_place;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void InputMgr::onAddScroll(f32 scroll)
+{
+  real_state.scroll += scroll;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 InputMgr::update()
+{
+  real_state.clear();
+  return true;  
+}

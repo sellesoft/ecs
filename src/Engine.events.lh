@@ -1,0 +1,9 @@
+$ local metadata = require "reflect.Metadata"
+
+@metadata.event(broadcast)
+struct PreReload { };
+
+@metadata.event(broadcast)
+struct PostReload { };
+
+

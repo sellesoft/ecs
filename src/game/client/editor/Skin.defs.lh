@@ -1,0 +1,20 @@
+$ require "common"
+$ local m = require "reflect.Metadata"
+
+@@lpp.import "asset/Asset.lh"
+@@lpp.import "ui/Skin.defs.lh"
+
+/* ============================================================================
+ */
+@m.def
+struct EditorSkinDef
+{
+  Color bg_color;
+  Color tool_panel_bg_color;
+
+  ui::ButtonSkin button;
+  ui::DropDownSkin dropdown;
+  ui::ButtonSkin dropdown_option;
+};
+
+struct EditorSkinDefRef : TypedSourceAssetRef<EditorSkinDef> {};

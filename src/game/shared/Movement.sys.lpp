@@ -1,0 +1,58 @@
+$ local cmn = require "common"
+
+#include "iro/Logger.h"
+
+using namespace iro;
+
+@cmn.defFileLogger(movement, Info)
+
+@@lpp.import "game/shared/Movement.sys.lh"
+@@lpp.import "game/shared/Movement.comp.lh"
+@@lpp.import "game/shared/Transform.comp.lh"
+
+/* ----------------------------------------------------------------------------
+ */
+b8 MovementSys::update()
+{
+  for (Movement& movement : iterateComp<Movement>())
+  {
+    if (auto* transform = tryComp<Transform>(movement.owner))
+    {
+      vec2f input = {};
+
+      if (movement.held_dirs.test(Dir::Left))
+        input.x -= 1.f;
+      if (movement.held_dirs.test(Dir::Right))
+        input.x += 1.f;
+      if (movement.held_dirs.test(Dir::Up))
+        input.y += 1.f;
+      if (movement.held_dirs.test(Dir::Down))
+        input.y -= 1.f;
+
+      transform->pos += movement.speed * input.normalized();
+    }
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void MovementSys::onMoveInput(MoveInputEvent& ev)
+{
+  auto* movement = tryComp<Movement>(ev.entity);
+  if (movement == nullptr)
+    return;
+
+$ local function testDir(dir)
+  if (ev.input.test(MoveInput::$(dir)Pressed))
+    movement->held_dirs.set(Dir::$(dir));
+  else if (ev.input.test(MoveInput::$(dir)Released))
+    movement->held_dirs.unset(Dir::$(dir));
+$ end
+
+  @testDir(Left)
+  @testDir(Right)
+  @testDir(Up)
+  @testDir(Down)
+}

@@ -1,0 +1,57 @@
+$ if false then
+
+$ require "common"
+$ local ui = require "ui.UI"
+
+@@lpp.import "game/client/editor/MenuBar.lh"
+
+namespace ui
+{
+
+/* ----------------------------------------------------------------------------
+ */
+EditorMenuBar* EditorMenuBar::create(UI& ui, cl::Editor* editor)
+{
+  auto* menubar = ui.allocateAndInitItem<EditorMenuBar>("editor.menubar"_str);
+  if (menubar == nullptr)
+    return nullptr;
+
+  menubar->editor = editor;
+
+  menubar->layout.sizing = ItemLayout::Sizing::PercentX;
+  menubar->size = {100.f, 20.f};
+
+  return menubar;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EditorMenuBar::update(ItemUpdateContext& ctx)
+{
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EditorMenuBar::destroy()
+{
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EditorMenuBar::evaluate(UI& ui)
+{
+  
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EditorMenuBar::reportDrawCmds(UI& ui, DrawCmdLists& lists)
+{
+  
+}
+
+}
+
+$ end

@@ -1,0 +1,132 @@
+/*
+ *  Definition of parameters for styling ui Items.
+ *
+ *  This can be thought of as the CSS of the ui system.
+ */
+
+$ if false then
+
+$ local cmn = require "common"
+
+$ local ctx = cmn.reflect.ctx
+$ local List = require "List"
+$ local buffer = require "string.buffer"
+$ local ui = require "ui.UI"
+$ local Style = require "ui.Style"
+
+#include "math/vec.h"
+#include "Color.h"
+
+#include "iro/Flags.h"
+#include "iro/memory/Memory.h"
+#include "iro/containers/Pool.h"
+#include "iro/containers/AVL.h"
+
+using namespace iro;
+
+namespace ui
+{
+
+struct Item;
+
+$$$
+
+-- * --------------------------------------------------------------------------
+
+local placePropKindEnums = function()
+  Style.prop_kinds:each(function(pk)
+$$$
+    $(pk.kindname),
+$$$
+  end)
+end
+
+-- * --------------------------------------------------------------------------
+
+local placePropKindUnionMembers = function()
+  Style.prop_kinds:each(function(pk)
+$$$
+    $(pk.typename) $(pk.unionname);
+$$$
+  end)
+end
+
+$$$
+
+/* ============================================================================
+ */
+struct StyleMap
+{
+  struct Elem
+  {
+    enum class Kind
+    {
+      Invalid,
+    @placePropKindEnums
+      Inherit,
+    };
+
+    Kind kind;
+
+    union
+    {
+    @placePropKindUnionMembers
+    } value;
+
+    u64 hash;
+    String name;
+
+    Elem() : hash(0), name(), kind(Kind::Invalid), value(0) {}
+  };
+
+  typedef AVL<Elem, [](const Elem* e) { return e->hash; }> ElemMap;
+  typedef Pool<Elem> ElemPool;
+
+  ElemMap map;
+  ElemPool pool;
+
+  b8   init();
+  void deinit();
+
+  // Optionally passed an item whose parents we search for properties
+  // when this property is set as Inherit.
+  template<typename T>
+  T getAs(String name, T def = {}, Item* item = nullptr);
+
+  // Optionally passed an item to set dirty after set is used.
+  template<typename T>
+  void setAs(String name, T val, Item* item = nullptr);
+
+  template<typename T>
+  Elem* find(u64 id);
+
+  // Variants for compile time hashed strings, which should be the most 
+  // likely case.
+
+  template<typename T>
+  T getAs(u64 id, T def = {}, Item* item = nullptr);
+
+  // Optionally passed an item to set dirty after set is used.
+  template<typename T>
+  void setAs(u64 id, T val, Item* item = nullptr);
+
+  // Sets the given property as inherited.
+  template<typename T>
+  void setAsInherited(u64 id, Item* item = nullptr);
+
+  // Used in cases where we know that a property of an item may initially 
+  // be set to inherit. This avoids needing to create an Elem marked as 
+  // Inherit when a Schema defines the default value of a property as 
+  // inherited. If an item is not available to search parents for the
+  // property then the default value is given.
+  template<typename T>
+  T getOrInheritAs(u64 id, T def = {}, Item* item = nullptr);
+
+  template<typename T>
+  b8 findInheritedElem(Elem** out, u64 id, Item* item);
+};
+
+
+}
+
+$ end

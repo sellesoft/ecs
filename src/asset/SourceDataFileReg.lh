@@ -1,0 +1,53 @@
+/*
+ *  Registry of SourceDataFiles.
+ */
+
+$ local cmn = require "common"
+
+#include "iro/Common.h"
+#include "iro/fs/Path.h"
+#include "iro/containers/Pool.h"
+#include "iro/containers/AVL.h"
+
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/SourceDataFileHandle.lh"
+
+/* ============================================================================
+ */
+struct SourceDataFileReg
+{
+  struct SourceDataFileSlot
+  {
+    SourceDataFileHeader header;
+    SourceDataFile file;
+
+    fs::Path path;
+    u64 path_hash;
+
+    static u64 getHash(const SourceDataFileSlot* x) { return x->path_hash; }
+  };
+
+  typedef Pool<SourceDataFileSlot> SourceDataFilePool;
+
+  typedef AVL<SourceDataFileSlot, SourceDataFileSlot::getHash> 
+    SourceDataFileMap;
+
+  SourceDataFilePool pool;
+  SourceDataFileMap  map;
+
+  b8 init();
+  void deinit();
+
+  // Opens and parses a source data file from the given path.
+  SourceDataFileHandle loadFromDisk(String path);
+  
+  // Saves the given source data file to disk at the path it was loaded from.
+  b8 saveToDisk(const SourceDataFileHandle& h_sdfile);
+
+private:
+  
+  // Only handles may clean up SourceDataFiles.
+  friend SourceDataFileHandle;
+
+  void releaseSourceDataFile(SourceDataFileHeader* header);
+};

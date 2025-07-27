@@ -1,0 +1,46 @@
+$ local reflect = require "reflect.Reflector"
+
+@reflect.include "input/Keys.h"
+
+#include "iro/Unicode.h"
+
+using namespace iro;
+
+String getKeyStr(Key key)
+{
+$local gen = function()
+$  local type = assert(reflect.ctx:lookupType "Key", "failed to lookup type")
+$  local decl = assert(type:getDecl(), "failed to get decl of type")
+$  local elems = decl:getEnumIter()
+  switch (key)
+  {
+$ while true do
+$   local elem = elems:next()
+$   if not elem then break end
+  case Key::$(elem:name()): return "$(elem:name())"_str;
+$ end
+  }
+$ end
+  @gen
+}
+
+String getMouseButtonStr(MouseButton button)
+{
+$local gen = function()
+$  local type = 
+$    assert(reflect.ctx:lookupType "MouseButton", 
+$      "failed to lookup type")
+$  local decl = assert(type:getDecl(), "failed to get decl of type")
+$  local elems = decl:getEnumIter()
+  switch (button)
+  {
+$ while true do
+$   local elem = elems:next()
+$   if not elem then break end
+  case MouseButton::$(elem:name()): return "$(elem:name())"_str;
+$ end
+  }
+$ end
+  @gen
+}
+

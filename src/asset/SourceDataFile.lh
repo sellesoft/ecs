@@ -1,0 +1,37 @@
+/*
+ *  Internal state of a source data file. These are built by a
+ *  SourceDataParser.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/memory/Bump.h"
+#include "iro/containers/Pool.h"
+#include "iro/containers/List.h"
+
+using namespace iro;
+
+@@lpp.import "asset/SourceData.lh"
+
+/* ============================================================================
+ */
+struct SourceDataFile
+{
+  mem::LenientBump string_cache = {};
+
+  Pool<SourceData> data_pool = {};
+
+  DList<SourceData> aux_data_list = {};
+
+  SourceData* returned_data = nullptr;
+
+  b8   init();
+  void deinit();
+
+  SourceData* allocateSourceData();
+  SourceData* addAuxData();
+  SourceData* addReturnData();
+
+  SourceData* findAuxData(String name);
+};

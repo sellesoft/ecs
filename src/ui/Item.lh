@@ -1,0 +1,580 @@
+/*
+ *  The basis of all things in the UI system.
+ */ 
+
+$ if false then
+$ local cmn = require "common"
+$ local ui = require "ui.UI"
+
+#include "iro/Flags.h"
+#include "iro/Unicode.h"
+#include "iro/containers/Tree.h"
+#include "iro/containers/Array.h"
+#include "iro/containers/SmallArray.h"
+
+#include "math/vec.h"
+#include "math/mat.h"
+#include "math/Rect.h"
+
+#include "Color.h"
+
+#include "input/Keys.h"
+@@lpp.import "input/InputState.lh"
+
+using namespace iro;
+
+struct InputState;
+
+namespace ui
+{
+
+struct UI;
+struct Item;
+struct DrawCmd;
+struct ItemSkinDef;
+
+typedef Tree<Item> ItemTree;
+typedef ItemTree::Node ItemNode;
+
+/* ============================================================================
+ *  Some space in which an Item's DrawCmds are rendered.
+ */ 
+enum class ItemSpace
+{
+  Invalid,
+
+  // The DrawCmd is intended to have its origin where its padded area begins.
+  // This is the default space in which an Item's DrawCmds are rendered.
+  Padded,
+
+  // The DrawCmd is intended to have its origin where its bordered area begins.
+  Bordered,
+
+  // The DrawCmd is intended to have its origin where its margined area begins.
+  Margined,
+};
+
+/* ============================================================================
+ *  A DrawCmd along with some information about how the Item wants it drawn.
+ */
+struct ReportedDrawCmd
+{
+  DrawCmd* drawcmd;
+  ItemSpace space;
+
+  ReportedDrawCmd() : drawcmd(nullptr), space(ItemSpace::Invalid) {}
+
+  ReportedDrawCmd(DrawCmd* drawcmd) 
+    : drawcmd(drawcmd), 
+      space(ItemSpace::Padded) {}
+
+  ReportedDrawCmd(DrawCmd* drawcmd, ItemSpace space)
+    : drawcmd(drawcmd),
+      space(space) {}
+};
+
+typedef SmallArray<ReportedDrawCmd, 8> DrawCmdList;
+
+/* ============================================================================
+ */
+struct DrawCmdLists
+{
+  // DrawCmds intended to be emitted before or after the Item's children.
+  // These are drawn in the padded space of the Item.
+  DrawCmdList pre_children;
+  DrawCmdList post_children;
+
+  // DrawCmds to be emitted once the UI system completes updating the entire
+  // Item tree, eg. drawn over all Items.
+  DrawCmdList top_most;
+};
+
+/* ============================================================================
+ */
+struct ItemLayout
+{
+  Rect bounds;
+
+  enum class Positioning : u8
+  {
+    Static,
+    Relative,
+    Absolute,
+    Fixed,
+
+    COUNT
+  };
+
+  Positioning positioning;
+
+  enum class Sizing : u8
+  {
+    Normal,
+    AutoX,
+    AutoY,
+    PercentX,
+    PercentY,
+    Square,
+    Flex,
+
+    COUNT
+  };
+  typedef Flags<Sizing> SizingFlags;
+
+  SizingFlags sizing;
+
+  enum class Display : u8
+  {
+    Horizontal,
+    Flex,
+    Reverse,
+    Hidden,
+
+    COUNT
+  };
+  typedef Flags<Display> DisplayFlags;
+
+  DisplayFlags display;
+
+  struct BoxBorder : vec4f
+  {
+    vec2f tl() const { return xy(); }
+    vec2f br() const { return zw(); }
+
+    f32 top() const { return y; }
+    f32 left() const { return x; }
+    f32 right() const { return z; }
+    f32 bottom() const { return w; }
+
+    f32 hsum() const { return left() + right(); }
+    f32 vsum() const { return top() + bottom(); }
+  };
+
+  BoxBorder margin;
+  BoxBorder padding;
+  BoxBorder border;
+
+  enum class Anchor
+  {
+    TopLeft,
+    TopRight,
+    BottomRight,
+    BottomLeft,
+  };
+
+  Anchor anchor;
+
+  enum class Overflow
+  {
+    Scroll,
+    Clip,
+    Visible,
+  };
+
+  Overflow overflow;
+
+  vec2f alignment;
+};
+
+/* ============================================================================
+ *  Convenience typedefs.
+ */
+namespace item_layout_typedefs
+{
+  using Positioning = ItemLayout::Positioning;
+  using Sizing = ItemLayout::Sizing;
+  using Display = ItemLayout::Display;
+  using Anchor = ItemLayout::Anchor;
+  using Overflow = ItemLayout::Overflow;
+}
+
+/* ============================================================================
+ *  Flags relevant to some Item. I'm not a huge fan of this as the 'lifetime'
+ *  of the flags vary and some are meant to be used by UI while some are 
+ *  used by UI to inform an Item about stuff during its update. I don't really 
+ *  feel like splitting that stuff into *another* enum right now but 
+ *  eventually we prob should.
+ */
+enum class ItemFlag
+{
+  // This Item needs to be reevaluated in the next UI update.
+  Dirty,
+
+  // If the item was evaluated this frame.
+  Evaluated,
+
+  // If the item is focused, eg. the last item to be clicked and what not.
+  Focused,
+
+  // If the item gained/lost focus this frame.
+  GainedFocus,
+  LostFocus,
+
+  // If the item is the topmost hovered item.
+  Hovered,
+
+  // If the item gained/lost hover this frame.
+  GainedHover,
+  LostHover,
+
+  COUNT
+};
+typedef Flags<ItemFlag> ItemFlags;
+
+/* ============================================================================ 
+ *  Flags that determine the 'focus state' of a focusable widget.
+ */
+enum class FocusFlag
+{
+  // The widget may be considered hovered by the cursor.
+  Hovered,
+  
+  // The widget gained/lost hover this frame.
+  GainedHover,
+  LostHover,
+
+  // The widget may be considered focused. In this state it may consume input
+  // without worrying if other widgets will as well.
+  Focused,
+
+  // The widget lost/gained focus this frame.
+  GainedFocus,
+  LostFocus,
+
+  COUNT
+};
+typedef Flags<FocusFlag> FocusFlags;
+
+/* ============================================================================ 
+ */
+struct FocusableId
+{
+  u64 val = 0;
+
+  b8 isValid() const { return val != 0; }
+  void invalidate() { val = 0; }
+
+  bool operator == (const FocusableId& rhs) const
+  {
+    return val == rhs.val;
+  }
+
+  // TODO(sushi) make a compile time version
+  static FocusableId fromString(String s)
+  {
+    return FocusableId{s.hash()};
+  }
+};
+
+/* ============================================================================
+ */
+struct FocusableBounds
+{
+  FocusableId id = {};
+  Rect bounds = {};
+
+  FocusableBounds* next = nullptr;
+};
+
+/* ============================================================================
+ */
+struct Group
+{
+  Group* prev = nullptr;
+
+  Rect bounds = {};
+
+  FocusableBounds* fbounds = nullptr;
+};
+
+/* ============================================================================
+ */
+struct Layer
+{
+  FocusableId fid = {};
+  Group* groups = nullptr;
+
+  Layer* prev = nullptr;
+  Layer* next = nullptr;
+
+  u32 next_id;
+
+  b8 minor = false;
+};
+
+/* ============================================================================
+ */
+struct ItemUpdateContext
+{
+  UI& ui;
+  Item& item;
+  InputState& input;
+
+  Layer* current_layer;
+  Group* current_group;
+  Layer* top_layer;
+
+  void pushLayer(FocusableId fid, Rect bounds);
+  void popLayer();
+
+  void takeNextLayerId(FocusableId* pid);
+
+  Rect getBounds();
+
+  // Tests if the given point is with the given bounds. The positioning 
+  // of these two params is local to the Item's position on the screen.
+  b8 isPointInRect(Rect bounds, vec2f point);
+
+  // Works regardless of if this Item is the top-most item.
+  b8 isCursorInRect(Rect bounds);
+
+  // The following mouse related functions only work if the item is the 
+  // top-most hovered item.
+  b8 isCursorInHoverableRect(Rect bounds);
+
+  // NOTE(sushi) these really do not work well as they are based on the 
+  //             cursor delta stored in the input state and should be 
+  //             fixed next time we find a use for this if ever.
+  b8 didCursorEnterRectThisFrame(Rect bounds);
+  b8 didCursorExitRectThisFrame(Rect bounds);
+
+  b8 wasMouseButtonPressedInRect(Rect bounds, MouseButton button);
+  b8 wasMouseButtonReleasedInRect(Rect bounds, MouseButton button);
+  b8 isMouseButtonDownInRect(Rect bounds, MouseButton button);
+  
+  b8 tryConsumeMousePress(MouseButton button);
+  b8 tryConsumeMouseRelease(MouseButton button);
+  b8 tryConsumeMouseDown(MouseButton button);
+
+  b8 tryConsumeMousePressInRect(Rect bounds, MouseButton button);
+  b8 tryConsumeMouseReleaseInRect(Rect bounds, MouseButton button);
+  b8 tryConsumeMouseDownInRect(Rect bounds, MouseButton button);
+
+  // Should maybe only use when focused! Not a requirement though but I feel
+  // like that not being enforced may cause issues. We'll see :3.
+  String tryConsumeCharInput();
+
+  f32 tryConsumeScroll();
+
+  FocusFlags testFocus(
+    FocusableId id, 
+    Rect bounds, 
+    MouseButton focus_button,
+    KeyState focus_state);
+
+  b8 wasEvaluated() const;
+
+  void drawDebugBorder(Rect bounds, Color color);
+
+  b8 isFocusedId(FocusableId id);
+  b8 isFocusedId(FocusableId* id);
+
+  void unfocus(FocusableId id);
+};
+
+/* ============================================================================
+ */
+struct Item
+{
+  String name;
+  ItemLayout layout;
+
+  ItemNode* node;
+
+  ItemFlags flags;
+
+  operator ItemNode*() { return node; }
+
+  vec2f scroll;
+  vec2f max_scroll;
+
+  vec2f pos_local;
+  vec2f pos_screen;
+
+  // Size that the item visually takes up on the screen.
+  vec2f size;
+
+  vec2f visible_start;
+  vec2f visible_size;
+
+  b8 init(UI& ui, String name);
+  void deinit();
+
+  void setDirty() { flags.set(ItemFlag::Dirty); }
+  b8 isDirty() const { return flags.test(ItemFlag::Dirty); }
+
+  static Item* make(UI& ui, String name = nil);
+  static Item* begin(UI& ui, String name = nil);
+
+  static void drawBackground(
+      UI& ui, 
+      Rect bounds,
+      DrawCmd* dc, 
+      const ItemSkinDef& skin);
+  
+  virtual void update(ItemUpdateContext& ctx) {}
+
+  // Determines how this item is sized and positioned relative to other items.
+  virtual void evaluate(UI& ui) {}
+
+  // Cleans up any dynamic memory this item may have allocated in its lifetime.
+  virtual void cleanup() {}
+
+  // Implemented by Items that perform custom drawing via DrawCmds. DrawCmds
+  // can be emitted in various ways. See DrawCmdLists for an explanation of
+  // each list.
+  virtual void reportDrawCmds(UI& ui, DrawCmdLists& lists) { }
+
+  // Allows a widget to tell evaluate if it should place children or not.
+  virtual b8 shouldPlaceChildren() { return true; }
+
+  // Allows a widget to define a minimum size regardless of style properties.
+  // Eg. in the case of collapsing headers with auto_y set in sizing we need to
+  // override this in order to tell the evaluator that even when it has no 
+  // children or when the header is closed, it still has a minimum height of 
+  // its header_height property.
+  // TODO(sushi) this could really just be a postEvaluation callback, as it is
+  //             called at the very end. If we wind up having a lot of 
+  //             callbacks at that point; consolidate them.
+  virtual vec2f getMinSize(UI& ui) { return {0.f, 0.f}; }
+
+  // Adjusts where the cursor for placing the children of this item should
+  // start relative to where the item is placed.
+  virtual vec2f adjustCursorStart(UI& ui, vec2f norm) { return norm; }
+  
+  // Adjusts the size of this item as seen by its children. Intended to be used
+  // in combination with adjustCursorStart() to tell children what they are 
+  // actually drawing in in cases where a widget adjusts where children
+  // are drawing. Eg. in a collapsing header, we want the children to 
+  // draw below the header and to think that the size they are drawing into
+  // is the size of the content rect below the header, not the entire 
+  // header item's area (as that would cause an Item with, say, sizing &
+  // percent_y and size.y == 100 to draw beyond the content rect).
+  virtual vec2f adjustItemContentSize(UI& ui, vec2f norm) { return norm; }
+
+  // Adjusts the size of this item just after its initial size evaluation.
+  // The Item's internal 'size' variable will be set before this function is
+  // invoked. The Item is free to modify it here as necessary.
+  // If a widget needs to disable automatic sizing over either axis it may 
+  // also do so here.
+  struct AdjustedSize
+  {
+    b8 disable_auto_x;
+    b8 disable_auto_y;
+  };
+  virtual AdjustedSize adjustItemSize(
+      UI& ui,
+      b8 is_auto_x,
+      b8 is_auto_y) 
+  { 
+    return {}; 
+  }
+  
+  // Calculates where the content of this Item starts. Can be overrided
+  // by widgets when they need their content to start somewhere other 
+  // than the default position.
+  virtual vec2f calcContentStart(vec4f margin, vec4f border)
+  {
+    return margin.xy() + border.xy();
+  }
+
+  // Calculates the visual area that the content of this Item is placed in.
+  // 'size' is the content area that would normally be computed for this Item.
+  virtual vec2f calcContentArea(vec4f margin, vec4f border, vec2f size)
+  {
+    return size;
+  }
+
+  // Calculates the visual area that this item takes up for hit testing.
+  virtual vec2f calcVisualArea()
+  {
+    return visible_size;
+  }
+
+  // If an Item needs to perform special hit testing, eg. it draws content
+  // outside of the bounds that UI is aware of, this function should be 
+  // overridden to help UI understand those areas. 
+  // 'local_cursor' is the position of the mouse relative to the Item's 
+  // current screen position. If this returns 'true', then the Item is 
+  // considered hovered by the cursor.
+  // NOTE that this is overridden by the normal hit testing logic, eg. if the
+  // cursor is found to hover the normal bounds that UI checks, this will not 
+  // be called, and so should not be seen as REQUIRED to implement for an Item
+  // to detect if it is hovered. This is only necessary in special cases where
+  // an Item draws, say, top-most UI that is outside of its normal bounds (eg.
+  // a combo box) that UI will not detect normally.
+  // TODO(sushi) it would be nice to have a better solution, but at the moment
+  //             a path to that is not clear. This is implemented to support
+  //             the new style of UI usage where the internals of Items are 
+  //             more immediate mode styled, which UI was never originally 
+  //             designed for. Eventually this as well as a lot of the 
+  //             scattered API above (and probably, to be, below this) need
+  //             to be cleaned up and made more consistent once we have a 
+  //             better grasp on this new style.
+  virtual b8 onHitTest(vec2f local_cursor) { return false; }
+  
+  b8 containsPoint(vec2f point);
+
+  f32 getMarginedWidth() const 
+    { return size.x - layout.margin.hsum(); }
+
+  f32 getMarginedHeight() const
+    { return size.y - layout.margin.vsum(); }
+
+  vec2f getMarginedArea() const 
+    { return { getMarginedWidth(), getMarginedHeight() }; }
+
+  f32 getMarginedStyleWidth() const
+    { return layout.bounds.w - layout.margin.hsum(); }
+
+  f32 getMarginedStyleHeight() const
+    { return layout.bounds.h - layout.margin.vsum(); }
+
+  vec2f getMarginedStyleArea() const
+    { return { getMarginedStyleWidth(), getMarginedStyleHeight() }; }
+
+  f32 getBorderedWidth() const
+    { return getMarginedWidth() - layout.border.hsum(); }
+
+  f32 getBorderedHeight() const
+    { return getMarginedHeight() - layout.border.vsum(); }
+
+  vec2f getBorderedArea() const
+    { return { getBorderedWidth(), getBorderedHeight() }; }
+
+  f32 getBorderedStyleWidth() const
+    { return getMarginedStyleWidth() - layout.border.hsum(); }
+
+  f32 getBorderedStyleHeight() const
+    { return getMarginedStyleHeight() - layout.border.vsum(); }
+
+  vec2f getBorderedStyleArea() const
+    { return { getBorderedStyleWidth(), getBorderedStyleHeight() }; }
+
+  f32 getPaddedWidth() const 
+    { return getBorderedWidth() - layout.padding.hsum(); }
+
+  f32 getPaddedHeight() const
+    { return getBorderedHeight() - layout.padding.vsum(); }
+
+  vec2f getPaddedArea() const 
+    { return { getPaddedWidth(), getPaddedHeight() }; }
+
+  f32 getPaddedStyleWidth() const 
+    { return getBorderedStyleWidth() - layout.padding.hsum(); }
+
+  f32 getPaddedStyleHeight() const
+    { return getBorderedStyleHeight() - layout.padding.vsum(); }
+
+  vec2f getPaddedStyleArea() const 
+    { return { getPaddedStyleWidth(), getPaddedStyleHeight() }; }
+};
+
+}
+
+consteval ui::FocusableId operator ""_fid (const char* s, size_t len)
+{ 
+  return ui::FocusableId{operator ""_hashed(s, len)};
+}
+
+$ end

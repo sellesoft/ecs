@@ -1,0 +1,112 @@
+$ require "common"
+
+@@lpp.import "graphics/ResourceMgr.lh"
+
+#include "iro/Logger.h"
+
+namespace gfx
+{
+
+@log.ger(gfx.rsrcmgr, Debug)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ResourceMgr::init()
+{
+  if (!textures.init())
+    return false;
+
+  if (!shaders.init())
+    return false;
+
+  if (!fonts.init())
+    return false;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ResourceMgr::deinit(AssetMgr& assetmgr, gfx::Renderer& renderer)
+{
+  for (auto& texture : textures)
+    texture.resource.unload(assetmgr, renderer);
+  textures.deinit();
+
+  for (auto& shader : shaders)
+    shader.resource.unload(assetmgr, renderer);
+  shaders.deinit();
+  
+  for (auto& font : fonts)
+    font.resource.unload(assetmgr, renderer);
+  fonts.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledTexture* ResourceMgr::createTexture(String name)
+{
+  auto* r = mem::stl_allocator.construct<Resource<CompiledTexture>>();
+
+  r->name = name.allocateCopy();
+
+  textures.insert(r);
+
+  return &r->resource;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledTexture* ResourceMgr::findTexture(String name)
+{
+  if (auto* texture = textures.find(name.hash()))
+    return &texture->resource;
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledShader* ResourceMgr::createShader(String name)
+{
+  auto* r = mem::stl_allocator.construct<Resource<CompiledShader>>();
+
+  r->name = name.allocateCopy();
+
+  shaders.insert(r);
+
+  return &r->resource;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledShader* ResourceMgr::findShader(String name)
+{
+  if (auto* shader = shaders.find(name.hash()))
+    return &shader->resource;
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Font* ResourceMgr::createFont(String name)
+{
+  auto* f = mem::stl_allocator.construct<Resource<Font>>();
+
+  f->name = name.allocateCopy();
+
+  fonts.insert(f);
+
+  return &f->resource;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Font* ResourceMgr::findFont(String name)
+{
+  if (auto* font = fonts.find(name.hash()))
+    return &font->resource;
+  return nullptr;
+}
+
+
+}

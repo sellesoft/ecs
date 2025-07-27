@@ -2,10 +2,11 @@
 --- Internal representation of clang's AST.
 ---
 
-local LuaType = require "Type"
-local List = require "List"
-local buffer = require "string.buffer"
+local LuaType = require "iro.Type"
+local List    = require "iro.List"
+local buffer  = require "string.buffer"
 
+---@class PrettyPrinter : iro.Type
 local PrettyPrinter = LuaType.make()
 
 PrettyPrinter.new = function()

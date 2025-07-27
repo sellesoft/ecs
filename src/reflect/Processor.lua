@@ -14,11 +14,11 @@
 ---
 
 local ast = require "reflect.AST"
-local List = require "List"
-local log = require "Logger" ("reflect.processor", Verbosity.Info)
+local List = require "iro.List"
+local log = require "iro.Logger" ("reflect.processor", Verbosity.Info)
 local metadata = require "reflect.Metadata"
 
-require "lppclang" .init "../lppclang/build/debug/liblppclang.so"
+require "lppclang" "lib/lppclang.so"
 
 local Processor = {}
 Processor.__index = Processor

@@ -14,7 +14,6 @@ end
 
 local common = {}
 
-common.reflect = require "reflect.Reflector"
 common.buffer = require "string.buffer"
 common.List = require "iro.List"
 

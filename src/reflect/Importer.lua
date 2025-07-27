@@ -12,24 +12,18 @@
 ---
 
 local cmn = require "common"
-local glob = require "Glob"
+local glob = require "iro.fs.glob"
 local Processor = require "reflect.Processor"
 local ast = require "reflect.AST"
-local reflect = require "reflect.Reflector"
 
-local Importer = require "Type" .make()
+---@class Importer : iro.Type
+local Importer = require "iro.Type" .make()
 
 Importer.new = function(opts)
   local o = {}
   o.filter = opts.filter
   o.patterns = cmn.List(opts.patterns)
   o.excludes = cmn.List(opts.excludes)
-
-  if opts.suppress_imports then
-    -- NOTE(sushi) i have no idea what this was for so be wary.
-    print "suppress_imports"
-    reflect.pushImportedStack()
-  end
 
   ECS_REFLECTION_IMPORT = true
 
@@ -51,10 +45,6 @@ Importer.new = function(opts)
   end
 
   ECS_REFLECTION_IMPORT = nil
-
-  if opts.suppress_imports then
-    reflect.popImportedStack()
-  end
 
   o.p = Processor.new(tostring(o.imported), o.filter)
   o.p:run()

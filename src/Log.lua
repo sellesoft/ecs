@@ -2,7 +2,7 @@
 --- Macros replacing the normal C logging macros.
 ---
 
-local List = require "List"
+local List = require "iro.List"
 local buffer = require "string.buffer"
 
 log = {}

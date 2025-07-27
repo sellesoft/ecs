@@ -1,10 +1,10 @@
 -- Reflection 'system'.
-local lpp = require "Lpp"
-local List = require "List"
+local lpp = require "lpp"
+local List = require "iro.List"
 local buffer = require "string.buffer"
 
 -- Load lppclang.
-require "lppclang" .init "lppclang"
+require "lppclang" "lib/lppclang.so"
 
 -- Get the cargs so we can pass them to lppclang when we create the context.
 local args = List{}

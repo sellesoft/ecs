@@ -3,7 +3,7 @@
 ---
 
 -- Introduce lpp as a global.
-lpp = require "Lpp"
+lpp = require "lpp"
 
 -- Introduces the log global
 require "Log"
@@ -16,7 +16,7 @@ local common = {}
 
 common.reflect = require "reflect.Reflector"
 common.buffer = require "string.buffer"
-common.List = require "List"
+common.List = require "iro.List"
 
 common.defFileLogger = function(name, verbosity)
   local buf = common.buffer.new()

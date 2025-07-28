@@ -34,10 +34,13 @@ local ast = {}
 --
 --             Honestly I should REALLY redo iro.Type. That was implemented 
 --             AGES ago when I had much less of an understanding of how it 
---             should work!
+--             should work! But its also kinda used everywhere!
 
 --- A representation of a Type in the AST.
 ---@class ast.Type : iro.Type
+---
+--- The size of this type in bytes.
+---@field size number
 ---
 --- Any metadata that was attached to this type via the metadata
 --- module. These are actually represented as specially formatted comments 
@@ -48,18 +51,85 @@ local Type = IroType.make()
 --- A representation of a Decl in the AST.
 ---@class ast.Decl : iro.Type
 ---
---- Most Decls store a name, I believe!
+--- The name of this declaration. Note that we only store named declarations,
+--- eg. clang's NamedDecl. For now. I hope that I don't decide to change that
+--- in the future.
 ---@field name string
+---
+--- If this declaration belongs to a namespace, it is specified here.
+---@field namespace ast.Namespace
+---
+--- The comment that clang attached to this decl, if any.
+---@field comment string?
 ---
 --- Any metadata that was attached to this declaration via the metadata
 --- module. These are actually represented as specially formatted comments 
 --- that we extract using clang.
 ---@field metadata table
+---
+--- If this declaration is nested within another one, eg. a field, nested
+--- record decl, method, etc. this points to its parent. Note that this 
+--- is distinct from the namespace it may be in!
+---@field parent ast.Decl?
 local Decl = IroType.make()
 
 -- By default, every Decl and Type has an empty metadata table.
 Decl.metadata = {}
 Type.metadata = {}
+
+--- Representation of the translation unit that was parsed. This contains 
+--- all 'top-level' declarations that were parsed in a given AstContext.
+---
+--- @class ast.TranslationUnit : ast.Decl
+---
+--- The list of top-level decls in this translation unit.
+---@field decls iro.List
+---
+local TranslationUnit = Decl:derive()
+ast.TranslationUnit = TranslationUnit
+
+---@return ast.TranslationUnit
+TranslationUnit.new = function()
+  local o = TranslationUnit:derive()
+  o.decls = List {}
+  return o
+end
+
+TranslationUnit.__tostring = function(self)
+  return qstr("TranslationUnit(", self.decls, ")")
+end
+
+--- A namespace, which contains declarations declared within it. The 
+--- declarations are ordered as they are found in any instance of that 
+--- namespace, eg. if it is begun in multiple places, we don't store multiple
+--- namespace decls, the declarations of that namespace are merged into one.
+--- 
+--- @class ast.Namespace : ast.Decl
+---
+--- The name of the namespace.
+---@field name string
+---
+--- If this namespace is nested in another one, it is specified here.
+---@field prev ast.Namespace
+---
+--- The declarations in this namespace.
+---@field decls iro.List
+---
+local Namespace = Decl:derive()
+ast.Namespace = Namespace
+
+---@return ast.Namespace
+Namespace.new = function(name, prev)
+  local o = Namespace:derive()
+  o.name = name
+  o.prev = prev
+  o.decls = List {}
+  return o
+end
+
+Namespace.__tostring = function(self)
+  return qstr("Namespace(", self.name, ")")
+end
 
 --- Representation of a builtin type, eg. char, int, short, etc.
 ---
@@ -129,40 +199,38 @@ Pointer.__tostring = function(self)
 end
 
 --- Represents a reference type.
---- @class ast.ReferenceType : ast.Type
+--- @class ast.Reference : ast.Type
 ---
 --- The type this reference references.
 ---@field subtype ast.Type
 ---
-local ReferenceType = Type:derive()
-ast.ReferenceType = ReferenceType
+local Reference = Type:derive()
+ast.Reference = Reference
 
----@return ast.ReferenceType
-ReferenceType.new = function(subtype)
-  local o = ReferenceType:derive()
+---@return ast.Reference
+Reference.new = function(subtype)
+  local o = Reference:derive()
   o.subtype = subtype
   return o
 end
 
-ReferenceType.__tostring = function(self)
+Reference.__tostring = function(self)
   return qstr("Reference(", self.subtype, ")")
 end
 
 --- Represents a function pointer.
---- @class ast.FunctionPointerType : ast.Type
+--- @class ast.FunctionPointer : ast.Type
 ---
---- TODO(sushi) add a way to get the actual function signature and such.
----
-local FunctionPointerType = Type:derive()
-ast.FunctionPointerType = FunctionPointerType
+local FunctionPointer = Type:derive()
+ast.FunctionPointer = FunctionPointer
 
----@return ast.FunctionPointerType
-FunctionPointerType.new = function()
-  local o = FunctionPointerType:derive()
+---@return ast.FunctionPointer
+FunctionPointer.new = function()
+  local o = FunctionPointer:derive()
   return o
 end
 
-FunctionPointerType.__tostring = function(self)
+FunctionPointer.__tostring = function(self)
   return qstr("FunctionPointer()")
 end
 
@@ -242,6 +310,9 @@ end
 --- The name of the tag.
 ---@field name string
 ---
+--- Whether or not this tag is considered complete.
+---@field is_complete boolean
+---
 local TagDecl = Decl:derive()
 ast.TagDecl = TagDecl
 
@@ -275,6 +346,10 @@ TypedefDecl.new = function(name, subtype)
   o.name = name
   o.subtype = subtype
   return o
+end
+
+TypedefDecl.__tostring = function(self)
+  return qstr("TypedefDecl(", self.name, ",", self.subtype, ")")
 end
 
 --- A representation of an 'elaborated' type. This is a concept from clang,
@@ -348,17 +423,27 @@ end
 local Record = TagDecl:derive()
 ast.Record = Record
 
----@return ast.Record
-Record.new = function(name)
-  local o = Record:derive()
+Record.construct = function(o, name)
   o.name = name
   o.members = List {}
   o.derived = List {}
+end
+
+---@return ast.Record
+Record.new = function(name)
+  local o = Record:derive()
+  Record.construct(o, name)
   return setmetatable(o, Record)
 end
 
 Record.__tostring = function(self)
   return qstr("Record(", self.name, ")")
+end
+
+Record.addMember = function(self, name, decl)
+  -- TODO(sushi) we could cache some info like storing fields, methods, 
+  --             subtypes, etc. in their own tables.
+  self.members:push(decl)
 end
 
 --- A field of a record.
@@ -387,6 +472,10 @@ Field.new = function(name, type, offset)
   return o
 end
 
+Field.__tostring = function(self)
+  return qstr("Field(", self.name, ",", self.type, ")")
+end
+
 --- A struct declaration. This type exists primarily as a convenience for 
 --- checking if a decl is specifically a struct, not a union.
 --- 
@@ -398,9 +487,7 @@ ast.Struct = Struct
 ---@return ast.Struct
 Struct.new = function(name)
   local o = Struct:derive()
-  o.name = name
-  o.members = List {}
-  o.derived = List {}
+  Record.construct(o, name)
   return o
 end
 
@@ -419,9 +506,7 @@ ast.Union = Union
 ---@return ast.Union
 Union.new = function(name)
   local o = Union:derive()
-  o.name = name
-  o.members = List {}
-  o.derived = List {}
+  Record.construct(o, name)
   return o
 end
 
@@ -433,7 +518,7 @@ end
 --- representing the specialized template decl as an ast.Decl. We just store
 --- its name. I don't remember why. Maybe we should...
 ---
---- @class ast.TemplateSpec : ast.Decl
+--- @class ast.TemplateSpec : ast.Record
 ---
 --- The arguments to this template specialization.
 ---@field args iro.List
@@ -447,7 +532,7 @@ ast.TemplateSpec = TemplateSpec
 ---@return ast.TemplateSpec
 TemplateSpec.new = function(name, specialized_name)
   local o = TemplateSpec:derive()
-  o.name = name
+  Record.construct(o, name)
   o.specialized_name = specialized_name
   o.args = List {}
   return o
@@ -468,5 +553,23 @@ TemplateSpec.__tostring = function(self)
   return buf:get()
 end
 
+--- A function declaration. At the moment, these only exist to represent 
+--- methods of record decls, and their use is very limited.
+---
+--- @class ast.Function : ast.Decl
+---
+local Function = Decl:derive()
+ast.Function = Function
+
+---@return ast.Function
+Function.new = function(name)
+  local o = Function:derive()
+  o.name = name
+  return o
+end
+
+Function.__tostring = function(self)
+  return qstr("Function(", self.name, ")")
+end
 
 return ast

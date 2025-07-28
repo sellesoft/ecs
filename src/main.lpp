@@ -1,6 +1,47 @@
 $ local cmn = require "common"
-$ require "reflect.AST2"
+
+$ local AstContext = require "reflect.AstContext"
+
+$$$
+
+local ac = AstContext.fromString
+[[
+
+namespace iro
+{
+
+template<typename T>
+struct Array
+{
+  T* ptr;
+  int len;
+};
+
+}
+
+struct Apple
+{
+  struct Leaf
+  {
+    float size;
+  };
+
+  iro::Array<Leaf> leaves;
+};
+
+int main()
+{
+
+}
+
+]]
+
+$$$
+
+
 $ local event = require "event.Event"
+
+
 
 
 #include "iro/Logger.h"

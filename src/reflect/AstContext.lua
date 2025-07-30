@@ -19,7 +19,7 @@ local IroType = require "iro.Type"
 local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
-local log = require "iro.Logger" ("astctx", Verbosity.Debug)
+local log = require "iro.Logger" ("astctx", Verbosity.Trace)
 
 ---@class reflect.AstContext : iro.Type
 ---
@@ -131,7 +131,12 @@ convfunc.processTranslationUnit = function(self, tu)
   local iter = tu:getContextIter()
   local cdecl = iter:next()
   while cdecl do
-    self:processTranslationUnitDecl(cdecl) 
+    local decl =
+      self:processTranslationUnitDecl(cdecl) 
+
+    if decl then
+      self.tu.decls:push(decl)
+    end
 
     cdecl = iter:next()
   end
@@ -188,9 +193,7 @@ convfunc.processNamespaceDecl = function(self, cns)
     end
 
     if decl then
-      print("got decl")
       ns.decls:push(decl)
-      print(decl)
     end
 
     cdecl = iter:next()
@@ -212,16 +215,49 @@ end
 --- converted the given decl, it is returned, otherwise it is fully converted.
 ---@param cdecl lppclang.Decl
 ---@return ast.Decl?
-convfunc.resolveDecl = function(self, cdecl)
+convfunc.resolveDecl = function(self, cdecl, resolving_forward)
   self:write("name: ", cdecl:getName())
-
-  -- Ensure that we have the actual definition of this cdecl.
-  cdecl = self:ensureDefinitionDecl(cdecl)
 
   -- Check if we've already processed this decl and return it if so.
   local processed = self:findProcessed(cdecl)
   if processed then
+    self:write("already processed")
     return processed
+  end
+
+  if not resolving_forward then
+    if cdecl:isRecord() and not cdecl:isComplete() then
+      self:write("forward record")
+      local complete_decl = self:resolveDecl(cdecl, true)
+      local forward = ast.ForwardRecord.new(cdecl:getName(), complete_decl)
+      self:recordProcessed(cdecl, forward)
+      return forward
+    end
+  else
+    self:write("resolving forward declaration")
+
+    -- Ensure that we have the actual definition of this cdecl.
+    cdecl = self:ensureDefinitionDecl(cdecl)
+
+    if cdecl:isRecord() and not cdecl:isComplete() then
+      -- If we still don't have a complete definition of this record, then
+      -- it must not exist in this translation unit, so don't do anything with
+      -- it and allow the forward record to contain a nil decl to indicate 
+      -- this.
+      self:write("must not be declared in this tu")
+      return
+    end
+
+    -- Check again for if we have already processed the definition decl
+    -- to prevent multiple forward declarations of the same type from 
+    -- generating multiple ast.Records. If we do that, we cannot properly 
+    -- compare the tables to check in reflection code if we've already 
+    -- generated something based on a forward declared record.
+    local processed = self:findProcessed(cdecl)
+    if processed then
+      self:write("already processed")
+      return processed
+    end
   end
 
   -- We don't deal with template declarations for now.
@@ -229,15 +265,12 @@ convfunc.resolveDecl = function(self, cdecl)
 
   -- We should only be getting type declarations in here for now.
   if not cdecl:isType() then
+    self:write("not type decl")
     return
   end
 
   local ctype = cdecl:getTypeDeclType()
 
-  -- Make sure this type is complete.
-  -- NOTE(sushi) disabling for now to see if this is still necessary.
-  -- ctype:makeComplete()
-  
   ---@type ast.Decl
   local decl
 
@@ -274,7 +307,11 @@ end
 convfunc.resolveType = function(self, ctype)
   local type
 
-  self:write("name: ", ctype:getName())
+  -- Grab the name ONCE, because lppclang internally has to allocate memory
+  -- for the typename.
+  local name = ctype:getName()
+
+  self:write("name: ", name)
 
   if ctype:isPointer() then
     if ctype:isFunctionPointer() then
@@ -307,16 +344,25 @@ convfunc.resolveType = function(self, ctype)
     type = ast.CArray.new(subtype, len)
     type.size = ctype:getSize() / 8
   elseif ctype:isElaborated() then
+    -- Check if this is one of iro's typedefs of builtin types and return 
+    -- our internal representation of it. This is a little cheat to get around
+    -- having to unwrap them in reflection code. Cause that's really annoying.
+    -- And y'know, we use these literally everywhere,
+    if ast.builtins[name] then
+      return ast.builtins[name]
+    end
+
     self:write("is elaborated")
     local desugared = ctype:getSingleStepDesugared()
       or error("failed to get desugared type")
     type =
-      ast.Elaborated.new(ctype:getName(), self:resolveType(desugared))
+      ast.Elaborated.new(name, self:resolveType(desugared))
     type.size = type.subtype.size
   elseif ctype:isBuiltin() then
     self:write("is builtin")
-    type = ast.Builtin.new(ctype:getName(), ctype:getSize() / 8)
+    type = ast.Builtin.new(name, ctype:getSize() / 8)
   elseif ctype:isTypedef() then
+
     self:write("is typedef")
     local decl = self:resolveDecl(ctype:getTypedefDecl())
     if not decl then
@@ -354,7 +400,7 @@ convfunc.resolveType = function(self, ctype)
       error("unable to resolve decl of type '"..ctype:getName().."'")
     end
 
-    if decl:is(ast.TagDecl) then
+    if decl:is(ast.TagDecl) or decl:is(ast.ForwardRecord) then
       type = ast.TagType.new(decl)
       if cdecl:isComplete() then
         type.size = ctype:getSize() / 8
@@ -485,6 +531,8 @@ end
 convfunc.processRecordMembers = function(self, cdecl, ctype, record)
   local memiter = cdecl:getContextIter()
 
+  self:write("members of ", cdecl:getName())
+
   local cmember = memiter:next()
   while cmember do
     if cmember:isField() then
@@ -516,6 +564,8 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
         field.metadata = metadata.__parse(field.comment)
       end
 
+      self:write("!! add member ", field.name)
+
       record:addMember(field.name, field)
     elseif cmember:isTag() then
       local member_decl = self:resolveDecl(cmember)
@@ -542,7 +592,7 @@ convfunc.processEnum = function(self, cdecl, ctype)
   local elem = iter:next()
   while elem do
     local e = {}
-    e.name = elem:name()
+    e.name = elem:getName()
     e.comment = elem:getComment()
     if e.comment then
       e.metadata = metadata.__parse(e.comment)

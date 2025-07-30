@@ -16,6 +16,7 @@
 local IroType = require "iro.Type"
 local List = require "iro.List"
 local buffer = require "string.buffer"
+local dump = require "reflect.astdump"
 
 --- Little helper for forming a string using a luajit buffer. For the syntax 
 --- and also to avoid overusing lua's concat operator, since its bad!
@@ -25,6 +26,14 @@ end
 
 --- The ast module containing the types we support in our ast.
 local ast = {}
+
+ast.dump = function(root)
+  local out = dump.new()
+  root:dump(out)
+
+  out:form()
+  return out.buffer:get()
+end
 
 -- TODO(sushi) all of this has made me realize the issue with iro's type 
 --             system is that the new methods for types does not optionally
@@ -47,6 +56,7 @@ local ast = {}
 --- that we extract using clang.
 ---@field metadata table
 local Type = IroType.make()
+ast.Type = Type
 
 --- A representation of a Decl in the AST.
 ---@class ast.Decl : iro.Type
@@ -72,6 +82,7 @@ local Type = IroType.make()
 --- is distinct from the namespace it may be in!
 ---@field parent ast.Decl?
 local Decl = IroType.make()
+ast.Decl = Decl
 
 -- By default, every Decl and Type has an empty metadata table.
 Decl.metadata = {}
@@ -97,6 +108,14 @@ end
 
 TranslationUnit.__tostring = function(self)
   return qstr("TranslationUnit(", self.decls, ")")
+end
+
+TranslationUnit.dump = function(self, dump)
+  dump:node("TranslationUnit", function()
+    for decl in self.decls:each() do
+      decl:dump(dump)
+    end
+  end)
 end
 
 --- A namespace, which contains declarations declared within it. The 
@@ -131,6 +150,15 @@ Namespace.__tostring = function(self)
   return qstr("Namespace(", self.name, ")")
 end
 
+Namespace.dump = function(self, dump)
+  dump:node("Namespace", function()
+    dump:inline_name(self.name)
+    for decl in self.decls:each() do
+      decl:dump(dump)
+    end
+  end)
+end
+
 --- Representation of a builtin type, eg. char, int, short, etc.
 ---
 ---@class ast.Builtin : ast.Type
@@ -160,6 +188,12 @@ Builtin.__tostring = function(self)
   return qstr("Builtin(", self.name, ',', self.size, ")")
 end
 
+Builtin.dump = function(self, dump)
+  dump:node("Builtin", function()
+    dump:inline_name(self.name)
+  end)
+end
+
 -- Generate the basic builtin types.
 Builtin("void", 0)
 Builtin("float", 4)
@@ -177,6 +211,19 @@ List
   Builtin("signed "..i[1], i[2])
   Builtin("unsigned "..i[1], i[2])
 end)
+
+-- Cheat and call our typedefs of the standard builtins builtin, because
+-- its annoying to deal with having to unwrap them in reflection code.
+Builtin("u8",  1)
+Builtin("u16", 2)
+Builtin("u32", 4)
+Builtin("u64", 8)
+Builtin("s8",  1)
+Builtin("s16", 2)
+Builtin("s32", 4)
+Builtin("s64", 8)
+Builtin("f32", 4)
+Builtin("f64", 8)
 
 --- Represents a pointer type.
 --- @class ast.Pointer : ast.Type
@@ -196,6 +243,12 @@ end
 
 Pointer.__tostring = function(self)
   return qstr("Pointer(", self.subtype, ")")
+end
+
+Pointer.dump = function(self, dump)
+  dump:typenode("Pointer", function()
+    self.subtype:dump(dump)
+  end)
 end
 
 --- Represents a reference type.
@@ -258,6 +311,13 @@ CArray.__tostring = function(self)
   return qstr("CArray(", self.len, ',', self.subtype, ')')
 end
 
+CArray.dump = function(self, dump)
+  dump:typenode("CArray", function()
+    dump:tag("len", self.len)
+    self.subtype:dump(dump)
+  end)
+end
+
 --- Represents a typedef type. This stores the declaration of the typedef,
 --- so to get more information about it, such as the name, you must access 
 --- the decl.
@@ -281,6 +341,12 @@ TypedefType.__tostring = function(self)
   return qstr("TypedefType(", self.decl, ")")
 end
 
+TypedefType.dump = function(self, dump)
+  dump:typenode("TypedefType", function()
+    dump:tag("decl", self.decl)
+  end)
+end
+
 --- Represents a 'tag' type. This stores a tag decl that the type represents.
 ---
 --- @class ast.TagType : ast.Type
@@ -300,6 +366,12 @@ end
 
 TagType.__tostring = function(self)
   return qstr("TagType(", self.decl, ")")
+end
+
+TagType.dump = function(self, dump)
+  dump:typenode("TagType", function()
+    dump:tag("decl", self.decl)
+  end)
 end
 
 --- A 'tag' declaration, eg. one that is named. More information of the 
@@ -327,6 +399,12 @@ TagDecl.__tostring = function(self)
   return qstr("TagDecl(", self.name, ")")
 end
 
+TagDecl.dump = function(self, dump)
+  dump:node("TagDecl", function()
+    dump:tag("name", self.name)
+  end)
+end
+
 --- A declaration of a typedef.
 --- @class ast.TypedefDecl : ast.Decl
 ---
@@ -350,6 +428,13 @@ end
 
 TypedefDecl.__tostring = function(self)
   return qstr("TypedefDecl(", self.name, ",", self.subtype, ")")
+end
+
+TypedefDecl.dump = function(self, dump)
+  dump:node("TypedefDecl", function()
+    dump:tag("name", self.name)
+    dump:tag("subtype", self.subtype)
+  end)
 end
 
 --- A representation of an 'elaborated' type. This is a concept from clang,
@@ -380,6 +465,13 @@ Elaborated.__tostring = function(self)
   return qstr("Elaborated(", self.name, ",", self.subtype, ")")
 end
 
+Elaborated.dump = function(self, dump)
+  dump:typenode("Elaborated", function()
+    dump:inline_name(self.name)
+    self.subtype:dump(dump)
+  end)
+end
+
 --- An enum declaration.
 --- @class ast.Enum : ast.TagDecl
 ---
@@ -399,6 +491,17 @@ end
 
 Enum.__tostring = function(self)
   return qstr("Enum(", self.name, ")")
+end
+
+Enum.dump = function(self, dump)
+  dump:node("Enum", function()
+    dump:inline_name(self.name)
+    for elem in self.elems:each() do
+      dump:node(elem.name, function()
+        dump:inline_name(elem.value)
+      end)
+    end
+  end)
 end
 
 --- A record declaration, which is either a struct or union.
@@ -443,7 +546,65 @@ end
 Record.addMember = function(self, name, decl)
   -- TODO(sushi) we could cache some info like storing fields, methods, 
   --             subtypes, etc. in their own tables.
+  -- io.write("*********** Record.addMember: ", name, " to ", self.name, "\n")
+  -- io.write(debug.traceback(), '\n')
   self.members:push(decl)
+end
+
+Record.dumpBase = function(self, name, dump)
+  dump:node(name, function()
+    dump:inline_name(self.name)
+    if self.base then
+      dump:tag("base", self.base)
+    end
+    for member in self.members:each() do
+      member:dump(dump)
+    end
+  end)
+end
+
+--- A forward declaration of a Record decl. This is primarily for marking 
+--- when a record is forward declared in the TranslationUnit. 
+---
+--- This avoids an issue that ecs' reflection used to have where upon 
+--- encountering a forward decl, the underlying decl was inserted into the 
+--- 'top-level' decl list immediately (we didn't have a concept of the 
+--- translation unit back then, because ecs was trying to do too much!).
+--- This made generating code based on reflection very difficult to do 
+--- properly, as the order in which dependended on each other was not 
+--- properly stored.
+---
+--- If there exists a definition of the underlying record, then it is stored
+--- on this node. 
+---
+--- Perhaps we should store all forward declarations, but for now I think this
+--- is all we need.
+---
+--- @class ast.ForwardRecord : ast.Decl
+---
+--- The underlying decl, if it is defined in the containing translation unit.
+---@field decl ast.Record
+---
+local ForwardRecord = Decl:derive()
+ast.ForwardRecord = ForwardRecord
+
+---@return ast.ForwardRecord
+ForwardRecord.new = function(name, decl)
+  local o = ForwardRecord:derive()
+  o.name = name
+  o.decl = decl
+  return o
+end
+
+ForwardRecord.__tostring = function(self)
+  return qstr("ForwardRecord(", self.name, ")")
+end
+
+ForwardRecord.dump = function(self, dump)
+  dump:node("ForwardRecord", function()
+    dump:inline_name(self.name)
+    dump:tag("decl", self.decl or "<incomplete>")
+  end)
 end
 
 --- A field of a record.
@@ -465,7 +626,7 @@ ast.Field = Field
 
 ---@return ast.Field
 Field.new = function(name, type, offset)
-  local o = Decl:derive()
+  local o = Field:derive()
   o.name = name
   o.type = type
   o.offset = offset
@@ -474,6 +635,14 @@ end
 
 Field.__tostring = function(self)
   return qstr("Field(", self.name, ",", self.type, ")")
+end
+
+Field.dump = function(self, dump)
+  dump:node("Field", function()
+    dump:inline_name(self.name)
+    dump:tag("offset", self.offset)
+    self.type:dump(dump)
+  end)
 end
 
 --- A struct declaration. This type exists primarily as a convenience for 
@@ -495,6 +664,10 @@ Struct.__tostring = function(self)
   return qstr("Struct(", self.name, ")")
 end
 
+Struct.dump = function(self, dump)
+  Record.dumpBase(self, "Struct", dump)
+end
+
 --- A union declaration. This type exists primarily as a convenience for 
 --- checking if a decl is specifically a union, not a struct.
 --- 
@@ -512,6 +685,10 @@ end
 
 Union.__tostring = function(self)
   return qstr("Union(", self.name, ")")
+end
+
+Union.dump = function(self, dump)
+  Record.dumpBase(self, "Union", dump)
 end
 
 --- A specialization of a template. Note that at the moment, we don't support
@@ -553,6 +730,10 @@ TemplateSpec.__tostring = function(self)
   return buf:get()
 end
 
+TemplateSpec.dump = function(self, dump)
+  Record.dumpBase(self, "TemplateSpec", dump)
+end
+
 --- A function declaration. At the moment, these only exist to represent 
 --- methods of record decls, and their use is very limited.
 ---
@@ -570,6 +751,12 @@ end
 
 Function.__tostring = function(self)
   return qstr("Function(", self.name, ")")
+end
+
+Function.dump = function(self, dump)
+  dump:node("Function", function()
+    dump:tag("name", self.name)
+  end)
 end
 
 return ast

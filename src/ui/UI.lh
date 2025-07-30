@@ -3,7 +3,9 @@
  */
 
 $ local cmn = require "common"
-$ local ui = require "ui.UI"
+
+@@lpp.import "ui/Skin.defs.lh"
+@@lpp.import "ui/TextEdit.lh"
 
 @@lpp.import "graphics/Buffer.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
@@ -12,10 +14,6 @@ $ local ui = require "ui.UI"
 @@lpp.import "graphics/Pipeline.defs.lh"
 
 @@lpp.import "input/InputState.lh"
-
-@@lpp.import "ui/Skin.defs.lh"
-
-@@lpp.import "ui/TextEdit.lh"
 
 #include "iro/containers/StackArray.h"
 #include "iro/containers/EnumArray.h"

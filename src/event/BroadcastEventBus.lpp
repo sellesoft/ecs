@@ -1,5 +1,5 @@
+$ if false then
 $ local cmn = require "common"
-$ local event = require "event.Event"
 $ local beb = require "event.BroadcastEventBus"
 $ local glob = require "Glob"
 $ local buffer = require "string.buffer"
@@ -77,3 +77,4 @@ $ eachEvent(function(name, decl)
 $ end)
   return true;
 }
+$ end

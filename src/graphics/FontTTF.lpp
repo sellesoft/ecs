@@ -1,5 +1,5 @@
 $ local cmn = require "common"
-$ local List = require "List"
+$ local List = require "iro.List"
 
 #include "iro/io/IO.h"
 #include "iro/fs/File.h"

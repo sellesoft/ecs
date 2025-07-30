@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 $ local Comp = require "game.shared.component.Component"
-$ local glob = require "Glob"
-$ local List = require "List"
+$ local glob = require "iro.fs.glob"
+$ local List = require "iro.List"
 $ local ast = require "reflect.AST"
 
 $$$

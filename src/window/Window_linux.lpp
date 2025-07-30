@@ -1,6 +1,6 @@
 $ local cmn = require "common"
-$ local CGen = require "CGen"
-$ local List = require "List"
+$ local CGen = require "iro.CGen"
+$ local List = require "iro.List"
 
 $ if IRO_LINUX then
 

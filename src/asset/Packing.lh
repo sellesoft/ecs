@@ -1,5 +1,4 @@
 $ local cmn = require "common"
-$ local Schema = require "asset.Schema"
 
 @@lpp.import "asset/SourceData.lh"
 @@lpp.import "asset/PackedData.lh"

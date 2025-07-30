@@ -15,6 +15,7 @@
 ---             it would be more efficient to try something else later.
 ---
 
+local cmn = require "common"
 local IroType = require "iro.Type"
 local List = require "iro.List"
 local ast = require "reflect.ast"
@@ -74,7 +75,7 @@ end
 AstContext.fromString = function(str)
   local Context = require "lppclang" "lib/lppclang.so"
 
-  local ctx = Context.new()
+  local ctx = Context.new(cmn.cargs)
   local Converter = Converter.new()
 
   local astctx = AstContext.new()
@@ -126,7 +127,7 @@ local convfunc = setmetatable({},
 convfunc.processTranslationUnit = function(self, tu)
   self.tu = ast.TranslationUnit.new()
 
-  tu:dump()
+  -- tu:dump()
 
   local iter = tu:getContextIter()
   local cdecl = iter:next()

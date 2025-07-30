@@ -40,6 +40,7 @@ local static_libs = List
 
 local include_dirs = List 
 {
+  cwd.."/src",
   cwd.."/include",
   cwd.."/third_party/include",
 }
@@ -69,11 +70,31 @@ local cpp_params =
   nortti = true,
 }
 
+--- Form the meta arg that the relfection system will use to pass along to 
+--- lppclang the cpp params we will be compiling the resulting cpp files 
+--- with.
+local cpp_args_noio = require "lake.driver.clang" .noio(cpp_params)
+
+local meta_arg = "--cargs="
+for _,arg in ipairs(cpp_args_noio) do
+  meta_arg = meta_arg..arg..","
+end
+
 ---@type lake.obj.Lpp.PreprocessParams
 local lpp_params = 
 {
   require_dirs = List { "src" },
-  cpath_dirs = List { "lib" }
+  cpath_dirs = List { "lib" },
+  import_dirs = List { "src" },
+  meta_args = List { meta_arg },
+
+  cmd_callback = function(cmd, file)
+    if file:find "Packing" then
+      local f = io.open("cmd.txt", "w")
+      f:write("lldb -- "..table.concat(cmd, " "))
+      f:close()
+    end
+  end
 }
 
 ---@type lake.obj.Exe.LinkParams
@@ -115,13 +136,13 @@ for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local o_output = cpp_output..".o"
   objs:push(
     o.Lpp(lfile)
-      :preprocessToCpp(cpp_output, lpp_params)
-      :compile(o_output, cpp_params))
+      :preprocessToCpp(cpp_output, lpp_params))
+      --:compile(o_output, cpp_params))
 end
 
-for cfile in lake.utils.glob("src/**/*.cpp"):each() do
-  local output = build_dir.."/"..cfile..".o"
-  objs:push(o.Cpp(cfile):compile(output, cpp_params))
-end
+-- for cfile in lake.utils.glob("src/**/*.cpp"):each() do
+--   local output = build_dir.."/"..cfile..".o"
+--   objs:push(o.Cpp(cfile):compile(output, cpp_params))
+-- end
 
-o.Exe "build/ecs" :link(objs, link_params)
+-- o.Exe "build/ecs" :link(objs, link_params)

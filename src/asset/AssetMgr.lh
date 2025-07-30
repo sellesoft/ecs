@@ -16,9 +16,8 @@
 #include "iro/memory/Bump.h"
 
 $ local cmn = require "common"
-$ local Ref = require "asset.Ref"
 
-@@lpp.import "Asset.lh"
+@@lpp.import "asset/Asset.lh"
 
 using namespace iro;
 

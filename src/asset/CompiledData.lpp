@@ -10,12 +10,12 @@
  */
 
 $ local cmn = require "common"
-$ local glob = require "Glob"
+$ local glob = require "iro.fs.glob"
 $ local Processor = require "reflect.Processor"
 $ local ast = require "reflect.AST"
-$ local clog = require "Logger" ("compiledata", Verbosity.Info)
-$ local Type = require "Type"
-$ local List = require "List"
+$ local clog = require "iro.Logger" ("compiledata", Verbosity.Info)
+$ local Type = require "iro.Type"
+$ local List = require "iro.List"
 
 #include "iro/Logger.h"
 #include "iro/fs/File.h"

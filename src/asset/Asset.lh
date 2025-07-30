@@ -7,7 +7,6 @@
  */
 
 $ local cmn = require "common"
-$ local Ref = require "asset.Ref"
 $ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"

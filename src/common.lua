@@ -5,6 +5,10 @@
 -- Introduce lpp as a global.
 lpp = require "lpp"
 
+os.exit = function()
+  io.write("DO NOT CALL OS.EXIT\n")
+end
+
 -- Introduces the log global
 require "Log"
 
@@ -16,6 +20,31 @@ local common = {}
 
 common.buffer = require "string.buffer"
 common.List = require "iro.List"
+
+--- Parse the cargs that should have been provided by the lakefile.
+common.cargs = common.List {}
+for _,v in ipairs(lpp.argv) do
+  if v:find "^%-%-cargs" then
+    local cargs = v:sub(#"--cargs="+1)
+    for carg in cargs:gmatch("[^,]+") do
+      common.cargs:push(carg)
+
+      -- Set -D args as globals so that we may use them in lpp as well.
+      local define = carg:match "^%-D(.*)"
+      if define then
+        local name, val = define:match "(.-)=(.*)"
+        if name and val then
+          _G[name] = val
+        end
+      end
+    end
+  end
+end
+
+if common.cargs:isEmpty() then
+  error 
+    "failed to get cargs! they should have been specified in the lakefile!"
+end
 
 common.defFileLogger = function(name, verbosity)
   local buf = common.buffer.new()

@@ -4,7 +4,7 @@
  */
 
 $ local cmn = require "common"
-$ local List = require "List"
+$ local List = require "iro.List"
 
 #include "math/vec.h"
 #include "Color.h"

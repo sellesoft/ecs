@@ -1,4 +1,3 @@
-$ local cmn = require "common"
-$ local ast = require "reflect.AST"
-$ local clog = require "Logger" ("rtrpty", Verbosity.Info)
-$ local List = require "List"
+// Idk, I was gonna do this, then realized it wasn't gonna be as easy 
+// as I thought. However! Maybe it will be easier with the reflection rewrite.
+// Hopefully I remember to come back to this!

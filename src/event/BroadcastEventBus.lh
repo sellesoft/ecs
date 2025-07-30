@@ -1,10 +1,11 @@
+$ if false then
 $ local cmn = require "common"
-$ local Event = require "event.Event"
 $ local beb = require "event.BroadcastEventBus"
 $ local glob = require "Glob"
 $ local buffer = require "string.buffer"
 
 // Import all event def files.
+$ if false then
 $ local importEvents = function()
 $   local buf = buffer.new()
 $   glob "**/*.events.lh" :each(function(eventpath)
@@ -13,19 +14,11 @@ $   end)
 $   return buf:get()
 $ end
 @@importEvents
+$ end
 
 struct BroadcastEventBusData
 {
-$ Event.events.broad.list:each(function(event)
-$ local e = event.name
-  struct $(e)Subscriber
-  {
-    void* subscriber;
-    void (*callback)(void*, $(e)& event);
-  };
-  Pool<$(e)Subscriber> $(e)Subscriber_pool;
-  SList<$(e)Subscriber> $(e)Subscriber_list;
-$ end)
 };
 
+$ end
 

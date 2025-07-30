@@ -1,5 +1,4 @@
 $ local cmn = require "common"
-$ local ui = require "ui.UI"
 
 @@lpp.import "ui/UI.lh"
 @@lpp.import "graphics/CompiledShader.lh"

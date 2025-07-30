@@ -1,6 +1,4 @@
 $ local cmn = require "common"
-$ local ui = require "ui.UI"
-$ local Style = require "ui.Style"
 
 @@lpp.import "Engine.lh"
 

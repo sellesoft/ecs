@@ -1,9 +1,8 @@
 $ local cmn = require "common"
-$ local ui = require "ui.UI"
-$ local glob = require "Glob"
+$ local glob = require "iro.fs.glob"
 $ local Processor = require "reflect.Processor"
 $ local ast = require "reflect.AST"
-$ local List = require "List"
+$ local List = require "iro.List"
 
 $$$
 local importer = require "reflect.Importer"

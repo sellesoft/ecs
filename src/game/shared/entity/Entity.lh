@@ -3,7 +3,6 @@
  */
 
 $ local cmn = require "common"
-$ local ui = require "ui.UI"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"

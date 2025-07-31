@@ -212,19 +212,6 @@ List
   Builtin("unsigned "..i[1], i[2])
 end)
 
--- Cheat and call our typedefs of the standard builtins builtin, because
--- its annoying to deal with having to unwrap them in reflection code.
-Builtin("u8",  1)
-Builtin("u16", 2)
-Builtin("u32", 4)
-Builtin("u64", 8)
-Builtin("s8",  1)
-Builtin("s16", 2)
-Builtin("s32", 4)
-Builtin("s64", 8)
-Builtin("f32", 4)
-Builtin("f64", 8)
-
 --- Represents a pointer type.
 --- @class ast.Pointer : ast.Type
 ---
@@ -269,6 +256,12 @@ end
 
 Reference.__tostring = function(self)
   return qstr("Reference(", self.subtype, ")")
+end
+
+Reference.dump = function(self, dump)
+  dump:typenode("Reference", function()
+    self.subtype:dump(dump)
+  end)
 end
 
 --- Represents a function pointer.
@@ -758,5 +751,21 @@ Function.dump = function(self, dump)
     dump:tag("name", self.name)
   end)
 end
+
+-- Cheat and call our typedefs of the standard builtins builtin, because
+-- its annoying to deal with having to unwrap them in reflection code.
+Builtin("u8",  1)
+Builtin("u16", 2)
+Builtin("u32", 4)
+Builtin("u64", 8)
+Builtin("s8",  1)
+Builtin("s16", 2)
+Builtin("s32", 4)
+Builtin("s64", 8)
+Builtin("f32", 4)
+Builtin("f64", 8)
+
+-- TODO(sushi) maybe make some kinda special decl type for iro's String.
+--             I'm not really sure how I'd like that to work yet.
 
 return ast

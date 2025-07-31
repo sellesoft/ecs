@@ -20,7 +20,7 @@ local IroType = require "iro.Type"
 local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
-local log = require "iro.Logger" ("astctx", Verbosity.Trace)
+local log = require "iro.Logger" ("astctx", Verbosity.Debug)
 
 ---@class reflect.AstContext : iro.Type
 ---
@@ -296,6 +296,8 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     if decl:is(ast.Record) and cdecl:isAnonymous() then
       decl.is_anonymous = true
     end
+  
+    self:write(decl.type.name)
     self:write('>>> ', decl)
   end
 
@@ -380,7 +382,7 @@ convfunc.resolveType = function(self, ctype)
     local canonical_ctype = ctype:getCanonicalType()
     if canonical_ctype then
       if canonical_ctype:isBuiltin() then
-        local builtin = ast.BuiltinType[canonical_ctype:getName()]
+        local builtin = ast.builtins[canonical_ctype:getName()]
         if not builtin then
           canonical_ctype:dump()
           error("failed to get builtin type")
@@ -415,6 +417,10 @@ convfunc.resolveType = function(self, ctype)
       ctype:dump()
       error("unhandled type")
     end
+  end
+
+  if type then
+    type.name = ctype:getName()
   end
 
   return type

@@ -5,11 +5,41 @@
 $ local cmn = require "common"
 
 @@lpp.import "asset/Packing.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "asset/SourceDataEditorSkin.defs.lh"
+
+#include "math/Rect.h"
+#include "iro/fs/File.h"
 
 @log.ger(test-packing, Debug)
 
+b8 test()
+{
+  SourceDataFile testfile;
+  if (!SourceDataFile::from(&testfile, "tests/packing/test.data"_str))
+    return false;
+  defer { testfile.deinit(); };
+
+  PackedData packed;
+  PackContext packctx;
+  packctx.packed = &packed;
+
+  defer { packed.clear(); };
+
+  if (!packSourceDataFromType(*testfile.returned_data, packctx))
+    return false;
+
+  auto* result = packed.getRootAs<SourceDataEditorSkinDef>();
+
+  INFO(result->vec2_data.min_comp_width, '\n');
+
+  return true;
+}
+
 int main()
 {
+  iro::initializeDefaultLogging();
 
+  return test()? 0 : 1;
 }

@@ -1,5 +1,5 @@
 local lake = require "lake"
-local o = lake.objs
+local o = lake.obj
 local List = require "iro.List"
 
 return function(
@@ -20,11 +20,13 @@ return function(
         :compile(cpp..".o", cpp_params))
   end
 
+  -- compileLpp "src/reflect/RTR_Pretty.lpp"
+  compileLpp "src/asset/Packing2.lpp"
   compileLpp "src/asset/SourceDataFile.lpp"
   compileLpp "src/asset/SourceData.lpp"
   compileLpp "src/asset/SourceDataParser.lpp"
-  compileLpp "tests/source-data-parse/main.lpp"
+  compileLpp "tests/packing/main.lpp"
 
-  o.Exe(build_dir.."/tests/source-data-parse/run")
+  o.Exe(build_dir.."/tests/packing/run")
     :link(objs, link_params)
 end

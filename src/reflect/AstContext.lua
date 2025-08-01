@@ -20,7 +20,7 @@ local IroType = require "iro.Type"
 local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
-local log = require "iro.Logger" ("astctx", Verbosity.Debug)
+local log = require "iro.Logger" ("astctx", Verbosity.Info)
 
 ---@class reflect.AstContext : iro.Type
 ---
@@ -34,11 +34,30 @@ local log = require "iro.Logger" ("astctx", Verbosity.Debug)
 --- lua tables are of arbitrary order!
 ---@field type_decls_by_canonical_name table
 ---
+--- A list of type declarations for iterating in proper order.
+---@field type_decls iro.List
+---
 local AstContext = IroType.make()
 
 ---@return reflect.AstContext
 AstContext.new = function()
-  return setmetatable({}, AstContext)
+  local o = {}
+  o.type_decls = List {}
+  o.type_decls_by_canonical_name = {}
+  return setmetatable(o, AstContext)
+end
+
+AstContext.lookupDecl = function(self, name)
+  -- TODO(sushi) this could be made more fancy, eg. handling whitespace 
+  --             independent tokens 
+  --               like:
+  --                 iro :: ut8::String 
+  --                successfully returning the decl of String.
+  --              and stuff like searching with non-canonical names like just 
+  --              'String' also successfully returning. Don't want to get too
+  --              bogged down in that atm, though.
+  --              And its probably safer to require canonical names for now.
+  return self.type_decls_by_canonical_name[name]
 end
 
 --- Internal helper module for converting clang's AST to our internal
@@ -58,11 +77,12 @@ end
 local Converter = IroType.make()
 
 ---@return reflect.Converter
-Converter.new = function()
+Converter.new = function(astctx)
   local o = {}
   o.ns_stack = List {}
   o.processed_clang_objs = {}
   o.depth = 0
+  o.ctx = astctx
   return setmetatable(o, Converter)
 end
 
@@ -76,9 +96,9 @@ AstContext.fromString = function(str)
   local Context = require "lppclang" "lib/lppclang.so"
 
   local ctx = Context.new(cmn.cargs)
-  local Converter = Converter.new()
 
   local astctx = AstContext.new()
+  local Converter = Converter.new(astctx)
 
   astctx.translation_unit =
     Converter:processTranslationUnit(ctx:parseString(str))
@@ -296,7 +316,17 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     if decl:is(ast.Record) and cdecl:isAnonymous() then
       decl.is_anonymous = true
     end
+    decl.namespace = self.ns_stack:last()
+
+    --- TODO(sushi) document this if it winds up not causing issues. This 
+    ---             just allows every decl to have some sort of user data
+    ---             associated with it, since that's a much easier solution
+    ---             than the stuff I used to do in reflection code.
+    decl.user = {}
   
+    self.ctx.type_decls:push(decl)
+    self.ctx.type_decls_by_canonical_name[decl.type.name] = decl
+
     self:write(decl.type.name)
     self:write('>>> ', decl)
   end
@@ -430,7 +460,7 @@ end
 ---@param ctype lppclang.Type
 ---@return ast.Struct
 convfunc.processStruct = function(self, cdecl, ctype)
-  local struct = ast.Struct.new(ctype:getCanonicalType():getName())
+  local struct = ast.Struct.new(cdecl:getName())
   self:recordProcessed(cdecl, struct)
 
   self:processRecordMembers(cdecl, ctype, struct)
@@ -480,7 +510,7 @@ end
 ---@param ctype lppclang.Type
 ---@return ast.Union
 convfunc.processUnion = function(self, cdecl, ctype)
-  local union = ast.Union.new(ctype:getCanonicalType():getName())
+  local union = ast.Union.new(cdecl:getName())
   self:recordProcessed(cdecl, union)
 
   self:processRecordMembers(cdecl, ctype, union)
@@ -497,7 +527,7 @@ convfunc.processTemplateSpec = function(self, cdecl, ctype)
 
   local spec = 
     ast.TemplateSpec.new(
-      ctype:getCanonicalType():getName(),
+      cdecl:getName(),
       specdecl:getName())
 
   self:recordProcessed(cdecl, spec)
@@ -592,7 +622,7 @@ end
 ---@param ctype lppclang.Type
 ---@return ast.Enum
 convfunc.processEnum = function(self, cdecl, ctype)
-  local enum = ast.Enum.new(ctype:getCanonicalType():getName())
+  local enum = ast.Enum.new(cdecl:getName())
   self:recordProcessed(cdecl, enum)
 
   local iter = cdecl:getEnumIter()
@@ -618,7 +648,7 @@ end
 ---@param ctype lppclang.Type
 ---@return ast.TypedefDecl
 convfunc.processTypedef = function(self, cdecl, ctype)
-  local typedef = ast.TypedefDecl.new(ctype:getName())
+  local typedef = ast.TypedefDecl.new(cdecl:getName())
   self:recordProcessed(cdecl, typedef)
 
   typedef.subtype = self:resolveType(assert(cdecl:getTypedefSubType()))

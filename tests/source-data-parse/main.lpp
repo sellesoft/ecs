@@ -1,0 +1,50 @@
+/*
+ *  Testing for source data parsing.
+ */
+
+$ require "common"
+
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/SourceDataParser.lh"
+
+#include "iro/fs/File.h"
+
+@log.ger(source-data-parse, Debug)
+
+b8 test()
+{
+  using namespace iro;
+  using namespace iro::fs;
+
+  DEBUG("creating source data file\n");
+  SourceDataFile sfile;
+  if (!sfile.init())
+    return ERROR("failed to initialize source data file\n");
+  defer { sfile.deinit(); };
+
+  DEBUG("loading test file\n");
+  
+  File file = File::openForRead("tests/source-data-parse/test.data"_str);
+  if (isnil(file))
+    return ERROR("failed to open test source data file\n");
+  defer { file.close(); };
+  
+  DEBUG("parsing test file\n");
+  if (!parseSourceDataFile(&sfile, &file, "test.data"_str))
+    return ERROR("failed to parse test source data file\n");
+
+  for (SourceData& data : sfile.aux_data_list)
+    data.dump();
+
+  sfile.returned_data->dump();
+
+  return true;
+}
+
+int main()
+{
+  iro::initializeDefaultLogging();
+  defer { iro::log.deinit(); };
+
+  return test()? 0 : 1;
+}

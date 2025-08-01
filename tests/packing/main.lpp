@@ -1,0 +1,15 @@
+/*
+ *  Testing for the packing pipeline.
+ */
+
+$ local cmn = require "common"
+
+@@lpp.import "asset/Packing.lh"
+@@lpp.import "asset/SourceDataParser.lh"
+
+@log.ger(test-packing, Debug)
+
+int main()
+{
+
+}

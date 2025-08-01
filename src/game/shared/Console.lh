@@ -4,7 +4,7 @@ $ require "common"
 #include "iro/containers/FixedPool.h"
 #include "iro/containers/StackArray.h"
 #include "iro/Unicode.h"
-#include "iro/Mutex.h"
+#include "iro/concurrent/Mutex.h"
 
 
 struct Engine;
@@ -33,7 +33,7 @@ struct SharedConsole
 
   static constexpr u64 INPUT_BUFFER_SIZE = 512;
   iro::StackArray<u8, INPUT_BUFFER_SIZE> stdin_buffer;
-  iro::Mutex stdin_mutex;
+  iro::conc::Mutex stdin_mutex;
   void* stdin_thread;
 
   static constexpr u64 MAX_COMMAND_NAME_LENGTH = 64;

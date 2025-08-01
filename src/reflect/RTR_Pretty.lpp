@@ -1,3 +1,132 @@
-// Idk, I was gonna do this, then realized it wasn't gonna be as easy 
-// as I thought. However! Maybe it will be easier with the reflection rewrite.
-// Hopefully I remember to come back to this!
+$ local cmn = require "common"
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("packing", Verbosity.Debug)
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+
+$$$
+
+local AstContext = require "reflect.AstContext"
+
+ECS_REFLECTION_IMPORT = true
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    if not path:find "ServerAllocator" and
+       not path:find "server"   
+    then
+      imported:put((lpp.import(path)) or "")
+    end
+  end)
+end
+
+importpattern "src/**/*.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupDecl(name)
+end
+
+$$$
+@@imported:get
+
+namespace rtr
+{
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function recordPlaced(decl)
+$   decl.user.packer_placed = true
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getPrinterName(decl)
+$   return "prettyPrint_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypePrinterName(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     return (getPrinterName(type.decl))
+$   elseif type:is(ast.Builtin) then
+$     return "prettyPrint_"..type:formCSafeName()
+$   else
+$     error("unhandled type passed to getTypePrinterName: "..
+$           tostring(type).."\n")
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getPrinterSig(decl)
+$   return getPrinterName(decl)..
+$          "(io::IO* out, const "..decl.type.name.."& val)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypePrinterSig(type)
+$   return getTypePrinterName(type)..
+$          "(io::IO* out, const "..type.name.."& val)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function printerFuncFromDecl(decl)
+$   recordPlaced(decl)
+$   return "static void "..getPrinterSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function printerFuncFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("failed to get decl for '"..name.."'")
+$   end
+$   return printerFuncFromDecl(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putNumberPrinter(name)
+  /* --------------------------------------------------------------------------
+   */
+  $(printerFuncFromName(name))
+  {
+    io::format(out, val);
+  }
+$ end
+
+$ putNumberPrinter "u8"
+$ putNumberPrinter "u16"
+$ putNumberPrinter "u32"
+$ putNumberPrinter "u64"
+$ putNumberPrinter "s8"
+$ putNumberPrinter "s16"
+$ putNumberPrinter "s32"
+$ putNumberPrinter "s64"
+$ putNumberPrinter "f32"
+$ putNumberPrinter "f64"
+
+$ -- * ------------------------------------------------------------------------
+
+$ for decl in astctx.translation_unit.decls:each() do
+$   if decl:is(ast.Record) and not decl.is_anonymous
+$   then
+$(printerFuncFromDecl(decl))
+{
+
+}
+$   end
+$ end
+
+}

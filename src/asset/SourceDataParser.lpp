@@ -440,7 +440,7 @@ b8 Parser::parseTypedOrDerivedData(
       else
         data->val = aux->val;
 
-        stage.log("aux data derivation (", id.raw, ")\n");
+      stage.log("aux data derivation (", id.raw, ")\n");
 
       // Parse the following possibly typed data.
       if (!parsePossiblyTypedData(data))
@@ -467,7 +467,7 @@ b8 Parser::parseTypedOrDerivedData(
       if (aux == nullptr)
         return errorAt(id, 
           "no aux data named '", id.raw, "'; did you mean to use '{' for "
-          "defining object data of some type?");
+          "defining object data of some type?\n");
 
       if (aux->hasObjectData())
         data->base = aux;

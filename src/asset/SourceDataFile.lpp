@@ -27,6 +27,13 @@ b8 SourceDataFile::init()
 void SourceDataFile::deinit()
 {
   string_cache.deinit();
+  
+  for (SourceData& data : aux_data_list)
+    data.destroy();
+
+  if (returned_data != nullptr)
+    returned_data->destroy();
+
   data_pool.deinit();
   aux_data_list.deinit();
 }

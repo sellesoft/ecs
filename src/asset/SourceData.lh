@@ -49,6 +49,12 @@ struct SourceData
 
   SourceData* base = nullptr;
 
+  // The line/column this SourceData was found at in the input text we 
+  // parsed it from. Note that its up to the user to keep track of the 
+  // actual input some SourceData came from.
+  u32 line;
+  u32 column;
+
   SourceData() {}
 
   /* --------------------------------------------------------------------------
@@ -117,6 +123,12 @@ struct SourceData
    */
   void destroy()
   {
+    if (hasChildren())
+    {
+      for (SourceData* child : children)
+        child->destroy();
+    }
+
     children.destroy();
   }
 
@@ -151,13 +163,9 @@ struct SourceData
    */
   SourceData* deepCopy(SourceDataFile* sfile);
 
-  void dump(u32 depth = 0) const;
-  void dump(io::IO* out, u32 depth = 0) const;
-
   /* --------------------------------------------------------------------------
    *  Editing helpers.
    */
-
   void        setObject(String name);
   SourceData* addObject(SourceDataFile& file, String name);
 
@@ -173,4 +181,9 @@ struct SourceData
   void setNumberValue(f32 val, SourceDataFile& file);
   SourceData* addNumberValue(f32 val, SourceDataFile& file);
   SourceData* addNumberValue(String name, f32 val, SourceDataFile& file);
+
+  /* --------------------------------------------------------------------------
+   */
+  void dump(u32 depth = 0) const;
+  void dump(io::IO* out, u32 depth = 0) const;
 };

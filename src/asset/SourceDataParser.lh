@@ -18,6 +18,21 @@ using namespace iro;
 
 struct SourceDataFile;
 
+/* ============================================================================
+ *  Collection of options to alter parsing. 
+ */
+struct SourceDataParserOptions
+{
+  // When enabled, referencing aux data by name is disallowed, eg. 
+  // 
+  //   some_data = {}
+  //   some_data2 = some_data
+  //   some_data3 = some_data : {}
+  //
+  // will result in error.
+  b8 disallow_aux_refs : 1;
+};
+
 /* ----------------------------------------------------------------------------
  */
 b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name);

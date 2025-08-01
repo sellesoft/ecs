@@ -1,0 +1,13 @@
+text = 
+{
+  font        = "assets/fonts/gohu",
+  wrap        = "Word",
+  font_height = 11,
+  tab_spaces  = 2,
+  align       = { 0.5, 0.5 },
+}
+
+return SourceDataEditorSkinDef
+{
+  text = text
+}

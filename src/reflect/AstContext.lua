@@ -14,6 +14,9 @@
 ---             I guess so its easiest to get it working this way. But maybe
 ---             it would be more efficient to try something else later.
 ---
+--- TODO(sushi) move the conversion stuff out to its own file as this should 
+---             just contain the api for AstContext.
+---
 
 local cmn = require "common"
 local IroType = require "iro.Type"
@@ -232,6 +235,28 @@ Converter.ensureDefinitionDecl = function(self, cdecl)
   return cdecl
 end
 
+--- Helper for properly checking if a decl is complete. This handles 
+--- cases where a complete definition is not required, such as for 
+--- template specializations.
+---
+---@param decl lppclang.Decl
+---@return boolean
+local function isCompleteDecl(decl)
+  if decl:isTag() then
+    if decl:isTemplateSpec() then
+      -- NOTE(sushi) clang does not require template specializations to have 
+      --             a complete definition, which I believe makes sense, since
+      --             they can instantiated as types and such. So we just 
+      --             return true in that case to avoid them being marked 
+      --             as incomplete ForwardRecords.
+      return true
+    else
+      return decl:isComplete()
+    end
+  end
+  return true
+end
+
 --- Resolves an lppclang decl to an internal ast.Decl. If we've already 
 --- converted the given decl, it is returned, otherwise it is fully converted.
 ---@param cdecl lppclang.Decl
@@ -247,7 +272,7 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
   end
 
   if not resolving_forward then
-    if cdecl:isRecord() and not cdecl:isComplete() then
+    if cdecl:isRecord() and not isCompleteDecl(cdecl) then
       self:write("forward record")
       local complete_decl = self:resolveDecl(cdecl, true)
       local forward = ast.ForwardRecord.new(cdecl:getName(), complete_decl)
@@ -657,6 +682,14 @@ convfunc.processTypedef = function(self, cdecl, ctype)
   typedef.comment = cdecl:getComment()
   if typedef.comment then
     typedef.metadata = metadata.__parse(typedef.comment)
+  end
+
+  local desugared = typedef.subtype:desugar()
+  if desugared:is(ast.TagType) then
+    local subdecl = desugared.decl
+    -- TODO(sushi) document
+    subdecl.typedefs = subdecl.typedefs or List {}
+    subdecl.typedefs:push(typedef)
   end
 
   return typedef

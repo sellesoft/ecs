@@ -310,6 +310,12 @@ FunctionPointer.__tostring = function(self)
   return qstr("FunctionPointer()")
 end
 
+FunctionPointer.dump = function(self, dump)
+  dump:typenode("FunctionPointer", function()
+
+  end)
+end
+
 --- Represents a C array.
 --- @class ast.CArray : ast.Type
 ---
@@ -432,6 +438,11 @@ TagDecl.formCSafeName = function(self, out)
   out = out or buffer.new()
   if self.namespace then
     self.namespace:formCSafeName(out)
+    out:put '_'
+  end
+
+  if self.parent then
+    self.parent:formCSafeName(out)
     out:put '_'
   end
 
@@ -656,6 +667,9 @@ Record.findField = function(self, name)
       return member
     end
   end
+  if self.base then
+    return self.base:findField(name)
+  end
 end
 
 --- Gets the number of fields this Record contains.
@@ -670,6 +684,34 @@ Record.countFields = function(self)
   end
   return sum
 end
+
+--- Returns true if this Record is derived from the given Record.
+---
+---@param base ast.Record
+---@return boolean
+Record.isDerivedFrom = function(self, base)
+  if self.base then
+    if self.base == base then
+      return true
+    else
+      return self.base:isDerivedFrom(base)
+    end
+  end
+  return false
+end
+
+--- Finds metadata attached to this record of the given name. This also 
+--- searches the Record's base, recursively, which is the primariy reason to
+--- use this helper. Otherwise it's better to just write decl.metadata.<key>.
+---
+---@return any?
+Record.findMetadata = function(self, key)
+  if self.metadata[key] then
+    return self.metadata[key]
+  elseif self.base then
+    return self.base:findMetadata(key)
+  end
+end 
 
 --- A forward declaration of a Record decl. This is primarily for marking 
 --- when a record is forward declared in the TranslationUnit. 
@@ -920,5 +962,13 @@ Builtin("f64", 8)
 
 -- TODO(sushi) maybe make some kinda special decl type for iro's String.
 --             I'm not really sure how I'd like that to work yet.
+
+for k,v in pairs(ast) do
+  if Decl:isTypeOf(v) or Type:isTypeOf(v) then
+    if not v.dump then
+      error(k.." does not define a dump method")
+    end
+  end
+end
 
 return ast

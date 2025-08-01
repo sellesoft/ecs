@@ -50,3 +50,13 @@ SourceData* parsePossiblyTypedOrDerivedSourceData(
   SourceDataFile* file,
   io::IO* io,
   String name);
+
+/* ----------------------------------------------------------------------------
+ *  Parses the possibly typed SourceData value from 'input' and appends it to 
+ *  the given SourceDataFile's aux data list with the name 'aux_name'.
+ */
+SourceData* parsePossiblyTypedAuxData(
+  SourceDataFile* file,
+  io::IO* input,
+  String input_name,
+  String aux_name);

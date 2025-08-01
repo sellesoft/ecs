@@ -95,7 +95,11 @@ struct Parser
 
   b8 parse();
 
+  // Parses a value and sets it as the returned data of the SourceDataFile.
   b8 parseReturn();
+
+  // Parses aux data given that 'tok' is its identifier and adds it to the 
+  // aux data list of the SourceDataFile.
   b8 parseAuxData(Token tok);
 
   // Parse data that may start with an identifier followed by an '='.
@@ -180,11 +184,10 @@ b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name)
 
   if (!parser.init(file, io, name))
     return false;
+  defer { parser.deinit(); };
 
   if (!parser.parse())
     return false;
-
-  parser.deinit();
 
   return true;
 }
@@ -228,6 +231,35 @@ SourceData* parsePossiblyTypedOrDerivedSourceData(
   if (!parser.parsePossiblyTypedOrDerivedData(result))
     return nullptr;
 
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* parsePossiblyTypedAuxData(
+    SourceDataFile* file,
+    io::IO* io,
+    String input_name,
+    String aux_name)
+{
+  Parser parser;
+  if (!parser.init(file, io, input_name))
+    return nullptr;
+  defer { parser.deinit(); };
+
+  SourceData* result = file->allocateSourceData();
+
+  if (!parser.parsePossiblyTypedData(result))
+    return nullptr;
+
+  if (notnil(result->name))
+  {
+    ERROR("parsePossiblyTypedAuxData input resulted in named source data\n");
+    return nullptr;
+  }
+
+  result->name = aux_name;
+  file->aux_data_list.pushTail(result);
   return result;
 }
 
@@ -493,14 +525,9 @@ b8 Parser::parsePossiblyTypedData(SourceData* data)
   {
     data->type = tok.raw;
     tok = nextToken();
-
-    if (tok.kind != TK::LBrace)
-      return errorAt(tok, "expected object data after typename\n");
   }
-  else if (tok.kind != TK::LBrace)
-    return errorAt(tok, "expected typename or object data\n");
 
-  return parseObjectData(data);
+  return parseValueOrUntypedObject(tok, data);
 }
 
 /* ----------------------------------------------------------------------------

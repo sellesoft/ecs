@@ -1,0 +1,790 @@
+/*
+ *  Implementation of packing routines for types that come from defs/comp 
+ *  headers. 
+ *
+ *  'Packing' data refers to taking some SourceData and a desired C/C++ type 
+ *  and transforming the SourceData into binary data of that type.
+ */
+
+$ local cmn = require "common"
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("packing", Verbosity.Debug)
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+
+$$$
+
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/**/*.defs.lh"
+importpattern "src/**/*.comp.lh"
+importpattern "src/asset/Ref.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupDecl(name)
+end
+
+$$$
+@@imported:get
+
+@log.ger(packing, Debug)
+
+@@lpp.import "asset/Packing.lh"
+@@lpp.import "asset/AssetMgr.lh"
+@@lpp.import "asset/ArrayDef.lh"
+@@lpp.import "asset/SourceData.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/SourceDataParser.lh"
+
+#include "iro/containers/BitArray.h"
+
+using namespace iro;
+
+/* ============================================================================
+ */
+struct Packer
+{
+  PackedData* packed;
+
+  // A SourceDataFile that's used to cache parsed defaults for fields that 
+  // have default metadata.
+  SourceDataFile defaults_cache;
+
+$ -- Forward declared such that these may be called back into from within 
+$ -- packer placing functions, eg. a Struct calls this for the type of 
+$ -- each of its fields.
+$ local putDeclPacker
+$ local putTypePacker
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function recordPlaced(decl)
+$   decl.user.packer_placed = true
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getPackerName(decl)
+$   return "pack_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypePackerName(type)
+$   type = type:desugar()
+$   -- clog:debug("getTypePackerName: ", type, '\n')
+$   if type:is(ast.TagType) then
+$     return (getPackerName(type.decl))
+$   elseif type:is(ast.Builtin) then
+$     return "pack_"..type:formCSafeName()
+$   else
+$     error("unhandled type passed to getTypePackerName: "..
+$           tostring(type).."\n")
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getPackerSig(decl)
+$   return getPackerName(decl).."(const SourceData& data, "..
+$          decl.type.name.."* out)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypePackerSig(type)
+$   return getTypePackerName(type).."(const SourceData& data, "..
+$          type.name.."* out)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function packerFuncDecl(decl)
+$   recordPlaced(decl)
+$   return "b8 "..getPackerSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function packerFuncName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("failed to get decl for '"..name.."'")
+$   end
+$   return packerFuncDecl(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putNumberPacker(name)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncName(name))
+  {
+    if (!data.hasNumberValue())
+      return ERROR("expected a number value to pack $(name)\n");
+
+      // TODO(sushi) use proper conversion funcs. Like I've written in 
+      //             20 other places, we really need to write our own.
+      *out = strtof((char*)data.val.str.ptr, nullptr);
+
+      return true;
+  }
+$ end
+  
+$ putNumberPacker "u8"
+$ putNumberPacker "u16"
+$ putNumberPacker "u32"
+$ putNumberPacker "u64"
+$ putNumberPacker "s8"
+$ putNumberPacker "s16"
+$ putNumberPacker "s32"
+$ putNumberPacker "s64"
+$ putNumberPacker "f32"
+$ putNumberPacker "f64"
+
+$ -- * ------------------------------------------------------------------------
+
+$ --- Helper for placing a fake defaults handler for types which either 
+$ --- don't need them (arrays) or types which cannot have default metadata
+$ --- attached to their fields (String, Color). This is done to simplify 
+$ --- logic needed to determine if we should place a defaults handler, by
+$ --- just placing a call to one.
+$ local function putDummyDefaultsHandler(decl)
+  // Dummy defaults handler.
+  b8 $(getPackerName(decl))_defaults(
+    $(decl.type.name)*, const BitArray<$(decl:countFields())>&)
+  { return true; }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDummyDefaultsHandlerFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncName "b8")
+  {
+    if (!data.hasBooleanValue())
+      return ERROR("expected a boolean value to pack b8\n");
+
+    *out = data.testBooleanValue();
+
+    return true;
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncName "iro::utf8::String")
+  {
+    if (!data.hasStringValue())
+      return ERROR("expected a string value to pack String\n");
+
+    *out = data.val.str.allocateCopy(&packed->buffer);
+
+    return true;
+  }
+
+$ putDummyDefaultsHandlerFromName "iro::utf8::String"
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putVec2Packer(name)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncName(name))
+  {
+    if (!data.hasChildren())
+      return ERROR("expected an object to pack vec2\n");
+
+    if (data.children.len() != 2)
+      return ERROR("too many children in vec2 source data\n");
+
+    if (isnil(data.children[0]->name))
+    {
+      // Must be nameless initialization.
+
+      SourceData* x = data.children[0];
+      SourceData* y = data.children[1];
+
+      if (!x->hasNumberValue())
+        return ERROR("vec2 members must be numbers\n");
+
+      out->x = strtof((char*)x->val.str.ptr, nullptr);
+
+      if (!y->hasNumberValue())
+        return ERROR("vec2 members must be numbers\n");
+
+      out->y = strtof((char*)y->val.str.ptr, nullptr);
+    }
+    else
+    {
+      for (const SourceData* child : data.children)
+      {
+        if (!child->hasNumberValue())
+          return ERROR("vec2 members can only be numbers\n");
+
+        switch (child->name.hash())
+        {
+        case "x"_hashed:
+          out->x = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "y"_hashed:
+          out->y = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        default:
+          return ERROR("no member named ", child->name, " in vec2\n");
+        }
+      }
+    }
+
+    return true;
+  }
+$   putDummyDefaultsHandlerFromName(name)
+$ end
+
+$ putVec2Packer "vec2<int>"
+$ putVec2Packer "vec2<float>"
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncName "Color")
+  {
+    if (data.hasNumberHexValue())
+    {
+      // TODO(sushi) detect when the hex value does not include alpha and 
+      //             default it to 'ff'.
+      *out = strtol((char*)data.val.str.ptr, nullptr, 16);
+      return true;
+    }
+    else if (!data.hasChildren())
+      return ERROR("expected an object or hex number to pack Color\n");
+
+    if (isnil(data.children[0]->name))
+    {
+      if (data.children.len() < 3)
+        return ERROR("array Color data must specify at least r, g, and b\n");
+
+      auto getCol = [&](SourceData* comp, u8* dest)
+      {
+        if (!comp->hasNumberValue())
+          return ERROR("Color component must be a number\n");
+
+        *dest = strtof((char*)comp->val.str.ptr, nullptr);
+
+        return true;
+      };
+
+      if (!getCol(data.children[0], &out->r))
+        return false;
+
+      if (!getCol(data.children[1], &out->g))
+        return false;
+
+      if (!getCol(data.children[2], &out->b))
+        return false;
+
+      if (data.children.len() == 4)
+      {
+        if (!getCol(data.children[3], &out->a))
+          return false;
+      }
+      else if (data.children.len() > 4)
+      {
+        return ERROR(
+          "array Color data must specify at most r, g, b, and a\n");
+      }
+      else
+      {
+        out->a = 255;
+      }
+    }
+    else
+    {
+      for (const SourceData* child : data.children)
+      {
+        if (!child->hasNumberValue())
+          return ERROR("Color members can only be numbers\n");
+
+        switch (child->name.hash())
+        {
+        case "r"_hashed:
+          out->r = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "g"_hashed:
+          out->g = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "b"_hashed:
+          out->b = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "a"_hashed:
+          out->a = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        default:
+          return ERROR("no member named ", child->name, " in Color\n");
+        }
+      }
+    }
+
+    return true;
+  }
+
+$ putDummyDefaultsHandlerFromName "Color"
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putEnumPacker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    if (!data.hasStringValue())
+      return ERROR("expected a string value to pack $(decl.name)\n");
+
+    switch (data.val.str.hash())
+    {
+$   for elem in decl.elems:each() do
+    case "$(elem.name)"_hashed:
+$     if not elem.metadata.hidden then
+      *out = $(decl.type.name)::$(elem.name);
+      return true;
+$     else
+      return ERROR("element $(elem.name) of $(decl.name) is marked hidden\n");
+$     end
+$   end
+    default:
+      return ERROR("no element named '", data.val.str, "' in $(decl.name)\n");
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putStructPacker(decl)
+$   for field in decl:eachField() do
+$     putTypePacker(field.type)
+$   end
+$   local packer_name = getPackerName(decl)
+$   local found_fields_typename =  decl:formCSafeName().."_FoundFields"
+
+  typedef BitArray<$(decl:countFields())> $(found_fields_typename);
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 $(packer_name)_defaults(
+      $(decl.type.name)* out,
+      const $(found_fields_typename)& found_fields)
+  {
+$   for field,i in decl:eachFieldWithIndex() do
+$     -- TODO(sushi) warn about finding fields with hidden and default metadata
+$     if not field.metadata.hidden then
+      if (!found_fields.test($(i-1)))
+      {
+$       if field.metadata.default then
+$         -- If this field has a default attached to it, then put logic for 
+$         -- filling it out when the field was not found in data.
+$         local default_aux_name = decl.type.name.."::"..field.name
+        // Try to retrieve already parsed SourceData from the defaults cache.
+        SourceData* default_data = 
+          defaults_cache.findAuxData("$(default_aux_name)"_str);
+        
+        if (default_data == nullptr)
+        {
+          // If we didn't find it, then we must parse it and add it to the 
+          // cache.
+          // TODO(sushi) it would probably be better for us to just store
+          //             a faster lookup table but for now this is simple.
+          //             When we do that, though, we should also probably 
+          //             stored the packed default data such that we can 
+          //             just copy it over directly here, if possible.
+          //             WITH THAT SAID, we know the default values 
+          //             at compile time and we should be able to handle 
+          //             everything outside of runtime. Issue is that I 
+          //             would need to set up a lua interface to parsing 
+          //             source data and probably packing it as well 
+          //             to avoid needing to maintain two things that do 
+          //             that. This should be fine for now.
+
+          auto view = io::StringView::from("$(field.metadata.default)"_str);
+
+          default_data = 
+            parsePossiblyTypedAuxData(
+              &defaults_cache,
+              &view,
+              "$(default_aux_name) default"_str,
+              "$(default_aux_name)"_str);
+
+          if (default_data == nullptr)
+            return ERROR("failed to parse default value $(default_aux_name)\n");
+        }
+
+        // Pack the default data.
+        if (!$(getTypePackerName(field.type))(
+              *default_data, &out->$(field.name)))
+          return ERROR("failed to pack default value $(default_aux_name)\n");
+
+$       else
+
+$         -- If the field does not have default metadata attached, we still 
+$         -- need to pack nested defaults if the field's type comes from a 
+$         -- Record decl.
+$         local field_type = field.type:desugar()
+$         if field_type:is(ast.TagType) and field_type.decl:is(ast.Record) 
+$         then
+        if (!$(getPackerName(field_type.decl))_defaults(
+              &out->$(field.name), {}))
+          return ERROR("failed to pack nested defaults of $(decl.type.name)::"
+                       "$(field.name)\n");
+$         end
+$       end
+      }
+$     end
+$   end
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Actual, recursive implementation of the packer for $(decl.name).
+   *  This has to be separate because we may need to pack SourceData bases
+   *  into the output.
+   */
+  b8 $(packer_name)_impl(
+      const SourceData& data, 
+      $(decl.type.name)* out,
+      $(found_fields_typename)* found_fields)
+  {
+$  if decl.base then
+$    clog:warn("decl ", decl, " has a base decl but packing inherited data ",
+$              "is not currently supported!\n")
+$  end
+
+    // NOTE(sushi) this currently does not support dealing with base decls 
+    //             of a struct, and at the moment I'm unsure how I would like
+    //             to handle that. 
+    //             However we currently don't seem to use inheritance in 
+    //             any of our non-special def types. It's likely it 
+    //             will stay that way, so I'm not going to spend time on 
+    //             complicating this to support it.
+    //             The warning above should catch this though, should we ever
+    //             find a case where it's useful.
+
+    for (const SourceData* child : data.children)
+    {
+      if (isnil(child->name))
+        return ERROR("struct field data must be named\n");
+
+      switch (child->name.hash())
+      {
+$   for field,i in decl:eachFieldWithIndex() do
+$     if not field.metadata.hidden then
+      case "$(field.name)"_hashed:
+        if (!$(getTypePackerName(field.type))(
+            *child, &out->$(field.name)))
+          return ERROR("failed to pack field $(field.name) of $(decl.name)\n");
+        found_fields->set($(i-1));
+        break;
+$     else
+        return ERROR("field $(field.name) of $(decl.name) is marked hidden\n");
+$     end
+$   end
+      }
+    }
+
+    if (data.base != nullptr)
+    {
+      if (!$(packer_name)_impl(*data.base, out, found_fields))
+        return ERROR("failed to back base data\n");
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    if (!data.hasObjectData() && data.base == nullptr)
+      return ERROR("expected object data to pack $(decl.name)\n");
+
+    mem::zero(out, sizeof($(decl.type.name)));
+      
+    $(found_fields_typename) found_fields;
+
+    if (!$(packer_name)_impl(data, out, &found_fields))
+      return false; // Internal erroring should be enough.
+    
+    // Handle defaults. 
+    if (!$(packer_name)_defaults(out, found_fields))
+      return false;
+
+    return true;
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putFlagsPacker(decl)
+$   local subtype = decl.args[1]:desugar()
+$   local subdecl = subtype.decl
+$   if not subdecl then
+$     error("failed to get declaration from Flags type "..subtype.name)
+$   end
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    if (!data.hasObjectData())
+      return ERROR("expected object data to pack $(decl.type.name)\n");
+
+    for (const SourceData* child : data.children)
+    {
+      if (notnil(child->name))
+        return ERROR("elements of $(decl.type.name) data cannot be named\n");
+
+      if (!child->hasStringValue())
+        return ERROR("expected an element string to pack $(decl.type.name)\n");
+
+      switch (child->val.str.hash())
+      {
+$   for elem in subdecl.elems:each() do
+    case "$(elem.name)"_hashed:
+$     if not elem.metadata.hidden then
+      out->set($(subdecl.type.name)::$(elem.name));
+      break;
+$     else
+      return ERROR(
+        "element $(elem.name) of $(decl.type.name) is marked hidden\n");
+$     end
+$   end
+      default:
+        return ERROR(
+          "no element named '", child->val.str, "' in $(decl.type.name)\n");
+      }
+    }
+
+    return true;
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putArrayDefPacker(decl)
+$   local subtype = decl.args[1]
+$   putTypePacker(subtype)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    if (!data.hasObjectData())
+      return ERROR("expected object data to pack $(decl.type.name)\n");
+
+    s32 child_count = data.children.len();
+
+    if (!out->init(child_count, &packed->buffer))
+      return ERROR("failed to initialize $(decl.type.name)\n");
+
+    for (s32 i = 0; i < child_count; ++i)
+    {
+      const SourceData* child = data.children[i];
+      if (notnil(child->name))
+        return ERROR('[', i, "]: array elements cannot have names\n");
+
+      if (!$(getTypePackerName(subtype))(*child, &(*out)[i]))
+        return ERROR("failed to pack [",i,"] of $(decl.type.name)\n");
+    }
+
+    return true;
+  }
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putStringMapPacker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    return ERROR("string map packing not implemented yet\n");
+  }
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putTypedStringMapPacker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    return ERROR("typed string map packing not implemented yet\n");
+  }
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putRefPacker(decl)
+$   if not decl:findField "name" then
+$     error("record "..decl.name.." is marked with metadata 'ref', but it "..
+$           "does not contain a 'String name' field")
+$   end
+
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    if (!data.hasStringValue())
+      return 
+        ERROR("expected string data to pack ref type $(decl.type.name)\n");
+
+    out->name = data.val.str.allocateCopy(&packed->buffer);
+
+    return true;
+  }
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putTemplateSpecPacker(decl)
+$   for arg in decl.args:each() do
+$     if arg:is(ast.Type) then
+$       putTypePacker(arg)
+$     end
+$   end
+$   
+$   if decl.specialized_name == "ArrayDef" then
+$     putArrayDefPacker(decl)
+$   elseif decl.specialized_name == "Flags" then
+$     putFlagsPacker(decl)
+$   elseif decl.specialized_name == "StringMap" then
+$     putStringMapPacker(decl)
+$   elseif decl.specialized_name == "TypedStringMap" then
+$     putTypedStringMapPacker(decl)
+$   else
+$     clog:warn("unhandled template spec ", decl.name, '\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putRecordPacker(decl)
+$   if decl:findMetadata "ref" then
+$     putRefPacker(decl)
+$   elseif decl:is(ast.TemplateSpec) then
+$     putTemplateSpecPacker(decl)
+$   elseif decl:is(ast.Struct) then
+$     putStructPacker(decl)
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putDeclPacker = function(decl)
+$   decl.user = decl.user or {}
+$   if decl.user.packer_placed then
+$     return
+$   end
+$   
+$   decl.user.packer_placed = true
+$ 
+$   clog:trace("put packer: ", decl, '\n')
+$ 
+$   if decl:is(ast.TagDecl) then
+$     if decl:is(ast.Record) then
+$       putRecordPacker(decl)
+$     elseif decl:is(ast.Enum) then
+$       putEnumPacker(decl)
+$     end
+$   elseif decl:is(ast.TypedefDecl) then
+$     assert(false, "handle typedef decl")
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putTypePacker = function(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     putDeclPacker(type.decl)
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ for decl in astctx.type_decls:each() do
+$   if decl.metadata.def then
+$     putDeclPacker(decl)
+$   end
+$ end
+
+};
+
+/* ----------------------------------------------------------------------------
+ */
+b8 packSourceDataFromType(const SourceData& data, PackContext& ctx)
+{
+  if (isnil(data.type))
+    return ERROR("packSourceDataFromType passed untyped data\n");
+
+  Packer packer;
+  packer.packed = ctx.packed;
+  packer.packed->buffer.init();
+
+  if (!packer.defaults_cache.init())
+    return ERROR("failed to initialize packer defaults cache\n");
+  defer { packer.defaults_cache.deinit(); };
+
+  switch (data.type.hash())
+  {
+$ for decl in astctx.type_decls:each() do
+$   if decl.user.packer_placed then
+$     if decl.typedefs then
+$       -- If this decl has been typedef'd also handle those typenames as 
+$       -- well. Note that we have to use the type the typedef declares,
+$       -- not the typedef itself, to preserve namespaces.
+$       for typedef in decl.typedefs:each() do
+  case "$(typedef.type.name)"_hashed:
+$       end
+$     end
+  case "$(decl.type.name)"_hashed:
+    packer.packed->data.ptr = 
+      (u8*)packer.packed->buffer.allocateType<$(decl.type.name)>();
+    packer.$(getPackerName(decl))(
+      data, ($(decl.type.name)*)packer.packed->data.ptr);
+  break;
+$   end
+$ end
+  default:
+    return ERROR("data given to packSourceDataFromType specifies unhandled "
+                 "type: ", data.type, "\n");
+  }
+
+  return true;
+}

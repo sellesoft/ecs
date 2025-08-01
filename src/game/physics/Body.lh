@@ -2,8 +2,8 @@ $ local cmn = require "common"
 
 #include "math/vec.h"
 
-@@lpp.import "Transform.lh"
-@@lpp.import "BodyDef.lh"
+@@lpp.import "game/physics/Transform.lh"
+@@lpp.import "game/physics/BodyDef.lh"
 
 namespace phys
 {

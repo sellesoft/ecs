@@ -6,7 +6,7 @@ $ require "common"
 
 #include "math/vec.h"
 
-@@lpp.import "Transform.lh"
+@@lpp.import "game/physics/Transform.lh"
 
 namespace phys
 {

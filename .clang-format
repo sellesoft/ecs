@@ -1,0 +1,17 @@
+﻿---
+BasedOnStyle: Microsoft
+BinPackArguments: 'true'
+BinPackParameters: 'OnePerLine'
+ColumnLimit: '80'
+UseTab: 'Never'
+TabWidth: '2'
+IndentWidth: '2'
+PointerAlignment: 'Left'
+IndentExternBlock: 'NoIndent'
+AlignAfterOpenBracket: 'AlwaysBreak'
+BreakTemplateDeclarations: 'Yes'
+BreakBeforeTernaryOperators: 'true'
+SeparateDefinitionBlocks: 'Always'
+SpaceAfterTemplateKeyword: 'false'
+
+...

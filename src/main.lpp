@@ -1,4 +1,50 @@
 $ local cmn = require "common"
+$ local ast = require "reflect.ast"
+
+$$$
+
+local astctx = require "reflect.AstContext" .fromString
+[[
+
+template<typename T>
+struct Array
+{
+  T* ptr;
+  int count;
+};
+
+namespace fruit
+{
+
+struct Fruit {};
+
+struct Apple : Fruit
+{
+  struct Leaf
+  {
+    float size;
+  };
+
+  Array<Leaf> leaves;
+};
+
+struct Banana : Fruit
+{
+  bool is_peeled;
+};
+
+}
+
+struct Basket
+{
+  Array<fruit::Fruit*> fruits;
+};
+
+]]
+
+io.write(ast.dump(astctx.translation_unit), '\n')
+
+$$$
 
 #include "iro/Logger.h"
 #include "iro/fs/FileSystem.h"

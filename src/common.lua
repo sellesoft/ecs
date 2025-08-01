@@ -7,6 +7,7 @@ lpp = require "lpp"
 
 os.exit = function()
   io.write("DO NOT CALL OS.EXIT\n")
+  assert(false)
 end
 
 -- Introduces the log global
@@ -45,6 +46,9 @@ if common.cargs:isEmpty() then
   error 
     "failed to get cargs! they should have been specified in the lakefile!"
 end
+
+-- Prevent error limit when they are thrown in reflection parsing.
+common.cargs:push "-ferror-limit=0"
 
 common.defFileLogger = function(name, verbosity)
   local buf = common.buffer.new()

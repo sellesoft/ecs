@@ -12,10 +12,18 @@ local build_dir = cwd.."/build"
 
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
+-- TODO(sushi) command for running tests
 if lake.cliargs[1] == "clean" then
   fs.rm(build_dir, true, true)
   return false
 end
+
+-- Toggles compiling address sanitizer into the project.
+-- TODO(sushi) enforce enabling this when tests are run. Don't have a command
+--             for doing that yet, though.
+-- TODO(sushi) command for building with/without this since it doesn't work
+--             under debuggers.
+local asan = false
 
 local objs = List {}
 
@@ -68,17 +76,9 @@ local cpp_params =
 
   noexceptions = true,
   nortti = true,
+
+  asan = asan,
 }
-
---- Form the meta arg that the relfection system will use to pass along to 
---- lppclang the cpp params we will be compiling the resulting cpp files 
---- with.
-local cpp_args_noio = require "lake.driver.clang" .noio(cpp_params)
-
-local meta_arg = "--cargs="
-for _,arg in ipairs(cpp_args_noio) do
-  meta_arg = meta_arg..arg..","
-end
 
 ---@type lake.obj.Lpp.PreprocessParams
 local lpp_params = 
@@ -86,10 +86,9 @@ local lpp_params =
   require_dirs = List { "src" },
   cpath_dirs = List { "lib" },
   import_dirs = List { "src" },
-  meta_args = List { meta_arg },
 
   cmd_callback = function(cmd, file)
-    if file:find "Packing" then
+    if file:find "main" then
       local f = io.open("cmd.txt", "w")
       f:write("lldb -- "..table.concat(cmd, " "))
       f:close()
@@ -103,8 +102,11 @@ local link_params =
   shared_libs = shared_libs,
   static_libs = static_libs,
   lib_dirs    = lib_dirs,
+
+  asan = asan,
 }
 
+local iro_objs = List {}
 lake.utils.indir("include/iro", function()
   local iro = require "project" ()
 
@@ -125,19 +127,45 @@ lake.utils.indir("include/iro", function()
 
   for source in iro.sources:each() do
     local output = build_dir.."/iro/"..source.path..".o"
-    objs:push(source:compile(output, cpp_params))
+    iro_objs:push(source:compile(output, cpp_params))
   end
 end)
 
+--- Form the meta arg that the relfection system will use to pass along to 
+--- lppclang the cpp params we will be compiling the resulting cpp files 
+--- with. Note that we must do this after iro has been imported such that 
+--- its defines and stuff are included.
+local cpp_args_noio = require "lake.driver.clang" .noio(cpp_params)
+
+local meta_arg = "--cargs="
+for _,arg in ipairs(cpp_args_noio) do
+  meta_arg = meta_arg..arg..","
+end
+
+lpp_params.meta_args = List { meta_arg }
+
 cpp_params.cmd_callback = cc:cmdCallback()
+
+local function buildTest(name)
+  require("tests."..name..".build") (
+    build_dir,
+    lpp_params,
+    cpp_params,
+    link_params,
+    iro_objs)
+end
+
+buildTest "packing"
+
+do return end
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
   local o_output = cpp_output..".o"
   objs:push(
     o.Lpp(lfile)
-      :preprocessToCpp(cpp_output, lpp_params))
-      --:compile(o_output, cpp_params))
+      :preprocessToCpp(cpp_output, lpp_params)
+      :compile(o_output, cpp_params))
 end
 
 -- for cfile in lake.utils.glob("src/**/*.cpp"):each() do
@@ -146,3 +174,6 @@ end
 -- end
 
 -- o.Exe "build/ecs" :link(objs, link_params)
+
+cc:write "compile_commands.json"
+

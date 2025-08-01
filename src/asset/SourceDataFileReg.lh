@@ -21,7 +21,7 @@ struct SourceDataFileReg
     SourceDataFileHeader header;
     SourceDataFile file;
 
-    fs::Path path;
+    String path;
     u64 path_hash;
 
     static u64 getHash(const SourceDataFileSlot* x) { return x->path_hash; }

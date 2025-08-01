@@ -6,21 +6,24 @@ $ local glob = require "iro.fs.glob"
 
 $$$
 
-
 local AstContext = require "reflect.AstContext"
 
 local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
-    imported:put((lpp.import(path)))
+    imported:put((lpp.import(path)) or "")
   end)
 end
 
 importpattern "src/**/*.defs.lh"
 
-print(imported)
+local f = io.open("imported.txt", "w")
+f:write(tostring(imported))
+f:close()
 
 local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+io.write(ast.dump(astctx.translation_unit), '\n')
 
 do return end
 

@@ -20,12 +20,16 @@ struct TextureDef
   @metadata.source_types(png)
   String name;
 
+  @metadata.default("RGBA")
   ImageFormat format;
+
+  @metadata.default("Nearest")
   ImageFilter filter;
 
   @metadata.default({ "Sampled" })
   ImageUsageFlags usage;
 
+  @metadata.default("ClampToBlack")
   ImageAddressMode address_mode;
 };
 

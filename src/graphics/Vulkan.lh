@@ -33,7 +33,7 @@ $ require "common"
 //             Tracy needs us to track an object to profile GPU stuff 
 //             what NONSENSE is THAT ?!!?
 @@lpp.import "Profiling.lh"
-#include "external/tracy/tracy/TracyVulkan.hpp"
+// #include "external/tracy/tracy/TracyVulkan.hpp"
 
 using namespace iro;
 
@@ -224,7 +224,7 @@ struct VirtualFrame
   VkSemaphore acquire_semaphore;
   VkFence command_buffer_fence;
 
-  TracyVkCtx tracy_ctx;
+  // TracyVkCtx tracy_ctx;
 };
 
 // The number of virtual frames we will allow to be 'in-flight'.

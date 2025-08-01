@@ -36,6 +36,7 @@ struct SourceDataEditorRowSkin
 struct SourceDataEditorVectorSkin
 {
   // The minimum width of component text boxes.
+  @m.default "1.2"
   f32 min_comp_width;
 
   // The spacing between component text boxes.

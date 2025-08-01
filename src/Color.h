@@ -7,7 +7,9 @@
 #define _ecs_Color_h
 
 #include "iro/Common.h"
-#include "iro/Platform.h"
+// TODO(sushi) not a fan of including the os api into anything that uses 
+//             Color but this is needed for byte swapping.
+#include "iro/os/os.h"
 #include "iro/io/IO.h"
 #include "math/vec.h"
 
@@ -36,7 +38,7 @@ struct Color
 
   Color(u32 rgba)
   {
-    this->rgba = iro::platform::byteSwap(rgba);
+    this->rgba = iro::os::byteswap(rgba);
   }
 
   void operator*= (f32 rhs)

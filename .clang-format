@@ -13,5 +13,7 @@ BreakTemplateDeclarations: 'Yes'
 BreakBeforeTernaryOperators: 'true'
 SeparateDefinitionBlocks: 'Always'
 SpaceAfterTemplateKeyword: 'false'
+BraceWrapping:
+    BeforeLambdaBody: 'true'
 
 ...

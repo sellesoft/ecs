@@ -58,6 +58,20 @@ end
 local Type = IroType.make()
 ast.Type = Type
 
+--- Attempts to desugar this type, eg. removing layers of elaboration
+--- and typedefs.
+---
+---@return ast.Type?
+Type.desugar = function(self)
+  if self:is(ast.Elaborated) then
+    return (self.subtype:desugar())
+  elseif self:is(ast.TypedefType) then
+    return (self.decl.subtype:desugar())
+  else 
+    return self
+  end
+end
+
 --- A representation of a Decl in the AST.
 ---@class ast.Decl : iro.Type
 ---
@@ -159,6 +173,16 @@ Namespace.dump = function(self, dump)
   end)
 end
 
+Namespace.formCSafeName = function(self, out)
+  out = out or buffer.new()
+
+  if self.prev then
+    self.prev:formCSafeName(out)
+    out:put "_"
+  end
+  out:put(self.name)
+end
+
 --- Representation of a builtin type, eg. char, int, short, etc.
 ---
 ---@class ast.Builtin : ast.Type
@@ -192,6 +216,12 @@ Builtin.dump = function(self, dump)
   dump:node("Builtin", function()
     dump:inline_name(self.name)
   end)
+end
+
+Builtin.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  out:put((self.name:gsub(" ", "_")))
+  return out
 end
 
 -- Generate the basic builtin types.
@@ -398,6 +428,17 @@ TagDecl.dump = function(self, dump)
   end)
 end
 
+TagDecl.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  if self.namespace then
+    self.namespace:formCSafeName(out)
+    out:put '_'
+  end
+
+  out:put(self.name)
+  return out
+end
+
 --- A declaration of a typedef.
 --- @class ast.TypedefDecl : ast.Decl
 ---
@@ -428,6 +469,16 @@ TypedefDecl.dump = function(self, dump)
     dump:tag("name", self.name)
     dump:tag("subtype", self.subtype)
   end)
+end
+
+TypedefDecl.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  if self.namespace then
+    self.namespace:formCSafeName(out)
+    out:put '_'
+  end
+  out:put(self.name)
+  return out
 end
 
 --- A representation of an 'elaborated' type. This is a concept from clang,
@@ -556,6 +607,70 @@ Record.dumpBase = function(self, name, dump)
   end)
 end
 
+--- Returns an iterator over this Record's Field members.
+---
+---@return function
+Record.eachField = function(self)
+  local iter = self.members:each()
+  return function()
+    while true do
+      local member = iter()
+      if not member then
+        return
+      end
+      if member:is(ast.Field) then
+        return member
+      end
+    end
+  end
+end
+
+--- Returns an iterator over this Record's Field members along with an 
+--- index of that member.
+---
+---@return function
+Record.eachFieldWithIndex = function(self)
+  local iter = self.members:each()
+  local i = 0
+  return function()
+    while true do
+      local member = iter()
+      if not member then
+        return
+      end
+      if member:is(ast.Field) then
+        i = i + 1
+        return member, i
+      end
+    end
+  end
+end
+
+--- Finds a Field with the given name.
+---
+---@param name string
+---@return ast.Field?
+Record.findField = function(self, name)
+  for member in self.members:each() do
+    if member:is(ast.Field) and member.name == name then
+      return member
+    end
+  end
+end
+
+--- Gets the number of fields this Record contains.
+---
+---@return number
+Record.countFields = function(self)
+  local sum = 0
+  for member in self.members:each() do
+    if member:is(ast.Field) then
+      sum = sum + 1
+    end
+  end
+  return sum
+end
+
 --- A forward declaration of a Record decl. This is primarily for marking 
 --- when a record is forward declared in the TranslationUnit. 
 ---
@@ -598,6 +713,16 @@ ForwardRecord.dump = function(self, dump)
     dump:inline_name(self.name)
     dump:tag("decl", self.decl or "<incomplete>")
   end)
+end
+
+ForwardRecord.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  if self.decl then
+    self.decl:formCSafeName(out)
+  else
+    out:put(self.name)
+  end
+  return out
 end
 
 --- A field of a record.
@@ -727,6 +852,28 @@ TemplateSpec.dump = function(self, dump)
   Record.dumpBase(self, "TemplateSpec", dump)
 end
 
+TemplateSpec.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  if self.namespace then
+    self.namespace:formCSafeName(out)
+    out:put '_'
+  end
+
+  out:put(self.name)
+  for arg in self.args:each() do
+    out:put "_"
+    if type(arg) == "number" then
+      out:put(arg)
+    elseif arg:is(ast.Builtin) then
+      arg:formCSafeName(out)
+    elseif arg:is(ast.TagType) then
+      arg.decl:formCSafeName(out)
+    end
+  end
+
+  return out
+end
+
 --- A function declaration. At the moment, these only exist to represent 
 --- methods of record decls, and their use is very limited.
 ---
@@ -750,6 +897,12 @@ Function.dump = function(self, dump)
   dump:node("Function", function()
     dump:tag("name", self.name)
   end)
+end
+
+Function.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  out:put(self.name)
+  return out
 end
 
 -- Cheat and call our typedefs of the standard builtins builtin, because

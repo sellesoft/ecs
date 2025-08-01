@@ -1,10 +1,12 @@
 $ local cmn = require "common"
 
 @@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/SourceDataParser.lh"
 
 #include "iro/Logger.h"
+#include "iro/fs/File.h"
 
-@cmn.defFileLogger(srcdata.file, Info)
+@log.ger(srcdata.file, Info)
 
 /* ----------------------------------------------------------------------------
  */
@@ -36,6 +38,34 @@ void SourceDataFile::deinit()
 
   data_pool.deinit();
   aux_data_list.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 SourceDataFile::from(SourceDataFile* sfile, String path)
+{
+  using namespace iro;
+  using namespace iro::fs;
+
+  // Basic check that the provided sfile is not yet initialized.
+  assert(isnil(sfile->data_pool) && 
+        "SourceDataFile::from given an already initialized sfile");
+  
+  if (!sfile->init())
+    return ERROR("failed to initialize source data file for opening "
+                 "from path '", path, "'\n");
+  auto failsafe = deferWithCancel { sfile->deinit(); };
+
+  File file = File::openForRead(path);
+  if (isnil(file))
+    return ERROR("failed to open source data file at path '", path, "'\n");
+  defer { file.close(); };
+  
+  if (!parseSourceDataFile(sfile, &file, path))
+    return ERROR("failed to parse source data file at path '", path, "'\n");
+
+  failsafe.cancel();
+  return true;
 }
 
 /* ----------------------------------------------------------------------------

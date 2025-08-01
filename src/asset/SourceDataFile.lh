@@ -29,6 +29,13 @@ struct SourceDataFile
   b8   init();
   void deinit();
 
+  // Helper for loading a source data file from some path. 
+  // Note that this is primarily for quick testing or usage of source data
+  // files and should needs to be cleaned up. Normal usage of source data
+  // files should be via the SourceDataFileReg.
+  // This assumes the provided 'sfile' has not been initialized yet.
+  static b8 from(SourceDataFile* sfile, String path);
+
   SourceData* allocateSourceData();
   SourceData* addAuxData();
   SourceData* addReturnData();

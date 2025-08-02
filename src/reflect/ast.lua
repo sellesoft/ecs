@@ -672,6 +672,24 @@ Record.findField = function(self, name)
   end
 end
 
+--- Returns an iterator over nested Records.
+---
+---@return function
+Record.eachNestedRecord = function(self)
+  local iter = self.members:each()
+  return function()
+    while true do
+      local member = iter()
+      if not member then
+        return
+      end
+      if member:is(ast.Record) then
+        return member
+      end
+    end
+  end
+end
+
 --- Gets the number of fields this Record contains.
 ---
 ---@return number
@@ -801,6 +819,9 @@ Field.dump = function(self, dump)
   dump:node("Field", function()
     dump:inline_name(self.name)
     dump:tag("offset", self.offset)
+    for k,v in pairs(self.metadata) do
+      dump:tag("<meta> "..k, v)
+    end
     self.type:dump(dump)
   end)
 end

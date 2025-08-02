@@ -1,0 +1,57 @@
+/* ============================================================================
+ *  Typesafe wrapper around a typename hash for use at runtime.
+ *  A val of 0 is not valid.
+ *
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+
+namespace rtr
+{
+
+/* ============================================================================
+ *  TODO(sushi) maybe look into using u32, but atm we only hash to u64 
+ *              and I don't feel like setting up another hashing thing atm
+ *              especially since we may be setting up a proper hashlib thing
+ *              soon. It would also be interesting to test the actual 
+ *              difference in performance once we do have hashing to u32.
+ */
+struct TypeId
+{
+  u64 val;
+
+  bool operator == (const TypeId& rhs) const
+  {
+    return val == rhs.val;
+  }
+
+  static TypeId fromString(String name)
+  {
+    return {name.hash()};
+  }
+
+  DefineNilTrait(TypeId, {0}, x.val == 0);
+};
+
+}
+
+// User operator for strings containing a typename to form a 'typeid', 
+// which is just a hash of its name. 
+//
+// Because this should see very common use in reflection code, and its such
+// a niche syntax, I'm defining this outside of the rtr namespace. If it 
+// causes issues somehow later on we can just move it back and using namespace
+// rtr, or using the operator directly or something. I can't see this causing 
+// issues unless another library does this, but we try not to use external 
+// libraries anyways.
+consteval rtr::TypeId operator ""_typeid(const char* s, size_t len)
+{
+  return rtr::TypeId{operator ""_hashed(s, len)};
+}
+
+consteval u64 operator ""_typeid_val (const char* s, size_t len)
+{ 
+  return operator ""_typeid (s, len).val; 
+}

@@ -6,22 +6,23 @@ $ require "common"
 
 @@lpp.import "asset/OffsetPtr.lh"
 @@lpp.import "asset/CompiledDataInterfaces.lh"
+@@lpp.import "reflect/TypeId.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/SmallArray.h"
 #include "iro/Unicode.h"
 
 struct Asset;
-struct AssetMgr;
 struct Ref;
-struct SourceDataFileReg;
+struct SourceData;
 
 /* ============================================================================
+ *  Note that this structure reprensents the header of the compiled data 
+ *  as written to disk.
  */
 struct CompiledData
 {
-  OffsetString name;
-  OffsetString type;
+  rtr::TypeId type;
 
   OffsetSlice<u8> root;
 
@@ -29,36 +30,26 @@ struct CompiledData
 
   OffsetSlice<u8> strings;
 
-  // API for compiling some source data on disk to compiled data.
-  // Any source data may be compiled as it has a 'type'.
-  //
-  // 'name' is the name of the source data file to be compiled. Eg. a path
-  // relative to ecs' root. The extension may be omitted and if so, the type
-  // provided in 'type' will be used to automatically determine the extension
-  // based on metadata.source_types applied to types. If this metadata cannot
-  // be found for the specified type, compilation will fail.
-  //
-  // 'type' is the C++ type that the source data is expected to return. 
-  // 
   struct CompileParams
   {
-    String name;
-    String type;
+    // The type to compile the provided data into.
+    rtr::TypeId type;
+    
+    // A pointer to the data to compile.
+    // TODO(sushi) change this to Bytes and assert if size does not match.
+    void* dataptr;
 
-    AssetMgr& assetmgr;
-    SourceDataFileReg& sfile_reg;
+    // Where the compiled data should be output to.
+    // TODO(sushi) we should support something like an IO* here, but for now 
+    //             this is simpler and I believe our only usecase. I would 
+    //             rather wait until iro's IO model is rewritten or otherwise
+    //             improved before trying to use that here.
+    String output_path;
   };
 
   static b8 compile(const CompileParams& params);
 
-  // Loads some compiled data. The name is expected to be the source data name
-  // that was provided for 'compile', not a path to where it would show up in 
-  // data/. Similarly to 'compile' the extension may be omitted in the name.
-  static CompiledData* load(
-    String name,
-    String type,
-    AssetMgr& assetmgr,
-    Asset** out_asset = nullptr);
+  static CompiledData* load(String path);
 
   // Gets the loaded data as the specified C++ type. Note that currently there 
   // are no safety checks for if the provided 'T' actually matches the type the 
@@ -81,7 +72,7 @@ struct CompiledData
   //             to store these off.
   struct DataRef
   {
-    String type;
+    rtr::TypeId type;
     void* ptr;
   };
 

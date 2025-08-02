@@ -1,0 +1,827 @@
+$ local cmn = require "common"
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("compiledata", Verbosity.Debug)
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+
+$$$
+
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/**/*.defs.lh"
+importpattern "src/**/*.comp.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupDecl(name)
+end
+
+$$$
+@@imported:get
+
+@@lpp.import "reflect/TypeId.lh"
+
+#include "iro/fs/fs.h"
+#include "iro/fs/File.h"
+#include "iro/memory/BinaryDataBuilder.h"
+
+@log.ger(compiledata, Trace)
+
+/* ============================================================================
+ */
+struct CompiledPtr
+{
+  u64 offset;
+  u64 count;
+  u64 size;
+  rtr::TypeId type;
+};
+
+typedef SmallArray<CompiledPtr, 64> CompiledPtrs;
+
+struct CompiledString
+{
+  u64 buffer_offset;
+  u64 table_offset;
+  // Note that the length of the string is stored in the String actually 
+  // written to the data buffer.
+};
+
+typedef SmallArray<CompiledString, 64> CompiledStrings;
+
+/* ============================================================================
+ *  Data compiler state and interface, this provides the actual implementations
+ *  of compilation of different types. Compiled data is written incrementally
+ *  to 'data_buffer', strings are stored in 'string_buffer' to be indexed as 
+ *  as a table in the resulting output. 'strings' and 'pointers' are small
+ *  arrays storing pointers and strings to be handled after root/pointer 
+ *  data have been compiled.
+ *
+ *  This also unfortunately doubles as a handler for fixing pointers and 
+ *  finding references. Primarily because otherwise I would need to duplicate
+ *  a lot of the ast walking code and declaration naming helpers to have 
+ *  that be separate. 
+ *
+ *  TODO(sushi) pass the pointers here as separate context structs OR set 
+ *              up an AST visitor api like clang as for walking our ast.
+ *              The latter is probably a better approach and I can't believe
+ *              I never thought of handling this problem (which has been a 
+ *              problem FOREVER) like that until now.
+ */
+struct Compiler
+{
+  mem::BinaryDataBuilder* buffer;
+  mem::BinaryDataBuilder* strings;
+  CompiledStrings* compiled_strings;
+  CompiledPtrs* compiled_pointers;
+
+$ -- Forward declared such that these may be called back into from within 
+$ -- compiler placing functions, eg. a Struct calls this for the type of 
+$ -- each of its fields.
+$ local putDeclCompiler
+$ local putTypeCompiler
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function recordPlaced(decl)
+$   decl.user.compiler_placed = true
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclCompilerName(decl)
+$   return "compile_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypeCompilerName(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     return (getDeclCompilerName(type.decl))
+$   elseif type:is(ast.Builtin) then
+$     return "compile_"..type:formCSafeName()
+$   elseif type:is(ast.Pointer) then
+$     return "compile_voidptr"
+$   else
+$     error("unhandled type passed to getTypeCompilerName: "..
+$           tostring(type)..'\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclCompilerSig(decl)
+$   return getDeclCompilerName(decl).."(const "..decl.type.name.."& data)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclCompiler(decl)
+$   recordPlaced(decl)
+$   return "void "..getDeclCompilerSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclCompilerFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   return declareDeclCompiler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclFixPointersName(decl)
+$   return "fixPointers_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypeFixPointersName(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     return (getDeclFixPointersName(type.decl))
+$   elseif type:is(ast.Builtin) then
+$     return "fixPointers_"..type:formCSafeName()
+$   elseif type:is(ast.Pointer) then
+$     return "fixPointers_voidptr"
+$   else
+$     error("unhandled type passed to getTypeFixPointersName: "..
+$           tostring(type)..'\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclFixPointersSig(decl)
+$   return getDeclFixPointersName(decl).."("..decl.type.name.."* data)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclFixPointers(decl)
+$   recordPlaced(decl)
+$   return "void "..getDeclFixPointersSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclFixPointersFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   return declareDeclFixPointers(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDeclFixPointersNoop(decl)
+  /* --------------------------------------------------------------------------
+   *  Fix pointers noop case.
+   */
+  $(declareDeclFixPointers(decl))
+  {
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDeclFixPointersNoopFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   return putDeclFixPointersNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putNumberCompiler(name)
+  /* -------------------------------------------------------------------------
+   */
+  $(declareDeclCompilerFromName(name))
+  {
+    buffer->writeT(data);
+  }
+$  putDeclFixPointersNoopFromName(name)
+$ end
+
+$ putNumberCompiler "b8"
+$ putNumberCompiler "u8"
+$ putNumberCompiler "u16"
+$ putNumberCompiler "u32"
+$ putNumberCompiler "u64"
+$ putNumberCompiler "s8"
+$ putNumberCompiler "s16"
+$ putNumberCompiler "s32"
+$ putNumberCompiler "s64"
+$ putNumberCompiler "f32"
+$ putNumberCompiler "f64"
+
+$ -- * ------------------------------------------------------------------------
+
+  /* -------------------------------------------------------------------------
+   *  Strings are specially handled since we need to compile them into their 
+   *  own table that data points into using OffsetStrings. 
+   * 
+   *  TODO(sushi) once data size becomes a concern (hopefully never) we should 
+   *              optimize strings by only storing them once. Should be quite 
+   *              easy to just store a mapping of string hashes to their
+   *              offset in the string table. Or something.
+   */
+  $(declareDeclCompilerFromName "iro::utf8::String")
+  {
+    // Record the string if its not nil.
+    if (notnil(data))
+    {
+      compiled_strings->push(
+      {
+        // Mark where this String will appear in the compiled data.
+        .buffer_offset = buffer->currentOffset(),
+        // Mark where this String will appear in the string table.
+        .table_offset = strings->currentOffset(),
+      });
+
+      // Copy the contents into the String table.
+      strings->writeString(data);
+    }
+    
+    // Write a String with a null ptr and its length in the table.
+    buffer->writeT<String>({nullptr, data.len});
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclFixPointersFromName "iro::utf8::String")
+  {
+    *data = OffsetString::getStringAsOffsetString(data);
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   *  Colors are handled specifically since they are a union, and we do not 
+   *  handle those in reflected data for now (since their usage is ambiguous
+   *  similar to plain void*).
+   */
+  $(declareDeclCompilerFromName "Color")
+  {
+    buffer->writeT(&data);
+  }
+
+$ putDeclFixPointersNoopFromName "Color"
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   *  void pointers are a special case as they may have use in reflected data
+   *  such as Component and ResourceRef. These should never show up as 
+   *  something specifyable in data, though! Eventually, these types should 
+   *  probably try to eliminate usage of void* (Component) or use a type with
+   *  better semantics (ResourceRef).
+   *
+   *  We simply write out a nullptr when we come across these.
+   */
+  void compile_voidptr(const void* data)
+  {
+    buffer->writeZeroedT<void*>();
+  }
+
+  void fixPointers_voidptr(void* data)
+  {
+    // Noop 
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putVec2Compiler(name)
+  /* --------------------------------------------------------------------------
+   *  Special handling because vec2's use unions.
+   */
+  $(declareDeclCompilerFromName(name))
+  {
+    buffer->writeT(&data);
+  }
+
+$   putDeclFixPointersNoopFromName(name)
+$ end
+
+$ putVec2Compiler "vec2<int>"
+$ putVec2Compiler "vec2<float>"
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putStructCompiler(decl)
+$   for field in decl:eachField() do
+$     putTypeCompiler(field.type)
+$   end
+$ 
+$   for nested in decl:eachNestedRecord() do
+$     putDeclCompiler(nested)
+$   end
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    // Record what offset we're compiling this struct to, so that at the 
+    // end we may assert that the resulting data is the same size as this 
+    // type.
+    u64 start_offset = buffer->currentOffset();
+
+    TRACE("compile $(decl.type.name)\n");
+
+$   if decl.base then
+    $(getDeclCompilerName(decl.base))(*($(decl.type.name)*)&data);
+$   end
+
+$   local field_count = decl:countFields()
+
+$ -- Write out each field of this struct, keeping track of the last field
+$ -- we compiled such that we may insert whatever padding may be there.
+$   local last_field
+$   for field in decl:eachField() do
+$     if last_field then
+$       -- Compute possible padding of the last field and insert it if needed.
+$       local diff = field.offset - last_field.offset
+$       if diff > last_field.type.size then
+    // Allocate padded space from previous field.
+    buffer->writeZeroed($(diff - last_field.type.size));
+$       end
+$     elseif decl.base then
+$       -- If this is the first field, and this struct has a base, then we 
+$       -- have to check if there's padding between the base's last field and 
+$       -- the first field of this struct. The compile function for the base
+$       -- won't know to place this padding, because it does not know that it
+$       -- is being used as a base!
+$       if field.offset ~= 0 then
+    // This type has a base ($(decl.base.name)) which has padding after its 
+    // last field, so we must allocate that padding here.
+    buffer->writeZeroed(
+      $(field.offset) - (buffer->currentOffset() - start_offset));
+
+$       end     
+$     end
+$     last_field = field
+    // field '$(field.name)'
+    //   offset: $(field.offset)
+    //     size: $(field.type.size)
+    //     type: $(field.type.name)
+    $(getTypeCompilerName(field.type))(data.$(field.name));
+$   end
+
+$   if last_field then
+$     local this_size = decl.type.size 
+$     local last_extent = last_field.type.size + last_field.offset
+$     if this_size > last_extent then
+    // Trailing padding.
+    buffer->writeZeroed($(this_size - last_extent));
+$     end
+$   end
+
+$ if 0 ~= decl:countFields() then
+$   -- Check that the size of data we wrote matches the size of this type,
+$   -- to catch improper compilation at runtime. Note that we do not do this
+$   -- for empty structs as for whatever reason in C++ sizeof an empty type
+$   -- results in 1, not 0. C++ is so fucking stupid!!!
+    assert(
+      buffer->currentOffset() - start_offset == sizeof($(decl.type.name)));
+$ end
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclFixPointers(decl))
+  {
+$ for field in decl:eachField() do
+    $(getTypeFixPointersName(field.type))(&data->$(field.name));
+$ end
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putArrayDefCompiler(decl)
+$   local subtype = decl.args[1]
+$   putTypeCompiler(subtype)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    TRACE("compile array $(decl.type.name)\n");
+
+    // Record the pointer to the array's contents to be compiled after 
+    // we finish compiling this data.
+    compiled_pointers->push(
+    {
+      // Record where in the output this pointer will appear.
+      .offset = buffer->currentOffset(),
+      // Record how many elements the pointer points to.
+      .count = data.len,
+      // Record the size of the subtype.
+      // Note that we use sizeof here to ensure the size is not subject to 
+      // any BUGS in the reflection code.
+      .size = sizeof($(subtype.name)),
+      // Record the typeid of the subtype.
+      .type = "$(subtype.name)"_typeid,
+    });
+
+    buffer->writeT(data);
+  }
+  
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclFixPointers(decl))
+  {
+    data->arr = OffsetPtr<void>::getPtrAsOffsetPtr(&data->arr);
+    for (auto& elem : *data)
+      $(getTypeFixPointersName(subtype))(&elem);
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putStringMapCompiler(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    assert(!"string map compilation not implemented yet");
+  }
+$   putDeclFixPointersNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putTypedStringMapCompiler(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    assert(!"typed string map compilation not implemented yet");
+  }
+$   putDeclFixPointersNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putFlagsCompiler(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    // Just write out the raw enum value.
+    buffer->writeT(&data);
+  }
+$   putDeclFixPointersNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putTemplateSpecCompiler(decl)
+$   for arg in decl.args:each() do
+$     if arg:is(ast.Type) then
+$       putTypeCompiler(arg)
+$     end
+$   end
+$
+$   local name = decl.specialized_name
+$   if name == "ArrayDef" then
+$     putArrayDefCompiler(decl)
+$   elseif name == "StringMap" then
+$     putStringMapCompiler(decl)
+$   elseif name == "TypedStringMap" then
+$     putTypedStringMapCompiler(decl)
+$   elseif name == "Flags" then
+$     putFlagsCompiler(decl)
+$   else
+$     clog:warn("unhandled template spec (compiler): ", decl, "\n")
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putRecordCompiler(decl)
+$   if decl.base then
+$     putDeclCompiler(decl.base)
+$   end
+$  
+$   if decl:findMetadata "ref" then
+$     -- NOTE(sushi) trying out just compiling refs as structs for now 
+$     --             as I believe that should handle them given how simple
+$     --             they are at the moment.
+$     putStructCompiler(decl)
+$   elseif decl:is(ast.TemplateSpec) then
+$     putTemplateSpecCompiler(decl)
+$   elseif decl:is(ast.Struct) then
+$     putStructCompiler(decl)
+$   else
+$     clog:warn("******* unhandled record type *********\n", ast.dump(decl),
+$               "\n")
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putEnumCompiler(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclCompiler(decl))
+  {
+    // Just write out the raw enum value.
+    buffer->writeT(&data);
+  }
+$   putDeclFixPointersNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putDeclCompiler = function(decl)
+$   decl.user = decl.user or {}
+$   if decl.user.compiler_placed then
+$     return
+$   end
+$  
+$   clog:trace("put compiler: ", decl, '\n')
+$ 
+$   if decl:is(ast.TagDecl) then
+$     if decl:is(ast.Record) then
+$       putRecordCompiler(decl)
+$     elseif decl:is(ast.Enum) then
+$       putEnumCompiler(decl)
+$     end
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putTypeCompiler = function(type)
+$   type = type:desugar() 
+$   if type:is(ast.TagType) then
+$     putDeclCompiler(type.decl)
+$   elseif not type:is(ast.Builtin) and not type:is(ast.Pointer) then
+$     clog:debug("unhandled type: ", type, '\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ for decl in astctx.type_decls:each() do
+$   if decl.metadata.def then
+$     putDeclCompiler(decl)
+$   end
+$ end
+
+  // Define the runtime typeid compile handler.
+  void compileTypeId(rtr::TypeId type, const void* data)
+  {
+    switch (type.val)
+    {
+$ for decl in astctx.type_decls:each() do
+$   if decl.user.compiler_placed then
+$     if decl.typedefs then
+$       -- If this decl has been typedef'd also handle those typenames as 
+$       -- well. Note that we have to use the type the typedef declares,
+$       -- not the typedef itself, to preserve namespaces.
+$       for typedef in decl.typedefs:each() do
+    case "$(typedef.type.name)"_typeid_val:
+$       end
+$     end
+    case "$(decl.type.name)"_typeid_val:
+      $(getDeclCompilerName(decl))(*($(decl.type.name)*)data);
+      return;
+$   end
+$ end
+    }
+
+    assert(!"unhandled typeid given to data compiler");
+  }
+};
+
+/* ----------------------------------------------------------------------------
+ */
+b8 CompiledData::compile(const CompileParams& params)
+{
+$ local function err(...)
+$   return [[ERROR("while compiling '", params.output_path, "': ", ]]..
+$     cmn.joinArgs(',',...)..[[, '\n')]]
+$ end
+
+  assert(notnil(params.type));
+  assert(notnil(params.output_path));
+  assert(params.dataptr != nullptr);
+
+  // Attempt to open (and lock) the specified output file early such that 
+  // any error with doing so is caught quickly.
+  fs::File out_file = fs::File::createForTruncatedWriting(params.output_path);
+  if (isnil(out_file))
+    return @err("failed to open file");
+  defer { out_file.close(); };
+
+  // TODO(sushi) should take an allocator for this eventually. Prob when we 
+  //             get to multithreading this where we'd prob wanna dedicate
+  //             an allocator to each of those threads to avoid any sorta
+  //             stl_allocator thread-safe internals (maybe they handle 
+  //             that well, I don't know, but I am NOT looking over stl 
+  //             code!!!).
+
+  // Create the buffer we will incrementally compile data into.
+  mem::BinaryDataBuilder buffer;
+  if (!buffer.init(1024))
+    return @err("failed to initialize BinaryDataBuilder");
+  defer { buffer.deinit(); };
+  
+  // Allocate and set up header info.
+  {
+    buffer.writeZeroedT<CompiledData>();
+
+    auto* header = (CompiledData*)buffer.data.ptr;
+    header->type = params.type;
+  }
+
+  // Create the string table builder.
+  mem::BinaryDataBuilder string_table;
+  if (!string_table.init(1024))
+    return @err("failed to initialize BinaryDataBuilder for string table");
+  defer { string_table.deinit(); };
+
+  // Small arrays for storing pointers and strings while compiling each blob
+  // of data.
+  // Pointers are stored such that we may compile each blob of memory in 
+  // succession while strings are stored so we may point all Strings found 
+  // data to their location in the string table after all data has been 
+  // compiled.
+  CompiledStrings strings;
+  CompiledPtrs pointers;
+
+  // Store the offset at which we are going to start writing the actual data.
+  u64 data_start_offset = buffer.currentOffset();
+
+  // Create a Compiler and prep it for building data.
+  Compiler compiler;
+  compiler.buffer = &buffer;
+  compiler.strings = &string_table;
+  compiler.compiled_strings = &strings;
+  compiler.compiled_pointers = &pointers;
+
+  // Compile the root data.
+  compiler.compileTypeId(params.type, params.dataptr);
+  
+  // Store the size of the root data.
+  // TODO(sushi) we eventually need to add checks for if this matches the 
+  //             type's size, but atm rtr does not provide a function 
+  //             for getting size from a typeid. I will get to that once 
+  //             other stuff is properly reimplemented (or if it winds up
+  //             needed).
+  u64 root_size = buffer.currentOffset() - data_start_offset;
+
+  // Process each layer of pointers following the root data.
+  for (;;)
+  {
+    // Gather the next set of pointers into a separate buffer.
+    CompiledPtrs next_pointers;
+    compiler.compiled_pointers = &next_pointers;
+
+    // Compile data that is pointed to by this type into their own blobs.
+    for (auto& ptr : pointers)
+    {
+      // Get the address of the pointer and what it points to.
+      void** ptrptr = (void**)(buffer.data.ptr + ptr.offset);
+      void* ptrdata = *ptrptr;
+
+      // Set the pointer to be an offset to the data we're about to write.
+      OffsetPtr<void>::setPtrAsOffsetPtr(
+        ptrptr, 
+        (void*)(buffer.data.ptr + buffer.currentOffset()));
+
+      // Compile each pointee.
+      for (s32 i = 0; i < ptr.count; ++i)
+      {
+        void* pointee = (u8*)ptrdata + i * ptr.size;
+        compiler.compileTypeId(ptr.type, pointee);
+      }
+    }
+
+    // If didn't retrieve any more pointers, then we're done compiling the 
+    // data.
+    if (next_pointers.isEmpty())
+      break;
+
+    // Otherwise, swap the new pointers into the current.
+    next_pointers.move(&pointers);
+  }
+
+  // Store where the string table will be in data.
+  u64 string_table_offset = buffer.currentOffset();
+
+  // Repoint all Strings we found in data to point at their location in 
+  // the string table.
+  for (auto& str : strings)
+  {
+    // Get the String that we wrote into the buffer.
+    auto* strptr = (String*)(buffer.data.ptr + str.buffer_offset);
+
+    // Pun it as an OffsetString and point to its content. This will break
+    // if String ever becomes smaller than OffsetString but I believe that
+    // should never happen. If for whatever reason it does, we'll probably
+    // need a special String type used in data we expect to be compiled.
+    // TODO(sushi) once I move the current reflect types out of asset/ into
+    //             reflect/, we should make a String type specifically for 
+    //             use in reflected data to avoid the above possibility.
+    OffsetString::setStringAsOffsetString(strptr, 
+      String::from(
+        buffer.data.ptr + string_table_offset + str.table_offset,
+        strptr->len));
+  }
+
+  // Set the offset header data.
+  auto* header = (CompiledData*)buffer.data.ptr;
+
+  // Root data is the first block we place.
+  header->root.setSlice(buffer.data.ptr + data_start_offset, root_size);
+
+  // Set the slice spanning all compiled data (remember this includes root).
+  header->data.setSlice(
+    buffer.data.ptr + data_start_offset, 
+    buffer.currentOffset() - data_start_offset);
+
+  // The string table will be placed directly after the binary data, so
+  // point its slice there.
+  header->strings.setSlice(
+    buffer.data.ptr + string_table_offset,
+    string_table.data.len);
+
+  // Finally, write out the data to the output file.
+  out_file.write(buffer.data);
+  out_file.write(string_table.data);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Take an allocator or provide a function for getting the size required 
+ *  for compiled data at a given path (which is just its file size but yeah).
+ */
+CompiledData* CompiledData::load(String path)
+{
+$ local function err(...)
+$   return 
+$     [[ERROR("while loading compiled data '", path, "': ", ]]..
+$     cmn.joinArgs(',',...)..[[, '\n'), nullptr]]
+$ end
+  
+  auto file = fs::File::openForRead(path);
+  if (isnil(file))
+    return @err("failed to open file");
+  defer { file.close(); }; 
+
+  fs::Stat stat;
+  if (!fs::stat(path, &stat))
+    return @err("failed to stat file for size");
+
+  auto* data = (CompiledData*)mem::stl_allocator.allocate(stat.byte_size);
+  file.read({(u8*)data, stat.byte_size});
+  return data;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void CompiledData::fixPointers()
+{
+  // TODO(sushi) really need to come up with a way to separate these.
+  Compiler compiler;
+
+  switch (type.val)
+  {
+$ for decl in astctx.type_decls:each() do
+$   if decl.user.compiler_placed then
+$     if decl.typedefs then
+$       -- If this decl has been typedef'd also handle those typenames as 
+$       -- well. Note that we have to use the type the typedef declares,
+$       -- not the typedef itself, to preserve namespaces.
+$       for typedef in decl.typedefs:each() do
+    case "$(typedef.type.name)"_typeid_val:
+$       end
+$     end
+    case "$(decl.type.name)"_typeid_val:
+      compiler.$(getDeclFixPointersName(decl))(
+        ($(decl.type.name)*)data.ptr.get());
+      break;
+$   end
+$ end
+  }
+}

@@ -1,0 +1,25 @@
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "asset/ArrayDef.lh"
+$ local m = require "reflect.Metadata"
+
+struct Fruit
+{
+  u8 nutrients; 
+};
+
+@m.def
+struct Apple : Fruit
+{
+  String moniker;
+
+  struct Leaf
+  {
+    u8 size;
+  };
+
+  ArrayDef<Leaf> leaves;
+};
+
+

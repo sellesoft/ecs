@@ -146,8 +146,9 @@ lpp_params.meta_args = List { meta_arg }
 
 cpp_params.cmd_callback = cc:cmdCallback()
 
+---@return lake.obj.Exe
 local function buildTest(name)
-  require("tests."..name..".build") (
+  return require("tests."..name..".build") (
     build_dir,
     lpp_params,
     cpp_params,
@@ -155,7 +156,42 @@ local function buildTest(name)
     iro_objs)
 end
 
-buildTest "packing"
+if lake.cliargs[1] == "test" then
+  local testname = lake.cliargs[2]
+
+  if not testname then
+    error("expected the name of a test to run (a directory in tests/)")
+  end
+
+  local exe = buildTest(lake.cliargs[2])
+
+  if not exe then
+    error("test "..testname.." did not return an Exe to run!")
+  end
+  
+  lake.task("test "..lake.cliargs[2])
+    :dependsOn(exe.task)
+    :cond(function() return true end)
+    :recipe(function()
+      local time, result = lake.utils.timed(function()
+        return lake.async.run { exe.path }
+      end)
+
+      io.write(result.output)
+
+      if result.exit_code ~= 0 then
+        io.write("test '", testname,  "' ", lake.flair.red, "failed", 
+                 lake.flair.reset, "!\n")
+      else
+        io.write("test '", testname, "' ", lake.flair.green, "succeeded", 
+                 lake.flair.reset, "! (in ", time:pretty(), ")\n")
+      end
+    end)
+
+  return
+end
+
+buildTest "compile-data"
 
 do return end
 

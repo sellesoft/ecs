@@ -22,15 +22,16 @@ b8 test()
   defer { testfile.deinit(); };
 
   PackedData packed;
-  PackContext packctx;
-  packctx.packed = &packed;
+  if (!packed.init())
+    return ERROR("failed to initialize PackedData\n");
+  defer { packed.deinit(); };
 
-  defer { packed.clear(); };
+  PackParams pack_params = { &packed };
 
-  if (!packSourceDataFromType(*testfile.returned_data, packctx))
+  if (!packSourceDataFromType(*testfile.returned_data, pack_params))
     return false;
 
-  auto* result = packed.getRootAs<SourceDataEditorSkinDef>();
+  auto* result = packed.getDataAs<SourceDataEditorSkinDef>();
 
   INFO(result->vec2_data.min_comp_width, '\n');
 

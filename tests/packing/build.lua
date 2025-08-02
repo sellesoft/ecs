@@ -27,6 +27,8 @@ return function(
   compileLpp "src/asset/SourceDataParser.lpp"
   compileLpp "tests/packing/main.lpp"
 
-  o.Exe(build_dir.."/tests/packing/run")
-    :link(objs, link_params)
+  local exe = o.Exe(build_dir.."/tests/packing/run")
+  exe:link(objs, link_params)
+
+  return exe
 end

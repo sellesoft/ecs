@@ -25,7 +25,6 @@ end
 
 importpattern "src/**/*.defs.lh"
 importpattern "src/**/*.comp.lh"
-importpattern "src/asset/Ref.lh"
 
 local astctx = require "reflect.AstContext".fromString(tostring(imported))
 
@@ -748,14 +747,13 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-b8 packSourceDataFromType(const SourceData& data, PackContext& ctx)
+b8 packSourceDataFromType(const SourceData& data, PackParams& ctx)
 {
   if (isnil(data.type))
     return ERROR("packSourceDataFromType passed untyped data\n");
 
   Packer packer;
   packer.packed = ctx.packed;
-  packer.packed->buffer.init();
 
   if (!packer.defaults_cache.init())
     return ERROR("failed to initialize packer defaults cache\n");

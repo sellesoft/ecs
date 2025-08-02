@@ -1,7 +1,6 @@
 $ local cmn = require "common"
 
 @@lpp.import "asset/SourceData.lh"
-@@lpp.import "asset/PackedData.lh"
 
 #include "iro/containers/SmallArray.h"
 #include "iro/memory/Bump.h"
@@ -19,36 +18,57 @@ namespace iro::io
 struct IO;
 }
 
-struct PackContext
+/* ============================================================================
+ *  The result of packing some data. This contains the raw bytes of the 
+ *  packed data as well as a buffer containing any other data that needs 
+ *  to live as long as the packed data.
+ */
+struct PackedData
 {
-  // Optional systems only required when the type being packed
-  // has members that need these to load it.
-  AssetMgr* assetmgr;
-  gfx::Renderer* renderer;
+  // The raw packed data. This points into the 'buffer' where the resulting 
+  // data was packed.
+  Bytes data;
 
+  // A buffer containing the packed data as well as any other data that 
+  // must live for as long as the resulting packed data, primarily strings 
+  // and arrays.
+  mem::LenientBump buffer;
+
+  // Small helper for getting the packed data as the given type. Note that 
+  // there is no checking for if the requested type matches that which was 
+  // packed. So be careful!
+  // TODO(sushi) implement proper checks if that ever winds up being a 
+  //             problem.
+  template<typename T>
+  T* getDataAs() const
+  {
+    return (T*)data.ptr;
+  }
+
+  // TODO(sushi) we could prob support passing in an allocator here.
+  b8 init()
+  {
+    data = nil;
+    
+    return buffer.init();
+  }
+
+  void deinit()
+  {
+    data = nil;
+    buffer.deinit();
+  }
+};
+
+/* ============================================================================
+ *  Parameters specifying the destination of packing. 
+ *  This is wrapping a single param for now in case we ever get to a point 
+ *  where we want to parameterize packing more.
+ */
+struct PackParams
+{
   PackedData* packed;
 };
 
-template<typename T>
-b8 packSourceDataIntoType(const SourceData& data, T* out, PackContext& ctx);
-
-template<typename T>
-b8 packSourceDataIntoType(
-  const SourceData& data, 
-  PackContext& ctx)
-{
-  ctx.packed->buffer.init();
-  ctx.packed->data.ptr = (u8*)ctx.packed->buffer.allocateType<T>();
-  ctx.packed->data.len = sizeof(T);
-  return packSourceDataIntoType(data, (T*)ctx.packed->data.ptr, ctx);
-}
-
 // Packs some SourceData based on what its type value is.
-b8 packSourceDataFromType(
-  const SourceData& data, 
-  PackContext& ctx);
-
-static b8 packSourceDataFromType(
-  const SourceData& data,
-  void* ptr,
-  PackContext& ctx) { return false; }
+b8 packSourceDataFromType(const SourceData& data, PackParams& ctx);

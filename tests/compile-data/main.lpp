@@ -1,0 +1,64 @@
+/*
+ *  Testing for compiling packed data.
+ */
+
+$ local cmn = require "common"
+
+@@lpp.import "asset/Packing.lh"
+@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "asset/SourceDataEditorSkin.defs.lh"
+@@lpp.import "Test.defs.lh"
+
+#include "math/Rect.h"
+#include "iro/fs/File.h"
+
+@log.ger(test-packing, Debug)
+
+b8 test()
+{
+  Apple apple = {};
+
+  apple.moniker = "The Apple"_str;
+
+  apple.nutrients = 10;
+  apple.leaves.init(3, &mem::stl_allocator);
+
+  apple.leaves[0].size = 1;
+  apple.leaves[1].size = 2;
+  apple.leaves[2].size = 3;
+
+  CompiledData::CompileParams compile_params = 
+  {
+    .type = "Apple"_typeid,
+    .dataptr = &apple,
+    .output_path = "tests/compile-data/result.data"_str
+  };
+
+  if (!CompiledData::compile(compile_params))
+    return false;
+
+  CompiledData* result = CompiledData::load(compile_params.output_path);
+  result->fixPointers();
+
+  Apple* compiled_apple = result->getRootAs<Apple>();
+  
+  INFO(
+      "moniker: ", compiled_apple->moniker,
+    "\n leaves: \n");
+
+  for (auto& leaf : compiled_apple->leaves)
+  {
+    INFO("  size: ", leaf.size, '\n');
+  }
+
+  return true;
+}
+
+int main()
+{
+  iro::initializeDefaultLogging();
+
+  return test()? 0 : 1;
+}

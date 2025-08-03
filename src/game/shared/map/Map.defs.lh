@@ -9,7 +9,7 @@ $ local metadata = require "reflect.Metadata"
 #include "math/vec.h"
 
 @@lpp.import "asset/AssetRef.lh"
-@@lpp.import "asset/ArrayDef.lh"
+@@lpp.import "reflect/types/Array.lh"
 @@lpp.import "graphics/Ref.defs.lh"
 @@lpp.import "game/shared/entity/Entity.defs.lh"
 
@@ -36,7 +36,7 @@ struct TileKindRef : TypedSourceAssetRef<TileKindDef> {};
 struct MapTileDef
 {
   TileKindRef kind;
-  ArrayDef<EntityDefRef> entities;
+  reflect::Array<EntityDefRef> entities;
 
   TileKindDef& getKind() { return *kind; }
 };
@@ -47,7 +47,7 @@ struct MapLayerDef
 {
   vec2i size;
   vec2i pos;
-  ArrayDef<MapTileDef> tiles;
+  reflect::Array<MapTileDef> tiles;
 };
 
 /* ============================================================================
@@ -57,7 +57,7 @@ struct MapDef
 {
   String name;
   vec2i size;
-  ArrayDef<MapLayerDef> layers;
+  reflect::Array<MapLayerDef> layers;
 };
 
 @metadata.source_types(map)

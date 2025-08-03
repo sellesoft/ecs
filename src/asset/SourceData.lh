@@ -32,6 +32,7 @@ struct SourceData
   {
     enum class Kind : u8
     {
+      None,
       String,
       Number,
       NumberHex,
@@ -40,12 +41,11 @@ struct SourceData
     };
 
     String str = nil;
-    Kind kind = Kind::String;
+    Kind kind = Kind::None;
   };
 
   Value val = {};
   String type = nil;
-  Array<SourceData*> children = nil;
 
   SourceData* base = nullptr;
 
@@ -54,6 +54,8 @@ struct SourceData
   // actual input some SourceData came from.
   u32 line;
   u32 column;
+
+  Array<SourceData*> children = nil;
 
   SourceData() {}
 

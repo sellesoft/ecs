@@ -33,7 +33,7 @@ $$$
 
 @@lpp.import "asset/Packing.lh"
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
 
 @@lpp.import "graphics/Renderer.lh"
 

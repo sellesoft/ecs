@@ -7,8 +7,8 @@ $ local ui = require "ui.UI"
 
 @@lpp.import "asset/Packing.lh"
 @@lpp.import "asset/CompiledData.lh"
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 @@lpp.import "game/client/GameSim.lh"
 @@lpp.import "game/client/graphics/Sprite.comp.lh"

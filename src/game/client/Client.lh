@@ -12,7 +12,7 @@
 
 $ require "common"
 
-@@lpp.import "asset/SourceDataEditor.lh"
+@@lpp.import "sdata/SourceDataEditor.lh"
 @@lpp.import "game/client/Console.lh"
 @@lpp.import "game/client/editor/Editor.lh"
 @@lpp.import "game/client/GameSim.lh"

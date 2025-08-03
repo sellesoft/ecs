@@ -10,8 +10,8 @@ using namespace iro;
 
 @@lpp.import "asset/Packing.lh"
 @@lpp.import "asset/CompiledData.lh"
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 @@lpp.import "event/BroadcastEventBus.lh"
 @@lpp.import "graphics/Font.lh"
 @@lpp.import "graphics/CompiledShader.lh"

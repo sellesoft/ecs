@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 
-@@lpp.import "asset/SourceData.lh"
-@@lpp.import "asset/SourceDataFile.lh"
+@@lpp.import "sdata/SourceData.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
 
 #include "iro/io/IO.h"
 #include "iro/fs/File.h"

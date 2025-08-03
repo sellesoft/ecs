@@ -7,7 +7,7 @@ $ local cmn = require "common"
 @@lpp.import "Engine.lh"
 
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "asset/SourceData.lh"
+@@lpp.import "sdata/SourceData.lh"
 
 @@lpp.import "game/shared/Transform.comp.lh"
 

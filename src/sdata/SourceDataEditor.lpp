@@ -28,12 +28,12 @@ local importer = require "reflect.Importer"
 $$$
 @importer:get
 
-@@lpp.import "asset/SourceDataEditor.lh"
+@@lpp.import "sdata/SourceDataEditor.lh"
 
 @@lpp.import "Engine.lh"
 
-@@lpp.import "asset/SourceData.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceData.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 @@lpp.import "ui/UI.lh"
 @@lpp.import "graphics/Geo.lh"

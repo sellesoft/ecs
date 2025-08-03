@@ -1,12 +1,9 @@
 $ local cmn = require "common"
 
-@@lpp.import "asset/SourceData.lh"
-
 #include "iro/containers/SmallArray.h"
 #include "iro/memory/Bump.h"
 
-struct AssetMgr;
-struct AssetRef;
+struct SourceData;;
 
 namespace gfx
 {
@@ -27,12 +24,12 @@ struct PackedData
 {
   // The raw packed data. This points into the 'buffer' where the resulting 
   // data was packed.
-  Bytes data;
+  iro::Bytes data;
 
   // A buffer containing the packed data as well as any other data that 
   // must live for as long as the resulting packed data, primarily strings 
   // and arrays.
-  mem::LenientBump buffer;
+  iro::mem::LenientBump buffer;
 
   // Small helper for getting the packed data as the given type. Note that 
   // there is no checking for if the requested type matches that which was 

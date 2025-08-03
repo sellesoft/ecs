@@ -6,7 +6,7 @@ $ require "common"
 
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "asset/CompiledData.lh"
-@@lpp.import "asset/SourceData.lh"
+@@lpp.import "sdata/SourceData.lh"
 
 @@lpp.import "graphics/Renderer.lh"
 

@@ -42,9 +42,9 @@ $$$
 
 @@lpp.import "asset/Packing.lh"
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "asset/SourceData.lh"
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceData.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 @@lpp.import "reflect/types/Array.lh"
 

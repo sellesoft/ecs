@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 
-@@lpp.import "asset/SourceDataFileReg.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceDataFileReg.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 #include "iro/Logger.h"
 using namespace iro;

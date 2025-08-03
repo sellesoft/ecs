@@ -25,7 +25,7 @@ $$$
 @@lpp.import "game/shared/Eye.sys.lh"
 @@lpp.import "game/shared/map/Map.sys.lh"
 
-@@lpp.import "asset/SourceDataFileReg.lh"
+@@lpp.import "sdata/SourceDataFileReg.lh"
 @@lpp.import "Profiling.lh"
 
 #include "math/util.h"

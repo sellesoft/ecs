@@ -23,9 +23,9 @@ return function(
   compileLpp "src/reflect/RTR_Pretty.lpp"
   compileLpp "src/asset/CompiledData2.lpp"
   compileLpp "src/asset/Packing2.lpp"
-  compileLpp "src/asset/SourceDataFile.lpp"
-  compileLpp "src/asset/SourceData.lpp"
-  compileLpp "src/asset/SourceDataParser.lpp"
+  compileLpp "src/sdata/SourceDataFile.lpp"
+  compileLpp "src/sdata/SourceData.lpp"
+  compileLpp "src/sdata/SourceDataParser.lpp"
   compileLpp "tests/compile-data/main.lpp"
 
   local exe = o.Exe(build_dir.."/tests/compile-data/run")

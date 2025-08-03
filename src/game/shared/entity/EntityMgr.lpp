@@ -7,8 +7,8 @@ $ local comps = comp.importComponents()
 
 @@lpp.import "game/shared/entity/EntityMgr.lh"
 
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 @@lpp.import "game/shared/entity/EntityLoader.lh"
 @@lpp.import "game/shared/component/Component.events.lh"

@@ -4,8 +4,8 @@
 
 $ require "common"
 
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataParser.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataParser.lh"
 
 #include "iro/fs/File.h"
 

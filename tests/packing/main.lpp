@@ -5,9 +5,9 @@
 $ local cmn = require "common"
 
 @@lpp.import "asset/Packing.lh"
-@@lpp.import "asset/SourceDataFile.lh"
 @@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "asset/SourceDataEditorSkin.defs.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/File.h"

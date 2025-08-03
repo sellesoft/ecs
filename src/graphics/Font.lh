@@ -3,8 +3,6 @@
  */
 
 $ local cmn = require "common"
-$ local SourceData = require "asset.SourceData"
-
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 #include "iro/traits/Nil.h"

@@ -9,8 +9,8 @@ $ local cmn = require "common"
 #include "iro/containers/Pool.h"
 #include "iro/containers/AVL.h"
 
-@@lpp.import "asset/SourceDataFile.lh"
-@@lpp.import "asset/SourceDataFileHandle.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "sdata/SourceDataFileHandle.lh"
 
 /* ============================================================================
  */

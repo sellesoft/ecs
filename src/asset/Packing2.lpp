@@ -32,7 +32,7 @@ local astctx = require "reflect.AstContext".fromString(tostring(imported))
 
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
-  return astctx:lookupDecl(name)
+  return astctx:lookupTypeDecl(name)
 end
 
 $$$
@@ -42,10 +42,11 @@ $$$
 
 @@lpp.import "asset/Packing.lh"
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "asset/ArrayDef.lh"
 @@lpp.import "asset/SourceData.lh"
 @@lpp.import "asset/SourceDataFile.lh"
 @@lpp.import "asset/SourceDataParser.lh"
+
+@@lpp.import "reflect/types/Array.lh"
 
 #include "iro/containers/BitArray.h"
 
@@ -130,7 +131,7 @@ $ -- * ------------------------------------------------------------------------
 $ local function putNumberPacker(name)
   /* --------------------------------------------------------------------------
    */
-  $(packerFuncName(name))
+  b8 pack_$(name)(const SourceData& data, $(name)* out)
   {
     if (!data.hasNumberValue())
       return ERROR("expected a number value to pack $(name)\n");
@@ -156,6 +157,20 @@ $ putNumberPacker "f64"
 
 $ -- * ------------------------------------------------------------------------
 
+  /* --------------------------------------------------------------------------
+   */
+  b8 pack_b8(const SourceData& data, b8* out)
+  {
+    if (!data.hasBooleanValue())
+      return ERROR("expected a boolean value to pack b8\n");
+
+    *out = data.testBooleanValue();
+
+    return true;
+  }
+
+$ -- * ------------------------------------------------------------------------
+
 $ --- Helper for placing a fake defaults handler for types which either 
 $ --- don't need them (arrays) or types which cannot have default metadata
 $ --- attached to their fields (String, Color). This is done to simplify 
@@ -178,19 +193,7 @@ $   end
 $   putDummyDefaultsHandler(decl)
 $ end
 
-$ -- * ------------------------------------------------------------------------
 
-  /* --------------------------------------------------------------------------
-   */
-  $(packerFuncName "b8")
-  {
-    if (!data.hasBooleanValue())
-      return ERROR("expected a boolean value to pack b8\n");
-
-    *out = data.testBooleanValue();
-
-    return true;
-  }
 
 $ -- * ------------------------------------------------------------------------
 
@@ -694,11 +697,30 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function putStringMapPacker(decl)
+$   local subtype = decl.args[1]
+$   putTypePacker(subtype)
   /* --------------------------------------------------------------------------
    */
   $(packerFuncDecl(decl))
   {
-    return ERROR("string map packing not implemented yet\n");
+    if (!data.hasObjectData())
+      return ERROR("expected object data to pack into $(decl.type.name)\n");
+
+    if (!out->init(data.children.len(), &packed->buffer))
+      return ERROR("failed to initialize $(decl.type.name)\n");
+
+    for (const SourceData* child : data.children)
+    {
+      if (isnil(child->name))
+        return ERROR("StringMap data must be named\n");
+
+      auto* elem = out->add(child->name);
+
+      if (!$(getTypePackerName(subtype))(*child, elem))
+        return ERROR("failed to pack key ", child->name, '\n');
+    }
+
+    return true;
   }
 $   putDummyDefaultsHandler(decl)
 $ end
@@ -747,16 +769,19 @@ $       putTypePacker(arg)
 $     end
 $   end
 $   
-$   if decl.specialized_name == "ArrayDef" then
+$   local name = decl.specialized.qname
+$   if name == "iro::Array" then
+$     error("iro::Array is not allowed in reflected data!")
+$   elseif name == "reflect::Array" then
 $     putArrayDefPacker(decl)
-$   elseif decl.specialized_name == "Flags" then
+$   elseif name == "iro::Flags" then
 $     putFlagsPacker(decl)
-$   elseif decl.specialized_name == "StringMap" then
+$   elseif name == "StringMap" then
 $     putStringMapPacker(decl)
-$   elseif decl.specialized_name == "TypedStringMap" then
+$   elseif name == "TypedStringMap" then
 $     putTypedStringMapPacker(decl)
 $   else
-$     clog:warn("unhandled template spec ", decl.name, '\n')
+$     clog:warn("unhandled template spec ", name, '\n')
 $   end
 $ end
 

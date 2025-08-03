@@ -3,6 +3,7 @@ $ local ast = require "reflect.ast"
 $ local clog = require "iro.Logger" ("compiledata", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
+$ local dumpValue = require "iro.util".dumpValue
 
 $$$
 
@@ -24,7 +25,7 @@ local astctx = require "reflect.AstContext".fromString(tostring(imported))
 
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
-  return astctx:lookupDecl(name)
+  return astctx:lookupTypeDecl(name)
 end
 
 $$$
@@ -36,7 +37,7 @@ $$$
 #include "iro/fs/File.h"
 #include "iro/memory/BinaryDataBuilder.h"
 
-@log.ger(compiledata, Debug)
+@log.ger(compiledata, Info)
 
 /* ============================================================================
  */
@@ -281,7 +282,7 @@ $ -- * ------------------------------------------------------------------------
    */
   $(declareDeclCompilerFromName "Color")
   {
-    buffer->writeT(&data);
+    buffer->writeT(data);
   }
 
 $ putDeclFixPointersNoopFromName "Color"
@@ -315,7 +316,7 @@ $ local function putVec2Compiler(name)
    */
   $(declareDeclCompilerFromName(name))
   {
-    buffer->writeT(&data);
+    buffer->writeT(data);
   }
 
 $   putDeclFixPointersNoopFromName(name)
@@ -334,6 +335,13 @@ $
 $   for nested in decl:eachNestedRecord() do
 $     putDeclCompiler(nested)
 $   end
+$   if decl.name:find "String" then
+$     dumpValue(decl, 1)
+$     dumpValue(lookup "iro::utf8::String", 1)
+$     error("bad")
+$     ast.dumpout(decl)
+$   end
+
   /* --------------------------------------------------------------------------
    */
   $(declareDeclCompiler(decl))
@@ -377,6 +385,8 @@ $       if field.offset ~= 0 then
 $       end     
 $     end
 $     last_field = field
+    // Fine grained asserts!
+    assert(buffer->currentOffset() - start_offset == $(field.offset));
     // field '$(field.name)'
     //   offset: $(field.offset)
     //     size: $(field.type.size)
@@ -385,6 +395,9 @@ $     last_field = field
 $   end
 
 $   if last_field then
+$     if decl.name:find "SpriteTexture" then
+$       ast.dumpout(decl)
+$     end
 $     local this_size = decl.type.size 
 $     local last_extent = last_field.type.size + last_field.offset
 $     if this_size > last_extent then
@@ -407,6 +420,10 @@ $ end
    */
   $(declareDeclFixPointers(decl))
   {
+$ if decl.base then
+  $(getDeclFixPointersName(decl.base))(data);
+$ end
+
 $ for field in decl:eachField() do
     $(getTypeFixPointersName(field.type))(&data->$(field.name));
 $ end
@@ -456,13 +473,32 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function putStringMapCompiler(decl)
+$   putDeclCompiler(decl:findNestedRecord "Slot")
   /* --------------------------------------------------------------------------
    */
   $(declareDeclCompiler(decl))
   {
-    assert(!"string map compilation not implemented yet");
+    compiled_pointers->push(
+    {
+      .offset = buffer->currentOffset(),
+      .count = (u64)data.len,
+      .size = sizeof($(decl.type.name)::Slot),
+      .type = "$(decl.type.name)::Slot"_typeid,
+    });
+
+    buffer->writeT(data);
   }
-$   putDeclFixPointersNoop(decl)
+  
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclFixPointers(decl))
+  {
+    data->slots = OffsetPtr<void>::getPtrAsOffsetPtr(&data->slots);
+    for (auto& elem : *data)
+    {
+      $(getDeclFixPointersName(decl:findNestedRecord "Slot"))(&elem);
+    }
+  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -485,7 +521,7 @@ $ local function putFlagsCompiler(decl)
   $(declareDeclCompiler(decl))
   {
     // Just write out the raw enum value.
-    buffer->writeT(&data);
+    buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
 $ end
@@ -499,14 +535,14 @@ $       putTypeCompiler(arg)
 $     end
 $   end
 $
-$   local name = decl.specialized_name
-$   if name == "ArrayDef" then
+$   local name = decl.specialized.qname
+$   if name == "reflect::Array" then
 $     putArrayDefCompiler(decl)
 $   elseif name == "StringMap" then
 $     putStringMapCompiler(decl)
 $   elseif name == "TypedStringMap" then
 $     putTypedStringMapCompiler(decl)
-$   elseif name == "Flags" then
+$   elseif name == "iro::Flags" then
 $     putFlagsCompiler(decl)
 $   else
 $     clog:warn("unhandled template spec (compiler): ", decl, "\n")

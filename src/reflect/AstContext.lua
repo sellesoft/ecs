@@ -30,12 +30,22 @@ local log = require "iro.Logger" ("astctx", Verbosity.Info)
 --- The parsed translation unit decl.
 ---@field translation_unit ast.TranslationUnit
 ---
---- A table containing type declarations by their canonical name, as specified
---- by clang. This is primarily used for searching decls for which a collection
---- of methods are provided.
---- This table may be used directly if desired, though. However remember that 
---- lua tables are of arbitrary order!
----@field type_decls_by_canonical_name table
+--- A table containing declarations by their qualified name, eg. 
+---   namespace iro 
+---   {
+---   namespace utf8
+---   {
+---     struct String {};
+---   }
+---   }
+--- has the qualified name "iro::utf8::String". This works similarly for nested
+--- enums and structs and such.
+---@field decls_by_qualified_name table
+---
+--- A table containing type declarations keyed by their name. This is where
+--- more complicated types such as vec2<int> or iro::Array<iro::String> may
+--- be found.
+---@field type_decls_by_name table
 ---
 --- A list of type declarations for iterating in proper order.
 ---@field type_decls iro.List
@@ -46,10 +56,16 @@ local AstContext = IroType.make()
 AstContext.new = function()
   local o = {}
   o.type_decls = List {}
-  o.type_decls_by_canonical_name = {}
+  o.decls_by_qualified_name = {}
+  o.type_decls_by_name = {}
+  
   return setmetatable(o, AstContext)
 end
 
+--- Looks up a declaration by its fully qualified name, as described in 
+--- the comment on AstContext.decls_by_qualified_name.
+---
+---@return ast.Decl?
 AstContext.lookupDecl = function(self, name)
   -- TODO(sushi) this could be made more fancy, eg. handling whitespace 
   --             independent tokens 
@@ -60,7 +76,14 @@ AstContext.lookupDecl = function(self, name)
   --              'String' also successfully returning. Don't want to get too
   --              bogged down in that atm, though.
   --              And its probably safer to require canonical names for now.
-  return self.type_decls_by_canonical_name[name]
+  return self.decls_by_qualified_name[name]
+end
+
+--- Looks up a type declaration by its canonical typename.
+---
+---@return ast.TypeDecl?
+AstContext.lookupTypeDecl = function(self, name)
+  return self.type_decls_by_name[name]
 end
 
 --- Internal helper module for converting clang's AST to our internal
@@ -115,6 +138,10 @@ Converter.findProcessed = function(self, cdecl)
 end 
 
 Converter.recordProcessed = function(self, cdecl, obj)
+  -- io.write("record processed_", obj.name, " ", tostring(cdecl.handle), '\n')
+  -- if obj.name == "String" then
+  --   cdecl:dump()
+  -- end
   self.processed_clang_objs[tostring(cdecl.handle)] = obj
 end
 
@@ -306,21 +333,23 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     end
   end
 
-  -- We don't deal with template declarations for now.
-  if cdecl:isTemplate() then return end
-
-  -- We should only be getting type declarations in here for now.
-  if not cdecl:isType() then
-    self:write("not type decl")
-    return
+  local ctype
+  if cdecl:isType() then
+    ctype = cdecl:getTypeDeclType()
+    ctype:makeComplete()
   end
-
-  local ctype = cdecl:getTypeDeclType()
 
   ---@type ast.Decl
   local decl
 
-  if cdecl:isTemplateSpec() then
+  if cdecl:isTemplate() then
+    decl = self:processTemplate(cdecl)
+  elseif cdecl:isTemplateSpec() then
+    -- Ensure the the declaration this specializes is resolved. Its somehow
+    -- possible that we come across a specialization of a template before its
+    -- actual declaration. I'm not sure how, but it happens, and I don't feel
+    -- like looking into how atm.
+    self:resolveDecl(cdecl:getSpecializedDecl())
     decl = self:processTemplateSpec(cdecl, ctype)
   elseif cdecl:isStruct() then
     decl = self:processStruct(cdecl, ctype)
@@ -331,12 +360,15 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
   elseif cdecl:isTypedef() then
     decl = self:processTypedef(cdecl, ctype)
   else
-    cdecl:dump()
-    error "unhandled decl kind"
+    -- cdecl:dump()
   end
 
   if decl then
-    decl.type = self:resolveType(ctype)
+    -- Gather a bunch of other information about the decl that is easier to
+    -- handle here than in the process functions. Really, I should set up
+    -- those functions to cascade down the class hierarchy of clang such that
+    -- this stuff is set more appropriately.
+
     decl.comment = cdecl:getComment()
     if decl:is(ast.TagDecl) and cdecl:isAnonymous() then
       decl.is_anonymous = true
@@ -348,11 +380,33 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     ---             associated with it, since that's a much easier solution
     ---             than the stuff I used to do in reflection code.
     decl.user = {}
-  
-    self.ctx.type_decls:push(decl)
-    self.ctx.type_decls_by_canonical_name[decl.type.name] = decl
+    decl.cdecl = cdecl
+    decl.qname = cdecl:getQualifiedName()
+    
+    if not decl:is(ast.TemplateSpec) then
+      -- Only record the decl if its not a template specialization, because 
+      -- the qualified name of a template spec is the same as its original
+      -- declaration, which causes the stored decl to be overwritten by 
+      -- whatever the last specialization of it we processed was.
+      self.ctx.decls_by_qualified_name[decl.qname] = decl
+    else
+      local specialized = self.ctx:lookupDecl(decl.qname)
+      if not specialized then
+        log:error("---- template not defined ", decl.qname, '\n')
+      end
 
-    self:write(decl.type.name)
+      -- In the case that this is a template spec, set what declaration
+      -- it specializes.
+      decl.specialized = specialized
+    end
+
+    if decl:is(ast.TypeDecl) then
+      decl.type = self:resolveType(ctype)
+      self.ctx.type_decls:push(decl)
+      self.ctx.type_decls_by_name[decl.type.name] = decl
+    end
+
+    self:write(decl.qname)
     self:write('>>> ', decl)
   end
 
@@ -367,6 +421,8 @@ convfunc.resolveType = function(self, ctype)
 
   -- Grab the name ONCE, because lppclang internally has to allocate memory
   -- for the typename.
+  -- TODO(sushi) actually like, abide by this. I'm too lazy to do so right now
+  --             and it doesn't seem like a HUGE issue.
   local name = ctype:getName()
 
   self:write("name: ", name)
@@ -423,7 +479,6 @@ convfunc.resolveType = function(self, ctype)
     self:write("is builtin")
     type = ast.Builtin.new(name, ctype:getSize() / 8)
   elseif ctype:isTypedef() then
-
     self:write("is typedef")
     local decl = self:resolveDecl(ctype:getTypedefDecl())
     if not decl then
@@ -482,6 +537,20 @@ convfunc.resolveType = function(self, ctype)
   end
 
   return type
+end
+
+---@param cdecl lppclang.Decl
+---@return ast.Template?
+convfunc.processTemplate = function(self, cdecl)
+  local template = ast.Template.new(cdecl:getName())
+  self:recordProcessed(cdecl, template)
+
+  template.comment = cdecl:getComment()
+  if template.comment then
+    template.metadata = metadata.__parse(template.comment)
+  end
+
+  return template
 end
 
 ---@param cdecl lppclang.Decl
@@ -608,6 +677,8 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
 
       -- Resolve the actual underlying type of the field, eg. with sugar 
       -- removed.
+      -- TODO(sushi) we may not want to do this here, the elaboration might
+      --             be nice.
       local type = field_type
       while true do
         if type:is(ast.Elaborated) then
@@ -639,6 +710,16 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
       end
       last_field = field
     elseif cmember:isTag() then
+      -- Ensure that the type that this sub tag record declares is complete.
+      -- This is done to get around cases where the record is only ever 
+      -- referred to as a pointer, eg. StringMap<T>::Slot. Clang will not 
+      -- complete those types until they are actually used, or something.
+      -- Its difficult to explain as I am KINDA BURNT OUT after trying to 
+      -- figure out the best place to do this with how things are organized 
+      -- now!!!
+      local member_typedecl = cmember:getTypeDeclType()
+      member_typedecl:makeComplete()
+
       local member_decl = self:resolveDecl(cmember)
       assert(member_decl, "failed to resolve record member decl")
       member_decl.parent = record

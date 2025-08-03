@@ -25,7 +25,7 @@ struct TextEdit
 
   Buffer buffer;
 
-  struct
+  struct Cursor
   {
     // Byte offset into buffer.
     s32 pos;

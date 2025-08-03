@@ -338,7 +338,7 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
   if decl then
     decl.type = self:resolveType(ctype)
     decl.comment = cdecl:getComment()
-    if decl:is(ast.Record) and cdecl:isAnonymous() then
+    if decl:is(ast.TagDecl) and cdecl:isAnonymous() then
       decl.is_anonymous = true
     end
     decl.namespace = self.ns_stack:last()
@@ -416,6 +416,9 @@ convfunc.resolveType = function(self, ctype)
     type =
       ast.Elaborated.new(name, self:resolveType(desugared))
     type.size = type.subtype.size
+
+    type.subtype.elaborations = type.subtype.elaborations or List {}
+    type.subtype.elaborations:push(type)
   elseif ctype:isBuiltin() then
     self:write("is builtin")
     type = ast.Builtin.new(name, ctype:getSize() / 8)
@@ -595,6 +598,7 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
 
   self:write("members of ", cdecl:getName())
 
+  local last_field 
   local cmember = memiter:next()
   while cmember do
     if cmember:isField() then
@@ -629,6 +633,11 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
       self:write("!! add member ", field.name)
 
       record:addMember(field.name, field)
+      
+      if not last_field then
+        field.is_first = true
+      end
+      last_field = field
     elseif cmember:isTag() then
       local member_decl = self:resolveDecl(cmember)
       assert(member_decl, "failed to resolve record member decl")
@@ -640,6 +649,10 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
     end
 
     cmember = memiter:next()
+  end
+
+  if last_field then
+    last_field.is_last = true
   end
 end
 

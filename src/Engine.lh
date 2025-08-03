@@ -46,10 +46,7 @@ struct Engine
 
   SourceDataFileReg source_data_file_reg;
 
-  struct
-  {
-    BroadcastEventBus broadcast;
-  } eventbus;
+  BroadcastEventBus broadcast_eventbus;
 
   AssetMgr assetmgr;
 
@@ -89,6 +86,6 @@ struct Engine
       void (*y)(void*, E&);
     } x { in };
 
-    eventbus.broadcast.subscribeTo<E>(sub, x.y);
+    broadcast_eventbus.subscribeTo<E>(sub, x.y);
   }
 };

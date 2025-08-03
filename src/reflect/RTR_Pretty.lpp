@@ -4,6 +4,8 @@ $ local clog = require "iro.Logger" ("packing", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
+#define private public
+
 $$$
 
 local AstContext = require "reflect.AstContext"
@@ -14,7 +16,8 @@ local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
     if not path:find "ServerAllocator" and
-       not path:find "server"   
+       not path:find "server" and
+       not path:find "Window_linux"
     then
       imported:put((lpp.import(path)) or "")
     end
@@ -25,7 +28,7 @@ importpattern "src/**/*.lh"
 
 local astctx = require "reflect.AstContext".fromString(tostring(imported))
 
-io.write(ast.dump(astctx.translation_unit), '\n')
+-- io.write(ast.dump(astctx.translation_unit), '\n')
 
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
@@ -38,10 +41,32 @@ $$$
 namespace rtr
 {
 
+struct Printer
+{
+  io::IO* out;
+
+  // The current nesting depth, incremented when printing structs and 
+  // such.
+  u64 depth = 0;
+
+  void indent()
+  {
+    for (u64 i = 0; i < depth; ++i)
+      io::format(out, ' ');
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+$ local putDeclPrinter
+$ local putTypePrinter
+$ local placed_decls = List {}
+
 $ -- * ------------------------------------------------------------------------
 
 $ local function recordPlaced(decl)
-$   decl.user.packer_placed = true
+$   decl.user = decl.user or {}
+$   decl.user.placed = true
+$   placed_decls:push(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -59,8 +84,7 @@ $     return (getPrinterName(type.decl))
 $   elseif type:is(ast.Builtin) then
 $     return "prettyPrint_"..type:formCSafeName()
 $   else
-$     error("unhandled type passed to getTypePrinterName: "..
-$           tostring(type).."\n")
+$     error("unhandled type passed to getTypePrinterName: "..tostring(type))
 $   end
 $ end
 
@@ -68,65 +92,354 @@ $ -- * ------------------------------------------------------------------------
 
 $ local function getPrinterSig(decl)
 $   return getPrinterName(decl)..
-$          "(io::IO* out, const "..decl.type.name.."& val)"
+$          "(const "..decl.type.name.."& val)"
 $ end
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function getTypePrinterSig(type)
-$   return getTypePrinterName(type)..
-$          "(io::IO* out, const "..type.name.."& val)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function printerFuncFromDecl(decl)
+$ local function declareDeclPrinter(decl)
 $   recordPlaced(decl)
-$   return "static void "..getPrinterSig(decl)
+$   return "void "..getPrinterSig(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function printerFuncFromName(name)
+$ local function declareDeclPrinterFromName(name)
 $   local decl = lookup(name)
 $   if not decl then
 $     error("failed to get decl for '"..name.."'")
 $   end
-$   return printerFuncFromDecl(decl)
+$   return declareDeclPrinter(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putNumberPrinter(name)
+$ local function putAmbiguousNumberPrinter(builtin, cast)
   /* --------------------------------------------------------------------------
    */
-  $(printerFuncFromName(name))
+  void prettyPrint_$(builtin:formCSafeName())($(builtin.name) val)
   {
-    io::format(out, val);
+    io::format(out, ($(cast))val);
   }
 $ end
 
-$ putNumberPrinter "u8"
-$ putNumberPrinter "u16"
-$ putNumberPrinter "u32"
-$ putNumberPrinter "u64"
-$ putNumberPrinter "s8"
-$ putNumberPrinter "s16"
-$ putNumberPrinter "s32"
-$ putNumberPrinter "s64"
-$ putNumberPrinter "f32"
-$ putNumberPrinter "f64"
+$ -- * ------------------------------------------------------------------------
+
+$ local function putNumberPrinter(builtin)
+$   if builtin.name == "void" then
+$     return
+$   else
+$     -- WHy the FUCK did C define all therse STUPID ASS TYPES
+$     local ambiguous_types = 
+$     {
+$       ["long long"] = "s64",
+$       ["unsigned long long"] = "u64",
+$       ["signed long long"] = "s64",
+$       ["long double"] = "f64",
+$     }
+$     local ambiguous = ambiguous_types[builtin.name]
+$     if ambiguous then
+$       putAmbiguousNumberPrinter(builtin, ambiguous)
+$     else
+  /* --------------------------------------------------------------------------
+   */
+  void prettyPrint_$(builtin:formCSafeName())($(builtin.name) val)
+  {
+    io::format(out, val);
+  }
+$     end
+$   end
+$ end
+
+$ for _,builtin in pairs(ast.builtins) do
+$   putNumberPrinter(builtin)
+$ end
 
 $ -- * ------------------------------------------------------------------------
 
-$ for decl in astctx.translation_unit.decls:each() do
-$   if decl:is(ast.Record) and not decl.is_anonymous
-$   then
-$(printerFuncFromDecl(decl))
-{
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinterFromName "iro::utf8::String")
+  {
+    io::formatv(out, color::green, '"', val, '"', color::reset);
+  }
 
-}
+$ -- * ------------------------------------------------------------------------
+
+$ local function putVec2Printer(name)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinterFromName(name))
+  {
+    io::formatv(out, val);
+  }
+$ end
+
+$ putVec2Printer "vec2<int>"
+$ putVec2Printer "vec2<float>"
+
+$ -- * ------------------------------------------------------------------------
+
+  $(declareDeclPrinterFromName "Rect")
+  {
+    io::format(out, val);
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+  $(declareDeclPrinterFromName "Color")
+  {
+    io::formatv(out, val, ' ', 
+      "\e[48;2;", val.r, ";", val.g, ";", val.b, "m", "     ", "\e[0m");
+  }
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function callTypePrinter(type, valaccess)
+$   if type:is(ast.Pointer) then
+    if ($(valaccess) == nullptr)
+    {
+      io::formatv(out, color::red("nullptr"_str));
+    }
+    else
+    {
+$     local can_deref = true
+$     local subtype = type.subtype:desugar()
+$     if subtype:is(ast.TagType) then
+$       -- Can't deref incomplete types.
+$       if subtype.decl:is(ast.ForwardRecord) then
+$         can_deref = false
+$       end
+$     elseif subtype:is(ast.Builtin) and subtype.name == "void" then
+$       can_deref = false
+$     end
+$     if can_deref then
+$       callTypePrinter(type.subtype, "*("..valaccess..")")
+$     else
+    io::formatv(out, "ptr(", $(valaccess), ")");
+$     end
+    }
+$   elseif type:is(ast.Reference) then
+    io::formatv(out, "ref(", &$(valaccess), ")");
+$   elseif type:is(ast.FunctionPointer) then
+    io::formatv(out, "funcptr");
+$   elseif type:is(ast.CArray) then
+    io::formatv(out, "carr");
+$   else
+$     type = type:desugar()
+$     if type:is(ast.TagType) and type.decl.user.break_before_field then
+    io::format(out, '\n');
+$     end
+
+    // $(tostring(type):gsub('\n', ' '))
+    $(getTypePrinterName(type))($(valaccess));
 $   end
 $ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putStructPrinter(decl)
+$   for field in decl:eachField() do
+$     putTypePrinter(field.type)
+$   end
+$
+$   for nested in decl:eachNestedRecord() do
+$     putDeclPrinter(nested)
+$   end
+$
+$   for nested in decl:eachNestedEnum() do
+$     if not nested.is_anonymous then
+$       putDeclPrinter(nested)
+$     end
+$   end
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+    depth += 1;
+
+$ if decl.base then
+    indent();
+    io::formatv(out, "<$(decl.base.name)>:\n");
+    $(getPrinterName(decl.base))(val);
+$ end
+
+$ for field in decl:eachField() do
+    indent();
+    io::formatv(out, color::yellow("$(field.name): "_str));
+$   callTypePrinter(field.type, "val."..field.name)
+$   if not field.is_last then
+    io::format(out, "\n");
+$   end
+$ end
+
+    depth -= 1;
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putEnumPrinter(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+$ -- It really sucks how little semantic info C applies to its syntax but 
+$ -- y'know it also rocks just not at this particular moment.
+$ --
+$ -- This is primarily an issue with vulkan's enums. Oh well.
+$ local val_to_name = {}
+$ for elem in decl.elems:each() do
+$   val_to_name[elem.value+1] = elem.name
+$ end
+    switch ((s64)val)
+    {
+$ for val,name in ipairs(val_to_name) do
+  case $(val-1):
+    io::formatv(out, color::blue("$(name)"), " ($(val-1))");
+    break;
+$ end
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putArrayPrinter(decl)
+$   local subtype = decl.args[1]
+$   putTypePrinter(subtype)
+$   local len_access = decl.name == "ArrayDef" and "len" or "len()"
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+    depth += 1;
+
+    for (s32 i = 0; i < val.$(len_access); ++i)
+    {
+      indent();
+      io::formatv(out, '[', color::magenta(i), "]:");
+      depth += 1;
+$     callTypePrinter(subtype, "val[i]")
+      if (i != val.$(len_access) - 1)
+        io::format(out, '\n');
+      depth -= 1;
+    }
+
+    depth -= 1;
+  }
+
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putTemplateSpecPrinter(decl)
+$   local name = decl.specialized_name
+$   if name == "Array" or name == "ArrayDef" then
+$     putArrayPrinter(decl)
+$   else
+  $(declareDeclPrinter(decl))
+  {
+    indent();
+    io::formatv(out, "<unhandled template spec>");
+  }
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putRefPrinter(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+    if (val.isValid())
+      io::formatv(out, color::green("loaded "_str));
+    else
+      io::formatv(out, color::red("not-loaded "_str));
+
+    io::formatv(out, color::green, '"', val.name, '"', color::reset);
+  }
+$   decl.user.break_before_field = false
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putRecordPrinter(decl)
+$   decl.user.break_before_field = true
+$   if decl.base then
+$     putDeclPrinter(decl.base)
+$   end
+$
+$   if decl:findMetadata "ref" then
+$     putRefPrinter(decl)
+$   elseif decl:is(ast.TemplateSpec) then
+$     putTemplateSpecPrinter(decl)
+$   elseif decl:is(ast.Struct) then
+$     putStructPrinter(decl)
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putDeclPrinter = function(decl)
+$   decl.user = decl.user or {}
+$   if decl.user.placed then return end
+$ 
+$   if decl:is(ast.TagDecl) then
+$     if decl:is(ast.Record) then
+$       putRecordPrinter(decl)
+$     elseif decl:is(ast.Enum) then
+$       putEnumPrinter(decl)
+$     end
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ putTypePrinter = function(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     putDeclPrinter(type.decl)
+$   else
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDeclListPrinters(list)
+$   for decl in list:each() do
+$     if decl:is(ast.TagDecl) and not decl.is_anonymous then
+$       putDeclPrinter(decl)
+$     elseif decl:is(ast.Namespace) then
+$       putDeclListPrinters(decl.decls)
+$     end
+$   end
+$ end
+
+$ putDeclListPrinters(astctx.translation_unit.decls)
+
+};
+
+/* ----------------------------------------------------------------------------
+ */
+void prettyPrint(io::IO* out, rtr::TypeId type, const void* val)
+{
+  Printer printer;
+  printer.out = out;
+
+  switch (type.val)
+  {
+$ for decl in placed_decls:each() do
+  case "$(decl.type.name)"_typeid_val:
+    printer.$(getPrinterName(decl))(*(const $(decl.type.name)*)val);
+    break;
+$ end
+  }
+
+  io::format(out, '\n');
+}
 
 }

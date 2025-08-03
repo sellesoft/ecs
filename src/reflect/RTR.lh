@@ -12,6 +12,8 @@ using namespace iro;
 namespace rtr
 {
 
+struct TypeId;
+
 // Gets the typename of T.
 template<typename T>
 String getTypename();
@@ -26,5 +28,7 @@ String getMetadataValue(String type, String name);
 // Gets a string for some element of an enum.
 template<typename T>
 String getEnumElementName(T x);
+
+void prettyPrint(io::IO* out, rtr::TypeId type, const void* val);
 
 }

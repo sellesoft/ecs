@@ -35,6 +35,10 @@ ast.dump = function(root)
   return out.buffer:get()
 end
 
+ast.dumpout = function(root)
+  io.write(ast.dump(root), '\n')
+end
+
 -- TODO(sushi) all of this has made me realize the issue with iro's type 
 --             system is that the new methods for types does not optionally
 --             take an already existing object to fill out, in the case of 
@@ -79,6 +83,10 @@ end
 --- eg. clang's NamedDecl. For now. I hope that I don't decide to change that
 --- in the future.
 ---@field name string
+---
+--- The fully qualified name of this declaration, that is, with the namespace 
+--- or struct or union or whatever it belongs to prepended to its plain name.
+---@field qname string
 ---
 --- If this declaration belongs to a namespace, it is specified here.
 ---@field namespace ast.Namespace
@@ -362,6 +370,35 @@ CArray.formCSafeName = function(self, out)
   return out
 end
 
+--- A declaration which declares a Type!
+---
+--- @class ast.TypeDecl : ast.Decl
+---
+--- The type this declaration declares.
+---@field type ast.Type
+---
+local TypeDecl = Decl:derive()
+ast.TypeDecl = TypeDecl
+
+---@return ast.TypeDecl
+TypeDecl.new = function(name, type)
+  local o = TypeDecl:derive()
+  o.name = name
+  o.type = type
+  return o
+end
+
+TypeDecl.__tostring = function(self)
+  return qstr("TypeDecl(", self.name, ',', self.type, ")")
+end
+
+TypeDecl.dump = function(self, dump)
+  dump:declnode("TypeDecl", function()
+    dump:inline_name(self.name)
+    self.type:dump(dump)
+  end)
+end
+
 --- Represents a typedef type. This stores the declaration of the typedef,
 --- so to get more information about it, such as the name, you must access 
 --- the decl.
@@ -427,7 +464,7 @@ end
 --- A 'tag' declaration, eg. one that is named. More information of the 
 --- decl is stored in subtypes, such as Record, or Struct.
 ---
---- @class ast.TagDecl : ast.Decl
+--- @class ast.TagDecl : ast.TypeDecl
 ---
 --- The name of the tag.
 ---@field name string
@@ -435,7 +472,10 @@ end
 --- Whether or not this tag is considered complete.
 ---@field is_complete boolean
 ---
-local TagDecl = Decl:derive()
+--- If this tag does not have a name.
+---@field is_anonymous boolean
+---
+local TagDecl = TypeDecl:derive()
 ast.TagDecl = TagDecl
 
 ---@return ast.TagDecl
@@ -472,7 +512,7 @@ TagDecl.formCSafeName = function(self, out)
 end
 
 --- A declaration of a typedef.
---- @class ast.TypedefDecl : ast.Decl
+--- @class ast.TypedefDecl : ast.TypeDecl
 ---
 --- The name of the typedef.
 ---@field name string
@@ -481,7 +521,7 @@ end
 --- typedef declarations can wrap arbitrary types, such as pointers.
 ---@field subtype ast.Type
 ---
-local TypedefDecl = Decl:derive()
+local TypedefDecl = TypeDecl:derive()
 ast.TypedefDecl = TypedefDecl
 
 ---@return ast.TypedefDecl
@@ -616,7 +656,7 @@ Record.new = function(name)
 end
 
 Record.__tostring = function(self)
-  return qstr("Record(", self.name, ")")
+  return qstr("Record(", self.qname, ")")
 end
 
 Record.addMember = function(self, name, decl)
@@ -630,6 +670,7 @@ end
 Record.dumpBase = function(self, name, dump)
   dump:node(name, function()
     dump:inline_name(self.name)
+    dump:tag("typesize: ", self.type.size)
     if self.base then
       dump:tag("base", self.base)
     end
@@ -707,6 +748,18 @@ Record.eachNestedRecord = function(self)
       if member:is(ast.Record) then
         return member
       end
+    end
+  end
+end
+
+--- Attempts to find a nested Record by name.
+---
+---@param name string
+---@return ast.Record?
+Record.findNestedRecord = function(self, name)
+  for member in self.members:each() do
+    if member:is(ast.Record) and member.name == name then
+      return member
     end
   end
 end
@@ -858,6 +911,7 @@ Field.dump = function(self, dump)
   dump:node("Field", function()
     dump:inline_name(self.name)
     dump:tag("offset", self.offset)
+    dump:tag("size", self.type.size)
     for k,v in pairs(self.metadata) do
       dump:tag("<meta> "..k, v)
     end
@@ -881,7 +935,7 @@ Struct.new = function(name)
 end
 
 Struct.__tostring = function(self)
-  return qstr("Struct(", self.name, ")")
+  return qstr("Struct(", self.qname, ")")
 end
 
 Struct.dump = function(self, dump)
@@ -911,6 +965,33 @@ Union.dump = function(self, dump)
   Record.dumpBase(self, "Union", dump)
 end
 
+--- A declaration of a template.
+---
+---@class ast.Template : ast.Decl
+---
+--- The name of the template.
+---@field name string
+---
+local Template = Decl:derive()
+ast.Template = Template
+
+---@return ast.Template
+Template.new = function(name)
+  local o = Template:derive()
+  o.name = name
+  return o
+end
+
+Template.__tostring = function(self)
+  return qstr("Template(", self.name, ")")
+end
+
+Template.dump = function(self, dump)
+  dump:node("Template", function()
+    dump:inline_name(self.name)
+  end)
+end
+
 --- A specialization of a template. Note that at the moment, we don't support
 --- representing the specialized template decl as an ast.Decl. We just store
 --- its name. I don't remember why. Maybe we should...
@@ -920,8 +1001,8 @@ end
 --- The arguments to this template specialization.
 ---@field args iro.List
 ---
---- The name of the template that this specialization is of.
----@field specialized_name string
+--- The Template declaration this specializes.
+---@field specialized ast.Template
 ---
 local TemplateSpec = Record:derive()
 ast.TemplateSpec = TemplateSpec
@@ -951,7 +1032,18 @@ TemplateSpec.__tostring = function(self)
 end
 
 TemplateSpec.dump = function(self, dump)
-  Record.dumpBase(self, "TemplateSpec", dump)
+  dump:node(name, function()
+    dump:inline_name(self.name)
+    if self.base then
+      dump:tag("base", self.base)
+    end
+    for arg in self.args:each() do
+      dump:tag("arg", arg)
+    end
+    for member in self.members:each() do
+      member:dump(dump)
+    end
+  end)
 end
 
 TemplateSpec.formCSafeName = function(self, out)

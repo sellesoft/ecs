@@ -27,10 +27,12 @@ struct ResourceMgr
     T  resource;
   };
 
+  template<typename T>
+  static u64 getResourceHash(const Resource<T>* r) { return r->name.hash(); }
+
   // TODO(sushi) use indexed pools once vulkan is merged
   template<typename T>
-  using ResourceMap = AVL<
-    Resource<T>, [](const Resource<T>* r) { return r->name.hash(); }>;
+  using ResourceMap = AVL<Resource<T>, getResourceHash>;
 
   ResourceMap<CompiledTexture> textures;
   ResourceMap<CompiledShader> shaders;

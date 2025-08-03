@@ -235,6 +235,7 @@ List
   { "short", 2 },
   { "int",   4 },
   { "long",  8 },
+  { "long long", 8 } 
 }
 :each(function(i)
   Builtin(i[1], i[2])
@@ -266,6 +267,13 @@ Pointer.dump = function(self, dump)
   dump:typenode("Pointer", function()
     self.subtype:dump(dump)
   end)
+end
+
+Pointer.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  self.subtype:formCSafeName(out)
+  out:put '_ptr'
+  return out
 end
 
 --- Represents a reference type.
@@ -347,6 +355,13 @@ CArray.dump = function(self, dump)
   end)
 end
 
+CArray.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  self.subtype:formCSafeName(out)
+  out:put('_carr_', self.len)
+  return out
+end
+
 --- Represents a typedef type. This stores the declaration of the typedef,
 --- so to get more information about it, such as the name, you must access 
 --- the decl.
@@ -401,6 +416,12 @@ TagType.dump = function(self, dump)
   dump:typenode("TagType", function()
     dump:tag("decl", self.decl)
   end)
+end
+
+TagType.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  self.decl:formCSafeName(out)
+  return out
 end
 
 --- A 'tag' declaration, eg. one that is named. More information of the 
@@ -690,6 +711,24 @@ Record.eachNestedRecord = function(self)
   end
 end
 
+--- Returns an iterator over nested Enums.
+---
+---@return function
+Record.eachNestedEnum = function(self)
+  local iter = self.members:each()
+  return function()
+    while true do
+      local member = iter()
+      if not member then
+        return
+      end
+      if member:is(ast.Enum) then
+        return member
+      end
+    end
+  end
+end
+
 --- Gets the number of fields this Record contains.
 ---
 ---@return number
@@ -931,6 +970,8 @@ TemplateSpec.formCSafeName = function(self, out)
       arg:formCSafeName(out)
     elseif arg:is(ast.TagType) then
       arg.decl:formCSafeName(out)
+    else
+      arg:formCSafeName(out)
     end
   end
 

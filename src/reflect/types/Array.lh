@@ -1,0 +1,49 @@
+/*
+ *  An Array type for use in reflected data.
+ *
+ *  This array currently expects that the amount of elements it stores is 
+ *  known when it is created and it does not grow.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/memory/Allocator.h"
+#include "iro/containers/Slice.h"
+
+#include <assert.h>
+
+namespace reflect
+{
+
+/* ============================================================================
+ */
+template<typename T>
+struct Array
+{
+  T*  arr = nullptr;
+  u32 len = 0;
+
+  b8 init(u32 space, iro::mem::Allocator* allocator)
+  {
+    arr = allocator->constructArray<T>(space);
+    if (arr == nullptr)
+      return false;
+
+    len = space;
+    return true;
+  }
+
+  T& operator[](u32 i) { assert(i < len); return arr[i]; }
+  const T& operator[](u32 i) const { assert(i < len); return arr[i]; }
+
+  T* begin() { return arr; }
+  T* end() { return arr + len; }
+
+  const T* begin() const { return arr; }
+  const T* end() const { return arr + len; }
+
+  iro::Slice<T> asSlice() const { return iro::Slice<T>::from(arr, len); }
+};
+
+}

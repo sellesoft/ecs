@@ -271,6 +271,75 @@ $ -- * ------------------------------------------------------------------------
 
   /* --------------------------------------------------------------------------
    */
+  $(packerFuncName "Rect")
+  {
+    if (!data.hasObjectData())
+      return ERROR("expected object data to pack Rect\n");
+
+    if (data.children.len() != 4)
+      return ERROR("expected 4 components to pack Rect\n");
+
+    if (isnil(data.children[0]->name))
+    {
+      // Unnamed initialization.
+
+      auto packComponent = [&](const SourceData* comp, f32* out, const char* n)
+      {
+        if (!comp->hasNumberValue())
+          return ERROR("expected number value to pack Rect::", n, "\n");
+
+        *out = strtof((char*)comp->val.str.ptr, nullptr);
+        return true;
+      };
+
+      if (!packComponent(data.children[0], &out->x, "x"))
+        return false;
+
+      if (!packComponent(data.children[1], &out->y, "y"))
+        return false;
+
+      if (!packComponent(data.children[2], &out->w, "w"))
+        return false;
+
+      if (!packComponent(data.children[3], &out->h, "h"))
+        return false;
+    }
+    else
+    {
+      for (const SourceData* child : data.children)
+      {
+        if (!child->hasNumberValue())
+          return ERROR("Rect members can only be numbers\n");
+
+        switch (child->name.hash())
+        {
+        case "x"_hashed:
+          out->x = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "y"_hashed:
+          out->y = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "w"_hashed:
+          out->w = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        case "h"_hashed:
+          out->h = strtof((char*)child->val.str.ptr, nullptr);
+          break;
+        default:
+          return ERROR("no member named ", child->name, " in Rect\n");
+        }
+      }
+    }
+
+    return true;
+  }
+
+$ putDummyDefaultsHandlerFromName "Rect"
+
+$ -- * ------------------------------------------------------------------------
+
+  /* --------------------------------------------------------------------------
+   */
   $(packerFuncName "Color")
   {
     if (data.hasNumberHexValue())

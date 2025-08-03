@@ -332,6 +332,9 @@ b8 Parser::parseAuxData(Token tok)
   PARSER_STAGE;
   SourceData* data = file->addAuxData();
 
+  data->line = tok.line;
+  data->column = tok.column;
+
   data->name = tok.raw;
 
   tok = nextToken();
@@ -373,6 +376,9 @@ b8 Parser::parsePossiblyNamedData(SourceData* data)
  */
 b8 Parser::parsePossiblyNamedData(Token tok, SourceData* data)
 {
+  data->line = tok.line;
+  data->column = tok.column;
+
   PARSER_STAGE;
   switch (tok.kind)
   {
@@ -520,6 +526,9 @@ b8 Parser::parsePossiblyTypedData(SourceData* data)
 {
   PARSER_STAGE;
   auto tok = nextToken();
+
+  data->line = tok.line;
+  data->column = tok.column;
 
   if (tok.kind == TK::Identifier)
   {

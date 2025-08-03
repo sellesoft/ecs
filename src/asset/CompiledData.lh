@@ -4,7 +4,7 @@
 
 $ require "common"
 
-@@lpp.import "asset/OffsetPtr.lh"
+@@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "asset/CompiledDataInterfaces.lh"
 @@lpp.import "reflect/TypeId.lh"
 

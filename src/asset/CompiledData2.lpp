@@ -277,7 +277,7 @@ $ -- * ------------------------------------------------------------------------
 
   /* --------------------------------------------------------------------------
    *  Colors are handled specifically since they are a union, and we do not 
-   *  handle those in reflected data for now (since their usage is ambiguous
+   *  handle those in reflected data for now (since their usage is ambiguous,
    *  similar to plain void*).
    */
   $(declareDeclCompilerFromName "Color")
@@ -421,7 +421,7 @@ $ end
   $(declareDeclFixPointers(decl))
   {
 $ if decl.base then
-  $(getDeclFixPointersName(decl.base))(data);
+    $(getDeclFixPointersName(decl.base))(data);
 $ end
 
 $ for field in decl:eachField() do
@@ -538,9 +538,9 @@ $
 $   local name = decl.specialized.qname
 $   if name == "reflect::Array" then
 $     putArrayDefCompiler(decl)
-$   elseif name == "StringMap" then
+$   elseif name == "reflect::StringMap" then
 $     putStringMapCompiler(decl)
-$   elseif name == "TypedStringMap" then
+$   elseif name == "reflect::TypedStringMap" then
 $     putTypedStringMapCompiler(decl)
 $   elseif name == "iro::Flags" then
 $     putFlagsCompiler(decl)

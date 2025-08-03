@@ -776,9 +776,9 @@ $   elseif name == "reflect::Array" then
 $     putArrayDefPacker(decl)
 $   elseif name == "iro::Flags" then
 $     putFlagsPacker(decl)
-$   elseif name == "StringMap" then
+$   elseif name == "reflect::StringMap" then
 $     putStringMapPacker(decl)
-$   elseif name == "TypedStringMap" then
+$   elseif name == "reflect::TypedStringMap" then
 $     putTypedStringMapPacker(decl)
 $   else
 $     clog:warn("unhandled template spec ", name, '\n')

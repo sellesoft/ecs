@@ -10,7 +10,7 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/memory/Allocator.h"
 
 @@lpp.import "asset/Asset.lh"
-@@lpp.import "asset/OffsetPtr.lh"
+@@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "graphics/Texture.lh"
 @@lpp.import "graphics/Image.lh"
 @@lpp.import "graphics/ImageView.lh"

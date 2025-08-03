@@ -19,8 +19,11 @@
 
 $ require "common"
 
-@@lpp.import "asset/StringMap.lh"
-@@lpp.import "asset/TypedPtr.lh"
+@@lpp.import "reflect/types/StringMap.lh"
+@@lpp.import "reflect/types/TypedPtr.lh"
+
+namespace reflect
+{
 
 /* ============================================================================
  */
@@ -32,3 +35,5 @@ struct TypedStringMap
 
   b8 construct(T* ptr);
 };
+
+}

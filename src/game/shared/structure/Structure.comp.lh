@@ -7,7 +7,7 @@ $ local m = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
 
-@@lpp.import "asset/StringHash.lh"
+@@lpp.import "core/StringHash.lh"
 
 /* ============================================================================
  */

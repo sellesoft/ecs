@@ -9,8 +9,8 @@ $ local m = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
 
-@@lpp.import "asset/StringMap.lh"
-@@lpp.import "asset/StringHash.lh"
+@@lpp.import "core/StringHash.lh"
+@@lpp.import "reflect/types/StringMap.lh"
 
 /* ============================================================================
  */
@@ -18,5 +18,5 @@ struct Appearance : Component
 { 
   b8 is_dirty = false;
 
-  StringMap<StringHash> data;
+  reflect::StringMap<StringHash> data;
 };

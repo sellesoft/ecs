@@ -1,11 +1,12 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "game/shared/component/Component.lh"
 @@lpp.import "asset/Asset.lh"
-@@lpp.import "asset/TypedStringMap.lh"
+
+@@lpp.import "game/shared/component/Component.lh"
 
 @@lpp.import "reflect/types/Array.lh"
+@@lpp.import "reflect/types/TypedStringMap.lh"
 
 /* ============================================================================
  */
@@ -14,7 +15,7 @@ $ local metadata = require "reflect.Metadata"
 struct EntityDef
 {
   String name;
-  reflect::Array<TypedStringMap<Component>> components;
+  reflect::Array<reflect::TypedStringMap<Component>> components;
 };
 
 struct EntityDefRef : TypedSourceAssetRef<EntityDef> {};

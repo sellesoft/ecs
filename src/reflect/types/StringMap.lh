@@ -1,16 +1,17 @@
 /*
- *  A map associating strings with some data for use in Defs and SourceData
- *  in general. 
+ *  A mapping from strings to some type of data for use in reflected data.
  */
 
 $ require "common"
 
 #include "iro/Common.h"
-#include "iro/BinarySearch.h"
 #include "iro/memory/Allocator.h"
 #include "iro/containers/ArrayFuncs.h"
 
 using namespace iro;
+
+namespace reflect
+{
 
 /* ============================================================================
  */
@@ -120,3 +121,5 @@ struct StringMap
   Slot* begin() { return slots; }
   Slot* end() { return slots + len; }
 };
+
+}

@@ -7,8 +7,8 @@ $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
 
-@@lpp.import "asset/StringMap.lh"
-@@lpp.import "asset/StringHash.lh"
+@@lpp.import "core/StringHash.lh"
+@@lpp.import "reflect/types/StringMap.lh"
 
 namespace cl
 {
@@ -16,7 +16,7 @@ namespace cl
 struct Visualizer : Component
 {
   @metadata.data_field
-  StringMap<StringMap<StringHash>> visuals;
+  reflect::StringMap<reflect::StringMap<StringHash>> visuals;
 };
 
 }

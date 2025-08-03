@@ -14,8 +14,7 @@ $ local SourceData = require "asset.SourceData"
 using namespace iro;
 
 @@lpp.import "asset/Asset.lh"
-@@lpp.import "asset/OffsetPtr.lh"
-
+@@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "graphics/Font.defs.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 

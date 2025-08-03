@@ -7,7 +7,7 @@ $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
 @@lpp.import "graphics/Ref.defs.lh"
-@@lpp.import "asset/StringMap.lh"
+@@lpp.import "reflect/types/StringMap.lh"
 @@lpp.import "asset/Asset.lh"
 
 #include "Color.h"
@@ -38,7 +38,7 @@ struct SpriteTexture
 @metadata.def
 struct SpriteStatesDef
 {
-  StringMap<SpriteTexture> map;
+  reflect::StringMap<SpriteTexture> map;
 };
 
 @metadata.source_types(sprite_states)

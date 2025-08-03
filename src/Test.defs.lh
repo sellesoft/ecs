@@ -4,7 +4,20 @@
 @@lpp.import "asset/ArrayDef.lh"
 $ local m = require "reflect.Metadata"
 
-struct Fruit
+enum class ObjectKind
+{
+  Material,
+  Immaterial,
+};
+
+struct Object
+{
+  ObjectKind kind;
+
+  u64 id;
+};
+
+struct Fruit : Object
 {
   u8 nutrients; 
 };
@@ -14,7 +27,7 @@ struct Apple : Fruit
 {
   String moniker;
 
-  struct Leaf
+  struct Leaf : Object
   {
     u8 size;
   };

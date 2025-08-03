@@ -10,48 +10,70 @@ $ local cmn = require "common"
 @@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "asset/SourceDataEditorSkin.defs.lh"
 @@lpp.import "Test.defs.lh"
+@@lpp.import "reflect/RTR.lh"
+@@lpp.import "graphics/Font.defs.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
 @log.ger(test-packing, Debug)
 
+$ local source_data_file = "assets/floors/tiles/LightGray.texture"
+$ local expected_typename = "gfx::TextureDef"
+$ local output_path = "tests/compile-data/result.data"
+
+$ local source_data_file_str = '"'..source_data_file..'"_str'
+$ local output_path_str = '"'..output_path..'"_str'
+$ local expected_typeid = '"'..expected_typename..'"_typeid'
+
 b8 test()
 {
-  Apple apple = {};
+  INFO("loading source data from $(source_data_file)\n");
 
-  apple.moniker = "The Apple"_str;
+  SourceDataFile sfile;
+  if (!SourceDataFile::from(&sfile, $(source_data_file_str)))
+    return ERROR("failed to load SourceDataFile\n");
 
-  apple.nutrients = 10;
-  apple.leaves.init(3, &mem::stl_allocator);
+  INFO("got:\n");
 
-  apple.leaves[0].size = 1;
-  apple.leaves[1].size = 2;
-  apple.leaves[2].size = 3;
+  rtr::prettyPrint(&fs::stdout, "SourceData"_typeid, sfile.returned_data);
+
+  INFO("packing source data\n");
+
+  PackedData packed;
+  if (!packed.init())
+    return ERROR("failed to initialize PackedData\n");
+
+  PackParams pack_params = { &packed };
+  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+    return false;
+
+  auto* packed_data = packed.getDataAs<$(expected_typename)>();
+
+  INFO("got:\n");
+
+  rtr::prettyPrint(&fs::stdout, $(expected_typeid), packed_data);
 
   CompiledData::CompileParams compile_params = 
   {
-    .type = "Apple"_typeid,
-    .dataptr = &apple,
-    .output_path = "tests/compile-data/result.data"_str
+    .type = $(expected_typeid),
+    .dataptr = packed_data,
+    .output_path = $(output_path_str),
   };
 
   if (!CompiledData::compile(compile_params))
-    return false;
+    return ERROR("failed to compile packed data\n");
+
+  INFO("loading compiled data\n");
 
   CompiledData* result = CompiledData::load(compile_params.output_path);
   result->fixPointers();
 
-  Apple* compiled_apple = result->getRootAs<Apple>();
-  
-  INFO(
-      "moniker: ", compiled_apple->moniker,
-    "\n leaves: \n");
+  auto* compiled_data = result->getRootAs<$(expected_typename)>();
 
-  for (auto& leaf : compiled_apple->leaves)
-  {
-    INFO("  size: ", leaf.size, '\n');
-  }
+  INFO("got:\n");
+
+  rtr::prettyPrint(&fs::stdout, $(expected_typeid), compiled_data);
 
   return true;
 }

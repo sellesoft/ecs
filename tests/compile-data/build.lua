@@ -20,6 +20,7 @@ return function(
         :compile(cpp..".o", cpp_params))
   end
 
+  compileLpp "src/reflect/RTR_Pretty.lpp"
   compileLpp "src/asset/CompiledData2.lpp"
   compileLpp "src/asset/Packing2.lpp"
   compileLpp "src/asset/SourceDataFile.lpp"

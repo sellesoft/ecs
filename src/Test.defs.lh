@@ -1,7 +1,7 @@
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "asset/ArrayDef.lh"
+@@lpp.import "reflect/types/Array.lh"
 $ local m = require "reflect.Metadata"
 
 enum class ObjectKind
@@ -25,14 +25,12 @@ struct Fruit : Object
 @m.def
 struct Apple : Fruit
 {
-  String moniker;
-
   struct Leaf : Object
   {
     u8 size;
   };
 
-  ArrayDef<Leaf> leaves;
+  reflect::Array<Leaf> leaves;
 };
 
 

@@ -12,14 +12,16 @@ $ local cmn = require "common"
 @@lpp.import "Test.defs.lh"
 @@lpp.import "reflect/RTR.lh"
 @@lpp.import "graphics/Font.defs.lh"
+@@lpp.import "game/shared/entity/Entity.defs.lh"
+@@lpp.import "game/client/graphics/Sprite.comp.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
 @log.ger(test-packing, Debug)
 
-$ local source_data_file = "assets/floors/tiles/LightGray.texture"
-$ local expected_typename = "gfx::TextureDef"
+$ local source_data_file = "assets/entities/walls/iron/Wall.sprite_states"
+$ local expected_typename = "SpriteStatesDef"
 $ local output_path = "tests/compile-data/result.data"
 
 $ local source_data_file_str = '"'..source_data_file..'"_str'

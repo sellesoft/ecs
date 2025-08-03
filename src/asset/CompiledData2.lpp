@@ -36,7 +36,7 @@ $$$
 #include "iro/fs/File.h"
 #include "iro/memory/BinaryDataBuilder.h"
 
-@log.ger(compiledata, Trace)
+@log.ger(compiledata, Debug)
 
 /* ============================================================================
  */
@@ -543,7 +543,7 @@ $ local function putEnumCompiler(decl)
   $(declareDeclCompiler(decl))
   {
     // Just write out the raw enum value.
-    buffer->writeT(&data);
+    buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
 $ end

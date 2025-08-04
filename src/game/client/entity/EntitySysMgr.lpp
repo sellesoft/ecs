@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("compiledata", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue

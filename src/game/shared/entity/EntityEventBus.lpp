@@ -1,45 +1,54 @@
-
 $ local cmn = require "common"
-$ local Comp = require "game.shared.component.Component"
-$ local ast = require "reflect.AST"
-$ local importer = require "reflect.Importer"
+$ local ast = require "reflect.ast"
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+$ local dumpValue = require "iro.util".dumpValue
+
+@@lpp.import "game/client/entity/EntitySysMgr.lh"
+
+#include "iro/time/Time.h"
+
+@log.ger(cl.entsysmgr, Debug)
 
 $$$
-local importer = require "reflect.Importer"
-{
-  patterns = 
-  {
-    "src/game/**/*.events.lh",
-    "src/game/**/*.comp.lh",
-  },
 
-  filter = function(p, decl)
-    if decl:is(ast.Record) then
-      if decl.metadata.event then
-        return true
-      end
-      
-      local TComponent = p:lookupDecl "struct Component"
-      if TComponent and decl:isDerivedFrom(TComponent) then
-        return true
-      end
-    end
-  end,
-}
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/game/**/*.comps.lh"
+importpattern "src/game/**/*.events.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupTypeDecl(name)
+end
+
 $$$
-@importer:get
+@@imported:get
 
 @@lpp.import "game/shared/entity/EntityMgr.lh"
 
-$ local TComponent = importer.p.decls.map["struct Component"]
+$ local TComponent = astctx:lookupTypeDecl "Component"
+
+$ ast.dumpout(TComponent)
 
 #include "iro/containers/LinkedPool.h"
 
 @@lpp.import "game/shared/entity/EntityEventBus.lh"
-@@lpp.import "Profiling.lh"
 
 $ local comps = cmn.List {} 
 $ local events = cmn.List {}
+$ if false then
 $ importer:eachDecl(function(name, decl)
 $   if decl.metadata.event == "entity" then
 $     events:push(decl)
@@ -47,13 +56,22 @@ $   elseif decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
 $     comps:push(decl)
 $   end
 $ end)
+$ end
+
+$ for decl in astctx.type_decls:each() do
+$   if decl.metadata.event == "entity" then
+$     events:push(decl)
+$   elseif decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
+$     comps:push(decl)
+$   end
+$ end
 
 $ local function eachComponent(f)
 $   for comp in comps:each() do
 $     f
 $     {
-$       name = comp:getIdSafeName(),
-$       typename = importer.removeTag(comp.name),
+$       name = comp:formCSafeName(),
+$       typename = comp.type.name,
 $       decl = comp,
 $     }
 $   end
@@ -63,8 +81,8 @@ $ local function eachEvent(f)
 $   for event in events:each() do
 $     f
 $     {
-$       name = event:getIdSafeName(),
-$       typename = importer.removeTag(event.name),
+$       name = event:formCSafeName(),
+$       typename = event.type.name,
 $       decl = event,
 $     }
 $   end

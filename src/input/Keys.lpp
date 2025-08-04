@@ -1,6 +1,13 @@
-$ local reflect = require "reflect.Reflector"
+$ require "common"
+$ local keys_h = lpp.import "input/Keys.h"
+$ local astctx = require "reflect.AstContext" .fromString(keys_h)
+$(keys_h)
 
-@reflect.include "input/Keys.h"
+$ local ast = require "reflect.ast"
+$ ast.dumpout(astctx.translation_unit)
+
+$ local TKey = astctx:lookupTypeDecl "Key"
+$ local TMouseButton = astctx:lookupTypeDecl "MouseButton"
 
 #include "iro/Unicode.h"
 
@@ -8,39 +15,27 @@ using namespace iro;
 
 String getKeyStr(Key key)
 {
-$local gen = function()
-$  local type = assert(reflect.ctx:lookupType "Key", "failed to lookup type")
-$  local decl = assert(type:getDecl(), "failed to get decl of type")
-$  local elems = decl:getEnumIter()
   switch (key)
   {
-$ while true do
-$   local elem = elems:next()
-$   if not elem then break end
-  case Key::$(elem:name()): return "$(elem:name())"_str;
+$ for elem in TKey.elems:each() do
+  case $(TKey.type.name)::$(elem.name):
+    return "$(elem.name)"_str;
 $ end
   }
-$ end
-  @gen
+
+  return nil;
 }
 
 String getMouseButtonStr(MouseButton button)
 {
-$local gen = function()
-$  local type = 
-$    assert(reflect.ctx:lookupType "MouseButton", 
-$      "failed to lookup type")
-$  local decl = assert(type:getDecl(), "failed to get decl of type")
-$  local elems = decl:getEnumIter()
   switch (button)
   {
-$ while true do
-$   local elem = elems:next()
-$   if not elem then break end
-  case MouseButton::$(elem:name()): return "$(elem:name())"_str;
+$ for elem in TMouseButton.elems:each() do
+  case $(TMouseButton.type.name)::$(elem.name):
+    return "$(elem.name)"_str;
 $ end
   }
-$ end
-  @gen
+
+  return nil;
 }
 

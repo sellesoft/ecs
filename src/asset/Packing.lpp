@@ -4,6 +4,8 @@ $ local clog = require "iro.Logger" ("packing", Verbosity.Info)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
+$ do return end
+
 $$$
 
 local AstContext = require "reflect.AstContext"

@@ -7,6 +7,8 @@ $ require "common"
 
 #include "iro/Unicode.h"
 
+@@lpp.import "reflect/TypeId.lh"
+
 using namespace iro;
 
 /* ============================================================================
@@ -16,7 +18,7 @@ struct TypedPtr
 {
   using TPtr = T;
 
-  String type;
+  rtr::TypeId type;
 
   T* ptr;
 };

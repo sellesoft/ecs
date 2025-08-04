@@ -13,25 +13,21 @@ using namespace iro;
 
 @@lpp.import "game/shared/entity/EntityId.lh"
 
-
 /* ============================================================================
  */
+@m.def
 @m.hidden
+// Mark Component as being a type that, when inherited, implies that the 
+// derived type is also a def.
+@m.inherit_def
 struct Component
 {
   u64 kind = 0;
 
-  @m.hidden
   EntityId owner = nil;
 
-  // TODO(sushi) this kiiinda sucks, we really need to make an intrisic pool
-  //             so that we stop having to do this where its not needed.
-  // TODO(sushi) to remove at least one pointer we can prob just store a 
-  //             pointer to the prev Component in the list here and return to
-  //             using an SLinkedList?
-  //             Ideally though we avoid using iro's lists and manually
-  //             implement Component management.
-  @m.hidden
+  // TODO(sushi) store Components in a map specifically implemented for them,
+  //             such that we can avoid needing to store this intrinsically.
   void* node = nullptr;
   
   static u64 getKind(const Component* cmp) { return cmp->kind; }

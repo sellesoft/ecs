@@ -1,31 +1,20 @@
 #include "iro/Common.h"
 #include "iro/Unicode.h"
+#include "Color.h"
 
 @@lpp.import "reflect/types/Array.lh"
+@@lpp.import "reflect/types/TypedStringMap.lh"
 $ local m = require "reflect.Metadata"
 
-enum class ObjectKind
+struct Fruit 
 {
-  Material,
-  Immaterial,
-};
-
-struct Object
-{
-  ObjectKind kind;
-
-  u64 id;
-};
-
-struct Fruit : Object
-{
+  u8 size;
   u8 nutrients; 
 };
 
-@m.def
 struct Apple : Fruit
 {
-  struct Leaf : Object
+  struct Leaf 
   {
     u8 size;
   };
@@ -33,4 +22,19 @@ struct Apple : Fruit
   reflect::Array<Leaf> leaves;
 };
 
+struct Banana : Fruit
+{
+  Color color;
+};
+
+struct Orange : Fruit
+{
+  u8 moisture;
+};
+
+@m.def
+struct Basket
+{
+  reflect::TypedStringMap<Fruit> fruit;
+};
 

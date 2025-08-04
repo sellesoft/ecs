@@ -1,3 +1,8 @@
+--- 
+--- 'test' for anything. Primarily adding so that I can incrementally work
+--- on reimplementing various things in an isolated manner.
+---
+
 local lake = require "lake"
 local o = lake.obj
 local List = require "iro.List"
@@ -20,13 +25,8 @@ return function(
         -- :compile(cpp..".o", cpp_params))
   end
 
-  compileLpp "src/reflect/RTR_Pretty.lpp"
-  compileLpp "src/asset/CompiledData2.lpp"
-  compileLpp "src/asset/Packing2.lpp"
-  compileLpp "src/sdata/SourceDataFile.lpp"
-  compileLpp "src/sdata/SourceData.lpp"
-  compileLpp "src/sdata/SourceDataParser.lpp"
-  compileLpp "tests/compile-data/main.lpp"
+  compileLpp "src/input/Keys.lpp"
+  -- compileLpp "tests/sandbox/main.lpp"
 
   -- local exe = o.Exe(build_dir.."/tests/compile-data/run")
   -- exe:link(objs, link_params)

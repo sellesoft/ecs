@@ -395,9 +395,6 @@ $     last_field = field
 $   end
 
 $   if last_field then
-$     if decl.name:find "SpriteTexture" then
-$       ast.dumpout(decl)
-$     end
 $     local this_size = decl.type.size 
 $     local last_extent = last_field.type.size + last_field.offset
 $     if this_size > last_extent then

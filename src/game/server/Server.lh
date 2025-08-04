@@ -7,6 +7,8 @@ $ require "common"
 #include "iro/Common.h"
 #include "iro/io/IO.h"
 
+@@lpp.import "game/server/ServerAllocator.lh"
+
 struct Engine;
 struct Server;
 
@@ -42,6 +44,32 @@ struct CreateParams
   u16 max_sessions;
   PasswordBuffer password;
 };
+
+// /* ============================================================================
+//  */
+// struct Server
+// {
+//   enum class State : u8
+//   {
+//     Lobby,
+//     InGame,
+//   };
+//
+//   State state;
+//
+//   ServerAllocator global_allocator; // cleared on deinit
+//   ServerAllocator match_allocator; // cleared before each match
+//   ServerAllocator tick_allocator; // cleared before each tick
+//
+//   TimeSpan target_timespan;
+//   u64 tick_index;
+//
+//   Engine* engine;
+//
+//   sv::GameSim sim;
+//   NetMgr netmgr;
+//   SharedConsole console;
+// };
 
 /* ----------------------------------------------------------------------------
  */

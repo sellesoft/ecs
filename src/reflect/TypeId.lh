@@ -7,6 +7,7 @@
 $ require "common"
 
 #include "iro/Common.h"
+#include "iro/Unicode.h"
 
 namespace rtr
 {
@@ -27,7 +28,7 @@ struct TypeId
     return val == rhs.val;
   }
 
-  static TypeId fromString(String name)
+  static TypeId fromString(iro::String name)
   {
     return {name.hash()};
   }

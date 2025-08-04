@@ -24,6 +24,47 @@ local function importpattern(pattern)
 end
 
 importpattern "src/**/*.defs.lh"
+
+-- NOTE(sushi) for now, we just pack and compile Component data directly from
+--             data and rely on them marking their runtime, non-reflected
+--             data as hidden. I'm not a giant fan of this and had tried to
+--             make it so that Component types were defined as string maps 
+--             of typed ptrs of type Component, eg. a string map representing
+--             a derivation of Component who's keys are fields of that type 
+--             marked with data_field, or something. I was mostly doing this 
+--             because I didn't like the idea of having to couple a game
+--             system to the engine-level reflection system, and I didn't like
+--             how this also implies that we are storing entire Components in
+--             compiled data. However, in this reimplementation I'm going to
+--             start with that again. Currently, Components aren't very large
+--             so I don't believe that there is really much waste going on 
+--             anyways. Really, the primary problem is how Components are 
+--             almost always going to be mixing runtime data with data-time
+--             data (come up with a better word for that later). A weird case
+--             is when we have a Component field that wants to be initially 
+--             defined in data, but then modified at runtime. 
+--             There is also the alternative of specifying a def for each 
+--             Component, but that is quite annoying to do! However, now 
+--             I'm thinking.. my main issue with that is the problem with
+--             having to handle converting a Component's def into the actual
+--             Component, but I guess we could just mark Component def fields
+--             with what field they should initialize in actual Components 
+--             created from them (if any). Otherwise a Component def could 
+--             just be pointed to to access any def field that does not change?
+-- NOTE(sushi) Whatever the case, I have ideas for eventually making this 
+--             entire file modular/reusable. As in, the game could define its 
+--             own Packing implementation now that lpp supports metaprograms 
+--             sharing functions and such by returning lua values. This is 
+--             certainly not the first thing in ecs that I want to start 
+--             experimenting with that feature with, though, so that will come
+--             later. I just don't like having to import .comp.lh files here 
+--             because that is a game concept. If we ever wind up doing that
+--             I feel like the issues I've mentioned above could be handled 
+--             more gracefully, as a lot of it comes from my reluctance to 
+--             call into game code to handle stuff. I guess maybe we can 
+--             also return to the whole interfaces thing, actually, like what
+--             was being set up for CompiledData. Also explore that too, 
+--             future me.
 importpattern "src/**/*.comp.lh"
 
 local astctx = require "reflect.AstContext".fromString(tostring(imported))
@@ -192,8 +233,6 @@ $     error("could not find declaration with name "..name)
 $   end
 $   putDummyDefaultsHandler(decl)
 $ end
-
-
 
 $ -- * ------------------------------------------------------------------------
 
@@ -727,7 +766,20 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putTypedStringMapRecordPacker(decl)
+
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putTypedStringMapPacker(decl)
+$   ast.dumpout(decl)
+$   local subtype = decl.args[1]:desugar()
+$   local subdecl = subtype.decl
+$   ast.dumpout(subdecl)
+$   for derived in subdecl.derived:each() do
+$     putDeclPacker(derived)
+$   end
   /* --------------------------------------------------------------------------
    */
   $(packerFuncDecl(decl))

@@ -1,7 +1,6 @@
 $ if false then
 
 $ require "common"
-$ local ui = require "ui.UI"
 
 @@lpp.import "game/client/editor/MenuBar.lh"
 

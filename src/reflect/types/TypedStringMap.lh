@@ -12,13 +12,14 @@
  *  derived types, as is necessary for the Component case. Defining a pure
  *  Component is quite useless, and we really want to define a Spawner, 
  *  a Visualizer, Movement, etc. So we store what the actual type we are 
- *  filling out in 'type'.
+ *  filling out is in 'type'.
  *  Any of these types may be disabled for use in source data if it is marked
  *  with \@metadata.hidden.
  */
 
 $ require "common"
 
+@@lpp.import "reflect/TypeId.lh"
 @@lpp.import "reflect/types/StringMap.lh"
 @@lpp.import "reflect/types/TypedPtr.lh"
 
@@ -30,7 +31,7 @@ namespace reflect
 template<typename T>
 struct TypedStringMap
 {
-  String type;
+  rtr::TypeId type;
   StringMap<TypedPtr<void>> map;
 
   b8 construct(T* ptr);

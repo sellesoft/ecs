@@ -671,6 +671,9 @@ Record.dumpBase = function(self, name, dump)
   dump:node(name, function()
     dump:inline_name(self.name)
     dump:tag("typesize: ", self.type.size)
+    for k,v in pairs(self.metadata) do
+      dump:tag("<meta> "..k, v)
+    end
     if self.base then
       dump:tag("base", self.base)
     end
@@ -793,6 +796,17 @@ Record.countFields = function(self)
     end
   end
   return sum
+end
+
+--- Attempts to find a method of the given name.
+---
+---@return ast.Function?
+Record.findMethod = function(self, name)
+  for member in self.members:each() do
+    if member:is(ast.Function) and member.name == name then
+      return member
+    end
+  end
 end
 
 --- Returns true if this Record is derived from the given Record.

@@ -193,7 +193,7 @@ end
 
 buildTest "sandbox"
 
--- do return end
+do return end
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"

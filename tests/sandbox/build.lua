@@ -25,7 +25,7 @@ return function(
         -- :compile(cpp..".o", cpp_params))
   end
 
-  compileLpp "src/input/Keys.lpp"
+  compileLpp "src/game/server/entity/EntitySysMgr.lpp"
   -- compileLpp "tests/sandbox/main.lpp"
 
   -- local exe = o.Exe(build_dir.."/tests/compile-data/run")

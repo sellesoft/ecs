@@ -28,6 +28,10 @@
  *              different managers based on what's running... I'll get that 
  *              working later on if it still seems possible after the setup
  *              as a whole is working.
+ *
+ *  TODO(sushi) with lpp's new support for metaprograms sharing things
+ *              between each other, its likely we could pull the duplicated
+ *              logic in server/client versions of this type into here.
  */
 
 $ require "common"

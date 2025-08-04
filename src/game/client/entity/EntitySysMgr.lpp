@@ -1,52 +1,49 @@
 $ local cmn = require "common"
-$ local ast = require "reflect.AST"
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("compiledata", Verbosity.Debug)
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+$ local dumpValue = require "iro.util".dumpValue
 
 @@lpp.import "game/client/entity/EntitySysMgr.lh"
-@@lpp.import "Profiling.lh"
 
 #include "iro/time/Time.h"
 
 @log.ger(cl.entsysmgr, Debug)
 
-using namespace iro;
-
-$ -- * ------------------------------------------------------------------------
 $$$
--- Import all shared and client entity systems.
-local TEntSys
-local importer = require "reflect.Importer"
-{
-  patterns =
-  {
-    "src/game/client/**/*.sys.lh",
-    "src/game/shared/**/*.sys.lh",
-  },
 
-  filter = function(p, decl)
-    TEntSys = p:lookupDecl "struct EntitySys"
-    if TEntSys then
-      if decl:is(ast.Record) and decl:isDerivedFrom(TEntSys) then
-        return true
-      end
-    end
-  end,
-}
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/game/client/**/*.sys.lh"
+importpattern "src/game/shared/**/*.sys.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupTypeDecl(name)
+end
+
 $$$
-@@importer:get
+@@imported:get
 
 namespace cl
 {
 
-$ -- * ------------------------------------------------------------------------
-
-$ local function isSys(decl)
-$   if decl:is(ast.Record) and decl:isDerivedFrom(TEntSys) then
-$     return true
-$   end
-$ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ if false then
 $ -- Gather info about each system into a map and list for easy iteration
 $ -- and lookup by canonical name.
 $ local systems_by_canonical_name = {}
@@ -70,6 +67,44 @@ $       systems:push(system)
 $     end
 $   end
 $ end)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local TEntitySys = astctx:lookupTypeDecl "EntitySys"
+$ print(TEntitySys)
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function isSys(decl)
+$   if decl:is(ast.Record) and decl:isDerivedFrom(TEntitySys) then
+$     return true
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local systems_by_canonical_name = {}
+$ local systems = cmn.List{}
+$ for decl in astctx.type_decls:each() do
+$   if isSys(decl) then
+$     -- Only take systems that aren't derived from to avoid creating 
+$     -- the shared version of a system that is derived from on client side.
+$     if decl.derived:isEmpty() then
+$       local system = 
+$       {
+$         name = decl:formCSafeName():get():match("([%w_]-)Sys"):lower(),
+$         typename = decl.type.name,
+$         decl = decl
+$       }
+$       systems_by_canonical_name[decl.type.name] = system
+$       if decl.base then
+$         systems_by_canonical_name[decl.base.name] = system
+$       end
+$       systems:push(system)
+$     end
+$   end
+$ end
 
 /* ============================================================================
  */
@@ -103,15 +138,15 @@ b8 EntitySysMgr::init(const InitParams& params)
   };
   
 $ systems:each(function(sys)
-$   if not sys.decl:hasMethod "init" then
+$   if not sys.decl:findMethod "init" then
 $     error("system "..sys.typename.." is missing an 'init' function")
 $   end
 $   local sysvar = "systems->"..sys.name
   new (&$(sysvar)) $(sys.typename);
   $(sysvar).entmgr = &params.entmgr;
 $ local function initStruct(decl)
-$   for base in decl.bases:each() do
-$     initStruct(base)
+$   if decl.base then
+$     initStruct(decl.base)
 $   end
 $   for field in decl:eachFieldWithIndex() do
 $     local is_ptr = field.type:is(ast.PointerType)
@@ -154,7 +189,7 @@ $ end)
 void EntitySysMgr::deinit()
 {
 $ systems:each(function(sys)
-$   if sys.decl:hasMethod "deinit" then
+$   if sys.decl:findMethod "deinit" then
   systems->$(sys.name).deinit();
 $   end
 $ end)
@@ -166,12 +201,9 @@ $ end)
  */
 b8 EntitySysMgr::update()
 {
-  ZoneScopedN("cl::EntitySysMgr::update");
-
 $ systems:each(function(sys)
-$   if sys.decl:hasMethod "update" then
+$   if sys.decl:findMethod "update" then
   {
-    ZoneScopedN("EntitySys $(sys.typename)");
     systems->$(sys.name).update();
   }
 $   end

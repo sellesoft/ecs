@@ -20,8 +20,9 @@ struct VisualizerSys : EntitySys
 {
   b8 init()
   {
-    subscribeTo<Visualizer, AppearanceChange>(
-      &VisualizerSys::onAppearanceChange);
+    assert(false);
+    // subscribeTo<Visualizer, AppearanceChange>(
+    //   &VisualizerSys::onAppearanceChange);
 
     return true;
   }

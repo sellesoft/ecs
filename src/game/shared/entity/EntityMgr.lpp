@@ -79,18 +79,21 @@ EntityId EntityMgr::createEntity(String name)
  */
 EntityId EntityMgr::spawnEntity(const EntityDef& def, vec2f pos, u32 layer)
 {
-  EntityId id = loadEntity(def, *this);
-  if (isnil(id))
-    return nil;
+  assert(false);
 
-  auto* transform = tryComp<Transform>(id);
-  transform->pos = pos;
-  transform->placement_layer = layer;
+  // EntityId id = loadEntity(def, *this);
+  // if (isnil(id))
+  //   return nil;
+  //
+  // auto* transform = tryComp<Transform>(id);
+  // transform->pos = pos;
+  // transform->placement_layer = layer;
+  //
+  // eventbus.raise(id, ComponentInit{});
+  // eventbus.raise(id, ComponentStartup{});
 
-  eventbus.raise(id, ComponentInit{});
-  eventbus.raise(id, ComponentStartup{});
-
-  return id;
+  return {};
+  //return id;
 }
 
 /* ----------------------------------------------------------------------------

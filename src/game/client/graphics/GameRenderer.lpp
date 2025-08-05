@@ -35,8 +35,10 @@ b8 GameRenderer::init(InitParams& params)
 
   white_texture = params.white_texture;
 
-  if (!loader.load(&null_texture, "assets/textures/null"_str))
-    return ERROR("failed to load null texture");
+  assert(false);
+
+  // if (!loader.load(&null_texture, "assets/textures/null"_str))
+  //   return ERROR("failed to load null texture");
 
   //init scene uniform buffer
   scene_uniform_buffer = gfx::Buffer::create(

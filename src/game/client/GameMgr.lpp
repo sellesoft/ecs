@@ -103,19 +103,21 @@ b8 GameMgr::render(const RenderParams& params)
  */
 b8 GameMgr::loadMap(String name, AssetLoader loader)
 {
-  INFO("setting map to ", name, "\n");
+  assert(false);
 
-  if (!loader.load(&loaded_map, name))
-    return ERROR("failed to load map asset ", name, '\n');
-
-  MapSys::LoadParams map_params =
-  {
-    .assetmgr = loader.assetmgr,
-    .entmgr   = sim->entmgr,
-  };
-
-  if(!entsysmgr.get<MapSys>().load(*loaded_map, map_params))
-    return ERROR("failed to load map '", name, "'\n");
+  // INFO("setting map to ", name, "\n");
+  //
+  // if (!loader.load(&loaded_map, name))
+  //   return ERROR("failed to load map asset ", name, '\n');
+  //
+  // MapSys::LoadParams map_params =
+  // {
+  //   .assetmgr = loader.assetmgr,
+  //   .entmgr   = sim->entmgr,
+  // };
+  //
+  // if(!entsysmgr.get<MapSys>().load(*loaded_map, map_params))
+  //   return ERROR("failed to load map '", name, "'\n");
 
   return true;
 }

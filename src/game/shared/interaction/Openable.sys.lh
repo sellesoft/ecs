@@ -20,7 +20,8 @@ struct SharedOpenableSys : EntitySys
 
   b8 init()
   {
-    subscribeTo<Openable, Interact>(&SharedOpenableSys::onInteract);
+    assert(false);
+    // subscribeTo<Openable, Interact>(&SharedOpenableSys::onInteract);
 
     return true;
   }

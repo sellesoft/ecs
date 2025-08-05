@@ -101,6 +101,17 @@ b8 openSocket()
 
 /* ----------------------------------------------------------------------------
  */
+void closeSocket()
+{
+  assert(isSocketOpen());
+
+  DEBUG("closing ipv6 socket\n");
+
+  close(s_ipv6_socket);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 bindSocket(u16 port)
 {
   assert(isSocketOpen());

@@ -1,0 +1,46 @@
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+@@lpp.import "ui/UI.lh"
+@@lpp.import "input/InputMgr.lh"
+@@lpp.import "window/Window.lh"
+@@lpp.import "graphics/Renderer.lh"
+
+/* ============================================================================
+ */
+struct Editor
+{
+  InputMgr input;
+  Window window;
+  gfx::Renderer renderer;
+
+  struct InitParams
+  {
+    Engine& engine;
+  };
+
+  b8 init(const InitParams& params);
+  void deinit();
+
+  struct UpdateParams
+  {
+  };
+  struct UpdateResult
+  {
+    // No more calls to update() should occur and the Editor should be 
+    // deinitialized.
+    b8 should_deinit = false;
+  };
+  UpdateResult update(const UpdateParams& params);
+
+  struct RenderParams
+  {
+  };
+  struct RenderResult
+  {
+  };
+  RenderResult render(const RenderParams& params);
+};
+

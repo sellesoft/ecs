@@ -7,8 +7,7 @@ $ local cmn = require "common"
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "sdata/SourceDataFileReg.lh"
 @@lpp.import "event/BroadcastEventBus.lh"
-@@lpp.import "input/InputMgr.lh"
-@@lpp.import "window/Window.lh"
+@@lpp.import "editor/Editor.lh"
 
 namespace ui
 {
@@ -19,9 +18,6 @@ namespace hr
 {
 struct Reloader;
 }
-
-struct Client;
-struct Server;
 
 /* ============================================================================
  */
@@ -38,8 +34,6 @@ struct Engine
 
   LaunchArgs launch_args;
 
-  SourceDataFileReg source_data_file_reg;
-
   BroadcastEventBus broadcast_eventbus;
 
   AssetMgr assetmgr;
@@ -48,6 +42,8 @@ struct Engine
 
   // Time point at which the Engine finished initialization.
   TimePoint init_time;
+
+  Editor editor;
 
   b8 init();
   void deinit();

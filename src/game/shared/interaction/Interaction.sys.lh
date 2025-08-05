@@ -17,7 +17,8 @@ struct InteractionSys : EntitySys
 
   b8 init() 
   { 
-    subscribeTo<UsePrimaryInputEvent>(&InteractionSys::onUsePrimary);
+    assert(false);
+    // subscribeTo<UsePrimaryInputEvent>(&InteractionSys::onUsePrimary);
     return true; 
   }
 

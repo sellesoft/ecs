@@ -1,0 +1,91 @@
+$ require "common"
+
+@@lpp.import "editor/Editor.lh"
+@@lpp.import "graphics/RenderTarget.lh"
+
+@log.ger(editor, Info)
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Editor::init(const InitParams& params)
+{
+  if (!input.init())
+    return ERROR("failed to initialize InputMgr\n");
+
+  if (!Window::initializeBackend())
+    return ERROR("failed to initialize Window backend\n");
+
+  if (!window.init(params.engine, "ecs editor"_str, input))
+    return ERROR("failed to initialize Window\n");
+    
+  gfx::Renderer::InitParams renderer_params = 
+  {
+    .window = window,
+    .allocator = mem::stl_allocator,
+  };
+
+  if (!renderer.init(renderer_params))
+    return ERROR("failed to initialize Renderer\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Editor::deinit()
+{
+  // Wait until the device isn't doing anything to avoid errors.
+  renderer.waitForDeviceIdle();
+
+  renderer.deinit(&mem::stl_allocator);
+  window.deinit();
+  input.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Editor::UpdateResult Editor::update(const UpdateParams& params)
+{
+  UpdateResult result = {};
+
+  // Prepare input state for this frame.
+  input.update();
+
+  Window::UpdateResult window_result = window.update(input);
+
+  if (window_result.closed)
+  {
+    result.should_deinit = true;
+    return result;
+  }
+
+  if (window_result.size_changed)
+    renderer.onWindowResized(vec2u(window.size));
+
+  if (!window_result.size_changed && renderer.beginFrame())
+  {
+    gfx::RenderTarget swapchain_target;
+    if (!renderer.getSwapchainRenderTarget(&swapchain_target))
+      ERROR("failed to get swapchain render target\n");
+
+    if (renderer.beginRenderPass(
+          {0,0}, 
+          vec2u(window.size), 
+          swapchain_target,
+          0x000000ff))
+    {
+      
+      renderer.endRenderPass();
+    }
+
+    renderer.endFrame();
+
+    if (!renderer.submitQueue())
+      ERROR("failed to submit queue\n");
+
+    if (!renderer.present())
+      ERROR("failed to present frame\n");
+  }
+
+  return result;
+}

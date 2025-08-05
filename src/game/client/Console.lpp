@@ -4,6 +4,7 @@ $ require "common"
 @@lpp.import "game/client/Console.lh"
 @@lpp.import "game/shared/Console.events.lh"
 @@lpp.import "ui/UI.lh"
+@@lpp.import "input/InputMgr.lh"
 
 #include "iro/Common.h"
 #include "iro/Logger.h"
@@ -24,8 +25,10 @@ b8 Console::init(Engine& eng, AssetLoader& loader, b8 stdin_enabled)
   mem::zero(this->input_buffer.arr, SharedConsole::INPUT_BUFFER_SIZE);
   this->input_buffer.len = 0;
 
-  if (!loader.load(&skin, "assets/skins/Console.skin"_str))
-    return ERROR("failed to load console skin\n");
+  assert(false);
+
+  // if (!loader.load(&skin, "assets/skins/Console.skin"_str))
+  //   return ERROR("failed to load console skin\n");
 
   text_field_state.edit.setBuffer({
     .ptr = this->input_buffer.arr,

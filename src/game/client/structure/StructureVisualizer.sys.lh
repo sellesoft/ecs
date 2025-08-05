@@ -21,8 +21,9 @@ struct StructureVisualizerSys : EntitySys
 
   b8 init()
   {
-    subscribeTo<ExtendableStructure, AppearanceChange>(
-      &StructureVisualizerSys::onAppearanceChange);
+    assert(false);
+    // subscribeTo<ExtendableStructure, AppearanceChange>(
+    //   &StructureVisualizerSys::onAppearanceChange);
 
     return true;
   }

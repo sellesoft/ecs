@@ -12,7 +12,8 @@ struct MovementSys : EntitySys
 {
   b8 init() 
   { 
-    subscribeTo<MoveInputEvent>(&MovementSys::onMoveInput);
+    assert(false);
+    // subscribeTo<MoveInputEvent>(&MovementSys::onMoveInput);
     return true; 
   }
 

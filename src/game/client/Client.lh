@@ -41,7 +41,6 @@ struct Client
   gfx::Renderer renderer;
   ui::UI ui;
   cl::GameSim sim;
-  cl::Editor editor;
 
   gfx::Texture white_texture;
 

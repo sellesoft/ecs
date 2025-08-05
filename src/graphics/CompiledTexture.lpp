@@ -81,11 +81,12 @@ CompiledTexture* CompiledTexture::load(
     .renderer = renderer,
   };
 
-  if (!texture->asset.load(load_params))
-  {
-    ERROR("failed to load asset\n");
-    return nullptr;
-  }
+  assert(false);
+  // if (!texture->asset.load(load_params))
+  // {
+  //   ERROR("failed to load asset\n");
+  //   return nullptr;
+  // }
 
   auto& data = texture->getData();
   assert(data.width != 0 && data.height != 0);

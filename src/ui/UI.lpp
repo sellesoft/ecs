@@ -35,8 +35,10 @@ b8 UI::init(InitParams& params)
   if (!frame_allocator.init())
     return ERROR("failed to initialize UI frame allocator\n");
 
-  if (!params.loader.load(&pipeline_defref, "assets/shaders/UI"_str))
-    return ERROR("failed to load UI pipeline def\n");
+  assert(false);
+
+  // if (!params.loader.load(&pipeline_defref, "assets/shaders/UI"_str))
+  //   return ERROR("failed to load UI pipeline def\n");
 
   pipeline = gfx::Pipeline::create(renderer, *pipeline_defref);
   if (isnil(pipeline))

@@ -82,11 +82,11 @@ b8 Renderer::init(InitParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-void Renderer::deinit(mem::Allocator* allocator, AssetMgr& assetmgr)
+void Renderer::deinit(mem::Allocator* allocator)
 {
   default_ubo_set_layout.destroy(*this);
   default_sampler_set_layout.destroy(*this);
-  resource_mgr.deinit(assetmgr, *this);
+  resource_mgr.deinit();
   vk->deinit(allocator);
   allocator->free(vk);
 }

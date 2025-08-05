@@ -68,7 +68,6 @@ $ end
 
   gfx::Renderer::InitParams renderer_params =
   {
-    .assetmgr  = engine->assetmgr,
     .window    = window,
     .allocator = mem::stl_allocator,
   };
@@ -110,7 +109,6 @@ $ end
   {
     .renderer = renderer,
     .assetmgr = engine->assetmgr,
-    .sfilereg = engine->source_data_file_reg,
   };
 
   cl::GameSim::InitParams sim_params =
@@ -119,18 +117,8 @@ $ end
     .viewport = Rect::from({0,0}, vec2f(window.size)),
     .renderer = renderer,
     .assetmgr = engine->assetmgr,
-    .sfilereg = engine->source_data_file_reg,
   };
   @init(sim.init(sim_params), cl::GameSim);
-
-  cl::Editor::InitParams editor_params = 
-  {
-    .client        = *this,
-    .loader        = asset_loader,
-    .white_texture = white_texture,
-    .renderer      = renderer,
-  };
-  @init(editor.init(editor_params), Editor);
 
   return true;
 }
@@ -143,9 +131,8 @@ void Client::deinit()
   // any resources during a render pass.
   renderer.waitForDeviceIdle();
 
-  editor.deinit(renderer);
   sim.deinit(renderer);
-  renderer.deinit(&mem::stl_allocator, engine->assetmgr);
+  renderer.deinit(&mem::stl_allocator);
   window.deinit();
   netmgr.deinit();
   input.deinit();
@@ -155,6 +142,7 @@ void Client::deinit()
  */
 Client::UpdateResult Client::update()
 {
+$ if false then
   UpdateResult result = {};
 
   // Prepares input state for this frame.
@@ -259,6 +247,7 @@ Client::UpdateResult Client::update()
   netmgr.sendMessages();
 
   return result;
+$ end
 }
 
 /* ----------------------------------------------------------------------------
@@ -299,6 +288,5 @@ AssetLoader Client::getAssetLoader()
   { 
     .renderer = renderer,
     .assetmgr = engine->assetmgr,
-    .sfilereg = engine->source_data_file_reg,
   };
 }

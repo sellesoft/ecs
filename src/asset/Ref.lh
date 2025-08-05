@@ -56,13 +56,13 @@ struct AssetLoader
 {
   gfx::Renderer& renderer;
   AssetMgr& assetmgr;
-  SourceDataFileReg& sfilereg;
+  SourceDataFileReg* sfilereg;
   
   template<typename T>
   b8 load(T* ref)
   {
     return loadRef(
-      ref, {renderer, assetmgr, &sfilereg, rtr::getTypename<T>()});
+      ref, {renderer, assetmgr, sfilereg, rtr::getTypename<T>()});
   }
 
   template<typename T>

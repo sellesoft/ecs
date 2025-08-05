@@ -45,13 +45,12 @@ struct Renderer
 
   struct InitParams
   {
-    AssetMgr& assetmgr;
     Window& window;
     mem::Allocator& allocator;
   };
 
   b8 init(InitParams& params);
-  void deinit(mem::Allocator* allocator, AssetMgr& assetmgr);
+  void deinit(mem::Allocator* allocator);
 
   void waitForDeviceIdle();
 

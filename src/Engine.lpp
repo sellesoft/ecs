@@ -39,9 +39,15 @@ $ local initSystem = function(act, name)
     }
 $ end
 
-  @initSystem(source_data_file_reg.init(),              source data file reg);
   @initSystem(broadcast_eventbus.init(),                broadcast event bus);
   @initSystem(assetmgr.init(&mem::stl_allocator),       asset mgr);
+
+  Editor::InitParams editor_params = 
+  {
+    .engine = *this,
+  };
+
+  @initSystem(editor.init(editor_params), Editor);
 
   init_time = TimePoint::now();
 
@@ -55,9 +61,9 @@ $ end
  */
 void Engine::deinit()
 {
+  editor.deinit();
   assetmgr.deinit();
   // TODO(sushi) eventbus.broadcast.deinit();
-  source_data_file_reg.deinit();
 }
 
 /* ----------------------------------------------------------------------------
@@ -75,9 +81,10 @@ Engine::UpdateResult Engine::update()
 {
   UpdateResult result = {};
 
-  iro::TimePoint time_point = iro::TimePoint::monotonic();
-  frame_start_time = TimeSpan::fromSeconds(time_point.s).toSeconds()
-    + TimeSpan::fromNanoseconds(time_point.ns).toSeconds();
+  Editor::UpdateResult editor_result = editor.update({});
+
+  if (editor_result.should_deinit)
+    result.should_close = true;
 
   return result;
 }

@@ -30,7 +30,7 @@ struct GameSim : SharedGameSim
 
     gfx::Renderer& renderer;
     AssetMgr& assetmgr;
-    SourceDataFileReg& sfilereg;
+    SourceDataFileReg* sfilereg;
 
     gfx::Texture white_texture;
 

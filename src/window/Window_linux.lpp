@@ -11,8 +11,9 @@ $ if IRO_LINUX then
 #include "math/util.h"
 #include "input/Keys.h"
 
-@lpp.import "window/Window.lh"
-@lpp.import "window/Window_linux.lh"
+@@lpp.import "window/Window.lh"
+@@lpp.import "window/Window_linux.lh"
+@@lpp.import "input/InputMgr.lh"
 
 static Logger logger = 
   Logger::create("ecs.window"_str, Logger::Verbosity::Info);

@@ -1,11 +1,9 @@
 $ require "common"
-$ require "Log"
 
-@@lpp.import "graphics/RendererInternal.lh"
+@@lpp.import "graphics/Renderer.lh"
 
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "Engine.lh"
-@@lpp.import "graphics/Renderer.lh"
 @@lpp.import "window/Window.lh"
 @@lpp.import "window/Window.events.lh"
 @@lpp.import "graphics/Vulkan.lh"

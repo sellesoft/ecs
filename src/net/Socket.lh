@@ -1,0 +1,35 @@
+$ require "common"
+
+#include "iro/Common.h"
+
+namespace net
+{
+
+struct Address;
+
+/* ----------------------------------------------------------------------------
+ */
+b8 isSocketOpen();
+b8 isSocketBound();
+
+/* ----------------------------------------------------------------------------
+ */
+b8 openSocket();
+void closeSocket();
+
+/* ----------------------------------------------------------------------------
+ */
+b8 bindSocket(u16 port);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 sendPacket(const Address& address, void* data, u64 size);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 receivePacket(
+    Address* out_address, 
+    void* data, 
+    u64 size, 
+    s32* out_bytes_received);
+}

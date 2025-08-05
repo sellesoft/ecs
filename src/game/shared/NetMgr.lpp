@@ -10,61 +10,68 @@
  *   https://github.com/id-Software/Quake-III-Arena/blob/master/code/qcommon/qcommon.h
  *   https://gafferongames.com/post/sending_and_receiving_packets/
  */
-$ require "common"
-
-$ if IRO_WIN32 then
-#define WIN32_LEAN_AND_MEAN
-#include <Winsock2.h>
-#include <Ws2ipdef.h>
-#include "iro/Platform_Win32.h"
-$ else -- if IRO_WIN32
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-#include "errno.h"
-#include "string.h"
-#include "unistd.h"
-#include "sys/ioctl.h"
-$ end -- if not IRO_WIN32
+$ local cmn = require "common"
+$ local ast = require "reflect.ast"
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
 
 $$$
-local importer = require "reflect.Importer"
-{
-  patterns = { "src/**/*.events.lh" },
-  filter = function(p, decl)
-    return decl.metadata.netevent ~= nil
-  end,
-}
-$$$
-@@importer:get
 
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/**/*.events.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupTypeDecl(name)
+end
+
+$$$
+@@imported:get
+
+@@lpp.import "net/Socket.lh"
 @@lpp.import "game/shared/NetMgr.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/FixedPool.h"
 #include "iro/Logger.h"
 #include "iro/memory/Allocator.h"
-
-#include <mutex>
+#include "iro/concurrent/Mutex.h"
 
 using namespace iro;
 using namespace net;
 
-@log.ger(sh.NetMgr, Info)
+@log.ger(sh.netmgr, Info)
 
-/* ============================================================================
- * Net Event Iterator Macro
- */
 $$$
+-- Net event iterator macro.
 local event_count = 1
 local function eachNetEvent(f)
-  importer:eachDecl(function(name, decl)
-    local args = loadstring("return " .. decl.metadata.netevent)()
-    local priority = args.priority and 1 or 0
-    local max_subscribers = args.max_subscribers or 10
-    f(name, event_count, decl, priority, args.broadcast, max_subscribers)
-    event_count = event_count + 1
-  end)
+  for decl in astctx.type_decls:each() do
+    if decl.metadata.netevent then
+      local args = loadstring("return " .. decl.metadata.netevent)()
+      local priority = args.priority and 1 or 0
+      local max_subscribers = args.max_subscribers or 10
+
+      f(decl.name, 
+        event_count, 
+        decl, 
+        priority, 
+        args.broadcast, 
+        max_subscribers)
+
+      event_count = event_count + 1
+    end
+  end
 end
 $$$
 
@@ -105,14 +112,9 @@ $ end)
 
 /* ============================================================================
  */
-int s_ipv6_socket;
-b8 s_ipv6_socket_is_bound;
-
-/* ============================================================================
- */
 struct OfflineMessage
 {
-  std::mutex mutex;
+  conc::Mutex mutex;
   u16 size;
   u8 data[Message::MAX_SIZE];
 };
@@ -250,7 +252,7 @@ b8 Connection::send(Source source, const Message& message, b8 priority)
     return this->netmgr->sendOfflinePacket(source, message.data, message.size);
   }
 
-  if (s_ipv6_socket == 0)
+  if (!isSocketBound())
     return @log.error("Attempted to send a message with an unbound socket.");
 
   @log.trace("sending a message to a remote connection\n");
@@ -447,82 +449,13 @@ b8 SharedNetMgr::init(mem::Allocator* allocator)
   assertpointer(allocator);
   @log.trace("initializing network manager\n");
 
-  assert(!s_ipv6_socket_is_bound);
-  s_ipv6_socket = 0;
-  s_ipv6_socket_is_bound = false;
+  if (!openSocket())
+    return ERROR("failed to open socket\n");
 
-$ if IRO_WIN32 then
-  WSADATA wsa_data;
-  if (NO_ERROR != WSAStartup(MAKEWORD(2,2), &wsa_data))
-    return @log.error("Failed to startup WSA due to error: ",
-      platform::Win32ErrMsg(WSAGetLastError()));
-$ end -- if IRO_WIN32
-
-  // create the ipv6 socket
-  s_ipv6_socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-$ if IRO_WIN32 then
-  if (s_ipv6_socket == INVALID_SOCKET)
-    return @log.error("Failed to open the IPv6 socket due to error: ",
-                      platform::Win32ErrMsg(WSAGetLastError()));
-$ else -- if IRO_WIN32
-  if (s_ipv6_socket < 0)
-    return @log.error("Failed to open the IPv6 socket due to error: ",
-                      strerror(errno), "\n");
-$ end -- if not IRO_WIN32
-  @log.debug("Opened the IPv6 socket\n");
-
-  auto close_ipv6_socket_if_failure = deferWithCancel
+  auto failsafe_close_socket = deferWithCancel
   {
-$ if IRO_WIN32 then
-    closesocket(s_ipv6_socket);
-$ else -- if IRO_WIN32
-    close(s_ipv6_socket);
-$ end -- if not IRO_WIN32
+    closeSocket();
   };
-
-  // set the sockets to non-blocking
-  u_long non_blocking = true;
-$ if IRO_WIN32 then
-  if (SOCKET_ERROR == ioctlsocket(s_ipv6_socket, FIONBIO, &non_blocking))
-    return @log.error("Failed to make the IPv6 socket non-blocking due to"
-                      " error: ", platform::Win32ErrMsg(WSAGetLastError()));
-$ else -- if IRO_WIN32
-  if (-1 == fcntl(s_ipv6_socket, F_SETFL,
-                  fcntl(s_ipv6_socket, F_GETFL, 0) | O_NONBLOCK))
-    return @log.error("Failed to make the IPv6 socket non-blocking"
-                      " due to error: ", strerror(errno), "\n");
-$ end -- if not IRO_WIN32
-  @log.debug("Setting the IPv6 socket to non-blocking\n");
-
-  // set the socket to be broadcast capable
-  int i = 1;
-$ if IRO_WIN32 then
-  if (SOCKET_ERROR == setsockopt(s_ipv6_socket, SOL_SOCKET, SO_BROADCAST,
-                                 (char*)&i, sizeof(i)))
-    return @log.error("Failed to make the IPv6 socket broadcast capable due"
-                      " to error: ", platform::Win32ErrMsg(WSAGetLastError()));
-$ else -- if IRO_WIN32
-  if (-1 == setsockopt(s_ipv6_socket, SOL_SOCKET, SO_BROADCAST,
-                       (char*)&i, sizeof(i)))
-    return @log.error("Failed to make the IPv6 socket broadcast capable"
-                      " due to error: ", strerror(errno), "\n");
-$ end -- if not IRO_WIN32
-  @log.debug("Setting the IPv6 socket to be broadcast capable\n");
-
-  // disable IPv6-only mode to allow IPv4 connections
-  i = 0;
-$ if IRO_WIN32 then
-  if (SOCKET_ERROR == setsockopt(s_ipv6_socket, IPPROTO_IPV6, IPV6_V6ONLY, 
-                                 (char*)&i, sizeof(i)))
-    return @log.error("Failed to disable IPv6-only mode due to error: ",
-                      platform::Win32ErrMsg(WSAGetLastError()));
-$ else -- if IRO_WIN32
-  if (-1 == setsockopt(s_ipv6_socket, IPPROTO_IPV6, IPV6_V6ONLY,
-                       (char*)&i, sizeof(i)))
-    return @log.error("Failed to disable IPv6-only mode due to error: ",
-                      strerror(errno), "\n");
-$ end -- if not IRO_WIN32
-  @log.debug("Disabled IPv6-only mode\n");
 
   // initialize the event bus
   this->event_bus_data = allocator->allocateType<NetEventBusData>();
@@ -532,7 +465,7 @@ $ eachNetEvent(function(name, id, decl, priority, broadcast, max_subscribers)
   this->event_bus_data->$(name)Subscriber_pool.init();
 $ end)
 
-  close_ipv6_socket_if_failure.cancel();
+  failsafe_close_socket.cancel();
   return true;
 }
 
@@ -541,18 +474,7 @@ $ end)
 void SharedNetMgr::deinit()
 {
   @log.trace("deinitializing network manager\n");
-
-$ if IRO_WIN32 then
-  if (s_ipv6_socket != 0)
-    closesocket(s_ipv6_socket);
-  WSACleanup();
-$ else -- if IRO_WIN32
-  if (s_ipv6_socket != 0)
-    close(s_ipv6_socket);
-$ end -- if not IRO_WIN32
-
-  s_ipv6_socket = 0;
-  s_ipv6_socket_is_bound = false;
+  closeSocket();
 }
 
 /* ----------------------------------------------------------------------------
@@ -561,27 +483,10 @@ b8 SharedNetMgr::bind(u16 port)
 {
   @log.trace("binding socket to port ", port, "\n");
 
-  sockaddr_in6 ipv6_socket_address;
-  memset(&ipv6_socket_address, 0, sizeof(ipv6_socket_address));
-  ipv6_socket_address.sin6_family = AF_INET6;
-  ipv6_socket_address.sin6_port = htons(port);
-  ipv6_socket_address.sin6_addr = in6addr_any;
-
-  int ipv6_bind_result = ::bind(s_ipv6_socket,
-                                (sockaddr*)&ipv6_socket_address,
-                                sizeof(ipv6_socket_address));
-$ if IRO_WIN32 then
-  if (SOCKET_ERROR == ipv6_bind_result)
-    return @log.error("Failed to bind the IPv6 socket due to error: ",
-                      platform::Win32ErrMsg(WSAGetLastError()));
-$ else -- if IRO_WIN32
-  if (-1 == ipv6_bind_result)
-    return @log.error("Failed to bind the IPv6 socket due to error: ",
-                      strerror(errno), "\n");
-$ end -- if not IRO_WIN32
+  if (!bindSocket(port))
+    return ERROR("failed to bind socket\n");
 
   @log.debug("Bound the IPv6 socket to port [", port, "]\n");
-  s_ipv6_socket_is_bound = true;
   return true;
 }
 
@@ -591,47 +496,9 @@ b8 SharedNetMgr::sendOnlinePacket(Address address, void* data, u16 size)
 {
   @log.trace("sending an online packet of ", size, " bytes\n");
 
-  sockaddr_in6 socket_address;
-  memset(&socket_address, 0, sizeof(socket_address));
-  socket_address.sin6_family = AF_INET6;
-  socket_address.sin6_port = htons(address.port);
-  if (address.type == AddressType::Local)
-  {
-    // IPv6 loopback address (::1)
-    socket_address.sin6_addr.s6_addr[15] = 1;
-  }
-  else
-  {
-    memcpy(&socket_address.sin6_addr, &address.ipv6,
-           sizeof(socket_address.sin6_addr));
-  }
+  if (!sendPacket(address, data, size))
+    return ERROR("failed to send online packet\n");
 
-  int bytes_sent = sendto(s_ipv6_socket, (const char*)data, size, 0,
-                         (sockaddr*)&socket_address, sizeof(socket_address));
-
-$ if IRO_WIN32 then
-  if (SOCKET_ERROR == bytes_sent)
-  {
-    int error = WSAGetLastError();
-    if (WSAEWOULDBLOCK == error)
-      return false;
-    else
-      return @log.error("Failed to send a packet due to WSA error: ",
-                        platform::Win32ErrMsg(error));
-  }
-$ else -- if IRO_WIN32
-  if (-1 == bytes_sent)
-  {
-    if (EWOULDBLOCK == errno)
-      return false;
-    else
-      return @log.error("Failed to send a packet due to error: ",
-                        strerror(errno), "\n");
-  }
-$ end -- if not IRO_WIN32
-
-  @log.debug("Sent ", bytes_sent, " bytes to: ", address, "\n");
-  assert(size == (u16)bytes_sent);
   return true;
 }
 
@@ -641,48 +508,11 @@ b8 SharedNetMgr::receiveOnlinePacket(Address& address, Fragment& fragment)
 {
   @log.trace("checking for packets\n");
 
-$ if IRO_WIN32 then
-  typedef int socklen_t;
-$ end -- if IRO_WIN32
-
-  if (s_ipv6_socket)
-  {
-    sockaddr_in6 from;
-    socklen_t from_len = sizeof(from);
-    int bytes_received = recvfrom(s_ipv6_socket, (char*)fragment.arr,
-                                  MAX_FRAGMENT_SIZE, 0,
-                                  (sockaddr*)&from, &from_len);
-$ if IRO_WIN32 then
-    if (SOCKET_ERROR == bytes_received)
-    {
-      int error = WSAGetLastError();
-      if (WSAEWOULDBLOCK != error)
-        @log.error("Failed to receive an IPv6 packet due to WSA error: ",
-                   platform::Win32ErrMsg(error));
-      return false;
-    }
-$ else -- if IRO_WIN32
-    if (-1 == bytes_received)
-    {
-      if (EWOULDBLOCK != errno)
-         @log.error("Failed to receive an IPv6 packet due to error: ",
-                    strerror(errno), "\n");
-      return false;
-    }
-$ end -- if not IRO_WIN32
-
-    if (bytes_received < sizeof(FragmentHeader))
-      return false;
-
-    u8 ipv6[16];
-    mem::copy(ipv6, &from.sin6_addr, 16);
-    address = Address(ipv6, ntohs(from.sin6_port));
-
-    fragment.len = (u64)bytes_received;
-    return true;
-  }
-
-  return false;
+  return receivePacket(
+        &address, 
+        fragment.arr, 
+        MAX_FRAGMENT_SIZE, 
+        &fragment.len);
 }
 
 /* ----------------------------------------------------------------------------
@@ -807,7 +637,7 @@ $ eachNetEvent(function(name, id, decl, priority, broadcast, max_subscribers)
       auto& event = entry.data.$(name)_data;
 $   if broadcast == false then
 $     local found_session_field = false
-$     for field in decl:eachFieldWithIndex() do
+$     for field in decl:eachField() do
 $       if field.name == "session" then
       if (event.session == nullptr)
       {
@@ -827,7 +657,7 @@ $       clog:error("non-broadcast netevent $(name) has no session field\n")
 $     end
 $   end
       message.writeU16($(id));
-$   for field in decl:eachFieldWithIndex() do
+$   for field in decl:eachField() do
 $     if not field.metadata.netfield_ignore then
 $       if field.metadata.netfield_blob then
       message.writeData(event.$(field.name), (u16)event.$(field.name)_length);
@@ -863,7 +693,7 @@ $ eachNetEvent(function(name, id, decl, priority, broadcast, max_subscribers)
       $(name) event;
       event.session = session;
 
-$   for field in decl:eachFieldWithIndex() do
+$   for field in decl:eachField() do
 $     if not field.metadata.netfield_ignore then
 $       if field.metadata.netfield_blob then
       message.readData(event.$(field.name), $(field.metadata.netfield_blob));

@@ -1,0 +1,213 @@
+$ require "common"
+
+@@lpp.import "net/Socket.lh"
+@@lpp.import "net/Address.lh"
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include "errno.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/ioctl.h"
+
+@log.ger(net.socket, Debug)
+
+namespace net
+{
+
+static int s_ipv6_socket = 0;
+static b8  s_ipv6_socket_bound = false;
+
+/* ----------------------------------------------------------------------------
+ */
+b8 isSocketOpen()
+{
+  return s_ipv6_socket != 0;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 isSocketBound()
+{
+  return s_ipv6_socket_bound;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 openSocket()
+{
+  assert(not isSocketOpen());
+  assert(not isSocketBound());
+
+  DEBUG("opening ipv6 socket\n");
+
+  // Create the socket.
+  s_ipv6_socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+
+  if (s_ipv6_socket == -1)
+    return ERROR("failed to open ipv6 socket: ", strerror(errno), '\n');
+
+  DEBUG("opened ipv6 socket (", s_ipv6_socket, ")\n");
+
+  auto failsafe_close_socket = deferWithCancel
+  {
+    close(s_ipv6_socket);
+  };
+
+  // Set socket to non-blocking.
+  {
+    int old_flags = fcntl(s_ipv6_socket, F_GETFL, 0);
+    if (-1 == fcntl(s_ipv6_socket, F_SETFL, old_flags | O_NONBLOCK))
+      return ERROR("failed to set ipv6 socket to non-blocking: ", 
+                   strerror(errno), '\n');
+  }
+  DEBUG("set ipv6 socket to non-blocking\n");
+
+  // Set socket options.
+  {
+    int optval;
+
+    // Enable broadcast capability.
+    optval = 1;
+    if (-1 == setsockopt(
+          s_ipv6_socket, 
+          SOL_SOCKET, 
+          SO_BROADCAST, 
+          &optval, sizeof(optval)))
+      return ERROR("failed to set ipv6 socket to broadcast capable: ",
+                   strerror(errno), '\n');
+
+    DEBUG("enabled broadcast capability\n");
+
+    // Disable ipv6-only mode to allow ipv4 connections.
+    optval = 0;
+    if (-1 == setsockopt(
+          s_ipv6_socket, 
+          IPPROTO_IPV6, 
+          IPV6_V6ONLY, 
+          &optval, sizeof(optval)))
+      return ERROR("failed to set ipv6 socket to disable ipv6-only mode: ",
+                   strerror(errno), '\n');
+
+    DEBUG("disabled ipv6-only mode\n");
+  }
+
+  DEBUG("finished setting socket options\n");
+
+  failsafe_close_socket.cancel();
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 bindSocket(u16 port)
+{
+  assert(isSocketOpen());
+  assert(not isSocketBound());
+
+  DEBUG("binding ipv6 socket to port ", port, '\n');
+
+  sockaddr_in6 ipv6_socket_address;
+  memset(&ipv6_socket_address, 0, sizeof(ipv6_socket_address));
+  ipv6_socket_address.sin6_family = AF_INET6;
+  ipv6_socket_address.sin6_port = htons(port);
+  ipv6_socket_address.sin6_addr = in6addr_any;
+
+  s_ipv6_socket_bound = -1 != bind(
+    s_ipv6_socket, 
+    (sockaddr*)&ipv6_socket_address, 
+    sizeof(ipv6_socket_address));
+
+  if (!s_ipv6_socket_bound)
+    return ERROR("failed to bind ipv6 socket to port ", port, ": ",
+                 strerror(errno), '\n');
+
+  DEBUG("bound ipv6 socket to port ", port, '\n');
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 sendPacket(const Address& address, void* data, u64 size)
+{
+  assert(isSocketOpen());
+  assert(isSocketBound());
+
+  sockaddr_in6 socket_address;
+  memset(&socket_address, 0, sizeof(socket_address));
+  socket_address.sin6_family = AF_INET6;
+  socket_address.sin6_port = htons(address.port);
+  if (address.type == AddressType::Local)
+  {
+    // IPv6 loopback address (::1)
+    socket_address.sin6_addr.s6_addr[15] = 1;
+  }
+  else
+  {
+    memcpy(&socket_address.sin6_addr, &address.ipv6,
+           sizeof(socket_address.sin6_addr));
+  }
+
+  int bytes_sent = sendto(
+    s_ipv6_socket, 
+    (const char*)data, 
+    size, 
+    0,
+    (sockaddr*)&socket_address, 
+    sizeof(socket_address));
+
+  if (-1 == bytes_sent)
+  {
+    if (EWOULDBLOCK == errno)
+      return false;
+    else
+      return ERROR("failed to send packet: ", strerror(errno), "\n");
+  }
+
+  DEBUG("sent ", bytes_sent, " bytes to: ", address, "\n");
+  assert(size == (u16)bytes_sent);
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 receivePacket(
+    Address* out_address, 
+    void* data, 
+    u64 size, 
+    s32* out_bytes_received)
+{
+  if (!isSocketOpen())
+    return false;
+
+  sockaddr_in6 from;
+  socklen_t from_len = sizeof(from);
+  int bytes_received = recvfrom(
+    s_ipv6_socket, 
+    (char*)data,
+    size, 
+    0,
+    (sockaddr*)&from, 
+    &from_len);
+
+  if (-1 == bytes_received)
+  {
+    if (errno != EWOULDBLOCK)
+      ERROR("encountered error in attempt to recieve a packet: ", 
+            strerror(errno), '\n');
+
+    return false;
+  }
+
+  *out_bytes_received = (s32)bytes_received;
+
+  u8 ipv6[16];
+  mem::copy(ipv6, &from.sin6_addr, 16);
+  *out_address = Address(ipv6, ntohs(from.sin6_port));
+
+  return true;
+}
+
+}

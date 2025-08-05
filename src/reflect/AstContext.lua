@@ -24,6 +24,7 @@ local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
 local log = require "iro.Logger" ("astctx", Verbosity.Info)
+local glob = require "iro.fs.glob"
 
 ---@class reflect.AstContext : iro.Type
 ---
@@ -131,6 +132,26 @@ AstContext.fromString = function(str)
       or error "failed to convert clang ast"
 
   return astctx
+end
+
+--- Generate a new AstContext from a list of import glob patterns.
+---
+---@param patterns table | iro.List
+---@return reflect.AstContext, string
+AstContext.fromGlobs = function(patterns)
+  local imported = cmn.buffer.new()
+
+  for pattern in List(patterns):each() do
+    glob(pattern):each(function(path)
+      local result = lpp.import(path)
+
+      if result then
+        imported:put(result)
+      end
+    end)
+  end
+
+  return AstContext.fromString(tostring(imported)), imported
 end
 
 Converter.findProcessed = function(self, cdecl)

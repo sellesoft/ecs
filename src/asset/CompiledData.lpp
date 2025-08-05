@@ -9,6 +9,8 @@
  *              as this is meant to stay generic.
  */
 
+$ do return end
+
 $ local cmn = require "common"
 $ local glob = require "iro.fs.glob"
 $ local Processor = require "reflect.Processor"
@@ -1067,8 +1069,6 @@ CompiledData* CompiledData::load(
     Asset** out_asset)
 {
   using namespace fs;
-
-  ZoneScopedN("CompiledData::load");
 
   PathBuffer data_path_buffer;
 

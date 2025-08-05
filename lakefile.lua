@@ -193,7 +193,7 @@ end
 
 buildTest "sandbox"
 
-do return end
+-- do return end
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
@@ -208,6 +208,7 @@ for cfile in lake.utils.glob("src/**/*.cpp"):each() do
   local output = build_dir.."/"..cfile..".o"
   objs:push(o.Cpp(cfile):compile(output, cpp_params))
 end
+
 
 o.Exe "build/ecs" :link(objs, link_params)
 

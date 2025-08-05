@@ -48,8 +48,6 @@ void GameSim::deinit(gfx::Renderer& renderer)
  */
 b8 GameSim::update(UpdateParams& params)
 {
-  ZoneScopedN("cl::GameSim::update");
-
   if (!SharedGameSim::update(params))
     return false;
 
@@ -65,8 +63,6 @@ b8 GameSim::update(UpdateParams& params)
  */
 b8 GameSim::render(const RenderParams& params)
 {
-  ZoneScopedN("cl::GameSim::render");
-
   GameMgr::RenderParams render_params = 
   {
     .renderer = params.renderer,

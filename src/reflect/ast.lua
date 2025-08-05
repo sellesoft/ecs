@@ -767,6 +767,18 @@ Record.findNestedRecord = function(self, name)
   end
 end
 
+--- Attempts to find a nested Enum by name.
+---
+---@param name string
+---@return ast.Enum?
+Record.findNestedEnum = function(self, name)
+  for member in self.members:each() do
+    if member:is(ast.Enum) and member.name == name then
+      return member
+    end
+  end
+end
+
 --- Returns an iterator over nested Enums.
 ---
 ---@return function

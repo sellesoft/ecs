@@ -6,7 +6,7 @@ $ require "common"
 
 #include "iro/Common.h"
 #include "iro/Logger.h"
-#include "iro/Thread.h"
+#include "iro/concurrent/Thread.h"
 
 #include <cstdio>
 #include "cstring"

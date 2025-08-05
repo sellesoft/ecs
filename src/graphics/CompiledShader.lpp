@@ -2,7 +2,7 @@ $ require "common"
 
 #include "iro/io/IO.h"
 #include "iro/fs/File.h"
-#include "iro/fs/Path.h"
+#include "iro/fs/fs.h"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
 
@@ -61,7 +61,7 @@ CompiledShader* CompiledShader::load(
   String data_path = data_path_buf.asStr();
   assert(nullptr == assetmgr.findAsset(data_path));
 
-  if (!Path::exists(data_path))
+  if (!fs::path::exists(data_path))
   {
     ERROR("attempt to load shader '", name, "' but there is no asset "
           "at path '", data_path, "'\n");
@@ -117,7 +117,7 @@ b8 CompiledShader::compileGLSL(CompileParams& params)
   io::formatv(&asset_path_buffer, params.name);
   String asset_path = asset_path_buffer.asStr();
 
-  if (!fs::Path::exists(asset_path))
+  if (!fs::path::exists(asset_path))
     return ERROR("attempt to compile shader '", params.name, "' but there"
       " is no asset at path '", asset_path, "'\n");
 
@@ -134,7 +134,7 @@ b8 CompiledShader::compileGLSL(CompileParams& params)
   SCOPED_INDENT;
 
   // Ensure the data directories exist
-  if (!platform::makeDir(Path::removeBasename(data_path), true))
+  if (!mkdir(path::removeBasename(data_path), true))
     return ERROR("failed to create data directories for data at '",
                  data_path, "'\n");
 
@@ -147,7 +147,10 @@ b8 CompiledShader::compileGLSL(CompileParams& params)
   source_buffer.open();
   defer { source_buffer.close(); };
 
-  u64 source_size = source_file.getInfo().byte_size;
+  Stat stat;
+  fs::stat(asset_path, &stat);
+
+  u64 source_size = stat.byte_size;
   if (source_size != source_buffer.consume(&source_file, source_size))
     return ERROR("failed to read shader source file\n");
 

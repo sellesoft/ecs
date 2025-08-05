@@ -17,9 +17,8 @@ $ require "common"
 #include "iro/containers/StackArray.h"
 #include "iro/Logger.h"
 #include "iro/time/Time.h"
-#include "iro/Thread.h"
+#include "iro/concurrent/Thread.h"
 #include "iro/io/IO.h"
-#include "iro/Platform.h"
 
 #include <atomic>
 
@@ -70,7 +69,7 @@ static std::atomic_bool server_running = std::atomic_bool(false);
  */
 void* create(CreateParams& params)
 {
-  assert(thread::isMainThread());
+  // assert(thread::isMainThread());
   @log.info("Creating server...\n");
 
   void* params_copy = mem::stl_allocator.allocate(sizeof(CreateParams));

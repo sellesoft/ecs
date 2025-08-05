@@ -1,9 +1,13 @@
 $ local cmn = require "common"
-$ local ast = require "reflect.AST"
+$ local ast = require "reflect.ast"
 
-$ local comp = require "game.shared.component.Component"
-$ local comps = comp.importComponents()
-@comps:get
+$$$
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/**/*.comp.lh"
+}
+$$$
+@@imported:get
 
 @@lpp.import "game/shared/entity/EntityMgr.lh"
 
@@ -15,17 +19,16 @@ $ local comps = comp.importComponents()
 
 #include "iro/fs/File.h"
 
-$ local TComponent = comps.p.decls.map["struct Component"]
+$ local TComponent = astctx:lookupTypeDecl "Component"
 $ local function eachComp(f)
-$   comps:eachDecl(function(name, decl)
+$   for decl in astctx.type_decls:each() do
 $     if decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
-$       f(name, decl)
+$       f(decl)
 $     end
-$   end)
+$   end
 $ end
 
-static Logger logger = 
-  Logger::create("entmgr"_str, Logger::Verbosity::Info);
+@log.ger(entmgr, Info)
 
 /* ----------------------------------------------------------------------------
  */
@@ -70,48 +73,6 @@ EntityId EntityMgr::createEntity(String name)
   DEBUG("created entity ", name, " (", id.value, ":", id.salt, ")\n");
 
   return id;
-}
-
-/* ----------------------------------------------------------------------------
- */
-EntityId EntityMgr::createEntityFromSourceData(
-    String path, 
-    AssetMgr& assetmgr,
-    gfx::Renderer& renderer)
-{
-  using namespace fs;
-
-  auto file = File::from(path, OpenFlag::Read);
-
-  if (isnil(file))
-  {
-    ERROR("failed to open entity asset file at ", path, "\n");
-    return nil;
-  }
-
-  defer { file.close(); };
-
-  SourceDataFile sfile;
-  if (!sfile.init())
-  {
-    ERROR("failed to init source data file\n");
-    return nil;
-  }
-
-  assert(!"fix me");
-
-  // SourceDataParser parser;
-  // if (!parser.init(&sfile, &file, path))
-  // {
-  //   ERROR("failed to init source data parser\n");
-  //   return nil;
-  // }
-  //
-  // if (!parser.parse())
-  //   return nil;
-  //
-  // return loadEntity(sfile, *this, assetmgr, renderer);
-  return nil;
 }
 
 /* ----------------------------------------------------------------------------
@@ -174,12 +135,12 @@ void EntityMgr::destroyAllEntities()
   }
 }
 
-$ eachComp(function(name, decl)
+$ eachComp(function(decl)
 
 /* ----------------------------------------------------------------------------
  */
 template<>
-b8 EntityMgr::addComp(Entity* ent, EntityId id, $(name)* cmp) const
+b8 EntityMgr::addComp(Entity* ent, EntityId id, $(decl.type.name)* cmp) const
 {
   assert(isnil(cmp->owner));
 
@@ -189,7 +150,7 @@ b8 EntityMgr::addComp(Entity* ent, EntityId id, $(name)* cmp) const
   cmp->owner = id;
   ent->components.insert(cmp);
 
-  DEBUG("added component $(name) to entity ", id.value, "\n");
+  DEBUG("added component $(decl.type.name) to entity ", id.value, "\n");
 
   eventbus.raise(id, ComponentAdd{});
 
@@ -199,7 +160,7 @@ b8 EntityMgr::addComp(Entity* ent, EntityId id, $(name)* cmp) const
 /* ----------------------------------------------------------------------------
  */
 template<>
-b8 EntityMgr::addComp(Entity* ent, $(name)* cmp) const
+b8 EntityMgr::addComp(Entity* ent, $(decl.type.name)* cmp) const
 {
   EntityId id;
   ent_pool.formId(ent, &id.value, &id.salt);
@@ -210,7 +171,7 @@ b8 EntityMgr::addComp(Entity* ent, $(name)* cmp) const
 /* ----------------------------------------------------------------------------
  */
 template<>
-b8 EntityMgr::addComp(EntityId id, $(name)* cmp) const
+b8 EntityMgr::addComp(EntityId id, $(decl.type.name)* cmp) const
 {
   return addComp(getEntity(id), id, cmp);
 }

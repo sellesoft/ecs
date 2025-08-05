@@ -22,8 +22,6 @@ $ local cmn = require "common"
 
 @@lpp.import "window/Window.events.lh"
 
-@@lpp.import "Profiling.lh"
-
 #include "iro/Logger.h"
 #include "iro/Platform.h"
 
@@ -69,8 +67,6 @@ void GameMgr::deinit(gfx::Renderer& renderer)
  */
 b8 GameMgr::update(UpdateParams& params)
 {
-  ZoneScopedN("cl::GameMgr::update");
-
   entsysmgr.get<cl::InputSys>().frame_input = params.input;
 
   if (!entsysmgr.update())
@@ -83,8 +79,6 @@ b8 GameMgr::update(UpdateParams& params)
  */
 b8 GameMgr::render(const RenderParams& params)
 {
-  ZoneScopedN("cl::GameMgr::render");
-
   GameRenderer::RenderParams render_params =
   {
     .map = &entsysmgr.get<MapSys>(),

@@ -64,14 +64,13 @@ SourceDataFileHandle SourceDataFileReg::loadFromDisk(String path)
   if (isnil(file))
   {
     ERROR("failed to open source data file at ", path, "\n");
-    platform::debugBreak();
     return SourceDataFileHandle::invalid();
   }
   defer { file.close(); };
 
   slot = pool.add();
 
-  slot->path = fs::Path::from(path);
+  slot->path = path;
   slot->path_hash = path_hash;
   slot->header.reg = this;
 

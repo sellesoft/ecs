@@ -42,8 +42,6 @@ enum class Key
   COUNT,
 };
 
-String getKeyStr(Key key);
-
 enum class Mod
 {
   Any,
@@ -62,7 +60,5 @@ enum class MouseButton
 
   COUNT,
 };
-
-String getMouseButtonStr(MouseButton button);
 
 #endif

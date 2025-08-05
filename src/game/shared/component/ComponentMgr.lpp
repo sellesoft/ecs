@@ -1,9 +1,13 @@
 $ require "common"
-$ local ast = require "reflect.AST"
+$ local ast = require "reflect.ast"
 
-$ local comp = require "game.shared.component.Component"
-$ local comps = comp.importComponents()
-@@comps:get
+$$$
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/game/**/*.comp.lh"
+}
+$$$
+@@imported:get
 
 #include "iro/Logger.h"
 #include "iro/containers/LinkedPool.h"
@@ -14,18 +18,18 @@ using namespace iro;
 
 @@lpp.import "game/shared/component/ComponentMgr.lh"
 
-$ local TComponent = comps.p.decls.map["struct Component"]
+$ local TComponent = astctx:lookupTypeDecl "Component"
 $ local function eachComp(f)
-$   comps:eachDecl(function(name, decl)
+$   for decl in astctx.type_decls:each() do
 $     if decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
 $       f
 $       {
-$         name = decl:getIdSafeName(),
-$         typename = name,
-$         decl = decl
+$         name = decl:formCSafeName():get(),
+$         typename = decl.type.name,
+$         decl = decl,
 $       }
 $     end
-$   end)
+$   end
 $ end
 
 /* ============================================================================

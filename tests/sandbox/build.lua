@@ -21,11 +21,11 @@ return function(
     local cpp = build_dir.."/"..lfile..".cpp"
     objs:push(
       o.Lpp(lfile)
-        :preprocessToCpp(cpp, lpp_params))
-        -- :compile(cpp..".o", cpp_params))
+        :preprocessToCpp(cpp, lpp_params)
+        :compile(cpp..".o", cpp_params))
   end
 
-  compileLpp "src/game/server/entity/EntitySysMgr.lpp"
+  compileLpp "src/game/shared/component/Component.lpp"
   -- compileLpp "tests/sandbox/main.lpp"
 
   -- local exe = o.Exe(build_dir.."/tests/compile-data/run")

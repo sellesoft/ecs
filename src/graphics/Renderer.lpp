@@ -114,8 +114,6 @@ static VkClearValue colorToVkClearValue(Color color)
  */
 b8 Renderer::beginFrame()
 {
-  ZoneScopedN("gfx::Renderer::beginFrame");
-
   if (vk->state.command_buffer != VK_NULL_HANDLE)
     return ERROR("attempt to begin a frame while one is already active\n");
 
@@ -123,8 +121,6 @@ b8 Renderer::beginFrame()
 
   // Ensure that the previous call to submitQueue() has finished.
   {
-    ZoneScopedN("wait for command buffer fence");
-
     vkWaitForFences(
       vk->device, 
       1, 
@@ -157,8 +153,6 @@ b8 Renderer::beginFrame()
  */
 void Renderer::endFrame()
 {
-  ZoneScopedN("gfx::Renderer::endFrame");
-
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
     ERROR("attempt to end the frame before it was begun\n");
@@ -178,9 +172,6 @@ void Renderer::endFrame()
     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-
-  TracyVkCollect(
-    vk->getCurrentVirtualFrame()->tracy_ctx, vk->state.command_buffer);
 
   vk->endCommandBuffer(vk->state.command_buffer);
 
@@ -235,11 +226,6 @@ static b8 beginRenderPassVk(
 
   TRACE("beginning render pass at ", render_area_pos, " with size ", 
         render_area_size, '\n');
-
-  TracyVkZone(
-    vk->getCurrentVirtualFrame()->tracy_ctx, 
-    vk->state.command_buffer, 
-    "render pass");
 
   // NOTE(sushi) the image transition occurs inside this function, however
   //             that should probably be pulled out and done here.
@@ -308,8 +294,6 @@ b8 Renderer::submitQueue()
 {
   TRACE("submitting queue\n");
 
-  ZoneScopedN("gfx::Renderer::submitQueue");
-
   VirtualFrame* vframe = vk->getCurrentVirtualFrame();
 
   VkPipelineStageFlags wait_stages = 
@@ -342,8 +326,6 @@ b8 Renderer::submitQueue()
 b8 Renderer::present()
 {
   TRACE("presenting frame\n");
-
-  ZoneScopedN("gfx::Renderer::present");
 
   if (!vk->queuePresent(
         vk->swapchain_buffers[next_image].submit_semaphore,
@@ -548,11 +530,6 @@ void Renderer::pushConstant(
  */
 void Renderer::draw(u32 index_start, u32 index_count, u32 vertex_start)
 {
-  TracyVkZone(
-    vk->getCurrentVirtualFrame()->tracy_ctx, 
-    vk->state.command_buffer, 
-    "draw");
-
   vkCmdDrawIndexed(
     vk->state.command_buffer,
     index_count,
@@ -566,11 +543,6 @@ void Renderer::draw(u32 index_start, u32 index_count, u32 vertex_start)
  */
 void Renderer::prepareImageForSampling(Image image)
 {
-  TracyVkZone(
-    vk->getCurrentVirtualFrame()->tracy_ctx, 
-    vk->state.command_buffer, 
-    "prepareImageForSampling");
-
   if (isnil(image))
   {
     ERROR("passed a nil gfx::Image to prepare for sampling\n");

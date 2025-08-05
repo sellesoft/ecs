@@ -4,11 +4,11 @@ $ local cmn = require "common"
 
 #include "iro/io/IO.h"
 #include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
 
 @@lpp.import "graphics/Font.lh"
-
 @@lpp.import "graphics/Renderer.lh"
 
 @@lpp.import "asset/AssetMgr.lh"
@@ -113,7 +113,7 @@ Font* Font::load(
 
   assert(nullptr == assetmgr.findAsset(data_path));
 
-  if (!Path::exists(data_path))
+  if (!fs::path::exists(data_path))
   {
     ERROR("attempt to load font '", name, "' but there is no data at "
           "path '", data_path, "'\n");

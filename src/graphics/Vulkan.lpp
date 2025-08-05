@@ -5,6 +5,8 @@ $ local cmn = require "common"
 @@lpp.import "window/Window.lh"
 
 #include "string.h"
+#include "iro/fs/fs.h"
+#include "iro/fs/File.h"
 
 @log.ger(vulkan, Debug)
 
@@ -445,15 +447,6 @@ $ end
   @initpool(image)
   @initpool(shader)
   @initpool(pipeline)
-
-  for (VirtualFrame& vframe : vframes)
-  {
-    vframe.tracy_ctx = TracyVkContext(
-      physical_device,
-      device,
-      graphics_queue,
-      vframe.command_buffer);
-  }
 
   return true;
 }
@@ -1104,8 +1097,6 @@ void Vulkan::deinitVirtualFrames()
       destroyVkFence(vframe.command_buffer_fence);
     if (vframe.acquire_semaphore != VK_NULL_HANDLE)
       destroyVkSemaphore(vframe.acquire_semaphore);
-
-    TracyVkDestroy(vframe.tracy_ctx);
   }
 }
 
@@ -1389,8 +1380,6 @@ void Vulkan::deinitSwapchain()
  */
 b8 Vulkan::recreateSwapchain() 
 {
-  ZoneScopedN("Vulkan::recreateSwapchain");
-
   vkDeviceWaitIdle(device);
 
   deinitSwapchain();
@@ -1408,9 +1397,10 @@ b8 Vulkan::initPipelineCache()
   DEBUG("creating the vulkan pipeline cache\n");
 
   using namespace fs;
-  if (File::exists("data/"_str) && File::exists("data/pipelines.cache"_str))
+  if (path::exists("data/"_str) && 
+      path::exists("data/pipelines.cache"_str))
   {
-    auto file = File::from("data/pipelines.cache"_str, OpenFlag::Read);
+    auto file = File::openForRead("data/pipelines.cache"_str);
     if (notnil(file))
     {
       defer { file.close(); };
@@ -1419,21 +1409,24 @@ b8 Vulkan::initPipelineCache()
       buffer.open();
       defer { buffer.close(); };
 
-      u64 filesize = file.getInfo().byte_size;
-      if (filesize == buffer.consume(&file, filesize))
+      Stat stat;
+      if (fs::stat("data/pipelines.cache"_str, &stat))
       {
-        VkPipelineCacheCreateInfo create_info =
+        if (stat.byte_size == buffer.consume(&file, stat.byte_size))
         {
-          .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
-          .initialDataSize = (size_t)filesize,
-          .pInitialData = buffer.ptr,
-        };
+          VkPipelineCacheCreateInfo create_info =
+          {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+            .initialDataSize = (size_t)stat.byte_size,
+            .pInitialData = buffer.ptr,
+          };
 
-        @vkc(vkCreatePipelineCache(
-          device,
-          &create_info,
-          &allocator_callbacks,
-          &pipeline_cache))
+          @vkc(vkCreatePipelineCache(
+            device,
+            &create_info,
+            &allocator_callbacks,
+            &pipeline_cache))
+        }
       }
     }
   }
@@ -1476,8 +1469,6 @@ u32 Vulkan::determineMemoryType(
  */
 b8 Vulkan::acquireNextImageIndex(u32* out)
 {
-  ZoneScopedN("Vulkan::acquireNextImageIndex");
-
   VkResult result = 
     vkAcquireNextImageKHR(
       device,
@@ -1545,12 +1536,6 @@ b8 Vulkan::createVkImage(
       VK_OBJECT_TYPE_IMAGE,
       *out,
       '<', debug_name, " image>");
-
-  {
-    io::StaticBuffer<255> tmessage;
-    io::formatv(&tmessage, "VkImage ", (void*)*out, " created");
-    TracyMessage(tmessage, tmessage.len);
-  }
 
   return true;
 }

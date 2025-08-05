@@ -4,6 +4,7 @@ $ local cmn = require "common"
 
 #include "iro/memory/Memory.h"
 #include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
 
@@ -94,7 +95,7 @@ Asset* AssetMgr::loadAssetFromDisk(String name)
 
   @log.debug("loading asset '", name, "' from disk\n");
 
-  if (!Path::exists(name))
+  if (!path::exists(name))
   {
     @log.error("no asset exists at path '", name, "'\n");
     return nullptr;
@@ -114,7 +115,10 @@ Asset* AssetMgr::loadAssetFromDisk(String name)
     return nullptr;
   }
 
-  asset->size = file.getInfo().byte_size;
+  Stat stat;
+  fs::stat(name, &stat);
+
+  asset->size = stat.byte_size;
   asset->data = allocator->allocate(asset->size);
 
   assert(asset->size == file.read({(u8*)asset->data, asset->size}));
@@ -156,6 +160,6 @@ Asset* AssetMgr::findAsset(String name) const
 b8 AssetMgr::checkNeedsCompiled(String asset_path, String data_path)
 {
   using namespace fs;
-  return !Path::exists(data_path) ||
-         1 ==  Path::compareModTimes(asset_path, data_path);
+  return !path::exists(data_path) ||
+         1 ==  path::compareModTimes(asset_path, data_path);
 }

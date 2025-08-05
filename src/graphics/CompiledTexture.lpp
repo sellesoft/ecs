@@ -2,7 +2,7 @@ $ local cmn = require "common"
 
 #include "iro/io/IO.h"
 #include "iro/fs/File.h"
-#include "iro/fs/Path.h"
+#include "iro/fs/fs.h"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
 
@@ -51,7 +51,7 @@ CompiledTexture* CompiledTexture::load(
 
   assert(nullptr == assetmgr.findAsset(data_path));
 
-  if (!Path::exists(data_path))
+  if (!path::exists(data_path))
   {
     ERROR("attempt to load texture '", name, "' but there is no asset "
           "at path '", data_path, "'\n");
@@ -179,7 +179,7 @@ b8 CompiledTexture::compileFromMemory(void* pixels, CompileParams& params)
   String data_path = data_path_buffer.asStr();
 
   // Ensure the data directories exist.
-  if (!platform::makeDir(Path::removeBasename(data_path), true))
+  if (!mkdir(path::removeBasename(data_path), true))
     return ERROR("failed to create data directories for data at '",
                  data_path);
 

@@ -1,25 +1,25 @@
 $ local cmn = require "common"
-$ local ast = require "reflect.AST"
+$ local ast = require "reflect.ast"
 
 $$$
-local importer = require "reflect.Importer"
+local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
-  patterns = { "src/**/*.lh", },
-  excludes = { "src/graphics/Vulkan.lh" },
+  "src/**/*.lh",
 }
 $$$
-
-@importer:get
+@imported:get
 
 @@lpp.import "reflect/RTR.lh"
 
 $ local function eachDecl(f)
-$   importer:eachDecl(function(name, decl)
+$   for decl in astctx.type_decls:each() do
 $     if decl.is_anonymous then return end
 $     if decl.has_unhandled_arg_kind then return end
-$     f(name, decl)
-$   end)
+$     f(decl)
+$   end
 $ end
+
+$ do return end
 
 namespace rtr
 {

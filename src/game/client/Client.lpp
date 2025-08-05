@@ -26,8 +26,6 @@ $ require "common"
 
 #include "iro/memory/LinkedHeap.h"
 
-#include "external/tracy/tracy/Tracy.hpp"
-
 @log.ger(client, Debug)
 
 /* ----------------------------------------------------------------------------
@@ -171,8 +169,6 @@ $ end
  */
 Client::UpdateResult Client::update()
 {
-  ZoneScopedN("Client::update");
-
   UpdateResult result = {};
 
   // Prepares input state for this frame.
@@ -275,10 +271,6 @@ Client::UpdateResult Client::update()
 
   // Sends messages to the server.
   netmgr.sendMessages();
-
-  // TODO(sushi) this should be pulled out to the Engine since it will 
-  //             want to work with the Server as well.
-  FrameMark;
 
   return result;
 }

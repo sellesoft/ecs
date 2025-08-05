@@ -17,16 +17,13 @@ $ require "common"
 @@lpp.import "game/shared/map/Map.sys.lh"
 @@lpp.import "game/shared/Eye.sys.lh"
 
-@@lpp.import "Profiling.lh"
-
 #include "iro/Logger.h"
 #include "iro/time/Time.h"
 
+@log.ger(game.render, Info)
+
 namespace cl
 {
-
-static Logger logger =
-  Logger::create("rendersys"_str, Logger::Verbosity::Info);
 
 /* ----------------------------------------------------------------------------
  */
@@ -125,8 +122,6 @@ void GameRenderer::deinit(gfx::Renderer& renderer)
  */
 static void drawBatches(GameRenderer& sys, gfx::Renderer& renderer)
 {
-  ZoneScopedN("cl::GameRenderer::drawBatches");
-
   assert(sys.batch_count <= GameRenderer::MAX_BATCHES);
   assert(sys.quad_count <= GameRenderer::MAX_QUADS);
 
@@ -159,8 +154,6 @@ void GameRenderer::drawQuad(
   vec4f uv,
   Color color)
 {
-  ZoneScopedN("cl::GameRenderer::drawQuad");
-
   if (texture != batches[batch_count-1].texture)
   {
     if (batches[batch_count-1].quad_count > 0)
@@ -235,8 +228,6 @@ b8 GameRenderer::render(const RenderParams& params)
   // to change the texture (this is probably the better option).
   TRACE("render.sys update\n");
 
-  ZoneScopedN("cl::GameRenderer::update");
-
   gfx::Renderer& renderer = params.renderer;
 
   assert(notnil(params.target));
@@ -244,8 +235,6 @@ b8 GameRenderer::render(const RenderParams& params)
   ///////////////////////////////////////////////
   // 0. Update Scene
   {
-    ZoneScopedN("cl::GameRenderer update scene");
-
     mat3x2 proj = mat3x2::identity();
     proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / (f32)params.viewport.w);
     proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / (f32)params.viewport.h);
@@ -305,8 +294,6 @@ b8 GameRenderer::render(const RenderParams& params)
 
   if (params.map)
   {
-    ZoneScopedN("cl::GameRenderer draw map tiles");
-
     MapSys& map = *params.map;
 
     u32 layer_idx = 0;
@@ -340,8 +327,6 @@ b8 GameRenderer::render(const RenderParams& params)
 
   if (params.entmgr && params.map)
   {
-    ZoneScopedN("cl::GameRenderer draw sprites");
-
     MapSys&       map    = *params.map;
     EntityMgr&    entmgr = *params.entmgr;
     ComponentMgr& cmpmgr = entmgr.cmpmgr;

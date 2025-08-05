@@ -1,6 +1,7 @@
 $ local cmn = require "common"
-$ local Processor = require "reflect.Processor"
 $ local ast = require "reflect.AST"
+
+$ do return end
 
 $$$
 local imported = cmn.buffer.new()
@@ -9,15 +10,15 @@ imported:put(
   lpp.import "game/client/editor/Editor.lh",
   lpp.import "game/shared/map/Map.defs.lh")
 
-local p = Processor.new(tostring(imported))
-p:run()
+local astctx = require "reflect.AstContext" .fromString(tostring(imported))
+
 $$$
 @imported:get
 
 $$$
-local Editor = p:lookupDecl "struct cl::Editor"
-local Tools = Editor:getMember "Tool"
-local TileKindDef = p:lookupDecl "struct TileKindDef"
+local Editor = astctx:lookupTypeDecl "cl::Editor"
+local Tools = Editor:findNestedEnum "Tool"
+local TileKindDef = astctx:lookupTypeDecl "TileKindDef"
 $$$
 
 @@lpp.import "game/client/Client.lh"

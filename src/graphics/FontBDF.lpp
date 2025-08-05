@@ -10,6 +10,7 @@ $ local cmn = require "common"
 #include "iro/BinarySearch.h"
 #include "iro/fs/Path.h"
 #include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 #include "iro/memory/Bump.h"
 #include "iro/Scanner.h"
 
@@ -33,7 +34,7 @@ b8 Font::compileBDF(CompileParams& params)
 
   PathBuffer source_path_buffer;
   io::format(&source_path_buffer, params.name);
-  if (!Path::hasExtension(source_name))
+  if (!path::hasExtension(source_name))
     io::format(&source_path_buffer, ".bdf"_str);
   else
     source_name = params.name.subToLast('.');
@@ -46,7 +47,7 @@ b8 Font::compileBDF(CompileParams& params)
 
   String dest_path = dest_path_buffer.asStr();
 
-  if (!Path::exists(source_path))
+  if (!path::exists(source_path))
     return ERROR("attempt to compile font '", params.name, "' as bdf, but "
                  "there is no asset at '", source_path, "\n");
 
@@ -422,7 +423,7 @@ b8 Font::compileBDF(CompileParams& params)
     }
   }
 
-  if (!platform::makeDir(Path::removeBasename(dest_path), true))
+  if (!mkdir(path::removeBasename(dest_path), true))
     return ERROR("failed to make directorys for '", dest_path, "'\n");
 
   auto data_file = 

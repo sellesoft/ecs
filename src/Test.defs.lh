@@ -6,6 +6,8 @@
 @@lpp.import "reflect/types/TypedStringMap.lh"
 $ local m = require "reflect.Metadata"
 
+$ do return end
+
 struct Fruit 
 {
   u8 size;

@@ -4,6 +4,8 @@ $ local glob = require "iro.fs.glob"
 $ local List = require "iro.List"
 $ local ast = require "reflect.AST"
 
+$ do return end
+
 $$$
 local importer = require "reflect.Importer"
 {

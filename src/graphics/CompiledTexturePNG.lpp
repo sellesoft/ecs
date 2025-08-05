@@ -6,10 +6,10 @@ $ require "common"
 @@lpp.import "graphics/CompiledTexture.lh"
 
 #include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 #include "iro/fs/Path.h"
 #include "iro/Logger.h"
 #include "iro/memory/Bump.h"
-#include "iro/Platform.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
@@ -42,7 +42,7 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
     params.assetmgr->getDataDir(), '/', name, ".cmp_texture"_str);
   String data_path = data_path_buffer.asStr();
 
-  if (!fs::Path::exists(asset_path))
+  if (!fs::path::exists(asset_path))
     return ERROR("attempt to compile texture '", params.name, "' but there"
       " is no asset at path '", asset_path, "'\n");
 
@@ -61,7 +61,7 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
   defer { allocator.deinit(); };
 
   // Ensure the data directories exist.
-  if (!platform::makeDir(fs::Path::removeBasename(data_path), true))
+  if (!fs::mkdir(fs::path::removeBasename(data_path), true))
     return ERROR("failed to make directories\n");
 
   auto asset_file = fs::File::from(asset_path, fs::OpenFlag::Read);
@@ -69,7 +69,11 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
     return ERROR("failed to open font asset file at '",
                  data_path, "'\n");
   defer { asset_file.close(); };
-  u64 asset_file_size = asset_file.getInfo().byte_size;
+
+  fs::Stat file_stat;
+  fs::stat(asset_path, &file_stat);
+
+  u64 asset_file_size = file_stat.byte_size;
 
   auto data_file =
     fs::File::from(data_path,
@@ -85,7 +89,7 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
   auto delete_data_file_if_failure = deferWithCancel
   {
     data_file.close();
-    fs::File::unlink(data_path);
+    fs::unlink(data_path);
   };
 
   io::Memory buffer;

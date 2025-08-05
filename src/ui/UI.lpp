@@ -223,8 +223,6 @@ void UI::endFrame(InputState* consumed_input)
 {
   DEBUG("UI::endFrame\n");
 
-  ZoneScopedN("UI::endFrame");
-
   assert(id_stack.isEmpty());
   assert(popup_stack.isEmpty());
 
@@ -370,9 +368,6 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
     debug_layer_name.clear();
     io::formatv(&debug_layer_name, "layer ", layer_idx);
     renderer.debugBeginLabel(0x3d405bff, debug_layer_name.asStr());
-
-    ZoneScoped;
-    ZoneName(debug_layer_name, debug_layer_name.len);
 
     for (Cmd* cmd = layer->cmd_list.first;
          cmd; cmd = cmd->next)

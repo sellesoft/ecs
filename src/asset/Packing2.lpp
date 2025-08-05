@@ -130,6 +130,8 @@ $   if type:is(ast.TagType) then
 $     return (getPackerName(type.decl))
 $   elseif type:is(ast.Builtin) then
 $     return "pack_"..type:formCSafeName()
+$   elseif type:is(ast.Pointer) then
+$     return "pack_ptr"
 $   else
 $     error("unhandled type passed to getTypePackerName: "..
 $           tostring(type).."\n")
@@ -699,6 +701,7 @@ $   end
 
     return true;
   }
+$   putDummyDefaultsHandler(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -773,10 +776,8 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function putTypedStringMapPacker(decl)
-$   ast.dumpout(decl)
 $   local subtype = decl.args[1]:desugar()
 $   local subdecl = subtype.decl
-$   ast.dumpout(subdecl)
 $   for derived in subdecl.derived:each() do
 $     putDeclPacker(derived)
 $   end
@@ -854,6 +855,9 @@ $ -- * ------------------------------------------------------------------------
 $ putDeclPacker = function(decl)
 $   decl.user = decl.user or {}
 $   if decl.user.packer_placed then
+$     return
+$   end
+$   if decl.metadata.hidden then
 $     return
 $   end
 $   

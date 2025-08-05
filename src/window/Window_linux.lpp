@@ -14,8 +14,6 @@ $ if IRO_LINUX then
 @lpp.import "window/Window.lh"
 @lpp.import "window/Window_linux.lh"
 
-#include "external/tracy/tracy/Tracy.hpp"
-
 static Logger logger = 
   Logger::create("ecs.window"_str, Logger::Verbosity::Info);
 
@@ -26,7 +24,7 @@ X11Stuff x11;
 template<typename E>
 void Window::raise(const Engine& eng, E& event) 
 {
-  eng.eventbus.broadcast.raise<E>(event);
+  eng.broadcast_eventbus.raise<E>(event);
 }
 
 /* ----------------------------------------------------------------------------
@@ -197,8 +195,6 @@ void Window::deinit()
  */
 Window::UpdateResult Window::update(InputMgr& input)
 {
-  ZoneScoped;
-
   UpdateResult result = {};
 
   if (handle == nullptr)

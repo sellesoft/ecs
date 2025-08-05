@@ -6,77 +6,72 @@ $ require "common"
 
 #include "iro/Common.h"
 #include "iro/io/IO.h"
+#include "iro/time/Time.h"
 
+@@lpp.import "game/server/NetMgr.lh"
+@@lpp.import "game/server/GameSim.lh"
 @@lpp.import "game/server/ServerAllocator.lh"
 
 struct Engine;
-struct Server;
-
-namespace sv
-{
 
 /* ============================================================================
  */
-static constexpr u64 MAX_PASSWORD_LENGTH = 64;
-
-typedef iro::io::StaticBuffer<MAX_PASSWORD_LENGTH-1> PasswordBuffer;
-
-/* ============================================================================
- */
-enum struct ServerPublicity : u8
+struct Server
 {
-  Offline,
-  Friend,
-  Password,
-  Public,
+  enum class State : u8
+  {
+    Lobby,
+    InGame,
+  };
+
+  enum class Publicity : u8
+  {
+    Offline,
+    FriendsOnly,
+    PasswordProtected,
+    Public,
+  };
+
+  static const u64 s_max_password_len = 64;
+
+  typedef iro::io::StaticBuffer<s_max_password_len> PasswordBuffer;
+
+  State state;
+  Publicity publicity;
+
+  // sv::ServerAllocator global_allocator; // cleared on deinit
+  // sv::ServerAllocator match_allocator; // cleared before each match
+  // sv::ServerAllocator tick_allocator; // cleared before each tick
+
+  iro::TimeSpan target_timespan;
+  u64 tick_index;
+
+  Engine* engine;
+
+  sv::GameSim sim;
+  sv::NetMgr netmgr;
+
+  struct InitParams
+  {
+    Engine& engine;
+    u64 global_allocation_size;
+    u64 match_allocation_size;
+    u64 tick_allocation_size;
+    s64 target_tickrate_ms;
+    u16 max_sessions;
+    Publicity publicity;
+    PasswordBuffer password;
+  };
+
+  b8 init(const InitParams& params);
+  void deinit();
+
+  b8 startMatch();
+  void endMatch();
+
+  struct UpdateResult
+  {
+  };
+
+  UpdateResult update();
 };
-
-/* ============================================================================
- */
-struct CreateParams
-{
-  Engine& engine;
-  u64 global_allocation_size;
-  u64 match_allocation_size;
-  u64 tick_allocation_size;
-  s64 target_tickrate_ms;
-  ServerPublicity publicity;
-  u16 max_sessions;
-  PasswordBuffer password;
-};
-
-// /* ============================================================================
-//  */
-// struct Server
-// {
-//   enum class State : u8
-//   {
-//     Lobby,
-//     InGame,
-//   };
-//
-//   State state;
-//
-//   ServerAllocator global_allocator; // cleared on deinit
-//   ServerAllocator match_allocator; // cleared before each match
-//   ServerAllocator tick_allocator; // cleared before each tick
-//
-//   TimeSpan target_timespan;
-//   u64 tick_index;
-//
-//   Engine* engine;
-//
-//   sv::GameSim sim;
-//   NetMgr netmgr;
-//   SharedConsole console;
-// };
-
-/* ----------------------------------------------------------------------------
- */
-void* create(CreateParams& params);
-
-/* ----------------------------------------------------------------------------
- */
-void destroy(void* server_thread);
-
-} // namespace sv

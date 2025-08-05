@@ -48,21 +48,21 @@ static TypedSourceAssetRef<T> loadDef(
     String ext, 
     const RefLoadParams& params)
 {
-  TypedSourceAssetRef<T> defref = {};
+  // TypedSourceAssetRef<T> defref = {};
+  //
+  // PathBuffer path;
+  // defref.name = formName(&path, name, ext);
+  //
+  // RefLoadParams def_params = params;
+  // def_params.type = rtr::getTypename<T>();
+  //
+  // if (!defref.load(def_params))
+  // {
+  //    ERROR("failed to load def ", defref.name, "\n");
+  //    return defref;
+  // }
 
-  PathBuffer path;
-  defref.name = formName(&path, name, ext);
-
-  RefLoadParams def_params = params;
-  def_params.type = rtr::getTypename<T>();
-
-  if (!defref.load(def_params))
-  {
-     ERROR("failed to load def ", defref.name, "\n");
-     return defref;
-  }
-
-  return defref;
+  return {};
 }
 
 /* ----------------------------------------------------------------------------

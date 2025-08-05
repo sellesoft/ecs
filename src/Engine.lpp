@@ -2,8 +2,6 @@ $ local cmn = require "common"
 
 @@lpp.import "Engine.lh"
 
-#include "iro/containers/StackArray.h"
-#include "iro/fs/Glob.h"
 #include "iro/Logger.h"
 #include "iro/time/Time.h"
 using namespace iro;
@@ -19,8 +17,7 @@ using namespace iro;
 @@lpp.import "game/client/Client.lh"
 @@lpp.import "game/server/Server.lh"
 
-static Logger logger =
-  Logger::create("ecs.eng"_str, Logger::Verbosity::Info);
+@log.ger(engine, Info)
 
 /* ----------------------------------------------------------------------------
  */
@@ -46,37 +43,6 @@ $ end
   @initSystem(broadcast_eventbus.init(),                broadcast event bus);
   @initSystem(assetmgr.init(&mem::stl_allocator),       asset mgr);
 
-  if (launch_args.find("-dedicated"_hashed))
-  {
-    io::StaticBuffer<sv::MAX_PASSWORD_LENGTH-1> password = {};
-    LaunchArg* password_arg = launch_args.find("-password"_hashed);
-    if (password_arg != nullptr)
-      password.write(password_arg->value);
-
-    sv::CreateParams server_params =
-    {
-      .engine = *this,
-      .global_allocation_size = unit::megabytes(1),
-      .match_allocation_size = unit::megabytes(1),
-      .tick_allocation_size = unit::megabytes(2),
-      .target_tickrate_ms = 48,
-      .publicity = (password.len > 0)
-        ? sv::ServerPublicity::Password : sv::ServerPublicity::Public,
-      .max_sessions = 8,
-      .password = password,
-    };
-    server_thread = sv::create(server_params);
-    if (server_thread == nullptr)
-      return FATAL("failed to create server thread\n");
-  }
-  else
-  {
-    client = new Client;
-    
-    if (!client->init(this))
-      return FATAL("failed to initialize Client\n");
-  }
-
   init_time = TimePoint::now();
 
   INFO("done initializing in ",
@@ -89,9 +55,6 @@ $ end
  */
 void Engine::deinit()
 {
-  if (client != nullptr)
-    client->deinit();
-
   assetmgr.deinit();
   // TODO(sushi) eventbus.broadcast.deinit();
   source_data_file_reg.deinit();
@@ -102,8 +65,6 @@ void Engine::deinit()
 b8 Engine::wantHotReload()
 {
 #if ECS_HOT_RELOAD
-  if (client)
-    return client->wantHotReload();
 #endif
   return false;
 }
@@ -117,14 +78,6 @@ Engine::UpdateResult Engine::update()
   iro::TimePoint time_point = iro::TimePoint::monotonic();
   frame_start_time = TimeSpan::fromSeconds(time_point.s).toSeconds()
     + TimeSpan::fromNanoseconds(time_point.ns).toSeconds();
-
-  if (client)
-  {
-    Client::UpdateResult client_result = client->update();
-
-    if (client_result.should_deinit)
-      result.should_close = true;
-  }
 
   return result;
 }

@@ -12,8 +12,6 @@ $ local cmn = require "common"
 #include "iro/traits/Nil.h"
 #include "assert.h"
 
-@@lpp.import "RefCounting.lh"
-
 struct SourceDataFileReg;
 struct SourceDataFile;
 
@@ -27,9 +25,6 @@ struct SourceDataFileHeader
   // no more refs exist.
   SourceDataFileReg* reg = nullptr;
 
-  // Ref count to this SourceDataFile.
-  RefCounter rc = {};
-  
   SourceDataFile* getFile() const
   {
     return (SourceDataFile*)(this + 1);
@@ -49,21 +44,6 @@ struct SourceDataFileHandle
 
   SourceDataFileHandle(const SourceDataFileHandle& rhs)
   {
-    if (header != nullptr)
-      release();
-    header = rhs.header;
-    if (header)
-      header->rc.addRef();
-  }
-
-  SourceDataFileHandle& operator =(const SourceDataFileHandle& rhs)
-  {
-    if (header != nullptr)
-      release();
-    header = rhs.header;
-    if (header != nullptr)
-      header->rc.addRef();
-    return *this;
   }
 
   void release();

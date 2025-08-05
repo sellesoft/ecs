@@ -2,6 +2,7 @@ $ require "common"
 
 @@lpp.import "game/server/NetMgr.lh"
 @@lpp.import "game/shared/NetMgr.lh"
+@@lpp.import "game/server/Server.lh"
 @@lpp.import "game/shared/Net.events.lh"
 
 #include "iro/Common.h"
@@ -82,8 +83,7 @@ namespace sv
  */
 b8 NetMgr::init(
   mem::Allocator* allocator,
-  PasswordBuffer& password,
-  ServerPublicity publicity,
+  Server* server,
   u16 max_sessions)
 {
   if (!SharedNetMgr::init(allocator))
@@ -93,9 +93,9 @@ b8 NetMgr::init(
   if (!this->sessions.init(max_sessions, allocator))
     return @log.error("failed to init the server sessions array\n");
 
-  this->password.copy(password);
-  this->publicity = publicity;
-  if (publicity != ServerPublicity::Offline)
+  this->server = server;
+
+  if (server->publicity != Server::Publicity::Offline)
   {
     if (!this->bind(net::SERVER_PORT))
     {
@@ -114,6 +114,7 @@ b8 NetMgr::init(
  */
 void NetMgr::deinit()
 {
+  this->server = nullptr;
   this->sessions.destroy();
   SharedNetMgr::deinit();
 }
@@ -123,7 +124,7 @@ void NetMgr::deinit()
 void NetMgr::receiveMessages()
 {
   // receive messages from clients
-  if (this->publicity == ServerPublicity::Offline)
+  if (this->server->publicity == Server::Publicity::Offline)
   {
     this->lockOfflinePacketMutex(Source::Client);
     defer { this->unlockOfflinePacketMutex(Source::Client); };
@@ -184,7 +185,7 @@ void NetMgr::receiveMessages()
 void NetMgr::sendMessages()
 {
   //NOTE(delle) lock before offline connection receive/send
-  if (this->publicity == ServerPublicity::Offline)
+  if (this->server->publicity == Server::Publicity::Offline)
   {
     this->lockOfflinePacketMutex(Source::Server);
     defer { this->unlockOfflinePacketMutex(Source::Server); };
@@ -198,8 +199,9 @@ void NetMgr::sendMessages()
 
     if (session.connection.state == Connection::State::Challenging)
     {
-      TimeSpan time_since_challenge = TimePoint::monotonic()
-                                    - session.last_challenge_time;
+      TimeSpan time_since_challenge = 
+        TimePoint::monotonic() - session.last_challenge_time;
+
       if (time_since_challenge.toMilliseconds() > 1000)
       {
         //TODO(delle) drop connection if time since challenge is too long
@@ -207,7 +209,8 @@ void NetMgr::sendMessages()
         continue;
       }
 
-      ChallengeNetEvent challenge_event = {
+      ChallengeNetEvent challenge_event = 
+      {
         .session = &session,
         .challenge_value = session.challenge_value,
       };

@@ -15,7 +15,6 @@ $ require "common"
 @@lpp.import "graphics/Geo.lh"
 @@lpp.import "game/client/Client.lh"
 @@lpp.import "game/client/GameSim.lh"
-@@lpp.import "game/server/Server.lh"
 @@lpp.import "game/shared/Console.events.lh"
 @@lpp.import "game/shared/entity/Entity.defs.lh"
 @@lpp.import "graphics/Renderer.lh"
@@ -114,16 +113,6 @@ $ end
     .sfilereg = engine->source_data_file_reg,
   };
 
-$ if false then
-  @init(console.init(*engine, asset_loader, true), Console);
-
-  engine->eventbus.broadcast.raise(AddCommandEvent{
-    .context = this,
-    .name = "connect"_str,
-    .func = handleConnectCommand,
-  });
-$ end
-
   cl::GameSim::InitParams sim_params =
   {
     .loader   = asset_loader,
@@ -156,9 +145,6 @@ void Client::deinit()
 
   editor.deinit(renderer);
   sim.deinit(renderer);
-$ if false then
-  console.deinit();
-$ end
   renderer.deinit(&mem::stl_allocator, engine->assetmgr);
   window.deinit();
   netmgr.deinit();
@@ -293,23 +279,7 @@ b8 Client::connectToServer(net::Address address)
   if (address.type == net::AddressType::Invalid)
     return @log.error("invalid address\n");
 
-  if (address.type == net::AddressType::Offline)
-  {
-    sv::CreateParams server_params =
-    {
-      .engine = *this->engine,
-      .global_allocation_size = unit::megabytes(1),
-      .match_allocation_size = unit::megabytes(1),
-      .tick_allocation_size = unit::megabytes(2),
-      .target_tickrate_ms = 48,
-      .publicity = sv::ServerPublicity::Offline,
-      .max_sessions = 1,
-      .password = {},
-    };
-    engine->server_thread = sv::create(server_params);
-    if (engine->server_thread == nullptr)
-      return FATAL("failed to create server thread\n");
-  }
+  assert(!"reimplement client connection to server");
 
   return netmgr.connectToServer(address);
 }
@@ -318,8 +288,6 @@ b8 Client::connectToServer(net::Address address)
  */
 void Client::disconnectFromServer()
 {
-  if (netmgr.connection.address.type == net::AddressType::Offline)
-    sv::destroy(engine->server_thread);
   netmgr.disconnectFromServer();
 }
 

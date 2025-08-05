@@ -4,17 +4,11 @@ $ local cmn = require "common"
 #include "iro/containers/AVL.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "window/Window.lh"
-
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "sdata/SourceDataFileReg.lh"
-
+@@lpp.import "event/BroadcastEventBus.lh"
 @@lpp.import "input/InputMgr.lh"
-
-// TODO(sushi) move this stuff elsewhere and remove this pure C++ header,
-//             I have absolutely no idea why I implemented it like this
-//             way back then.
-#include "event/BroadcastEventBus.h"
+@@lpp.import "window/Window.lh"
 
 namespace ui
 {
@@ -51,13 +45,6 @@ struct Engine
   AssetMgr assetmgr;
 
   hr::Reloader* reloader;
-
-  // The client/server threads, allocated depending on the situation ECS
-  // is running under.
-  // These are how the Engine runs the game, and the Engine has little to 
-  // no access to game systems.
-  Client* client;
-  void* server_thread;
 
   // Time point at which the Engine finished initialization.
   TimePoint init_time;

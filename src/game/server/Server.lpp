@@ -27,279 +27,43 @@ $ require "common"
 using namespace iro;
 
 struct MapDef;
-static void* updateServer(thread::Context* context);
-
-namespace sv
-{
-
-/* ============================================================================
- */
-enum struct ServerState : u8
-{
-  Lobby,
-  Ingame,
-};
-
-} // namespace sv
-
-/* ============================================================================
- */
-struct Server
-{
-  sv::ServerAllocator global_allocator; // cleared on deinit
-  sv::ServerAllocator match_allocator; // cleared before each match
-  sv::ServerAllocator tick_allocator; // cleared before each tick
-
-  TimeSpan target_timespan;
-  u64 tick_index;
-  sv::ServerState state;
-
-  Engine* engine;
-  sv::GameSim sim;
-  sv::NetMgr netmgr;
-  SharedConsole console;
-};
-
-namespace sv
-{
-
-static std::atomic_bool server_running = std::atomic_bool(false);
 
 /* ----------------------------------------------------------------------------
  */
-void* create(CreateParams& params)
+b8 Server::init(const InitParams& params)
 {
   // assert(thread::isMainThread());
-  @log.info("Creating server...\n");
+  @log.info("creating server...\n");
 
-  void* params_copy = mem::stl_allocator.allocate(sizeof(CreateParams));
-  if (params_copy == nullptr)
-  {
-    @log.error("failed to allocate params copy\n");
-    return thread::INVALID_HANDLE;
-  }
-  mem::copy(params_copy, &params, sizeof(CreateParams));
-
-  u64 thread_memory_size =  params.global_allocation_size
-                          + params.match_allocation_size
-                          + params.tick_allocation_size;
-  void* server_thread = thread::create(updateServer, params_copy,
-                                       thread_memory_size);
-  if (server_thread == thread::INVALID_HANDLE)
-  {
-    @log.error("failed to create the server thread\n");
-    return thread::INVALID_HANDLE;
-  }
-
-  return server_thread;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void destroy(void* server_thread)
-{
-  assert(thread::isMainThread());
-  @log.trace("destroying server\n");
-
-  server_running.store(false);
-  thread::detach(server_thread);
-}
-
-/* ----------------------------------------------------------------------------
- */
-static b8 startMatch(Server* server, String map_name, b8 existing)
-{
-  assert(!thread::isMainThread());
-  assertpointer(server);
-  @log.trace("starting server match\n");
-
-  MapDef* map_def = nullptr;
-  if (existing)
-  {
-    CompiledData* data = CompiledData::load(map_name, "MapSave"_str,
-      server->engine->assetmgr);
-    if (data == nullptr)
-      return @log.error("failed to start a server match because the"
-        " map save name is invalid\n");
-    map_def = data->getRootAs<MapDef>();
-  }
-  else
-  {
-    CompiledData* data = CompiledData::load(map_name, "MapDef"_str,
-      server->engine->assetmgr);
-    if (data == nullptr)
-      return @log.error("failed to start a server match because the"
-        " map def name is invalid\n");
-    map_def = data->getRootAs<MapDef>();
-  }
-  assertpointer(map_def);
-
-  server->match_allocator.clear();
-  server->state = ServerState::Ingame;
-
-  sv::GameSim::InitParams game_sim_params = {};
-
-  if (!server->sim.init(game_sim_params))
-    return @log.error("failed to init server sim\n");
-
-  return true;
-}
-
-/* ----------------------------------------------------------------------------
- */
-static void stopMatch(Server* server)
-{
-  assert(!thread::isMainThread());
-  assertpointer(server);
-  @log.trace("stopping server match\n");
-
-  server->sim.deinit();
-
-  server->state = ServerState::Lobby;
-}
-
-} // namespace sv
-
-/* ----------------------------------------------------------------------------
- */
-static Server* createServer(thread::Context* ctx, sv::CreateParams* params)
-{
-  assert(!thread::isMainThread());
   using namespace sv;
+  
+  assert(false);
 
-  defer { mem::stl_allocator.free(params); };
-
-  void* global_memory = ctx->allocator.allocate(params->global_allocation_size);
-  if (global_memory == nullptr)
-  {
-    @log.error("failed to allocate global memory for the server\n");
-    return nullptr;
-  }
-
-  ServerAllocator global_allocator;
-  if(!global_allocator.init(global_memory, params->global_allocation_size))
-  {
-    @log.error("failed to init the global server allocator\n");
-    return nullptr;
-  }
-
-  Server* server = global_allocator.construct<Server>();
-  if (server == nullptr)
-  {
-    @log.error("failed to construct the server object\n");
-    return nullptr;
-  }
-  server->global_allocator = global_allocator;
-
-  void* match_memory = ctx->allocator.allocate(params->match_allocation_size);
-  if (match_memory == nullptr)
-  {
-    @log.error("failed to allocate match memory for the server\n");
-    return nullptr;
-  }
-
-  if(!server->match_allocator.init(match_memory, params->match_allocation_size))
-  {
-    @log.error("failed to init the match server allocator\n");
-    return nullptr;
-  }
-
-  void* tick_memory = ctx->allocator.allocate(params->tick_allocation_size);
-  if (tick_memory == nullptr)
-  {
-    @log.error("failed to allocate tick memory for the server\n");
-    return nullptr;
-  }
-
-  if(!server->tick_allocator.init(tick_memory, params->tick_allocation_size))
-  {
-    @log.error("failed to init the tick server allocator\n");
-    return nullptr;
-  }
-
-  server->target_timespan =
-    TimeSpan::fromMilliseconds(params->target_tickrate_ms);
-  server->tick_index = 0;
-  server->state = ServerState::Lobby;
-  server->engine = &params->engine;
-
-  if (!server->netmgr.init(&server->global_allocator,
-                          params->password,
-                          params->publicity,
-                          params->max_sessions))
-  {
-    @log.error("failed to init network manager\n");
-    return nullptr;
-  }
-
-  if (!server->console.init(params->engine, true))
-  {
-    @log.error("failed to init the server console\n");
-    return nullptr;
-  }
-
-  server_running.store(true);
-  return server;
+  return false;
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void* updateServer(thread::Context* ctx)
+void Server::deinit()
 {
-  assert(!thread::isMainThread());
-  using namespace sv;
+}
 
-  CreateParams* params = (CreateParams*)ctx->data;
-  Server* server = createServer(ctx, params);
-  if (server == nullptr)
-    return (void*)1;
+/* ----------------------------------------------------------------------------
+ */
+b8 Server::startMatch()
+{
+  return false;
+}
 
-  while (server_running.load())
-  {
-    iro::TimePoint start_timepoint = iro::TimePoint::monotonic();
-    @log.trace("updating the server\n");
+/* ----------------------------------------------------------------------------
+ */
+void stopMatch()
+{
+}
 
-    server->tick_allocator.clear();
-
-    server->console.update();
-
-    // Receive messages from clients.
-    server->netmgr.receiveMessages();
-
-    // Update the game simulation.
-    if (server->state == ServerState::Ingame)
-    {
-      if(!server->sim.update())
-      {
-        @log.error("failed to update server sim\n");
-        return (void*)1;
-      }
-    }
-
-    // Send messages to clients.
-    server->netmgr.sendMessages();
-
-    // Sleep if we're under tickrate budget.
-    // NOTE(delle) hardcoded 200ms tickrate in the lobby
-    {
-      TimeSpan current_timespan = TimePoint::monotonic() - start_timepoint;
-      TimeSpan target_timespan = (server->state == ServerState::Ingame)
-                                 ? server->target_timespan
-                                 : TimeSpan::fromMilliseconds(200);
-      TimeSpan wait_timespan = TimeSpan::fromNanoseconds(
-        target_timespan.ns - current_timespan.ns);
-      if (wait_timespan.ns > 0)
-      {
-        platform::sleep(wait_timespan);
-      }
-      else
-      {
-        // TODO: trigger profiler export since we're over budget
-      }
-    }
-
-    server->tick_index++;
-  }
-
-  return (void*)0;
+/* ----------------------------------------------------------------------------
+ */
+Server::UpdateResult Server::update()
+{
+  return {};
 }

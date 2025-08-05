@@ -43,10 +43,10 @@ struct SharedConsole
   u64 command_name_arena_used;
 
 
-  b8 init(Engine& eng, b8 stdin_enabled);
-  void deinit();
-  void update();
+  b8 init(Engine& eng, b8 stdin_enabled) { return true; }
+  void deinit() {}
+  void update() {}
 
-  void addCommand(AddCommandEvent& event);
-  void runCommand(RunCommandEvent& event);
+  void addCommand(AddCommandEvent& event) {}
+  void runCommand(RunCommandEvent& event) {}
 };

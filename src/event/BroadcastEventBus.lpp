@@ -1,66 +1,57 @@
-$ if false then
 $ local cmn = require "common"
-$ local beb = require "event.BroadcastEventBus"
-$ local glob = require "Glob"
 $ local buffer = require "string.buffer"
-$ local ast = require "reflect.AST"
+$ local ast = require "reflect.ast"
 
-$$$
-local importer = require "reflect.Importer"
+$$$ 
+local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
-  patterns = { "src/**/*.events.lh" },
-
-  filter = function(p, decl)
-    if decl.metadata.event then
-      return true
-    end
-  end,
+  "src/**/*.events.lh"
 }
 $$$
-@@importer:get
+@@imported:get
 
-#include "event/BroadcastEventBus.h"
-
-$ local TEvent = importer.p.decls.map["struct Event"]
-$ local TBroadcastEvent = importer.p.decls.map["struct BroadcastEvent"]
+@@lpp.import "event/BroadcastEventBus.lh"
 
 $ local function eachEvent(f)
-$   importer:eachDecl(function(name, decl)
+$   for decl in astctx.type_decls:each() do
 $     if decl.metadata.event == "broadcast" then
-$       f(name, decl)
+$       f(decl)
 $     end
-$   end)
+$   end
 $ end
 
 struct BroadcastEventBusData
 {
-$ eachEvent(function(name, decl)
-  struct $(name)Subscriber
+$ eachEvent(function(decl)
+$   local cname = decl:formCSafeName()
+  struct $(cname)Subscriber
   {
     void* subscriber;
-    void (*callback)(void*, $(name)& event);
+    void (*callback)(void*, $(decl.type.name)& event);
   };
-  Pool<$(name)Subscriber> $(name)Subscriber_pool;
-  SList<$(name)Subscriber> $(name)Subscriber_list;
+  Pool<$(cname)Subscriber> $(cname)Subscriber_pool;
+  SList<$(cname)Subscriber> $(cname)Subscriber_list;
 $ end)
 };
 
-$ eachEvent(function(name, decl)
+$ eachEvent(function(decl)
+$   local cname = decl:formCSafeName()
 template<>
-void BroadcastEventBus::subscribeTo<$(name)>(
+void BroadcastEventBus::subscribeTo<$(decl.type.name)>(
   void* subscriber, 
-  void (*callback)(void*, $(name)&))
+  void (*callback)(void*, $(decl.type.name)&))
 {
-  auto* sub = data->$(name)Subscriber_pool.add();
+  auto* sub = data->$(cname)Subscriber_pool.add();
   sub->subscriber = subscriber;
   sub->callback = callback;
-  data->$(name)Subscriber_list.push(sub);
+  data->$(cname)Subscriber_list.push(sub);
 }
 
 template<>
-void BroadcastEventBus::raise<$(name)>($(name)& event) const
+void BroadcastEventBus::raise<$(decl.type.name)>(
+    $(decl.type.name)& event) const
 {
-  for (auto& sub : data->$(name)Subscriber_list)
+  for (auto& sub : data->$(cname)Subscriber_list)
   {
     sub.callback(sub.subscriber, event);
   }
@@ -71,10 +62,10 @@ b8 BroadcastEventBus::init()
 {
   data = (BroadcastEventBusData*)mem::stl_allocator.allocate(
     sizeof(BroadcastEventBusData));
-$ eachEvent(function(name, decl)
-  if (!data->$(name)Subscriber_list.init()) return false;
-  if (!data->$(name)Subscriber_pool.init()) return false;
+$ eachEvent(function(decl)
+$   local cname = decl:formCSafeName()
+  if (!data->$(cname)Subscriber_list.init()) return false;
+  if (!data->$(cname)Subscriber_pool.init()) return false;
 $ end)
   return true;
 }
-$ end

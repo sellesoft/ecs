@@ -90,7 +90,6 @@ struct Connection
   QueuedMessage* message_queue_start;
   QueuedMessage** message_queue_end;
 
-
   b8 init(Address address, SharedNetMgr* netmgr);
 
   void deinit();

@@ -1,24 +1,28 @@
-$ if false then
-$ local cmn = require "common"
-$ local beb = require "event.BroadcastEventBus"
-$ local glob = require "Glob"
-$ local buffer = require "string.buffer"
+/*
+ *  Bus for broadcasting events to be handled by systems across the entire
+ *  engine.
+ */
 
-// Import all event def files.
-$ if false then
-$ local importEvents = function()
-$   local buf = buffer.new()
-$   glob "**/*.events.lh" :each(function(eventpath)
-$     buf:put(lpp.import(eventpath:sub(5)))
-$   end)
-$   return buf:get()
-$ end
-@@importEvents
-$ end
+$ require "common"
 
-struct BroadcastEventBusData
+#include "iro/Common.h"
+#include "iro/containers/List.h"
+#include "iro/containers/Pool.h"
+
+using namespace iro;
+
+struct BroadcastEventBus
 {
+  struct BroadcastEventBusData* data;
+  
+  template<typename T>
+  void subscribeTo(void* subscriber, void (*callback)(void*, T&));
+
+  template<typename T>
+  void raise(T&& event) const { raise<T>(event); }
+
+  template<typename T>
+  void raise(T& event) const;
+
+  b8 init();
 };
-
-$ end
-

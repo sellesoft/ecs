@@ -209,6 +209,7 @@ for cfile in lake.utils.glob("src/**/*.cpp"):each() do
   objs:push(o.Cpp(cfile):compile(output, cpp_params))
 end
 
+objs:pushList(iro_objs)
 
 o.Exe "build/ecs" :link(objs, link_params)
 

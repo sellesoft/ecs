@@ -90,8 +90,6 @@ SourceDataFileHandle SourceDataFileReg::loadFromDisk(String path)
 
   map.insert(slot);
 
-  slot->header.rc.addRef();
-
   return SourceDataFileHandle(&slot->header);
 }
 

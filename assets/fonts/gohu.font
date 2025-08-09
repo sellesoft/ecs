@@ -1,4 +1,4 @@
-return FontDef
+return gfx::FontDef
 {
   name = "gohu",
   asset_path = "assets/fonts/gohu.bdf",

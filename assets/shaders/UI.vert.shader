@@ -1,5 +1,5 @@
 return gfx::ShaderDef
 {
   stage = "Vertex",
-  source = "assets/shaders/UI"
+  source = "assets/shaders/UI.vert"
 }

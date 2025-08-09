@@ -6,14 +6,16 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "graphics/TextureParams.lh"
-@@lpp.import "asset/Asset.lh"
+@@lpp.import "graphics/ResourceRef.lh"
 
 namespace gfx
 {
 
+struct CompiledTexture;
+
 /* ============================================================================
  */
-@metadata.source_types(texture)
+@metadata.source_data_type(texture)
 @metadata.def
 struct TextureDef
 {
@@ -33,6 +35,10 @@ struct TextureDef
   ImageAddressMode address_mode;
 };
 
-typedef TypedSourceAssetRef<TextureDef> TextureDefRef;
+/* ============================================================================
+ */
+@metadata.def_type(gfx::TextureDef)
+@metadata.compiled_type(gfx::CompiledTextureData)
+struct TextureRef : TypedResourceRef<CompiledTexture> {};
 
 }

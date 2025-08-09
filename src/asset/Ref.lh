@@ -12,6 +12,7 @@ $ require "common"
 #include "iro/Unicode.h"
 
 @@lpp.import "reflect/RTR.lh"
+@@lpp.import "reflect/TypeId.lh"
 
 using namespace iro;
 
@@ -73,4 +74,5 @@ struct AssetLoader
   }
 };
 
-
+template<rtr::TypeId type>
+void testTypeId();

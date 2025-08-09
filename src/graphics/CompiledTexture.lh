@@ -3,7 +3,7 @@
  */
 
 $ require "common"
-$ local metadata = require "reflect.Metadata"
+$ local m = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -36,6 +36,7 @@ struct Renderer;
 /* ============================================================================
  *  Note that this structure represents exactly what we save to disk.
  */
+@m.compiled_data_type(texture.compiled)
 struct CompiledTextureData
 {
   s32 width;
@@ -47,6 +48,8 @@ struct CompiledTextureData
 };
 
 typedef TypedAssetRef<CompiledTextureData> CompiledTextureDataRef;
+
+b8 compileTexture(String data_path, String output_path);
 
 /* ============================================================================
  */
@@ -93,7 +96,5 @@ struct CompiledTexture
   static b8 compileFromMemory(
     void* data, fs::File* file, CompileParams& params);
 };
-
-typedef TypedAssetRef<CompiledTexture> CompiledTextureRef;
 
 }

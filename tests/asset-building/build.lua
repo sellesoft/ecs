@@ -20,10 +20,12 @@ return function(
         :compile(cpp..".o", cpp_params))
   end
 
+  compileLpp "src/asset/Ref.lpp"
   compileLpp "src/reflect/RTR.lpp"
   compileLpp "src/reflect/RTR_Pretty.lpp"
   compileLpp "src/graphics/CompiledTexturePNG.lpp"
   compileLpp "src/graphics/CompiledTexture.lpp"
+  compileLpp "src/graphics/CompiledShader.lpp"
   compileLpp "src/asset/CompiledData.lpp"
   compileLpp "src/asset/Packing.lpp"
   compileLpp "src/sdata/SourceDataFile.lpp"

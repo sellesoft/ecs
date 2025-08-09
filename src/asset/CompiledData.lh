@@ -55,6 +55,13 @@ struct CompiledData
 
   static b8 compile(const CompileParams& params);
 
+  // TODO(sushi) it kinda blows that we need to pass an allocator in here. 
+  //             Really, the size needed to load some CompiledData is the 
+  //             size of the file on disk, but that's not totally clear 
+  //             and its just easier to handle that stuff internally.
+  //             Maybe add a thing to get the required size later (which
+  //             also sucks cause that would be checking something on disk
+  //             to do so).
   static CompiledData* load(String path, mem::Allocator* allocator);
 
   // Gets the loaded data as the specified C++ type. Note that currently there 
@@ -66,6 +73,20 @@ struct CompiledData
   //             templates. This should be changed to be a macro instead 
   //             which takes the typename, transforms it to a typeid, checks
   //             that it matches 'type' and then casts the root pointer.
+  //             Specifically, if we tried to use a typedef here and had 
+  //             checks that would get the typeid from T, it would return
+  //             the typeid of the typedef'd type, not the desired type, which
+  //             would break. Not that it would necessarily be wrong (the 
+  //             data would be the same), but we would want to make sure that 
+  //             if a type is compiled as typedef B A;, and we ask for A, 
+  //             we are going to only allow getting compiled data of type A,
+  //             NOT B.
+  // NOTE(sushi) I have just discovered that we can actually use rtr::TypeId
+  //             as a template argument... Though I suppose we can't really 
+  //             utilize that here cause we can't determine what the return
+  //             type should be unless we have an in-header mapping of 
+  //             typeids to their types. Don't really want to start generating
+  //             code like that in headers. Just make it a macro.
   template<typename T>
   T* getRootAs() const
   {
@@ -90,4 +111,3 @@ struct CompiledData
 
   void getRefs(Refs* refs);
 };
-

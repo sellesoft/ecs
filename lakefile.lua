@@ -110,7 +110,7 @@ local iro_objs = List {}
 lake.utils.indir("include/iro", function()
   local iro = require "project" ()
 
-    -- TODO(sushi) lake.utils helper for merging tables like this.
+  -- TODO(sushi) lake.utils helper for merging tables like this.
   --             Dunno, the way I decided to specify defines kinda sucks 
   --             but its simple at least.
   for _, def in ipairs(iro.defines) do

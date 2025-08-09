@@ -3,6 +3,7 @@
  */
 
 $ require "common"
+$ local m = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -20,6 +21,7 @@ namespace gfx
 /* ============================================================================
  * Note that this structure represents exactly what we save to disk.
  */
+@m.compiled_data_type(shader.compiled)
 struct CompiledShaderData
 {
   ShaderStage stage;
@@ -27,6 +29,15 @@ struct CompiledShaderData
 };
 
 typedef TypedAssetRef<CompiledShaderData> CompiledShaderDataRef;
+
+struct CompileShaderParams
+{ 
+  // Path to compiled ShaderDef defining this shader.
+  String input_path;
+  String output_path;
+};
+
+b8 compileShader(const CompileShaderParams& params);
 
 /* ============================================================================
  */

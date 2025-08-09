@@ -11,6 +11,7 @@ $ require "common"
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "graphics/Shader.defs.lh"
 
 namespace gfx
 {
@@ -35,82 +36,77 @@ static shaderc_shader_kind shaderKindToShaderc(ShaderStage stage)
 
 /* ----------------------------------------------------------------------------
  */
-s64 CompiledShader::writeDataPath(io::IO* io, String name, AssetMgr& assetmgr)
-{
-  return io::formatv(io,
-      assetmgr.getDataDir(), '/', name, ".cmp_shader");
-}
-
-/* ----------------------------------------------------------------------------
- */
 CompiledShader* CompiledShader::load(
   String name,
   AssetMgr& assetmgr,
   gfx::Renderer& renderer)
 {
-  using namespace fs;
+  return nullptr;
 
-  if (CompiledShader* existing = renderer.resource_mgr.findShader(name))
-    return existing;
-
-  TRACE("loading '", name, "'\n");
-
-  PathBuffer data_path_buf;
-  writeDataPath(&data_path_buf, name, assetmgr);
-
-  String data_path = data_path_buf.asStr();
-  assert(nullptr == assetmgr.findAsset(data_path));
-
-  if (!fs::path::exists(data_path))
-  {
-    ERROR("attempt to load shader '", name, "' but there is no asset "
-          "at path '", data_path, "'\n");
-    return nullptr;
-  }
-
-  Asset* asset = assetmgr.loadAssetFromDisk(data_path);
-  if (asset == nullptr)
-  {
-    @log.error("failed to load texture '", name, "' from disk\n");
-    return nullptr;
-  }
-
-  auto* shader = renderer.resource_mgr.createShader(name);
-  if (shader == nullptr)
-  {
-    ERROR("failed to allocate shader '", name, "'\n");
-    return nullptr;
-  }
-
-  shader->asset.asset = asset;
-
-  auto& data = shader->getData();
-  shader->gfx_shader = Shader::create(
-    renderer,
-    {
-      .stage = data.stage,
-      .spv_binary = data.binary.getSlice(),
-      .debug_name = name,
-    });
-
-  if (isnil(shader->gfx_shader))
-    return nullptr;
-
-  return shader;
+  // using namespace fs;
+  //
+  // if (CompiledShader* existing = renderer.resource_mgr.findShader(name))
+  //   return existing;
+  //
+  // TRACE("loading '", name, "'\n");
+  //
+  // PathBuffer data_path_buf;
+  // writeDataPath(&data_path_buf, name, assetmgr);
+  //
+  // String data_path = data_path_buf.asStr();
+  // assert(nullptr == assetmgr.findAsset(data_path));
+  //
+  // if (!fs::path::exists(data_path))
+  // {
+  //   ERROR("attempt to load shader '", name, "' but there is no asset "
+  //         "at path '", data_path, "'\n");
+  //   return nullptr;
+  // }
+  //
+  // Asset* asset = assetmgr.loadAssetFromDisk(data_path);
+  // if (asset == nullptr)
+  // {
+  //   @log.error("failed to load texture '", name, "' from disk\n");
+  //   return nullptr;
+  // }
+  //
+  // auto* shader = renderer.resource_mgr.createShader(name);
+  // if (shader == nullptr)
+  // {
+  //   ERROR("failed to allocate shader '", name, "'\n");
+  //   return nullptr;
+  // }
+  //
+  // shader->asset.asset = asset;
+  //
+  // auto& data = shader->getData();
+  // shader->gfx_shader = Shader::create(
+  //   renderer,
+  //   {
+  //     .stage = data.stage,
+  //     .spv_binary = data.binary.getSlice(),
+  //     .debug_name = name,
+  //   });
+  //
+  // if (isnil(shader->gfx_shader))
+  //   return nullptr;
+  //
+  // return shader;
 }
 
 /* ----------------------------------------------------------------------------
  */
 void CompiledShader::unload(AssetMgr& assetmgr, Renderer& renderer)
 {
-  gfx_shader.destroy(renderer);
-  assetmgr.unloadAsset(asset.asset);
+  // gfx_shader.destroy(renderer);
+  // assetmgr.unloadAsset(asset.asset);
 }
 
 /* ----------------------------------------------------------------------------
  */
 b8 CompiledShader::compileGLSL(CompileParams& params)
 {
+$ if false then
   using namespace fs;
 
   PathBuffer asset_path_buffer;
@@ -199,6 +195,102 @@ $ end -- if ECS_DEBUG
   CompiledShaderData data;
   data.stage = params.stage;
   data.binary.setSlice((u8*)&data + sizeof(CompiledShaderData),
+    spv_binary_length);
+
+  data_file.write({(u8*)&data, sizeof(CompiledShaderData)});
+  data_file.write({spv_binary_bytes, spv_binary_length});
+
+  return true;
+$ end
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 compileShader(const CompileShaderParams& params)
+{
+  using namespace fs;
+
+  String in = params.input_path;
+  String out = params.output_path;
+
+  if (isnil(in))
+    return ERROR("compileShader was not given an input path\n");
+
+  if (isnil(out))
+    return ERROR("compileShader was not given an output path\n");
+
+  // Open (and lock) the destination file immediately to catch any errors 
+  // with doing so early (such as the containing directory not existing).
+  File data_file = File::createForTruncatedWriting(out);
+  if (isnil(data_file))
+    return ERROR("failed to open output file '", out, "'\n");
+  defer { data_file.close(); };
+
+  // Load the compiled ShaderDef.
+  mem::LenientBump compiled_data_allocator;
+  if (!compiled_data_allocator.init())
+    return ERROR("failed to initialize compiled_data_allocator to load "
+                 "ShaderDef for shader '", in, "'\n");
+  defer { compiled_data_allocator.deinit(); };
+
+  auto* compiled_def = CompiledData::load(in, &compiled_data_allocator);
+  if (compiled_def == nullptr)
+    return ERROR("failed to load compiled ShaderDef for shader '", in, "'\n");
+  compiled_def->fixPointers();
+
+  ShaderDef* def = compiled_def->getRootAs<ShaderDef>();
+  if (isnil(def->source))
+    return ERROR(
+      "shader def for shader '", in, "' does not specify a source path\n");
+
+  io::Memory source_buffer;
+  if (!source_buffer.open())
+    return ERROR("failed to init memory buffer for reading shader\n");
+  defer { source_buffer.close(); };
+
+  if (!File::openAndRead(&source_buffer, def->source))
+    return ERROR(
+      "failed to open/read shader source file '", def->source, "'\n");
+
+  shaderc_compiler_t compiler = shaderc_compiler_initialize();
+  if (compiler == nullptr)
+    return ERROR("failed to create shader compiler\n");
+  defer { shaderc_compiler_release(compiler); };
+
+  shaderc_compile_options_t options = shaderc_compile_options_initialize();
+  if (options == nullptr)
+  {
+    return ERROR("failed to create shader compile options\n");
+  }
+  defer { shaderc_compile_options_release(options); };
+
+$ if ECS_DEBUG then
+  shaderc_compile_options_set_generate_debug_info(options);
+$ else -- if ECS_DEBUG
+  shaderc_compile_options_set_optimization_level(
+    options, shaderc_optimization_level_performance);
+$ end -- if ECS_DEBUG
+
+  shaderc_compilation_result_t result = shaderc_compile_into_spv(
+    compiler,
+    (const char*)source_buffer.ptr, source_buffer.len,
+    shaderKindToShaderc(def->stage),
+    (const char*)in.ptr, "main",
+    options);
+  defer { shaderc_result_release(result); };
+
+  if (   shaderc_result_get_compilation_status(result)
+      != shaderc_compilation_status_success)
+    return ERROR("failed to compile shader: ",
+      shaderc_result_get_error_message(result), "\n");
+
+  u8* spv_binary_bytes = (u8*)shaderc_result_get_bytes(result);
+  u64 spv_binary_length = shaderc_result_get_length(result);
+
+  CompiledShaderData data;
+  data.stage = def->stage;
+  data.binary.setSlice(
+    (u8*)&data + sizeof(CompiledShaderData),
     spv_binary_length);
 
   data_file.write({(u8*)&data, sizeof(CompiledShaderData)});

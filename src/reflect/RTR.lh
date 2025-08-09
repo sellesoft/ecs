@@ -1,12 +1,14 @@
 /*
  *  Provides an API for getting various reflected info at run time,
- *  "Runtime Reflection."
+ *  "[r]un[t]ime [r]eflection."
  */
 
 $ require "common"
 
 #include "iro/Unicode.h"
 #include "iro/fs/File.h"
+
+@@lpp.import "reflect/TypeId.lh"
 
 using namespace iro;
 
@@ -33,10 +35,10 @@ String getTypename();
 
 // Retrieves the value of some metadata on a type or nil if it doesn't 
 // exist or is an unsupported type.
-template<typename T>
+template<rtr::TypeId type>
 String getMetadataValue(String name);
 
-String getMetadataValue(String type, String name);
+String getMetadataValue(TypeId type, String name);
 
 // Gets a string for some element of an enum.
 template<typename T>

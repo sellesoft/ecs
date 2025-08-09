@@ -1129,6 +1129,7 @@ end
 
 -- Cheat and call our typedefs of the standard builtins builtin, because
 -- its annoying to deal with having to unwrap them in reflection code.
+Builtin("b8",  1)
 Builtin("u8",  1)
 Builtin("u16", 2)
 Builtin("u32", 4)

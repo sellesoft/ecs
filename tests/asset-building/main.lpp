@@ -9,12 +9,13 @@ $ local cmn = require "common"
 @@lpp.import "build/Build.defs.lh"
 @@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
+@@lpp.import "graphics/CompiledShader.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
-@log.ger(test-asset-building, Trace)
+@log.ger(test-asset-building, Info)
 
 typedef io::StaticBuffer<512> PathBuffer;
 
@@ -50,145 +51,389 @@ build::AssetList* packAssetList(String path, PackedData* packed)
   return packed->getDataAs<build::AssetList>();
 }
 
-// Packs the source data at the given path into whatever type it specifies 
-// for its returned data.
-b8 packAsset(String path, PackedData* packed)
+struct Builder
 {
-  DEBUG("packing source data at '", path, "'\n");
+  mem::LenientBump string_pool;
 
-  SourceDataFile sfile;
-  if (!SourceDataFile::from(&sfile, path))
-    return ERROR("failed to load source data at '", path, "'\n");
-  defer { sfile.deinit(); };
+  Pool<String> target_pool;
+  DList<String> seen_targets;
+  DList<String> target_queue;
 
-  TRACE("got source data:\n");
-  if (TEST_VERBOSITY(Trace))
-    sfile.returned_data->dump();
+  mem::LenientBump compiled_data_allocator;
 
-  if (!packed->init())
-    return ERROR("failed to initialize PackedData for source data at '",
-                 path, "'\n");
+  String build_dir;
 
-  PackParams pack_params = { packed };
-  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
-    return ERROR("failed to pack source data at '", path, "'\n");
-
-  return true;
-}
-
-// Compiles some packed data out to the specified output_path and then 
-// loads it.
-CompiledData* compileAssetData(
-    const PackedData& packed, 
-    String output_path,
-    mem::Allocator* data_allocator)
-{
-  DEBUG("compiling packed data to '", output_path, "'\n");
-
-  CompiledData::CompileParams compile_params = 
+  /* --------------------------------------------------------------------------
+   */
+  b8 init(String build_dir)
   {
-    .type = packed.type,
-    .dataptr = packed.data.ptr,
-    .output_path = output_path,
-  };
+    this->build_dir = build_dir;
 
-  if (!CompiledData::compile(compile_params))
-    return ERROR("failed to compile packed data to '", output_path, "'\n"),
-           nullptr;
+    fs::mkdir(build_dir, true);
 
-  return CompiledData::load(output_path, data_allocator);
-}
+    if (!string_pool.init())
+      return ERROR("failed to init string_pool\n");
 
-// Packs AND compiles some source data to the specified output_path and loads
-// it.
-CompiledData* packAndCompileSourceDataAsset(
-    String input_path,
-    String output_path,
-    mem::Allocator* data_allocator)
-{
-  PackedData packed;
-  if (!packAsset(input_path, &packed))
-    return nullptr;
-  defer { packed.deinit(); };
+    if (!target_pool.init())
+      return ERROR("failed to init target_pool\n");
 
-  CompiledData* compiled = 
-    compileAssetData(packed, output_path, data_allocator);
+    if (!seen_targets.init())
+      return ERROR("failed to init seen_targets\n");
 
-  if (compiled == nullptr)
-    return nullptr;
+    if (!target_queue.init())
+      return ERROR("failed to init target_queue\n");
 
-  return compiled;
-}
+    if (!compiled_data_allocator.init())
+      return ERROR("failed to init compiled_data_allocator\n");
 
-b8 buildAsset(
-    String path,
-    String build_dir,
-    mem::Allocator* data_allocator)
-{
-  if (path.endsWith(".data"_str))
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void deinit()
+  {
+    string_pool.deinit();
+    target_pool.deinit();
+    seen_targets.deinit();
+    target_queue.deinit();
+    compiled_data_allocator.deinit();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 packAsset(String path, PackedData* packed)
+  {
+    DEBUG("packing source data at '", path, "'\n");
+
+    SourceDataFile sfile;
+    if (!SourceDataFile::from(&sfile, path))
+      return ERROR("failed to load source data at '", path, "'\n");
+    defer { sfile.deinit(); };
+
+    TRACE("got source data:\n");
+    if (TEST_VERBOSITY(Trace))
+      sfile.returned_data->dump();
+
+    if (!packed->init())
+      return ERROR("failed to initialize PackedData for source data at '",
+                   path, "'\n");
+
+    PackParams pack_params = { packed };
+    if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+      return ERROR("failed to pack source data at '", path, "'\n");
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  CompiledData* compilePackedAsset(
+      const PackedData& packed, 
+      String output_path)
+  {
+    DEBUG("compiling packed data to '", output_path, "'\n");
+
+    CompiledData::CompileParams compile_params = 
+    {
+      .type = packed.type,
+      .dataptr = packed.data.ptr,
+      .output_path = output_path,
+    };
+
+    if (!CompiledData::compile(compile_params))
+      return ERROR("failed to compile packed data to '", output_path, "'\n"),
+             nullptr;
+
+    return CompiledData::load(output_path, &compiled_data_allocator);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  CompiledData* packAndCompileSourceDataAsset(
+      String input_path,
+      String output_path)
+  {
+    PackedData packed;
+    if (!packAsset(input_path, &packed))
+      return nullptr;
+    defer { packed.deinit(); };
+
+    CompiledData* compiled = compilePackedAsset(packed, output_path);
+    if (compiled == nullptr)
+      return nullptr;
+
+    return compiled;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void noteTarget(String target)
+  {
+    b8 already_seen = false;
+    for (String seen : seen_targets)
+    {
+      if (seen == target)
+      {
+        already_seen = true;
+        break;
+      }
+    }
+
+    if (!already_seen)
+    {
+      String* new_target = target_pool.add(target.nullTerminate(&string_pool));
+      seen_targets.pushTail(new_target);
+      target_queue.pushTail(new_target);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  String formOutputPath(PathBuffer* buffer, String target_name)
+  {
+    // Build output path.
+    io::formatv(buffer, build_dir, "/", target_name);
+
+    // Get null-terminated destination dir so we may create it.
+    PathBuffer dest_dir;
+    fs::path::removeBasename(String(*buffer)).nullTerminate(&dest_dir);
+
+    fs::mkdir(String(dest_dir), true);
+
+    return String(*buffer);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildSourceData(String path)
   {
     DEBUG("building asset '", path, "'\n");
 
     // Remove data extension to get the source asset path.
-    PathBuffer source_path;
-    io::format(&source_path, path.subToLast('.'));
+    PathBuffer source_path_buffer;
+    io::format(&source_path_buffer, path.subToLast('.'));
+    String source_path = String(source_path_buffer);
 
     if (!fs::path::exists(String(source_path)))
       return ERROR("no file at path '", String(source_path), "'\n");
+  
+    PathBuffer dest_path_buffer;
+    String dest_path = formOutputPath(&dest_path_buffer, path);
 
-    // Build output path.
-    PathBuffer dest_path;
-    io::formatv(&dest_path, build_dir, "/", path);
-
-    // Get null-terminated destination dir so we may create it.
-    PathBuffer dest_dir;
-    fs::path::removeBasename(String(dest_path)).nullTerminate(&dest_dir);
-
-    fs::mkdir(String(dest_dir), true);
-
-    DEBUG("building source asset '", String(source_path), "' -> '",
-          String(dest_path), "'\n");
+    DEBUG("building source asset '", source_path, "' -> '",
+          dest_path, "'\n");
 
     CompiledData* compiled = 
-      packAndCompileSourceDataAsset(
-        String(source_path),
-        String(dest_path),
-        data_allocator);
+      packAndCompileSourceDataAsset(source_path, dest_path);
 
     if (compiled == nullptr)
       return false;
 
     compiled->fixPointers();
 
-    rtr::prettyPrint(compiled->type, compiled->root.ptr.get());
-  }
-  else
-    return ERROR("unknown asset data type for '", path, "'\n");
+    if (TEST_VERBOSITY(Trace))
+      rtr::prettyPrint(compiled->type, compiled->root.ptr.get());
 
-  return true;
-}
+    CompiledData::Refs refs;
+    compiled->getRefs(&refs);
+
+    for (CompiledData::DataRef& ref : refs)
+    {
+      if (isnil(ref.target))
+        // Ref doesn't refer to anything.
+        continue;
+
+      String ref_typename = rtr::typenameFromTypeId(ref.type);
+
+      DEBUG("refs ", ref.target, " at ", ref.ptr, " type ", ref_typename);
+
+      String def_type = rtr::getMetadataValue(ref.type, "def_type"_str);
+      if (notnil(def_type))
+      {
+        String source_type = rtr::getMetadataValue(
+          rtr::TypeId::fromString(def_type), "source_data_type"_str);
+
+        if (notnil(source_type))
+        {
+          PathBuffer compiled_target;
+          io::formatv(&compiled_target, 
+            ref.target, '.', source_type, ".data"_str);
+
+          noteTarget(String(compiled_target));
+        }
+        else
+        {
+          WARN("def_type ", def_type, " of ref ", ref_typename, " does ",
+               "not specify a source_data_type\n");
+        }
+      }
+      else
+      {
+        WARN("ref type ", ref_typename, " does not specify a def_type\n");
+      }
+
+      // Check if this ref type needs to compile something else.
+      String compiled_type = 
+        rtr::getMetadataValue(ref.type, "compiled_type"_str);
+
+      if (notnil(compiled_type))
+      {
+        auto compiled_typeid = rtr::TypeId::fromString(compiled_type);
+
+        String compiled_data_type = rtr::getMetadataValue(
+          compiled_typeid, "compiled_data_type"_str);
+
+        if (notnil(compiled_data_type))
+        {
+          PathBuffer compiled_target;
+          io::formatv(&compiled_target, ref.target, '.', compiled_data_type);
+
+          noteTarget(String(compiled_target));
+        }
+        else
+        {
+          WARN("compiled_type ", compiled_type, " of ref ", ref_typename, 
+               "does not specify a compiled_data_type\n");
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildCompiledShader(String path)
+  {
+    PathBuffer shader_data_path_buffer;
+    io::formatv(&shader_data_path_buffer, 
+      build_dir, '/', path.removeSuffix(".compiled"_str), ".data"_str);
+
+    String shader_data_path = String(shader_data_path_buffer);
+
+    PathBuffer shader_compiled_path_buffer;
+    String shader_compiled_path = formOutputPath(
+      &shader_compiled_path_buffer, path);
+
+    INFO("building compiled shader '", shader_data_path, "' -> '",
+          shader_compiled_path, "'\n");
+
+    gfx::CompileShaderParams compile_params = 
+    {
+      .input_path = shader_data_path,
+      .output_path = shader_compiled_path,
+    };
+
+    if (!gfx::compileShader(compile_params))
+      return ERROR("failed to compile shader '", shader_data_path, "'\n");
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildCompiledTexture(String path)
+  {
+    PathBuffer texture_data_path_buffer;
+    io::formatv(&texture_data_path_buffer, 
+      build_dir, '/', path.removeSuffix(".compiled"_str), ".data"_str);
+
+    String texture_data_path = String(texture_data_path_buffer);
+
+    PathBuffer texture_compiled_path_buffer;
+    String texture_compiled_path = formOutputPath(
+      &texture_compiled_path_buffer, path);
+
+    if (!gfx::compileTexture(texture_data_path, texture_compiled_path))
+      return ERROR("failed to compile texture '", texture_data_path, "'\n");
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildAsset(String path)
+  {
+    if (path.endsWith(".data"_str))
+    {
+      if (!buildSourceData(path))
+        return false;
+    }
+    else if (path.endsWith(".shader.compiled"_str))
+    {
+      if (!buildCompiledShader(path))
+        return false;
+    }
+    else if (path.endsWith(".texture.compiled"_str))
+    {
+      if (!buildCompiledTexture(path))
+        return false;
+    }
+    else
+    {
+      WARN("unknown asset extension for '", path, "'\n");
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildTargets()
+  {
+    for (;;)
+    {
+      if (target_queue.isEmpty())
+      {
+        INFO("no more queued targets\n");
+        break;
+      }
+
+      String* target = target_queue.popHead();
+
+      INFO("building ", *target, '\n');
+
+      if (!buildAsset(*target))
+        return false;
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildAssetList(String path)  
+  {
+    PackedData packed;
+    build::AssetList* asset_list = packAssetList(
+        "tests/asset-building/test.asset_list"_str, &packed);
+    defer { packed.deinit(); };
+
+    if (asset_list == nullptr)
+      return ERROR("failed to pack asset list '", path, "'\n");
+
+    // Prep target queue with assets found in the list.
+    for (const auto& asset : *asset_list)
+    {
+      String* target = target_pool.add(asset.nullTerminate(&string_pool));
+      seen_targets.pushTail(target);
+      target_queue.pushTail(target);
+    }
+    
+    return buildTargets();
+  }
+};
 
 b8 testAssetBuilding()
 {
-  PackedData packed;
-  build::AssetList* asset_list = packAssetList(
-    "tests/asset-building/test.asset_list"_str, &packed);
-  defer { packed.deinit(); };
-
-  if (asset_list == nullptr)
+  Builder builder;
+  if (!builder.init("tests/asset-building/_data"_str))
     return false;
+  defer { builder.deinit(); };
 
-  auto build_dir = "tests/asset-building/_data"_str;
-
-  fs::mkdir(build_dir, true);
-
-  mem::LenientBump compiled_data_allocator;
-  if (!compiled_data_allocator.init())
-    return ERROR("failed to initialize compiled data allocator\n");
-  defer { compiled_data_allocator.deinit(); };
-
-  for (const auto& asset : *asset_list)
-    buildAsset(asset, build_dir, &compiled_data_allocator);
+  if (!builder.buildAssetList("tests/asset-builder/test.asset_list"_str))
+    return false;
 
   return true;
 }

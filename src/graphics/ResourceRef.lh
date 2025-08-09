@@ -1,0 +1,63 @@
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "asset/Ref.lh"
+@@lpp.import "asset/CompiledDataInterfaces.lh"
+
+#include "iro/Unicode.h"
+
+using namespace iro;
+
+struct SourceData;
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+@metadata.ref
+struct ResourceRef
+{
+  String name = {};
+
+  @metadata.hidden
+  void* resource;
+
+  IRO_FORCE_INLINE
+  b8 isValid() const
+  {
+    return resource != nullptr;
+  }
+};
+
+/* ============================================================================
+ */
+template<typename TResource>
+struct TypedResourceRef : ResourceRef
+{
+  TResource* operator->()
+  {
+    assert(isValid());
+    return (TResource*)resource;
+  }
+
+  const TResource* operator->() const
+  {
+    assert(isValid());
+    return (TResource*)resource;
+  }
+
+  TResource& operator*()
+  {
+    assert(isValid());
+    return *(TResource*)resource;
+  }
+
+  const TResource& operator*() const
+  {
+    assert(isValid());
+    return *(TResource*)resource;
+  }
+};
+
+}

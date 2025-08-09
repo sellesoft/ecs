@@ -1,2 +1,55 @@
+$ local cmn = require "common"
 
+$ -- TODO(sushi) reenable if this ever becomes necessary. I wound up just 
+$ --             getting the ref target in CompiledData::getRefs directly
+$ --             which is much easier/safer then what I added here.
+$ if false then
 
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("ref", Verbosity.Debug)
+$ local List = require "iro.List"
+$ local glob = require "iro.fs.glob"
+$ local dumpValue = require "iro.util".dumpValue
+
+$$$
+
+local AstContext = require "reflect.AstContext"
+
+local imported = require "string.buffer" .new()
+local function importpattern(pattern)
+  glob(pattern):each(function(path)
+    imported:put((lpp.import(path)) or "")
+  end)
+end
+
+importpattern "src/**/*.defs.lh"
+importpattern "src/**/*.comp.lh"
+
+local astctx = require "reflect.AstContext".fromString(tostring(imported))
+
+-- io.write(ast.dump(astctx.translation_unit), '\n')
+
+-- Shorthand helper for looking up a declaration by name.
+local function lookup(name)
+  return astctx:lookupTypeDecl(name)
+end
+
+$$$
+@@imported:get
+
+/* ----------------------------------------------------------------------------
+ */
+String getRefName(rtr::TypeId type, void* ptr)
+{
+  switch (type.val)
+  {
+$ for decl in astctx.type_decls:each() do
+$   if decl:is(ast.Record) and decl:findMetadata "ref" then
+  case "$(decl.type.name)"_typeid_val:
+    return (($(decl.type.name)*)ptr)->name;
+$   end
+$ end
+  }
+  assert(!"invalid type passed to getRefName");
+}
+$ end

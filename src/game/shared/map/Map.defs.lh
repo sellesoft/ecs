@@ -10,7 +10,7 @@ $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "asset/AssetRef.lh"
 @@lpp.import "reflect/types/Array.lh"
-@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "game/shared/entity/Entity.defs.lh"
 
 using namespace iro;
@@ -22,13 +22,15 @@ namespace gfx
 
 /* ============================================================================
  */
+@metadata.def
+@metadata.source_data_type(tile_kind)
 struct TileKindDef
 {
   String name;
   gfx::TextureRef texture;
 };
 
-@metadata.source_types(tile_kind)
+@metadata.def_type(TileKindDef)
 struct TileKindRef : TypedSourceAssetRef<TileKindDef> {};
   
 /* ============================================================================

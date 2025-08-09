@@ -50,6 +50,20 @@ String getTypename<$(decl.type.name)>()
 }
 
 $ if has_metadata then
+template<>
+String getMetadataValue<"$(decl.type.name)"_typeid>(String name)
+{
+  switch (name.hash())
+  {
+$ for k,v in pairs(decl.metadata) do
+  case "$(k)"_hashed:
+    return R"mval($(v))mval"_str;
+$ end
+  }
+
+  return nil;
+}
+
 $ if decl:is(ast.Enum) then
 /* ----------------------------------------------------------------------------
  */
@@ -78,13 +92,13 @@ $ end)
 
 /* ----------------------------------------------------------------------------
  */
-String getMetadataValue(String type, String name)
+String getMetadataValue(TypeId type, String name)
 {
-  switch (type.hash())
+  switch (type.val)
   {
 $ eachDecl(function(decl)
-$   if decls_with_metadata[name] then
-  case "$(decl.type.name)"_hashed:
+$   if decls_with_metadata[decl.type.name] then
+  case "$(decl.type.name)"_typeid_val:
 $     if decl:is(ast.TypedefDecl) then
     switch (name.hash())
     {
@@ -95,7 +109,7 @@ $       end
     }
     break;
 $     else
-    return getMetadataValue<$(decl.type.name)>(name);
+    return getMetadataValue<"$(decl.type.name)"_typeid>(name);
 $     end
 $   end
 $ end)

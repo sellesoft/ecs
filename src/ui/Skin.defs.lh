@@ -1,7 +1,8 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "graphics/Ref.defs.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/Font.defs.lh"
 
 #include "math/Rect.h"
 #include "Color.h"

@@ -6,10 +6,13 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/containers/Array.h"
 #include "iro/containers/Slice.h"
 
-@@lpp.import "asset/Asset.lh"
 @@lpp.import "reflect/types/Array.lh"
+@@lpp.import "graphics/ResourceRef.lh"
 
 using namespace iro;
+
+namespace gfx
+{
 
 /* ============================================================================
  */
@@ -24,6 +27,7 @@ typedef Slice<CodepointRange> CodepointRanges;
 /* ============================================================================
  */
 @metadata.def
+@metadata.source_data_type(font)
 struct FontDef
 {
   String name;
@@ -31,4 +35,10 @@ struct FontDef
   reflect::Array<CodepointRange> ranges;
 };
 
-typedef TypedSourceAssetRef<FontDef> FontDefRef;
+/* ============================================================================
+ */
+struct Font;
+@metadata.def_type(gfx::FontDef)
+struct FontRef : TypedResourceRef<Font> {};
+
+}

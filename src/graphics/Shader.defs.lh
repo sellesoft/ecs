@@ -2,18 +2,27 @@ $ require "common"
 $ local m = require "reflect.Metadata"
 
 @@lpp.import "graphics/ShaderParams.lh"
+@@lpp.import "graphics/ResourceRef.lh"
 
 namespace gfx
 {
 
+struct CompiledShader;
+
 /* ============================================================================
  */
 @m.def
-@m.source_types(shader)
+@m.source_data_type(shader)
 struct ShaderDef
 {
   String source;
   ShaderStage stage;
 };
+
+/* ============================================================================
+ */
+@m.def_type(gfx::ShaderDef)
+@m.compiled_type(gfx::CompiledShaderData)
+struct ShaderRef : TypedResourceRef<CompiledShader> {};
 
 }

@@ -11,12 +11,13 @@ $ local metadata = require "reflect.Metadata"
 /* ============================================================================
  */
 @metadata.def
-@metadata.source_types(entity)
+@metadata.source_data_type(entity)
 struct EntityDef
 {
   String name;
-  reflect::Array<reflect::TypedStringMap<Component>> components;
+  // reflect::Array<reflect::TypedStringMap<Component>> components;
 };
 
+@metadata.def_type(EntityDef)
 struct EntityDefRef : TypedSourceAssetRef<EntityDef> {};
 

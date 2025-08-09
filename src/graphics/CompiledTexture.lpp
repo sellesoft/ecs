@@ -11,8 +11,12 @@ $ local cmn = require "common"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/DescriptorSet.lh"
+@@lpp.import "graphics/Texture.defs.lh"
 
 #include "cassert"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "external/stb_image.h"
 
 namespace gfx
 {
@@ -31,119 +35,6 @@ CompiledTexture* CompiledTexture::load(
 {
   assert(false);
   return nullptr;
-
-  // using namespace fs;
-  //
-  // if (CompiledTexture* existing = renderer.resource_mgr.findTexture(name))
-  //   return existing;
-  //
-  // TRACE("loading '", name, "'\n");
-  //
-  // PathBuffer data_path_buf;
-  // writeDataPath(&data_path_buf, name, assetmgr);
-  //
-  // String data_path = data_path_buf.asStr();
-  //
-  // assert(nullptr == assetmgr.findAsset(data_path));
-  //
-  // if (!path::exists(data_path))
-  // {
-  //   ERROR("attempt to load texture '", name, "' but there is no asset "
-  //         "at path '", data_path, "'\n");
-  //   return nullptr;
-  // }
-  //
-  // Asset* asset = assetmgr.loadAssetFromDisk(data_path);
-  // if (asset == nullptr)
-  // {
-  //   return nullptr;
-  // }
-  //
-  // auto* texture = renderer.resource_mgr.createTexture(name);
-  // if (texture == nullptr)
-  // {
-  //   ERROR("failed to allocate texture '", name, "'\n");
-  //   return nullptr;
-  // }
-  //
-  // texture->asset.name = asset->name;
-  // texture->asset.asset = asset;
-  //
-  // RefLoadParams load_params = 
-  // {
-  //   .assetmgr = assetmgr,
-  //   .renderer = renderer,
-  // };
-  //
-  // assert(false);
-  // // if (!texture->asset.load(load_params))
-  // // {
-  // //   ERROR("failed to load asset\n");
-  // //   return nullptr;
-  // // }
-  //
-  // auto& data = texture->getData();
-  // assert(data.width != 0 && data.height != 0);
-  //
-  // texture->image = Image::create(
-  //   renderer,
-  //   {
-  //     .usage = data.usage,
-  //     .format = data.format,
-  //     .pixels = data.pixels.get(),
-  //     .size = vec2u(data.width, data.height),
-  //     .debug_name = name,
-  //   });
-  //
-  // // gfx should print enough error info.
-  // if (isnil(texture->image))
-  //   return nullptr;
-  //
-  // texture->view = ImageView::create(
-  //   renderer,
-  //   {
-  //     .image = texture->image,
-  //     .format = data.format,
-  //     .debug_name = name,
-  //   });
-  //
-  // if (isnil(texture->view))
-  //   return nullptr;
-  //
-  // texture->sampler = Sampler::create(
-  //   renderer,
-  //   {
-  //     .filter = data.filter,
-  //     .address_mode = data.address_mode,
-  //     .debug_name = name,
-  //   });
-  //
-  // if (isnil(texture->sampler))
-  //   return nullptr;
-  //
-  // // NOTE(sushi) the below code should be temporary, just trying to get 
-  // //             stuff working again after gfx reorganization.
-  // texture->texture.set = DescriptorSet::create(
-  //   renderer,
-  //   renderer.default_sampler_set_layout,
-  //   name);
-  //
-  // if (isnil(texture->texture.set))
-  //   return nullptr;
-  //
-  // ImageDescriptor descriptor = 
-  // {
-  //   .view = texture->view,
-  //   .sampler = texture->sampler,
-  // };
-  //
-  // texture->texture.set.update(
-  //   renderer,
-  //   0,
-  //   0,
-  //   makeSlice(&descriptor, 1));
-  //
-  // return texture;
 }
 
 /* ----------------------------------------------------------------------------
@@ -244,6 +135,82 @@ b8 CompiledTexture::compileFromMemory(
 
   return true;
 
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 compileTexture(String data_path, String output_path)
+{
+  using namespace fs;
+
+  if (isnil(data_path))
+    return ERROR("compileTexture called with nil data path\n");
+
+  if (isnil(output_path))
+    return ERROR("compileTexture called with nil output path\n");
+
+  File out_file = File::createForTruncatedWriting(output_path);
+  if (isnil(out_file))
+    return ERROR("failed to open file for writing compiled texture at '",
+                 output_path, "'\n");
+  defer { out_file.close(); };
+
+  mem::LenientBump compiled_data_allocator;
+  if (!compiled_data_allocator.init())
+    return ERROR("failed to initialize temp compiled_data_allocator\n");
+  defer { compiled_data_allocator.deinit(); };
+  
+  auto* compiled_def = CompiledData::load(data_path, &compiled_data_allocator);
+  if (compiled_def == nullptr)
+    return ERROR("failed to load compiled data from '", data_path, "'\n");
+  compiled_def->fixPointers();
+
+  auto* def = compiled_def->getRootAs<TextureDef>();
+  if (isnil(def->name))
+    return ERROR("texture def '", data_path, "' has no name\n");
+
+  io::Memory buffer;
+  if (!buffer.open())
+    return ERROR("failed to initialize buffer for reading texture file\n");
+  defer { buffer.close(); };
+  
+  if (!File::openAndRead(&buffer, def->name))
+    return ERROR("failed to open/read texture ", def->name, '\n');
+
+  int desired_channels = 0;
+  switch (def->format)
+  {
+    case ImageFormat::BW:   desired_channels = STBI_grey;       break;
+    case ImageFormat::BWA:  desired_channels = STBI_grey_alpha; break;
+    case ImageFormat::RGB:  desired_channels = STBI_rgb;        break;
+    case ImageFormat::RGBA: desired_channels = STBI_rgb_alpha;  break;
+  }
+
+  if (desired_channels == 0)
+    return ERROR("invalid or missing texture format\n");
+
+  int width, height, channels;
+  stbi_uc* pixels = stbi_load_from_memory(
+    buffer.ptr,
+    buffer.len,
+    &width,
+    &height,
+    &channels,
+    desired_channels);
+  defer { mem::stl_allocator.free(pixels); };
+
+  CompiledTexture::CompileParams compile_params = 
+  {
+    .output_path = output_path,
+    .format = def->format,
+    .width = u32(width),
+    .height = u32(height),
+  };
+
+  if (!CompiledTexture::compileFromMemory(pixels, &out_file, compile_params))
+    return false;
+
+  return true;
 }
 
 }

@@ -1,5 +1,5 @@
 return gfx::ShaderDef
 {
   stage = "Fragment",
-  source = "assets/shaders/UI"
+  source = "assets/shaders/UI.frag"
 }

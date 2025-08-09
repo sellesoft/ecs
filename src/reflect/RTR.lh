@@ -24,6 +24,9 @@ struct TypeId;
 template<typename T>
 TypeId getTypeId();
 
+// Returns a typename from a typeid.
+String typenameFromTypeId(TypeId type);
+
 // Gets the typename of T.
 template<typename T>
 String getTypename();

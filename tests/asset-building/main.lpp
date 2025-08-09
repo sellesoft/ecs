@@ -1,0 +1,200 @@
+
+$ local cmn = require "common"
+
+@@lpp.import "Test.defs.lh"
+@@lpp.import "reflect/RTR.lh"
+@@lpp.import "asset/Packing.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "build/Build.defs.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/CompiledTexture.lh"
+
+#include "math/Rect.h"
+#include "iro/fs/fs.h"
+#include "iro/fs/File.h"
+
+@log.ger(test-asset-building, Trace)
+
+typedef io::StaticBuffer<512> PathBuffer;
+
+// Packs an asset list asset at the given path using the provided PackedData.
+// The PackedData is initialized internally!
+build::AssetList* packAssetList(String path, PackedData* packed)
+{
+  DEBUG("loading source data for asset list '", path, "'\n");
+
+  SourceDataFile sfile;
+  if (!SourceDataFile::from(&sfile, path))
+    return ERROR("failed to load source data for asset list '", path, "'\n"),
+           nullptr;
+  defer { sfile.deinit(); };
+
+  TRACE("got source data:\n");
+  if (TEST_VERBOSITY(Trace))
+    sfile.returned_data->dump();
+
+  if (!packed->init())
+    return 
+      ERROR("failed to initialize PackedData for asset list '", path, "'\n"),
+      nullptr;
+
+  TRACE("packing asset list '", path, "'\n");
+  PackParams pack_params = { packed };
+  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+    return ERROR("failed to pack asset list '", path, "'\n"), nullptr;
+
+  if (packed->type != "build::AssetList"_typeid)
+    return ERROR("packed asset list '", path, "' has wrong type\n"), nullptr;
+
+  return packed->getDataAs<build::AssetList>();
+}
+
+// Packs the source data at the given path into whatever type it specifies 
+// for its returned data.
+b8 packAsset(String path, PackedData* packed)
+{
+  DEBUG("packing source data at '", path, "'\n");
+
+  SourceDataFile sfile;
+  if (!SourceDataFile::from(&sfile, path))
+    return ERROR("failed to load source data at '", path, "'\n");
+  defer { sfile.deinit(); };
+
+  TRACE("got source data:\n");
+  if (TEST_VERBOSITY(Trace))
+    sfile.returned_data->dump();
+
+  if (!packed->init())
+    return ERROR("failed to initialize PackedData for source data at '",
+                 path, "'\n");
+
+  PackParams pack_params = { packed };
+  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+    return ERROR("failed to pack source data at '", path, "'\n");
+
+  return true;
+}
+
+// Compiles some packed data out to the specified output_path and then 
+// loads it.
+CompiledData* compileAssetData(
+    const PackedData& packed, 
+    String output_path,
+    mem::Allocator* data_allocator)
+{
+  DEBUG("compiling packed data to '", output_path, "'\n");
+
+  CompiledData::CompileParams compile_params = 
+  {
+    .type = packed.type,
+    .dataptr = packed.data.ptr,
+    .output_path = output_path,
+  };
+
+  if (!CompiledData::compile(compile_params))
+    return ERROR("failed to compile packed data to '", output_path, "'\n"),
+           nullptr;
+
+  return CompiledData::load(output_path, data_allocator);
+}
+
+// Packs AND compiles some source data to the specified output_path and loads
+// it.
+CompiledData* packAndCompileSourceDataAsset(
+    String input_path,
+    String output_path,
+    mem::Allocator* data_allocator)
+{
+  PackedData packed;
+  if (!packAsset(input_path, &packed))
+    return nullptr;
+  defer { packed.deinit(); };
+
+  CompiledData* compiled = 
+    compileAssetData(packed, output_path, data_allocator);
+
+  if (compiled == nullptr)
+    return nullptr;
+
+  return compiled;
+}
+
+b8 buildAsset(
+    String path,
+    String build_dir,
+    mem::Allocator* data_allocator)
+{
+  if (path.endsWith(".data"_str))
+  {
+    DEBUG("building asset '", path, "'\n");
+
+    // Remove data extension to get the source asset path.
+    PathBuffer source_path;
+    io::format(&source_path, path.subToLast('.'));
+
+    if (!fs::path::exists(String(source_path)))
+      return ERROR("no file at path '", String(source_path), "'\n");
+
+    // Build output path.
+    PathBuffer dest_path;
+    io::formatv(&dest_path, build_dir, "/", path);
+
+    // Get null-terminated destination dir so we may create it.
+    PathBuffer dest_dir;
+    fs::path::removeBasename(String(dest_path)).nullTerminate(&dest_dir);
+
+    fs::mkdir(String(dest_dir), true);
+
+    DEBUG("building source asset '", String(source_path), "' -> '",
+          String(dest_path), "'\n");
+
+    CompiledData* compiled = 
+      packAndCompileSourceDataAsset(
+        String(source_path),
+        String(dest_path),
+        data_allocator);
+
+    if (compiled == nullptr)
+      return false;
+
+    compiled->fixPointers();
+
+    rtr::prettyPrint(compiled->type, compiled->root.ptr.get());
+  }
+  else
+    return ERROR("unknown asset data type for '", path, "'\n");
+
+  return true;
+}
+
+b8 testAssetBuilding()
+{
+  PackedData packed;
+  build::AssetList* asset_list = packAssetList(
+    "tests/asset-building/test.asset_list"_str, &packed);
+  defer { packed.deinit(); };
+
+  if (asset_list == nullptr)
+    return false;
+
+  auto build_dir = "tests/asset-building/_data"_str;
+
+  fs::mkdir(build_dir, true);
+
+  mem::LenientBump compiled_data_allocator;
+  if (!compiled_data_allocator.init())
+    return ERROR("failed to initialize compiled data allocator\n");
+  defer { compiled_data_allocator.deinit(); };
+
+  for (const auto& asset : *asset_list)
+    buildAsset(asset, build_dir, &compiled_data_allocator);
+
+  return true;
+}
+
+int main()
+{
+  iro::initializeDefaultLogging();
+  return testAssetBuilding()? 0 : 1;
+}

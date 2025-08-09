@@ -8,7 +8,7 @@ local cwd = fs.cwd()
 
 lake.setMaxJobs(8)
 
-local build_dir = cwd.."/build"
+local build_dir = cwd.."/_build"
 
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
@@ -23,7 +23,7 @@ end
 --             for doing that yet, though.
 -- TODO(sushi) command for building with/without this since it doesn't work
 --             under debuggers.
-local asan = false
+local asan = true
 
 local objs = List {}
 
@@ -156,20 +156,14 @@ local function buildTest(name)
     iro_objs)
 end
 
-if lake.cliargs[1] == "test" then
-  local testname = lake.cliargs[2]
-
-  if not testname then
-    error("expected the name of a test to run (a directory in tests/)")
-  end
-
-  local exe = buildTest(lake.cliargs[2])
+local function buildAndRunTest(name)
+  local exe = buildTest(name)
 
   if not exe then
-    error("test "..testname.." did not return an Exe to run!")
+    error("test "..name.." did not return an Exe to run!")
   end
   
-  lake.task("test "..lake.cliargs[2])
+  lake.task("test "..name)
     :dependsOn(exe.task)
     :cond(function() return true end)
     :recipe(function()
@@ -180,20 +174,30 @@ if lake.cliargs[1] == "test" then
       io.write(result.output)
 
       if result.exit_code ~= 0 then
-        io.write("test '", testname,  "' ", lake.flair.red, "failed", 
+        io.write("test '", name,  "' ", lake.flair.red, "failed", 
                  lake.flair.reset, "!\n")
       else
-        io.write("test '", testname, "' ", lake.flair.green, "succeeded", 
+        io.write("test '", name, "' ", lake.flair.green, "succeeded", 
                  lake.flair.reset, "! (in ", time:pretty(), ")\n")
       end
     end)
+end
+
+if lake.cliargs[1] == "test" then
+  local testname = lake.cliargs[2]
+
+  if not testname then
+    error("expected the name of a test to run (a directory in tests/)")
+  end
+
+  buildAndRunTest(testname)
 
   return
 end
 
-buildTest "sandbox"
+buildAndRunTest "asset-building"
 
--- do return end
+do return end
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"

@@ -315,6 +315,8 @@ $ map = nil
     case ConfigureNotify:
       {
         XConfigureEvent cev = event.xconfigure;
+        pos.x = cev.x;
+        pos.y = cev.y;
         size.x = cev.width;
         size.y = cev.height;
 

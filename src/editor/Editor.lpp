@@ -1,7 +1,11 @@
 $ require "common"
 
+#include "iro/fs/File.h"
+
 @@lpp.import "editor/Editor.lh"
 @@lpp.import "graphics/RenderTarget.lh"
+
+@@lpp.import "reflect/RTR.lh"
 
 @log.ger(editor, Info)
 
@@ -48,6 +52,12 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 {
   UpdateResult result = {};
 
+  static TimePoint last_print = TimePoint::monotonic();
+
+  TimePoint now = TimePoint::monotonic();
+  if ((now - last_print).toMilliseconds() < 10)
+    return result;
+
   // Prepare input state for this frame.
   input.update();
 
@@ -86,6 +96,11 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     if (!renderer.present())
       ERROR("failed to present frame\n");
   }
+
+
+  INFO("----------------------------------------- \n");
+  rtr::prettyPrint(window_result);
+  last_print = now;
 
   return result;
 }

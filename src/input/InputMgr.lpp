@@ -89,6 +89,6 @@ void InputMgr::onAddScroll(f32 scroll)
  */
 b8 InputMgr::update()
 {
-  real_state.clear();
+  real_state.clearNonPersistent();
   return true;  
 }

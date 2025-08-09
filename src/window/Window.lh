@@ -21,20 +21,20 @@ struct InputMgr;
  */
 struct Window
 {
-  String title;
+  String title = nil;
 
-  void* handle;
-  void* context;
+  void* handle = nullptr;
+  void* context = nullptr;
 
-  vec2i pos;
-  vec2i size;
+  vec2i pos = {};
+  vec2i size = {};
 
-  b8 focused;
+  b8 focused = false;
 
   // Not a fan of doing this but sorta have to 
   // to be able to get it in win32's window callback garbage.
   // Do this better later.
-  Engine* eng;
+  Engine* eng = nullptr;
 
   enum class DisplayMode
   {

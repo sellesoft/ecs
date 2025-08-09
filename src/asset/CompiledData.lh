@@ -25,9 +25,7 @@ struct CompiledData
   rtr::TypeId type;
 
   OffsetSlice<u8> root;
-
   OffsetSlice<u8> data;
-
   OffsetSlice<u8> strings;
 
   struct CompileParams
@@ -49,7 +47,7 @@ struct CompiledData
 
   static b8 compile(const CompileParams& params);
 
-  static CompiledData* load(String path);
+  static CompiledData* load(String path, mem::Allocator* allocator);
 
   // Gets the loaded data as the specified C++ type. Note that currently there 
   // are no safety checks for if the provided 'T' actually matches the type the 
@@ -63,7 +61,6 @@ struct CompiledData
   
   // Fixes all pointers in the loaded data to absolute addresses.
   // Not yet safe to call twice :>
-  // Automatically called in load()!
   void fixPointers(); 
 
   // TODO(sushi) rework this to just take a callback for each Ref, or at least

@@ -8,7 +8,7 @@ $ local cmn = require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
-@log.ger(vulkan, Debug)
+@log.ger(vulkan, Notice)
 
 namespace gfx
 {

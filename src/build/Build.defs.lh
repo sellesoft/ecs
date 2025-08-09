@@ -1,0 +1,16 @@
+/*
+ *  Def types related to the build system.
+ */
+
+$ require "common"
+$ local m = require "reflect.Metadata"
+
+@@lpp.import "reflect/types/Array.lh"
+
+namespace build
+{
+
+@m.def
+typedef reflect::Array<String> AssetList;
+
+}

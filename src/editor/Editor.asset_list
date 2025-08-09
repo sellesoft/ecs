@@ -1,0 +1,10 @@
+// Specifies a list of assets required for the Editor to run.
+
+return
+{
+  // We need UI's assets to be loaded.
+  "src/ui/UI.asset_list",
+
+  // We need the skin.
+  "assets/skins/Editor.skin.data",
+}

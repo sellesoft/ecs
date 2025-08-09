@@ -55,6 +55,20 @@ struct Printer
   // such.
   u64 depth = 0;
 
+  const PrettyPrintOpts& opts;
+
+  Printer(
+    io::IO* out,
+    const PrettyPrintOpts& opts) 
+    : out(out),
+      opts(opts) {}
+
+  // Small stack of addresses we have already dereferenced and will not 
+  // dereference again, to avoid showing the same data at an address multiple 
+  // times and to avoid cyclical references causing infinite loops.
+  // If this fills up, we just don't reference addresses anymore.
+  StackArray<const void*, 64> dereferenced_addresses;
+
   void indent()
   {
     for (u64 i = 0; i < depth; ++i)
@@ -234,7 +248,33 @@ $     elseif subtype:is(ast.Builtin) and subtype.name == "void" then
 $       can_deref = false
 $     end
 $     if can_deref then
+      if (!opts.deref_ptrs)
+      {
+        io::formatv(out, "ptr(", $(valaccess), ")");
+      }
+      else if (dereferenced_addresses.isFull())
+      {
+        io::formatv(out, "<deref limit hit> ptr(", $(valaccess), ")");
+      }
+      else
+      {
+        b8 should_deref = true;
+        for (const void* dereffed : dereferenced_addresses)
+        {
+          if (dereffed == $(valaccess))
+          {
+            should_deref = false;
+            io::formatv(out, "<already deref'd> ptr(", $(valaccess), ")");
+            break;
+          }
+        }
+
+        if (should_deref)
+        {
+          dereferenced_addresses.push($(valaccess));
 $       callTypePrinter(type.subtype, "*("..valaccess..")")
+        }
+      }
 $     else
     io::formatv(out, "ptr(", $(valaccess), ")");
 $     end
@@ -244,7 +284,20 @@ $   elseif type:is(ast.Reference) then
 $   elseif type:is(ast.FunctionPointer) then
     io::formatv(out, "funcptr");
 $   elseif type:is(ast.CArray) then
-    io::formatv(out, "carr");
+$     local subtype = type.subtype
+    {
+      io::format(out, '\n');
+      @scopedIndent
+      for (s32 i = 0; i < $(type.len); ++i)
+      {
+        indent();
+        io::formatv(out, '[', color::magenta(i), "]: ");
+        @scopedIndent
+$     callTypePrinter(subtype, valaccess.."[i]")
+        if (i != $(type.len) - 1)
+          io::format(out, '\n');
+      }
+    }
 $   else
 $     type = type:desugar()
 $     if type:is(ast.TagType) and type.decl.user.break_before_field then
@@ -409,6 +462,38 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putEnumBitArrayPrinter(decl)
+$   local enum = decl.args[1].decl
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+    @scopedIndent
+  
+    if (!val.testAny())
+    {
+      indent();
+      io::format(out, "{empty}");
+      return;
+    }
+    
+    b8 first = true;
+$   for elem in enum.elems:each() do
+    if (val.test($(enum.type.name)::$(elem.name)))
+    {
+      // if (!first)
+      //   io::format(out, '\n');
+      // first = false;
+
+      io::formatv(out, color::blue("$(elem.name)"), ' ');
+    }
+$   end
+  }
+$  decl.user.break_before_field = false
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putTemplateSpecPrinter(decl)
 $   for arg in decl.args:each() do
 $     if ast.Type:isTypeOf(arg) then
@@ -423,6 +508,8 @@ $   elseif name == "Flags" then
 $     putFlagsPrinter(decl)
 $   elseif name == "StringMap" then
 $     putStringMapPrinter(decl)
+$   elseif name == "EnumBitArray" then
+$     putEnumBitArrayPrinter(decl)
 $   else
   $(declareDeclPrinter(decl))
   {
@@ -493,7 +580,8 @@ $ putTypePrinter = function(type)
 $   type = type:desugar()
 $   if type:is(ast.TagType) then
 $     putDeclPrinter(type.decl)
-$   else
+$   elseif type:is(ast.CArray) then
+$     putTypePrinter(type.subtype)
 $   end
 $ end
 
@@ -515,10 +603,13 @@ $ putDeclListPrinters(astctx.translation_unit.decls)
 
 /* ----------------------------------------------------------------------------
  */
-void prettyPrint(io::IO* out, rtr::TypeId type, const void* val)
+void prettyPrint(
+    io::IO* out, 
+    rtr::TypeId type, 
+    const void* val,
+    const PrettyPrintOpts& opts)
 {
-  Printer printer;
-  printer.out = out;
+  Printer printer(out, opts);
 
   switch (type.val)
   {
@@ -530,6 +621,16 @@ $ end
   }
 
   io::format(out, '\n');
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void prettyPrint(
+    rtr::TypeId type, 
+    const void* val,
+    const PrettyPrintOpts& opts)
+{
+  prettyPrint(&fs::stdout, type, val, PrettyPrintOpts());
 }
 
 }

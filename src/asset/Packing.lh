@@ -31,6 +31,9 @@ struct PackedData
   // and arrays.
   iro::mem::LenientBump buffer;
 
+  // Id of the type that was packed. 
+  rtr::TypeId type;
+
   // Small helper for getting the packed data as the given type. Note that 
   // there is no checking for if the requested type matches that which was 
   // packed. So be careful!

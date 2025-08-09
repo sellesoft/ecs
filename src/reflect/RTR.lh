@@ -6,6 +6,7 @@
 $ require "common"
 
 #include "iro/Unicode.h"
+#include "iro/fs/File.h"
 
 using namespace iro;
 
@@ -13,6 +14,15 @@ namespace rtr
 {
 
 struct TypeId;
+
+// Gets the typeid of T.
+// Note that, due to how template arguments work, if this is passed a typedef
+// of some type, the underlying type's id will be returned instead.
+// If an unrecognized type is passed, unfortunately a LINKER error will occur.
+// I think I can define something to cause a compiler error in that case but 
+// I'm too burnt out atm to try setting that up!
+template<typename T>
+TypeId getTypeId();
 
 // Gets the typename of T.
 template<typename T>
@@ -29,6 +39,42 @@ String getMetadataValue(String type, String name);
 template<typename T>
 String getEnumElementName(T x);
 
-void prettyPrint(io::IO* out, rtr::TypeId type, const void* val);
+struct PrettyPrintOpts
+{
+  b8 deref_ptrs = false;
+};
+
+void prettyPrint(
+  io::IO* out, 
+  TypeId type, 
+  const void* val,
+  const PrettyPrintOpts& opts = {});
+
+void prettyPrint(
+  TypeId type, 
+  const void* ptr, 
+  const PrettyPrintOpts& opts = {});
+ 
+// NOTE(sushi) the way this is taking a COMPILE TIME type and using it to 
+//             get the runtime type id to handle this is NOT a good example
+//             of how reflection stuff should be implemented! If we are able
+//             to know what a type is at compile time, we should be able to 
+//             call directly into the relevant reflection code that handles it.
+//             For pretty printing though, we already generate an insane amount
+//             of code already (as it is now, we generate just over 30k lines
+//             from a 600 line file), and it should not be used at release, 
+//             so I'm not worried about setting it up for that. ANYTHING else
+//             though should not be handling templated types this way.
+template<typename T>
+void prettyPrint(io::IO* out, const T& val, const PrettyPrintOpts& opts = {})
+{ prettyPrint(out, getTypeId<T>(), &val, opts); }
+
+template<typename T>
+void prettyPrint(const T& val, const PrettyPrintOpts& opts = {})
+{ prettyPrint(&fs::stdout, val, opts); }
+
+template<typename T>
+void prettyPrint(const T* val, const PrettyPrintOpts& opts = {})
+{ prettyPrint(*val, opts); }
 
 }

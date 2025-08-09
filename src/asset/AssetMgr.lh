@@ -21,7 +21,6 @@ $ local cmn = require "common"
 
 using namespace iro;
 
-typedef io::StaticBuffer<512> PathBuffer;
 
 /* ============================================================================
  */

@@ -13,7 +13,7 @@ $ local cmn = require "common"
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
-@log.ger(test-packing, Debug)
+@log.ger(test-compile-data, Debug)
 
 $ local source_data_file = "tests/compile-data/test.data"
 $ local expected_typename = "Basket"

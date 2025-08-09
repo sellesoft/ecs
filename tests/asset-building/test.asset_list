@@ -1,0 +1,6 @@
+return build::AssetList
+{
+  "assets/textures/DevSpawner.texture.data",
+  "assets/shaders/Dither.frag.shader.data",
+  "assets/skins/Editor.skin.data"
+}

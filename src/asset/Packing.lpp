@@ -112,6 +112,7 @@ $ local putTypePacker
 $ -- * ------------------------------------------------------------------------
 
 $ local function recordPlaced(decl)
+$   decl.user = decl.user or {}
 $   decl.user.packer_placed = true
 $ end
 
@@ -852,6 +853,23 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putTypedefDeclPacker(decl)
+$   local subtype = decl.subtype:desugar()
+$   local subdecl
+$   if subtype:is(ast.TagType) then
+$     subdecl = subtype.decl
+$     putDeclPacker(subdecl)
+$   end
+  /* --------------------------------------------------------------------------
+   */
+  $(packerFuncDecl(decl))
+  {
+    return $(getPackerName(subdecl))(data, out);
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ putDeclPacker = function(decl)
 $   decl.user = decl.user or {}
 $   if decl.user.packer_placed then
@@ -872,7 +890,7 @@ $     elseif decl:is(ast.Enum) then
 $       putEnumPacker(decl)
 $     end
 $   elseif decl:is(ast.TypedefDecl) then
-$     assert(false, "handle typedef decl")
+$     putTypedefDeclPacker(decl)
 $   end
 $ end
 
@@ -918,7 +936,14 @@ $       -- If this decl has been typedef'd also handle those typenames as
 $       -- well. Note that we have to use the type the typedef declares,
 $       -- not the typedef itself, to preserve namespaces.
 $       for typedef in decl.typedefs:each() do
+$         -- Also, only place typedef cases when a packer for it was not 
+$         -- generated, since a case to call the packer specifically for
+$         -- that typedef will be generated later.
+$         -- This happens when a typedef decl is directly marked with the 
+$         -- def metadata.
+$         if not typedef.user.packer_placed then
   case "$(typedef.type.name)"_hashed:
+$         end
 $       end
 $     end
   case "$(decl.type.name)"_hashed:
@@ -926,6 +951,10 @@ $     end
       (u8*)packer.packed->buffer.allocateType<$(decl.type.name)>();
     packer.$(getPackerName(decl))(
       data, ($(decl.type.name)*)packer.packed->data.ptr);
+    // Set the typeid on the PackedData to whatever was specified by the 
+    // given data. We do this at runtime to ensure that we can't accidentally 
+    // set it incorrectly when typedefs and base types have the same case.
+    packer.packed->type = rtr::TypeId::fromString(data.type);
   break;
 $   end
 $ end

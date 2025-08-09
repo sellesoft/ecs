@@ -14,84 +14,63 @@ $ require "common"
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
 
+@log.ger(cmptexture.png, Info)
+
 namespace gfx
 {
-
-@defFileLogger(texture.png, Debug)
 
 /* ----------------------------------------------------------------------------
  */
 b8 CompiledTexture::compilePNG(CompileParams& params)
 {
-  PathBuffer asset_path_buffer;
-  
-  String name = params.name;
-    
-  if (name.endsWith(".png"_str))
-  {
-    io::formatv(&asset_path_buffer, params.name);
-    name = name.subToLast('.');
-  }
-  else
-    io::formatv(&asset_path_buffer, params.name, ".png"_str);
+  // We must make sure our paths are null-terminated when passing to iro.
+  io::StaticBuffer<512> input_path_nullterm;
+  io::format(&input_path_nullterm, params.input_path);
 
-  String asset_path = asset_path_buffer.asStr();
+  String in = String(input_path_nullterm);
+  String out = params.output_path;
 
-  PathBuffer data_path_buffer;
-  io::formatv(&data_path_buffer, 
-    params.assetmgr->getDataDir(), '/', name, ".cmp_texture"_str);
-  String data_path = data_path_buffer.asStr();
+  if (isnil(in))
+    return ERROR("CompiledTexture::compilePNG called with nil input path\n");
 
-  if (!fs::path::exists(asset_path))
-    return ERROR("attempt to compile texture '", params.name, "' but there"
-      " is no asset at path '", asset_path, "'\n");
+  if (isnil(out))
+    return ERROR("CompiledTexture::compilePNG called with nil output path\n");
 
-  //TODO add a way to force an asset recompile when
-  //  we need to update the compiled data format
-  if (!AssetMgr::checkNeedsCompiled(asset_path, data_path))
-    return true;
+  DEBUG("compiling png texture at '", in, "' to '", out, "'\n");
 
-  INFO("compiling '", asset_path, "'\n");
-  SCOPED_INDENT;
+  if (!fs::path::exists(in))
+    return 
+      ERROR("no file '", in, "' to compile as a png texture\n");
 
-  // TODO take in an allocator to use for temp data.
+  auto asset_file = fs::File::openForRead(in);
+  if (isnil(asset_file))
+    return ERROR("failed to open png texture file at '", in, "'\n");
+  defer { asset_file.close(); };
+
   mem::LenientBump allocator;
   if (!allocator.init())
     return ERROR("failed to initialize temp allocator\n");
   defer { allocator.deinit(); };
 
-  // Ensure the data directories exist.
-  if (!fs::mkdir(fs::path::removeBasename(data_path), true))
-    return ERROR("failed to make directories\n");
-
-  auto asset_file = fs::File::from(asset_path, fs::OpenFlag::Read);
-  if (isnil(asset_file))
-    return ERROR("failed to open font asset file at '",
-                 data_path, "'\n");
-  defer { asset_file.close(); };
-
   fs::Stat file_stat;
-  fs::stat(asset_path, &file_stat);
+  if (!fs::stat(in, &file_stat))
+    return ERROR("failed to stat png texture file at '", in, "'\n");
 
   u64 asset_file_size = file_stat.byte_size;
 
-  auto data_file =
-    fs::File::from(data_path,
-        fs::OpenFlag::Write
-      | fs::OpenFlag::Truncate
-      | fs::OpenFlag::Create);
-
+  auto data_file = fs::File::createForTruncatedWriting(out);
   if (isnil(data_file))
     return ERROR(
-      "failed to open data file for writing at '", data_path, "'\n");
+      "failed to open data file for writing at '", out, "'\n");
   defer { data_file.close(); };
 
-  auto delete_data_file_if_failure = deferWithCancel
+  auto failsafe_delete_data_file = deferWithCancel
   {
     data_file.close();
-    fs::unlink(data_path);
+    fs::unlink(out);
   };
 
+  // TODO(sushi) change to BinaryDataBuilder maybe.
   io::Memory buffer;
   if (!buffer.open(asset_file_size, &allocator))
     return ERROR("failed to open buffer for reading file data\n");
@@ -118,6 +97,7 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
     &height,
     &channels,
     desired_channels);
+  defer { mem::stl_allocator.free(pixels); };
 
   params.width = width;
   params.height = height;
@@ -125,7 +105,7 @@ b8 CompiledTexture::compilePNG(CompileParams& params)
   if (!CompiledTexture::compileFromMemory(pixels, &data_file, params))
     return false;
   
-  delete_data_file_if_failure.cancel();
+  failsafe_delete_data_file.cancel();
   return true;
 }
 

@@ -202,22 +202,26 @@ struct InputState
     return out;
   }
 
-  // Clears all inputs. 
-  void clear()
+  // Clears all non-persistent inputs.
+  void clearNonPersistent()
   {
-    keys_down.clear();
     keys_pressed.clear();
     keys_released.clear();
-    keys_consumed.clear();
-
-    mouse_down.clear();
     mouse_pressed.clear();
     mouse_released.clear();
-    mouse_consumed.clear();
 
     consumeCharInputs();
     consumeScroll();
     consumeCursorDelta();
+  }
+
+  // Clears all inputs. 
+  void clear()
+  {
+    keys_down.clear();
+    mouse_down.clear();
+
+    clearNonPersistent();
   }
 
   enum

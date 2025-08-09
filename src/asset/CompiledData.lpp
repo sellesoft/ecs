@@ -260,6 +260,14 @@ $ -- * ------------------------------------------------------------------------
 
       // Copy the contents into the String table.
       strings->writeString(data);
+
+      // Null-terminate the String. Even though we don't care for 
+      // null-termination of strings throughout the project, things we have
+      // to use unfortunately do (eg. OS functions). Doing this helps make 
+      // writing tools easier, eg. the build system doesn't have to 
+      // null-terminate every path in data before asking something to compile 
+      // something.
+      strings->writeByte(0);
     }
     
     // Write a String with a null ptr and its length in the table.
@@ -334,12 +342,6 @@ $   end
 $ 
 $   for nested in decl:eachNestedRecord() do
 $     putDeclCompiler(nested)
-$   end
-$   if decl.name:find "String" then
-$     dumpValue(decl, 1)
-$     dumpValue(lookup "iro::utf8::String", 1)
-$     error("bad")
-$     ast.dumpout(decl)
 $   end
 
   /* --------------------------------------------------------------------------
@@ -809,13 +811,15 @@ $ end
  *  Take an allocator or provide a function for getting the size required 
  *  for compiled data at a given path (which is just its file size but yeah).
  */
-CompiledData* CompiledData::load(String path)
+CompiledData* CompiledData::load(String path, mem::Allocator* allocator)
 {
 $ local function err(...)
 $   return 
 $     [[ERROR("while loading compiled data '", path, "': ", ]]..
 $     cmn.joinArgs(',',...)..[[, '\n'), nullptr]]
 $ end
+
+  assert(notnil(path) && allocator != nullptr);
   
   auto file = fs::File::openForRead(path);
   if (isnil(file))
@@ -826,7 +830,7 @@ $ end
   if (!fs::stat(path, &stat))
     return @err("failed to stat file for size");
 
-  auto* data = (CompiledData*)mem::stl_allocator.allocate(stat.byte_size);
+  auto* data = (CompiledData*)allocator->allocate(stat.byte_size);
   file.read({(u8*)data, stat.byte_size});
   return data;
 }

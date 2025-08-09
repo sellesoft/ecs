@@ -212,6 +212,63 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function getDeclGetRefsName(decl)
+$   return "getRefs_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypeGetRefsName(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     return (getDeclGetRefsName(type.decl))
+$   elseif type:is(ast.Builtin) then
+$     return "getRefs_"..type:formCSafeName()
+$   elseif type:is(ast.Pointer) then
+$     return "getRefs_voidptr"
+$   else
+$     error("unhandled type passed to getTypeGetRefsName: "..
+$           tostring(type)..'\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclGetRefsSig(decl)
+$   return getDeclGetRefsName(decl)..
+$     "(CompiledData::Refs* refs, "..decl.type.name.."* data)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclGetRefs(decl)
+$   recordPlaced(decl)
+$   return "void "..getDeclGetRefsSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDeclGetRefsNoop(decl)
+  /* --------------------------------------------------------------------------
+   *  Get refs noop case.
+   */
+  $(declareDeclGetRefs(decl))
+  {
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDeclGetRefsNoopFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   return putDeclGetRefsNoop(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putNumberCompiler(name)
   /* -------------------------------------------------------------------------
    */
@@ -220,6 +277,7 @@ $ local function putNumberCompiler(name)
     buffer->writeT(data);
   }
 $  putDeclFixPointersNoopFromName(name)
+$  putDeclGetRefsNoopFromName(name)
 $ end
 
 $ putNumberCompiler "b8"
@@ -281,6 +339,8 @@ $ -- * ------------------------------------------------------------------------
     *data = OffsetString::getStringAsOffsetString(data);
   }
 
+$ putDeclGetRefsNoopFromName "iro::utf8::String"
+
 $ -- * ------------------------------------------------------------------------
 
   /* --------------------------------------------------------------------------
@@ -294,6 +354,7 @@ $ -- * ------------------------------------------------------------------------
   }
 
 $ putDeclFixPointersNoopFromName "Color"
+$ putDeclGetRefsNoopFromName "Color"
 
 $ -- * ------------------------------------------------------------------------
 
@@ -311,9 +372,14 @@ $ -- * ------------------------------------------------------------------------
     buffer->writeZeroedT<void*>();
   }
 
-  void fixPointers_voidptr(void* data)
+  void fixPointers_voidptr(void*)
   {
     // Noop 
+  }
+
+  void getRefs_voidptr(CompiledData::Refs*, void*)
+  {
+    // Noop
   }
 
 $ -- * ------------------------------------------------------------------------
@@ -328,6 +394,7 @@ $ local function putVec2Compiler(name)
   }
 
 $   putDeclFixPointersNoopFromName(name)
+$   putDeclGetRefsNoopFromName(name)
 $ end
 
 $ putVec2Compiler "vec2<int>"
@@ -427,6 +494,23 @@ $ for field in decl:eachField() do
     $(getTypeFixPointersName(field.type))(&data->$(field.name));
 $ end
   }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclGetRefs(decl))
+  {
+$ if decl:findMetadata "ref" then
+    refs->push({"$(decl.type.name)"_typeid, data, data->name});
+$ else
+$   if decl.base then
+    $(getDeclGetRefsName(decl.base))(refs, data);
+$   end
+
+$   for field in decl:eachField() do
+    $(getTypeGetRefsName(field.type))(refs, &data->$(field.name));
+$   end
+$ end
+  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -467,6 +551,14 @@ $   putTypeCompiler(subtype)
     for (auto& elem : *data)
       $(getTypeFixPointersName(subtype))(&elem);
   }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclGetRefs(decl))
+  {
+    for (auto& elem : *data)
+      $(getTypeGetRefsName(subtype))(refs, &elem);
+  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -498,6 +590,14 @@ $   putDeclCompiler(decl:findNestedRecord "Slot")
       $(getDeclFixPointersName(decl:findNestedRecord "Slot"))(&elem);
     }
   }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclGetRefs(decl))
+  {
+    for (auto& elem : *data)
+      $(getDeclGetRefsName(decl:findNestedRecord "Slot"))(refs, &elem);
+  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -510,6 +610,7 @@ $ local function putTypedStringMapCompiler(decl)
     assert(!"typed string map compilation not implemented yet");
   }
 $   putDeclFixPointersNoop(decl)
+$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -523,6 +624,7 @@ $ local function putFlagsCompiler(decl)
     buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
+$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -581,6 +683,7 @@ $ local function putEnumCompiler(decl)
     buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
+$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -686,6 +789,7 @@ $ end
 
     auto* header = (CompiledData*)buffer.data.ptr;
     header->type = params.type;
+    header->pointer_state = PointerState::Offset;
   }
 
   // Create the string table builder.
@@ -832,6 +936,11 @@ $ end
 
   auto* data = (CompiledData*)allocator->allocate(stat.byte_size);
   file.read({(u8*)data, stat.byte_size});
+
+  // Assert that the pointers were compiled as offsets.
+  // Otherwise this is not valid data.
+  assert(data->pointer_state == PointerState::Offset);
+
   return data;
 }
 
@@ -839,6 +948,9 @@ $ end
  */
 void CompiledData::fixPointers()
 {
+  if (pointer_state == PointerState::Absolute)
+    return;
+
   // TODO(sushi) really need to come up with a way to separate these.
   Compiler compiler;
 
@@ -860,5 +972,48 @@ $     end
       break;
 $   end
 $ end
+  default:
+    ERROR("CompiledData::fixPointers not implemented for type ",
+          rtr::typenameFromTypeId(type), '\n');
+    assert(!"unhandled type in CompiledData::fixPointers");
   }
+
+  pointer_state = PointerState::Absolute;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void CompiledData::getRefs(Refs* refs)
+{
+  Compiler compiler;
+
+  assert(pointer_state == PointerState::Absolute && 
+         "CompiledData::fixPointers must be called before "
+         "CompiledData::getRefs");
+
+  switch (type.val)
+  {
+$ for decl in astctx.type_decls:each() do
+$   if decl.user.compiler_placed then
+$     if decl.typedefs then
+$       -- If this decl has been typedef'd also handle those typenames as 
+$       -- well. Note that we have to use the type the typedef declares,
+$       -- not the typedef itself, to preserve namespaces.
+$       for typedef in decl.typedefs:each() do
+    case "$(typedef.type.name)"_typeid_val:
+$       end
+$     end
+    case "$(decl.type.name)"_typeid_val:
+      compiler.$(getDeclGetRefsName(decl))(
+        refs,
+        ($(decl.type.name)*)data.ptr.get());
+      return;
+$   end
+$ end
+  }
+
+  ERROR("CompiledData::getRefs not implemented for type ", 
+        rtr::typenameFromTypeId(type), '\n');
+
+  assert(!"unhandled type in CompiledData::getRefs");
 }

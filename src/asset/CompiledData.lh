@@ -24,6 +24,14 @@ struct CompiledData
 {
   rtr::TypeId type;
 
+  enum class PointerState
+  {
+    Offset,
+    Absolute,
+  };
+
+  PointerState pointer_state;
+
   OffsetSlice<u8> root;
   OffsetSlice<u8> data;
   OffsetSlice<u8> strings;
@@ -53,6 +61,11 @@ struct CompiledData
   // are no safety checks for if the provided 'T' actually matches the type the 
   // data was compiled for. 
   // TODO(sushi) implement those checks.
+  // NOTE(sushi) the checks in question are kinda difficult to properly handle
+  //             since this is templated, and C++ loses information in
+  //             templates. This should be changed to be a macro instead 
+  //             which takes the typename, transforms it to a typeid, checks
+  //             that it matches 'type' and then casts the root pointer.
   template<typename T>
   T* getRootAs() const
   {
@@ -60,7 +73,6 @@ struct CompiledData
   }
   
   // Fixes all pointers in the loaded data to absolute addresses.
-  // Not yet safe to call twice :>
   void fixPointers(); 
 
   // TODO(sushi) rework this to just take a callback for each Ref, or at least
@@ -71,6 +83,7 @@ struct CompiledData
   {
     rtr::TypeId type;
     void* ptr;
+    String target;
   };
 
   typedef SmallArray<DataRef, 16> Refs;

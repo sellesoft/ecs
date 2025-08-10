@@ -30,11 +30,19 @@ struct CompiledData
     Absolute,
   };
 
+  struct Ref
+  {
+    rtr::TypeId type;
+    OffsetPtr<void> ptr;
+    OffsetString target;
+  };
+
   PointerState pointer_state;
 
   OffsetSlice<u8> root;
   OffsetSlice<u8> data;
   OffsetSlice<u8> strings;
+  OffsetSlice<Ref> refs;
 
   struct CompileParams
   {
@@ -94,20 +102,6 @@ struct CompiledData
   }
   
   // Fixes all pointers in the loaded data to absolute addresses.
+  // This must be called before trying to use the data!!
   void fixPointers(); 
-
-  // TODO(sushi) rework this to just take a callback for each Ref, or at least
-  //             add an option to get them that way, I think that usage would
-  //             be more common as atm I can't think of any reason we'd want
-  //             to store these off.
-  struct DataRef
-  {
-    rtr::TypeId type;
-    void* ptr;
-    String target;
-  };
-
-  typedef SmallArray<DataRef, 16> Refs;
-
-  void getRefs(Refs* refs);
 };

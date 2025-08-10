@@ -634,7 +634,7 @@ end
 ---@field members iro.List
 ---
 --- The base class of this record, if any.
----@field base ast.Decl
+---@field base ast.Record
 --- 
 --- The derived classes of this record.
 ---@field derived iro.List
@@ -696,6 +696,53 @@ Record.eachField = function(self)
       end
       if member:is(ast.Field) then
         return member
+      end
+    end
+  end
+end
+
+--- Returns an iterator over all fields that would exist in this Record,
+--- base Records included. The Record that the field comes from is provided
+--- as a second parameter.
+---
+---@return function
+Record.allFields = function(self)
+  -- TODO(sushi) there's probably a fancier way to do this with recursion and
+  --             such to avoid allocating a table like this but I'll leave
+  --             that for later as I wanna get other stuff working.
+  --             Could also use coroutines prob, but I am not yet familiar 
+  --             with using them that way and don't want to get bogged down
+  --             in doing so.
+  local base_list = List {}
+  
+  local base = self.base
+  while base do
+    base_list:pushFront(base)
+    base = base.base
+  end
+
+  base_list:push(self)
+
+  local base_idx = 1
+  local iter = base_list[base_idx].members:each()
+  return function()
+    while true do
+      local member = iter()
+      if not member then
+        while true do
+          base_idx = base_idx + 1
+          if base_idx > #base_list then
+            return
+          end
+          iter = base_list[base_idx].members:each()
+          member = iter()
+          if member then
+            break
+          end
+        end
+      end
+      if member:is(ast.Field) then
+        return member, base_list[base_idx]
       end
     end
   end

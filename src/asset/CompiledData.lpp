@@ -61,6 +61,19 @@ struct CompiledString
 
 typedef SmallArray<CompiledString, 64> CompiledStrings;
 
+struct CompiledRef
+{
+  // The offset of the ref in the data buffer.
+  u64 offset;
+  // The type of the ref.
+  rtr::TypeId type;
+  // Index into the compiled strings array that represents the target
+  // of the ref.
+  u64 string_index;
+};
+
+typedef SmallArray<CompiledRef, 64> CompiledRefs;
+
 /* ============================================================================
  *  Data compiler state and interface, this provides the actual implementations
  *  of compilation of different types. Compiled data is written incrementally
@@ -86,6 +99,7 @@ struct Compiler
   mem::BinaryDataBuilder* strings;
   CompiledStrings* compiled_strings;
   CompiledPtrs* compiled_pointers;
+  CompiledRefs* compiled_refs;
 
 $ -- Forward declared such that these may be called back into from within 
 $ -- compiler placing functions, eg. a Struct calls this for the type of 
@@ -212,63 +226,6 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function getDeclGetRefsName(decl)
-$   return "getRefs_"..decl:formCSafeName()
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeGetRefsName(type)
-$   type = type:desugar()
-$   if type:is(ast.TagType) then
-$     return (getDeclGetRefsName(type.decl))
-$   elseif type:is(ast.Builtin) then
-$     return "getRefs_"..type:formCSafeName()
-$   elseif type:is(ast.Pointer) then
-$     return "getRefs_voidptr"
-$   else
-$     error("unhandled type passed to getTypeGetRefsName: "..
-$           tostring(type)..'\n')
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getDeclGetRefsSig(decl)
-$   return getDeclGetRefsName(decl)..
-$     "(CompiledData::Refs* refs, "..decl.type.name.."* data)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclGetRefs(decl)
-$   recordPlaced(decl)
-$   return "void "..getDeclGetRefsSig(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putDeclGetRefsNoop(decl)
-  /* --------------------------------------------------------------------------
-   *  Get refs noop case.
-   */
-  $(declareDeclGetRefs(decl))
-  {
-  }
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putDeclGetRefsNoopFromName(name)
-$   local decl = lookup(name)
-$   if not decl then
-$     error("could not find declaration with name "..name)
-$   end
-$   return putDeclGetRefsNoop(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
 $ local function putNumberCompiler(name)
   /* -------------------------------------------------------------------------
    */
@@ -277,7 +234,6 @@ $ local function putNumberCompiler(name)
     buffer->writeT(data);
   }
 $  putDeclFixPointersNoopFromName(name)
-$  putDeclGetRefsNoopFromName(name)
 $ end
 
 $ putNumberCompiler "b8"
@@ -339,8 +295,6 @@ $ -- * ------------------------------------------------------------------------
     *data = OffsetString::getStringAsOffsetString(data);
   }
 
-$ putDeclGetRefsNoopFromName "iro::utf8::String"
-
 $ -- * ------------------------------------------------------------------------
 
   /* --------------------------------------------------------------------------
@@ -354,7 +308,6 @@ $ -- * ------------------------------------------------------------------------
   }
 
 $ putDeclFixPointersNoopFromName "Color"
-$ putDeclGetRefsNoopFromName "Color"
 
 $ -- * ------------------------------------------------------------------------
 
@@ -377,11 +330,6 @@ $ -- * ------------------------------------------------------------------------
     // Noop 
   }
 
-  void getRefs_voidptr(CompiledData::Refs*, void*)
-  {
-    // Noop
-  }
-
 $ -- * ------------------------------------------------------------------------
 
 $ local function putVec2Compiler(name)
@@ -394,7 +342,6 @@ $ local function putVec2Compiler(name)
   }
 
 $   putDeclFixPointersNoopFromName(name)
-$   putDeclGetRefsNoopFromName(name)
 $ end
 
 $ putVec2Compiler "vec2<int>"
@@ -422,16 +369,20 @@ $   end
 
     TRACE("compile $(decl.type.name)\n");
 
-$   if decl.base then
-    $(getDeclCompilerName(decl.base))(*($(decl.type.name)*)&data);
-$   end
+$ local is_ref = decl:findMetadata "ref"
 
-$   local field_count = decl:countFields()
+$ if is_ref then
+    // This is a ref type, so we want to store the index of the 'name' field
+    // as it will appear in the compiled_strings array once it is compiled.
+    // We do this so that we may reference it in the CompiledRef we will be 
+    // pushing after all the fields have been compiled.
+    u64 compiled_ref_name_index = -1;
+$ end
 
 $ -- Write out each field of this struct, keeping track of the last field
 $ -- we compiled such that we may insert whatever padding may be there.
 $   local last_field
-$   for field in decl:eachField() do
+$   for field, record in decl:allFields() do
 $     if last_field then
 $       -- Compute possible padding of the last field and insert it if needed.
 $       local diff = field.offset - last_field.offset
@@ -439,23 +390,15 @@ $       if diff > last_field.type.size then
     // Allocate padded space from previous field.
     buffer->writeZeroed($(diff - last_field.type.size));
 $       end
-$     elseif decl.base then
-$       -- If this is the first field, and this struct has a base, then we 
-$       -- have to check if there's padding between the base's last field and 
-$       -- the first field of this struct. The compile function for the base
-$       -- won't know to place this padding, because it does not know that it
-$       -- is being used as a base!
-$       if field.offset ~= 0 then
-    // This type has a base ($(decl.base.name)) which has padding after its 
-    // last field, so we must allocate that padding here.
-    buffer->writeZeroed(
-      $(field.offset) - (buffer->currentOffset() - start_offset));
-
-$       end     
 $     end
 $     last_field = field
     // Fine grained asserts!
     assert(buffer->currentOffset() - start_offset == $(field.offset));
+$   if is_ref and field.name == "name" then
+    // Mark the index in the compiled_strings array where this ref type's 
+    // target will appear.
+    compiled_ref_name_index = compiled_strings->len;
+$   end
     // field '$(field.name)'
     //   offset: $(field.offset)
     //     size: $(field.type.size)
@@ -480,6 +423,22 @@ $   -- results in 1, not 0. C++ is so fucking stupid!!!
     assert(
       buffer->currentOffset() - start_offset == sizeof($(decl.type.name)));
 $ end
+
+$ if decl:findMetadata "ref" then
+$   -- If this is a ref type, we want to record the compiled ref's target,
+$   -- type, and its address so that we can compile it into a table for 
+$   -- easier iteration when this data is eventually loaded. Note that we 
+$   -- also only do this when the ref actually has a target, to make iterating
+$   -- them easier later (can assume all refs are valid) and to save on some
+$   -- memory.
+    if (notnil(data.name))
+    {
+      assert(compiled_ref_name_index != -1);
+      compiled_refs->push(
+        {start_offset, "$(decl.type.name)"_typeid, compiled_ref_name_index});
+    }
+$ end
+
   }
 
   /* --------------------------------------------------------------------------
@@ -492,23 +451,6 @@ $ end
 
 $ for field in decl:eachField() do
     $(getTypeFixPointersName(field.type))(&data->$(field.name));
-$ end
-  }
-
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclGetRefs(decl))
-  {
-$ if decl:findMetadata "ref" then
-    refs->push({"$(decl.type.name)"_typeid, data, data->name});
-$ else
-$   if decl.base then
-    $(getDeclGetRefsName(decl.base))(refs, data);
-$   end
-
-$   for field in decl:eachField() do
-    $(getTypeGetRefsName(field.type))(refs, &data->$(field.name));
-$   end
 $ end
   }
 $ end
@@ -551,14 +493,6 @@ $   putTypeCompiler(subtype)
     for (auto& elem : *data)
       $(getTypeFixPointersName(subtype))(&elem);
   }
-
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclGetRefs(decl))
-  {
-    for (auto& elem : *data)
-      $(getTypeGetRefsName(subtype))(refs, &elem);
-  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -590,14 +524,6 @@ $   putDeclCompiler(decl:findNestedRecord "Slot")
       $(getDeclFixPointersName(decl:findNestedRecord "Slot"))(&elem);
     }
   }
-
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclGetRefs(decl))
-  {
-    for (auto& elem : *data)
-      $(getDeclGetRefsName(decl:findNestedRecord "Slot"))(refs, &elem);
-  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -610,7 +536,6 @@ $ local function putTypedStringMapCompiler(decl)
     assert(!"typed string map compilation not implemented yet");
   }
 $   putDeclFixPointersNoop(decl)
-$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -624,7 +549,6 @@ $ local function putFlagsCompiler(decl)
     buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
-$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -683,7 +607,6 @@ $ local function putEnumCompiler(decl)
     buffer->writeT(data);
   }
 $   putDeclFixPointersNoop(decl)
-$   putDeclGetRefsNoop(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -804,8 +727,14 @@ $ end
   // succession while strings are stored so we may point all Strings found 
   // data to their location in the string table after all data has been 
   // compiled.
+  // Refs are stored so that we may compile a table of references made in
+  // compiled data for easier interation of them once this data is 
+  // eventually loaded. We used to provide a getRefs() function for this,
+  // but that complicated the internals a bit. So, we sacrifice a little 
+  // bit of memory by storing a table of them instead.
   CompiledStrings strings;
   CompiledPtrs pointers;
+  CompiledRefs refs;
 
   // Store the offset at which we are going to start writing the actual data.
   u64 data_start_offset = buffer.currentOffset();
@@ -816,6 +745,7 @@ $ end
   compiler.strings = &string_table;
   compiler.compiled_strings = &strings;
   compiler.compiled_pointers = &pointers;
+  compiler.compiled_refs = &refs;
 
   // Compile the root data.
   compiler.compileTypeId(params.type, params.dataptr);
@@ -887,6 +817,86 @@ $ end
         strptr->len));
   }
 
+  // Store where the ref table will be in data.
+  u64 ref_table_offset = string_table_offset + string_table.data.len;
+  b8 has_refs = !refs.isEmpty();
+
+  // Build the ref table if any references were compiled.
+  mem::BinaryDataBuilder ref_table;
+  defer 
+  {
+    if (has_refs)
+      ref_table.deinit();
+  };
+
+  if (has_refs)
+  {
+    if (!ref_table.init(1024))
+      return @err("failed to initialize BinaryDataBuilder");
+
+    // Prep the table with the refs.
+    ref_table.writeZeroedArrayT<Ref>(refs.len);
+
+    for (s32 i = 0; i < refs.len; ++i)
+    {
+      u64 ref_offset_in_table = sizeof(Ref) * i;
+      u64 ref_abs_offset = ref_offset_in_table + ref_table_offset;
+
+      CompiledRef* compiled_ref = &refs[i];
+      Ref* ref = (Ref*)(ref_table.data.ptr + ref_offset_in_table);
+
+      ref->type = compiled_ref->type;
+
+      // Compute the offset from the ref ptr's position in the compiled data
+      // BACK to the actual data as it will be placed in the result.
+      //
+      // This may be visualized like so, given:
+      //   d is the data buffer
+      //   x is the data we want the ref's pointer to offset to
+      //   s is the string table
+      //   r is the ref table
+      //   p is the ref's pointer
+      // 
+      //  d    x     s       r  p
+      //  |    |     |       |  |
+      //       \________________/
+      // So, the ref pointer's offset in the resulting ref table, minus the 
+      // offset of the data it wants to point to the in the data buffer.
+      u64 ref_ptr_offset = (u8*)&ref->ptr - (u8*)ref;
+      u64 ref_ptr_abs_offset = ref_abs_offset + ref_ptr_offset;
+      u64 ref_ptr_offset_to_data = ref_ptr_abs_offset - compiled_ref->offset;
+      ref->ptr.set((u8*)&ref->ptr - ref_ptr_offset_to_data);
+
+      // Get the CompiledString representing the target of the ref as it 
+      // will be written to the string table such that we can point to
+      // it from the Ref. This isn't necessary I don't think, but it is 
+      // useful for how Refs are not inheriting a common thing anymore.
+      // As in, this avoids needing to use the typeid of the ref at runtime
+      // to determine where the 'name' member actually is in the ref's data.
+      // TODO(sushi) decide if it would be better (memory-wise) to just store
+      //             an OffsetPtr<String> to the actual String in the buffer.
+      //             The way it is now avoids needing to fixPointers to get 
+      //             the target, since we are just pointing at the string 
+      //             table, but we also have to store the string's length
+      //             twice to do it this way.
+      CompiledString* compiled_name = &strings[compiled_ref->string_index];
+
+      // Get the string written to the buffer, since that is where it's 
+      // length is actually stored.
+      auto* str = (String*)(buffer.data.ptr + compiled_name->buffer_offset);
+
+      u64 ref_target_offset = (u8*)&ref->target - (u8*)ref;
+      u64 ref_target_abs_offset = ref_abs_offset + ref_target_offset;
+      u64 ref_target_offset_to_string = 
+        ref_target_abs_offset - 
+        (compiled_name->table_offset + string_table_offset);
+
+      ref->target.setSlice(
+        (u8*)&ref->target - ref_target_offset_to_string,
+        str->len);
+    }
+  }
+
   // Set the offset header data.
   auto* header = (CompiledData*)buffer.data.ptr;
 
@@ -904,9 +914,18 @@ $ end
     buffer.data.ptr + string_table_offset,
     string_table.data.len);
 
+  if (has_refs)
+  {
+    header->refs.setSlice(
+      (Ref*)(buffer.data.ptr + ref_table_offset),
+      refs.len);
+  }
+
   // Finally, write out the data to the output file.
   out_file.write(buffer.data);
   out_file.write(string_table.data);
+  if (has_refs)
+    out_file.write(ref_table.data);
 
   return true;
 }
@@ -979,41 +998,4 @@ $ end
   }
 
   pointer_state = PointerState::Absolute;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void CompiledData::getRefs(Refs* refs)
-{
-  Compiler compiler;
-
-  assert(pointer_state == PointerState::Absolute && 
-         "CompiledData::fixPointers must be called before "
-         "CompiledData::getRefs");
-
-  switch (type.val)
-  {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user.compiler_placed then
-$     if decl.typedefs then
-$       -- If this decl has been typedef'd also handle those typenames as 
-$       -- well. Note that we have to use the type the typedef declares,
-$       -- not the typedef itself, to preserve namespaces.
-$       for typedef in decl.typedefs:each() do
-    case "$(typedef.type.name)"_typeid_val:
-$       end
-$     end
-    case "$(decl.type.name)"_typeid_val:
-      compiler.$(getDeclGetRefsName(decl))(
-        refs,
-        ($(decl.type.name)*)data.ptr.get());
-      return;
-$   end
-$ end
-  }
-
-  ERROR("CompiledData::getRefs not implemented for type ", 
-        rtr::typenameFromTypeId(type), '\n');
-
-  assert(!"unhandled type in CompiledData::getRefs");
 }

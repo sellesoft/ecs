@@ -17,7 +17,7 @@ using namespace iro;
  */
 struct Entity
 {
-  typedef AVL<Component, Component::getKind> ComponentMap;
+  typedef AVL<Component> ComponentMap;
 
   String name; // owned
   ComponentMap components;

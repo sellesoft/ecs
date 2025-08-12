@@ -29,7 +29,13 @@ struct CompiledData
     Offset,
     Absolute,
   };
-
+  
+  // TODO(sushi) see about also compiling out a table of pointers that need
+  //             fixed as well. That would get rid of the fixPointers internals
+  //             that we have now, like this got rid of the getRefs stuff. 
+  //             This would help reduce generated code size, as well as 
+  //             simplifying the process of fixing pointers. Might also make
+  //             that faster too, since we would just be iterating an array.
   struct Ref
   {
     rtr::TypeId type;

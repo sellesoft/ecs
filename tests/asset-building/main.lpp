@@ -10,10 +10,13 @@ $ local cmn = require "common"
 @@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "graphics/Font.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
+#include "iro/containers/LinkedPool.h"
+#include "iro/Scanner.h"
 
 @log.ger(test-asset-building, Info)
 
@@ -51,22 +54,255 @@ build::AssetList* packAssetList(String path, PackedData* packed)
   return packed->getDataAs<build::AssetList>();
 }
 
+/* ============================================================================
+ */
+struct Target;
+struct Builder;
+typedef AVL<Target> TargetSet;
+
+struct Target
+{
+  // The asset name of this Target.
+  String name;
+
+  // The asset type of this Target, its extension.
+  String type;
+
+  // The mount of this Target, the directory it is expected to exist in 
+  // or be created in.
+  String mount;
+
+  // Combined hash of name and type.
+  u64 hash;
+
+  TargetSet dependents;
+  TargetSet prerequisites;
+
+  enum class State
+  {
+    Unknown,
+    QueuedForBuild,
+    UpToDate,
+  };
+
+  State state;
+
+  enum class Kind
+  {
+    // Not good.
+    Unknown,
+
+    // A file in our source data format.
+    SourceData,
+
+    // Source data that has been compiled.
+    // This typically has a SourceData target as its prereq.
+    CompiledData,
+
+    // Some kind of asset that is not source data, eg. a texture or shader
+    // to be compiled.
+    SourceAsset,
+    
+    // A compiled SourceAsset.
+    CompiledAsset,
+  };
+
+  Kind kind;
+  
+  // If this Target exists on disk. Cached after a call to cacheExistance.
+  b8 exists;
+
+  // If this target does exist, this is its last modified time.
+  TimePoint modtime;
+
+  static u64 getAVLKey(const Target& x) { return x.hash; }
+
+  b8 init(String name, String type, String mount, Kind kind)
+  {
+    this->name = name;
+    this->type = type;
+    this->mount = mount;
+    this->kind = kind;
+
+    hash = combineHash(name.hash(), type.hash());
+
+    if (!dependents.init())
+      return ERROR("failed to init dependents\n");
+
+    if (!prerequisites.init())
+      return ERROR("failed to init prerequisites\n");
+
+    cacheExistance();
+
+    state = State::Unknown;
+
+    return true;
+  }
+
+  void deinit()
+  {
+    dependents.deinit();
+    prerequisites.deinit();
+  }
+
+  void dependsOn(Target* prereq)
+  {
+    prerequisites.insert(prereq);
+    prereq->dependents.insert(this);
+  }
+
+  void cacheExistance()
+  {
+    PathBuffer path_buffer;
+    String path = formPath(&path_buffer);
+
+    exists = fs::path::exists(path);
+    if (exists)
+      modtime = fs::path::modtime(path);
+  }
+
+  b8 existsAndIsUpToDate() const
+  {
+    return exists && state == State::UpToDate;   
+  }
+
+  b8 isLeaf() const
+  {
+    return prerequisites.isEmpty();
+  }
+
+  b8 allPrereqsUpToDate() const
+  {
+    for (Target& prereq : prerequisites)
+    {
+      if (prereq.state != State::UpToDate)
+        return false;
+    }
+
+    return true;
+  }
+
+  b8 isNewerThanAllPrerequisites() const
+  {
+    if (!exists)
+      return false;
+
+    for (Target& prereq : prerequisites)
+    {
+      if (!prereq.exists || prereq.modtime > modtime)
+        return false;
+    }
+
+    return true;
+  }
+
+  String formPath(PathBuffer* out) 
+  { 
+    io::formatv(out, mount, '/', name, '.', type); 
+    return String(*out);
+  }
+
+  String formPath(String prefix, PathBuffer* out)
+  {
+    io::formatv(out, prefix, '/');
+    return formPath(out);
+  }
+
+  template<typename T>
+  T* loadAsCompiledData(mem::Allocator* allocator)
+  {
+    PathBuffer path;
+    CompiledData* compiled = CompiledData::load(
+      formPath(&path),
+      allocator);
+
+    if (compiled == nullptr)
+      return nullptr;
+
+    compiled->fixPointers();
+
+    return compiled->getRootAs<T>();
+  }
+};
+
+/* ============================================================================
+ */
+struct StackTargetSet : TargetSet
+{
+  StackTargetSet()
+  {
+    TargetSet::init();
+  }
+
+  ~StackTargetSet()
+  {
+    TargetSet::deinit();
+  }
+};
+
+/* ============================================================================
+ */
+struct BuildResult
+{
+  enum class Status
+  {
+    Success,
+    Error,
+  };
+
+  Status status = Status::Success;
+  String message = nil;
+
+  void setError() { status = Status::Error; }
+  void setError(String message) { setError(); this->message = message; }
+
+  b8 wasSuccessful() const { return status == Status::Success; }
+};
+
+/* ============================================================================
+ */
+struct IBuildRule
+{
+  void (*getPrereqs)(
+    Target* target, Builder* builder, TargetSet* prereqs, BuildResult* result);
+
+  void (*build)(
+    Target* target, Builder* builder, BuildResult* result);
+};
+
+/* ============================================================================
+ */
 struct Builder
 {
   mem::LenientBump string_pool;
 
-  Pool<String> target_pool;
-  DList<String> seen_targets;
-  DList<String> target_queue;
+  typedef DLinkedPool<Target> TargetPool;
+  typedef DList<Target> TargetList;
+
+  TargetPool targets;
+  TargetSet  target_set;
+  TargetList target_queue;
+
+  TargetList need_check_prereqs;
 
   mem::LenientBump compiled_data_allocator;
 
+  String source_dir;
   String build_dir;
+  
+  struct Rule
+  {
+    String type;
+    IBuildRule interface;
+  };
+
+  Array<Rule> build_rules;
 
   /* --------------------------------------------------------------------------
    */
-  b8 init(String build_dir)
+  b8 init(String source_dir, String build_dir)
   {
+    this->source_dir = source_dir;
     this->build_dir = build_dir;
 
     fs::mkdir(build_dir, true);
@@ -74,17 +310,20 @@ struct Builder
     if (!string_pool.init())
       return ERROR("failed to init string_pool\n");
 
-    if (!target_pool.init())
-      return ERROR("failed to init target_pool\n");
+    if (!targets.init())
+      return ERROR("failed to init targets pool\n");
 
-    if (!seen_targets.init())
-      return ERROR("failed to init seen_targets\n");
+    if (!target_set.init())
+      return ERROR("failed to init target_set\n");
 
     if (!target_queue.init())
       return ERROR("failed to init target_queue\n");
 
     if (!compiled_data_allocator.init())
       return ERROR("failed to init compiled_data_allocator\n");
+
+    if (!build_rules.init())
+      return ERROR("failed to init build_rules\n");
 
     return true;
   }
@@ -94,10 +333,51 @@ struct Builder
   void deinit()
   {
     string_pool.deinit();
-    target_pool.deinit();
-    seen_targets.deinit();
+    
+    for (Target& target : targets)
+      target.deinit();
+
+    targets.deinit();
+    target_set.deinit();
     target_queue.deinit();
     compiled_data_allocator.deinit();
+    build_rules.destroy();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void registerRule(String type, const IBuildRule& rule)
+  {
+    build_rules.push({type, rule});
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  Target* getTarget(String name, String type, Target::Kind kind)
+  {
+    if (Target* known = findKnownTarget(name, type))
+    {
+      assert(kind == known->kind);
+      return known;
+    }
+
+    String mount;
+    if (kind == Target::Kind::CompiledData ||
+        kind == Target::Kind::CompiledAsset)
+      mount = build_dir;
+    else
+      mount = source_dir;
+
+    return newTarget(name, type, mount, kind);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  template<typename T>
+  T* loadAsCompiledData(Target* target)
+  {
+    assert(target && target->kind == Target::Kind::CompiledData);
+    return target->loadAsCompiledData<T>(&compiled_data_allocator);
   }
 
   /* --------------------------------------------------------------------------
@@ -163,29 +443,8 @@ struct Builder
     if (compiled == nullptr)
       return nullptr;
 
+    compiled->fixPointers();
     return compiled;
-  }
-
-  /* --------------------------------------------------------------------------
-   */
-  void noteTarget(String target)
-  {
-    b8 already_seen = false;
-    for (String seen : seen_targets)
-    {
-      if (seen == target)
-      {
-        already_seen = true;
-        break;
-      }
-    }
-
-    if (!already_seen)
-    {
-      String* new_target = target_pool.add(target.nullTerminate(&string_pool));
-      seen_targets.pushTail(new_target);
-      target_queue.pushTail(new_target);
-    }
   }
 
   /* --------------------------------------------------------------------------
@@ -206,20 +465,103 @@ struct Builder
 
   /* --------------------------------------------------------------------------
    */
-  b8 buildSourceData(String path)
+  b8 checkDefTypeForCompileTasks(
+      Target* data_target,
+      rtr::TypeId def_type,
+      rtr::TypeId ref_type)
   {
-    DEBUG("building asset '", path, "'\n");
+    String source_type = 
+      rtr::getMetadataValue(def_type, "source_data_type"_str);
+
+    if (notnil(source_type))
+    {
+    }
+    else
+    {
+      WARN("def_type ", rtr::typenameFromTypeId(def_type), 
+           " of ref type ", rtr::typenameFromTypeId(ref_type), 
+           " does not specify a source_data_type\n");
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  Target* newTarget(
+      String name, 
+      String type, 
+      String mount,
+      Target::Kind kind)
+  {
+    INFO("new target ", name, '.', type, '\n');
+
+    if (name == "assets/fonts/gohu"_str && type == "texture.data"_str)
+      @dbgBreak;
+
+    Target* target = targets.pushHead()->data;
+    
+    if (!target->init(name, type, mount, kind))
+      return ERROR("failed to initialize new Target '", name, "' of type '",
+                   type, "'\n"),
+             nullptr;
+
+    target_set.insert(target);
+
+    PathBuffer dep_path_buffer;
+    target->formPath(&dep_path_buffer);
+    io::format(&dep_path_buffer, ".dep"_str);
+
+    if (fs::path::exists(String(dep_path_buffer)))
+    {
+      auto dep_file = fs::File::openForRead(String(dep_path_buffer));
+      defer { dep_file.close(); };
+
+      Scanner scanner;
+      scanner.init(&dep_file);
+      defer { scanner.deinit(); };
+
+      while (!scanner.eof())
+      {
+        String line = scanner.scanLine();
+        if (isnil(line))
+          break;
+
+        line = line
+          .removePrefix(build_dir)
+          .removePrefix(source_dir)
+          .removePrefix("/"_str);
+
+        String name = fs::path::removeExtension(line)
+          .nullTerminate(&string_pool);
+        String type = fs::path::getExtension(line)
+          .nullTerminate(&string_pool);
+
+        Target* dep_target = getTarget(name, type, kind);
+        target->prerequisites.insert(dep_target);
+      }
+      
+    }
+
+    return target;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildSourceData(Target* target)
+  {
+$ if false then
 
     // Remove data extension to get the source asset path.
     PathBuffer source_path_buffer;
-    io::format(&source_path_buffer, path.subToLast('.'));
+    io::format(&source_path_buffer, target->path.subToLast('.'));
     String source_path = String(source_path_buffer);
 
     if (!fs::path::exists(String(source_path)))
       return ERROR("no file at path '", String(source_path), "'\n");
   
     PathBuffer dest_path_buffer;
-    String dest_path = formOutputPath(&dest_path_buffer, path);
+    String dest_path = formOutputPath(&dest_path_buffer, target->path);
 
     DEBUG("building source asset '", source_path, "' -> '",
           dest_path, "'\n");
@@ -235,38 +577,22 @@ struct Builder
     if (TEST_VERBOSITY(Trace))
       rtr::prettyPrint(compiled->type, compiled->root.ptr.get());
 
-    CompiledData::Refs refs;
-    compiled->getRefs(&refs);
+    auto refs = compiled->refs.getSlice();
 
-    for (CompiledData::DataRef& ref : refs)
-    {
-      if (isnil(ref.target))
-        // Ref doesn't refer to anything.
-        continue;
+    for (auto& ref : refs)
+    { 
+      auto target = ref.target.getString();
+      auto ptr = ref.ptr.get();
 
       String ref_typename = rtr::typenameFromTypeId(ref.type);
 
-      DEBUG("refs ", ref.target, " at ", ref.ptr, " type ", ref_typename);
+      TRACE("refs ", target, " at ", ptr,'\n');
 
       String def_type = rtr::getMetadataValue(ref.type, "def_type"_str);
       if (notnil(def_type))
       {
-        String source_type = rtr::getMetadataValue(
-          rtr::TypeId::fromString(def_type), "source_data_type"_str);
-
-        if (notnil(source_type))
-        {
-          PathBuffer compiled_target;
-          io::formatv(&compiled_target, 
-            ref.target, '.', source_type, ".data"_str);
-
-          noteTarget(String(compiled_target));
-        }
-        else
-        {
-          WARN("def_type ", def_type, " of ref ", ref_typename, " does ",
-               "not specify a source_data_type\n");
-        }
+        auto def_typeid = rtr::TypeId::fromString(def_type);
+        checkDefTypeForCompileTasks(target, def_typeid, ref.type);
       }
       else
       {
@@ -287,7 +613,7 @@ struct Builder
         if (notnil(compiled_data_type))
         {
           PathBuffer compiled_target;
-          io::formatv(&compiled_target, ref.target, '.', compiled_data_type);
+          io::formatv(&compiled_target, target, '.', compiled_data_type);
 
           noteTarget(String(compiled_target));
         }
@@ -298,82 +624,135 @@ struct Builder
         }
       }
     }
+$ end
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildCompiledShader(Target* target)
+  {
+    // PathBuffer shader_data_path_buffer;
+    // io::formatv(&shader_data_path_buffer, 
+    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
+    //
+    // String shader_data_path = String(shader_data_path_buffer);
+    //
+    // PathBuffer shader_compiled_path_buffer;
+    // String shader_compiled_path = formOutputPath(
+    //   &shader_compiled_path_buffer, target->path);
+    //
+    // gfx::CompileShaderParams compile_params = 
+    // {
+    //   .input_path = shader_data_path,
+    //   .output_path = shader_compiled_path,
+    // };
+    //
+    // if (!gfx::compileShader(compile_params))
+    //   return ERROR("failed to compile shader '", shader_data_path, "'\n");
+    //
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildCompiledTexture(Target* target)
+  {
+    // PathBuffer texture_data_path_buffer;
+    // io::formatv(&texture_data_path_buffer, 
+    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
+    //
+    // String texture_data_path = String(texture_data_path_buffer);
+    //
+    // PathBuffer texture_compiled_path_buffer;
+    // String texture_compiled_path = formOutputPath(
+    //   &texture_compiled_path_buffer, target->path);
+    //
+    // if (!gfx::compileTexture(texture_data_path, texture_compiled_path))
+    //   return ERROR("failed to compile texture '", texture_data_path, "'\n");
+    //
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 buildFont(Target* target)
+  {
+    // PathBuffer font_data_path_buffer;
+    // io::formatv(&font_data_path_buffer,
+    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
+    //
+    // String font_data_path = String(font_data_path_buffer);
+    //
+    // PathBuffer font_compiled_path_buffer;
+    // String font_compiled_path = formOutputPath(
+    //   &font_compiled_path_buffer, target->path);
+    //
+    // PathBuffer font_compiled_texture_path_buffer;
+    // io::formatv(&font_compiled_texture_path_buffer,
+    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), 
+    //   ".texture.compiled"_str);
+    //
+    // String font_compiled_texture_path = String(
+    //   font_compiled_texture_path_buffer);
+    //
+    // if (!gfx::compileFont(
+    //     font_data_path, font_compiled_path, font_compiled_texture_path))
+    //   return ERROR("failed to compile font '", font_data_path, "'\n");
 
     return true;
   }
 
   /* --------------------------------------------------------------------------
    */
-  b8 buildCompiledShader(String path)
+  b8 buildCompiledData(Target* target)
   {
-    PathBuffer shader_data_path_buffer;
-    io::formatv(&shader_data_path_buffer, 
-      build_dir, '/', path.removeSuffix(".compiled"_str), ".data"_str);
+    String source_type = target->type.removeSuffix(".data"_str);
+    Target* source_target = findKnownTarget(target->name, source_type);
 
-    String shader_data_path = String(shader_data_path_buffer);
+    if (source_target == nullptr)
+      return ERROR("attempt to build compiled data target, but source data "
+                   "target was not already registered: ", 
+                   target->name, '.', source_type, '\n');
 
-    PathBuffer shader_compiled_path_buffer;
-    String shader_compiled_path = formOutputPath(
-      &shader_compiled_path_buffer, path);
+    PathBuffer source_path_buffer;
+    String source_path = source_target->formPath(&source_path_buffer);
 
-    INFO("building compiled shader '", shader_data_path, "' -> '",
-          shader_compiled_path, "'\n");
+    PathBuffer compiled_path_buffer;
+    String compiled_path = target->formPath(&compiled_path_buffer);
 
-    gfx::CompileShaderParams compile_params = 
+    CompiledData* compiled = 
+      packAndCompileSourceDataAsset(source_path, compiled_path);
+
+    if (compiled == nullptr)
+      return ERROR(
+        "failed to compile target '", target->name, '.', target->type, ")\n");
+
+    INFO("built ", target->name, '.', target->type, "\n");
+
+    auto refs = compiled->refs.getSlice();
+
+    for (auto& ref : refs)
     {
-      .input_path = shader_data_path,
-      .output_path = shader_compiled_path,
-    };
+      auto target = ref.target.getString();
 
-    if (!gfx::compileShader(compile_params))
-      return ERROR("failed to compile shader '", shader_data_path, "'\n");
+      INFO("refs ", target, '\n');
+    }
 
     return true;
   }
 
   /* --------------------------------------------------------------------------
    */
-  b8 buildCompiledTexture(String path)
+  b8 buildAsset(Target* target)
   {
-    PathBuffer texture_data_path_buffer;
-    io::formatv(&texture_data_path_buffer, 
-      build_dir, '/', path.removeSuffix(".compiled"_str), ".data"_str);
-
-    String texture_data_path = String(texture_data_path_buffer);
-
-    PathBuffer texture_compiled_path_buffer;
-    String texture_compiled_path = formOutputPath(
-      &texture_compiled_path_buffer, path);
-
-    if (!gfx::compileTexture(texture_data_path, texture_compiled_path))
-      return ERROR("failed to compile texture '", texture_data_path, "'\n");
-
-    return true;
-  }
-
-  /* --------------------------------------------------------------------------
-   */
-  b8 buildAsset(String path)
-  {
-    if (path.endsWith(".data"_str))
+    switch (target->kind)
     {
-      if (!buildSourceData(path))
-        return false;
+    case Target::Kind::CompiledData:
+      return buildCompiledData(target);
     }
-    else if (path.endsWith(".shader.compiled"_str))
-    {
-      if (!buildCompiledShader(path))
-        return false;
-    }
-    else if (path.endsWith(".texture.compiled"_str))
-    {
-      if (!buildCompiledTexture(path))
-        return false;
-    }
-    else
-    {
-      WARN("unknown asset extension for '", path, "'\n");
-    }
+
+    WARN("unhandled target kind passed tp buildAsset: ", target->name, '\n');
 
     return true;
   }
@@ -384,21 +763,211 @@ struct Builder
   {
     for (;;)
     {
+      queueTargets();
+
       if (target_queue.isEmpty())
       {
         INFO("no more queued targets\n");
         break;
       }
 
-      String* target = target_queue.popHead();
+      while (!target_queue.isEmpty())
+      {
+        Target* next = target_queue.popHead();
 
-      INFO("building ", *target, '\n');
+        Rule* rule = findRuleForTarget(next);
 
-      if (!buildAsset(*target))
-        return false;
+        // We should have had a rule for this target for us to know we can 
+        // queue it for building.
+        assert(rule != nullptr);
+
+        INFO("building ", next->name, '.', next->type, '\n');
+
+        PathBuffer target_path_buffer;
+        String target_path = next->formPath(&target_path_buffer);
+
+        PathBuffer target_path_dir;
+        fs::path::removeBasename(target_path)
+        .nullTerminate(&target_path_dir);
+
+        fs::mkdir(String(target_path_dir), true);
+
+        BuildResult result;
+        rule->interface.build(next, this, &result);
+
+        if (result.wasSuccessful())
+        {
+          // If success is reported, assume the next is now up to date.
+          DEBUG("built ", next->name, '.', next->type, '\n');
+          next->state = Target::State::UpToDate;
+
+          PathBuffer target_dep_path_buffer;
+          next->formPath(&target_dep_path_buffer);
+          io::format(&target_dep_path_buffer, ".dep"_str);
+
+          fs::File dep_file = fs::File::createForTruncatedWriting(
+            String(target_dep_path_buffer));
+          defer { dep_file.close(); };
+
+          for (auto& prereq : next->prerequisites)
+          {
+            PathBuffer dep_path_buffer;
+            io::formatv(&dep_file, prereq.formPath(&dep_path_buffer),  '\n');
+          }
+        }
+      }
     }
 
     return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  Target* findKnownTarget(String name, String type)
+  {
+    return target_set.find(combineHash(name.hash(), type.hash()));
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void findLeaves(SList<Target>* leaves)
+  {
+    for (Target& target : target_set)
+    {
+      if (target.state == Target::State::QueuedForBuild)
+        continue;
+
+      // We don't need to build targets that are already up to date.
+      if (target.state == Target::State::UpToDate)
+        continue;
+
+      // If the target still has out of date prereqs we can't build it yet.
+      if (!target.allPrereqsUpToDate())
+        continue;
+
+      leaves->push(&target);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  Target* getOrCreateCompiledDataSourceTarget(Target* compiled)
+  {
+    String source_name = compiled->name.removePrefix(build_dir);
+    String source_type = compiled->type.removeSuffix(".data"_str);
+
+    if (Target* known = findKnownTarget(source_name, source_type))
+      return known;
+
+    return newTarget(
+      source_name, source_type, source_dir, Target::Kind::SourceData);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  Rule* findRuleForTarget(Target* target)
+  {
+    for (Rule& rule : build_rules)
+    {
+      if (target->type.endsWith(rule.type))
+        return &rule;
+    }
+    return nullptr;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 queueTargets()
+  {
+    for (;;)
+    {
+      ScopedSList<Target> leaves;
+      findLeaves(&leaves);
+
+      if (leaves.isEmpty())
+        break;
+
+      for (auto& leaf : leaves)
+      {
+        PathBuffer path_buffer;
+        DEBUG("leaf: ", leaf.formPath(&path_buffer), '\n');
+
+        if (Rule* rule = findRuleForTarget(&leaf))
+        {
+          BuildResult result;
+          StackTargetSet rule_prereqs;
+
+          rule->interface.getPrereqs(&leaf, this, &rule_prereqs, &result);
+        
+          // Mark the prereqs of this target based on what the rule 
+          // told us.
+          for (auto& prereq : rule_prereqs)
+            leaf.dependsOn(&prereq);
+
+          // Check if all the prereqs for this target are up to date. If 
+          // so, we can build it.
+          if (leaf.allPrereqsUpToDate())
+          {
+            if (!leaf.isNewerThanAllPrerequisites())
+            {
+              PathBuffer queued_path;
+              DEBUG("adding '", leaf.formPath(&queued_path), "' to queue\n");
+              target_queue.pushTail(&leaf);
+              leaf.state = Target::State::QueuedForBuild;
+            }
+            else
+              leaf.state = Target::State::UpToDate;
+          }
+        }
+        else 
+        {
+          if (!leaf.exists)
+          {
+            // If we don't have a rule to build this target and it 
+            // doesn't exist, then we don't know what to do.
+            PathBuffer non_existant_target;
+            ERROR("no rule provided for non-existant build target '", 
+                  leaf.formPath(&non_existant_target), "'\n");
+            return false;
+          }
+          else
+          {
+            // Otherwise, consider this target up-to-date, and to be used
+            // to build other targets next time around.
+            leaf.state = Target::State::UpToDate;
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Create a target based on the given path. This is primarily to discern
+   *  between CompiledData and CompiledAssets.
+   */
+  Target* createTargetFromAssetPath(String path)
+  {
+    String name = fs::path::removeExtension(path);
+    String type = fs::path::getExtension(path);
+
+    Target* result = nullptr;
+    if (type.endsWith(".data"_str))
+    {
+      // This must be some CompiledData.
+      result = newTarget(
+        name, type, build_dir, Target::Kind::CompiledData);
+    }
+    else if (type.endsWith(".compiled"_str))
+    {
+      // This must be some CompiledAsset.
+      result = newTarget(
+        name, type, build_dir, Target::Kind::CompiledAsset);
+    }
+
+    assert(result != nullptr);
+    return result;
   }
 
   /* --------------------------------------------------------------------------
@@ -413,24 +982,271 @@ struct Builder
     if (asset_list == nullptr)
       return ERROR("failed to pack asset list '", path, "'\n");
 
-    // Prep target queue with assets found in the list.
     for (const auto& asset : *asset_list)
     {
-      String* target = target_pool.add(asset.nullTerminate(&string_pool));
-      seen_targets.pushTail(target);
-      target_queue.pushTail(target);
+      String target_path = asset.nullTerminate(&string_pool);
+      Target* target = createTargetFromAssetPath(target_path);
+      INFO("asset list target: ", target->name, '\n');
     }
-    
+
     return buildTargets();
   }
 };
 
 b8 testAssetBuilding()
 {
+  PathBuffer cwd_buffer;
+  cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
+  if (cwd_buffer.len == 0)
+    return ERROR("failed to get cwd\n");
+  String cwd = String(cwd_buffer);
+
+  PathBuffer compiled_dir_buffer;
+  io::formatv(&compiled_dir_buffer, 
+    cwd, '/', "tests/asset-building/_data"_str);
+  String compiled_dir = String(compiled_dir_buffer);
+
   Builder builder;
-  if (!builder.init("tests/asset-building/_data"_str))
+  if (!builder.init(cwd, compiled_dir))
     return false;
   defer { builder.deinit(); };
+
+  builder.registerRule("data"_str, 
+    {
+      .getPrereqs = [](
+          Target* target, 
+          Builder* builder, 
+          TargetSet* prereqs,
+          BuildResult* result)
+      {
+        // Data targets need some SourceData to build, which should be named 
+        // without the .data extension.
+        Target* source_target = builder->getTarget(
+          target->name,
+          target->type.removeSuffix(".data"_str), 
+          Target::Kind::SourceData);
+
+        // Note the source target as a prereq.
+        prereqs->insert(source_target);
+      },
+
+      .build = [](Target* target, Builder* builder, BuildResult* result)
+      {
+        Target* source_target = builder->getTarget(
+          target->name,
+          target->type.removeSuffix(".data"_str), 
+          Target::Kind::SourceData);
+
+        PathBuffer source_path_buffer;
+        PathBuffer target_path_buffer;
+
+        CompiledData* compiled = 
+          builder->packAndCompileSourceDataAsset(
+            source_target->formPath(&source_path_buffer),
+            target->formPath(&target_path_buffer));
+
+        for (CompiledData::Ref& ref : compiled->refs.getSlice())
+        {
+          String def_type = rtr::getMetadataValue(ref.type, "def_type"_str);
+          if (isnil(def_type))
+          {
+            WARN("ref type ", rtr::typenameFromTypeId(ref.type), " does "
+                 "not specify a def_type\n");
+            continue;
+          }
+
+          rtr::TypeId def_typeid = rtr::TypeId::fromString(def_type);
+
+          String def_source_type = 
+            rtr::getMetadataValue(def_typeid, "source_data_type"_str);
+          if (notnil(def_source_type))
+          {
+            PathBuffer def_compiled_data_type;
+            io::formatv(&def_compiled_data_type, 
+              def_source_type, ".data"_str);
+
+            // Refs to source data will need the compiled data.
+            Target* compiled_def_target = builder->getTarget(
+              ref.target.getString(),
+              String(def_compiled_data_type)
+                .nullTerminate(&builder->string_pool),
+              Target::Kind::CompiledData);
+          }
+
+          String def_compiled_type = 
+            rtr::getMetadataValue(def_typeid, "compiled_type"_str);
+          if (notnil(def_compiled_type))
+          {
+            rtr::TypeId def_compiled_typeid =
+              rtr::TypeId::fromString(def_compiled_type);
+
+            String def_compiled_data_type = 
+              rtr::getMetadataValue(
+                // TODO(sushi) needs renamed to compiled_asset_type
+                //             and will probably need to support multiple?
+                def_compiled_typeid, "compiled_data_type"_str);
+
+            if (notnil(def_compiled_data_type))
+            {
+              Target* compiled_asset = builder->getTarget(
+                ref.target.getString(),
+                def_compiled_data_type,
+                Target::Kind::CompiledAsset);
+            }
+          }
+        }
+      },
+    });
+
+  builder.registerRule("texture.compiled"_str, 
+    {
+      .getPrereqs = [](
+          Target* target, 
+          Builder* builder, 
+          TargetSet* prereqs,
+          BuildResult* result)
+      {
+        // Compiled textures need some compiled SourceData to understand 
+        // what texture to build and how. Ask the build system for the data
+        // target that should be CompiledData and has extension 'texture.data'.
+        Target* data_target = builder->getTarget(
+            target->name, 
+            "texture.data"_str, 
+            Target::Kind::CompiledData);
+      
+        // Note the data target as a prereq.
+        prereqs->insert(data_target);
+        
+        // If the data target exists and is up to date, load it and get 
+        // the texture that we want to compile. Otherwise, the builder should
+        // realize that the prereq does not exist and will try to build it 
+        // for us to try this again later.
+        if (data_target->existsAndIsUpToDate())
+        {
+          auto* texture_def = 
+            builder->loadAsCompiledData<gfx::TextureDef>(data_target);
+          if (texture_def == nullptr)
+          {
+            result->setError("failed to load compiled texture def\n"_str);
+            return;
+          }
+
+          if (isnil(texture_def->name))
+          {
+            result->setError(
+              "texture def does not specify a source texture\n"_str);
+            return;
+          }
+
+          // Parse the source texture name.
+          String source_texture_name = 
+            fs::path::removeExtension(texture_def->name);
+          String source_texture_type = 
+            fs::path::getExtension(texture_def->name);
+
+          // Get or create the source texture target and mark it as a 
+          // prerequisite SourceAsset.
+          Target* source_texture_target = builder->getTarget(
+            source_texture_name, 
+            source_texture_type, 
+            Target::Kind::SourceAsset);
+
+          prereqs->insert(source_texture_target);
+        }
+      },
+
+      .build = [](Target* target, Builder* builder, BuildResult* result)
+      {
+        Target* data_target = 
+          builder->findKnownTarget(target->name, "texture.data"_str);
+
+        PathBuffer data_path_buffer;
+        PathBuffer target_path_buffer;
+        
+        // TODO(sushi) compilation functions could take the BuildResult.
+        b8 success = 
+          gfx::compileTexture(
+            data_target->formPath(&data_path_buffer),
+            target->formPath(&target_path_buffer));
+
+        if (!success)
+          result->setError();
+      },
+    });
+
+  builder.registerRule("font.compiled"_str,
+    {
+      .getPrereqs = [](
+          Target* target, 
+          Builder* builder, 
+          TargetSet* prereqs,
+          BuildResult* result)
+      {
+        Target* data_target = builder->getTarget(
+          target->name,
+          "font.data"_str,
+          Target::Kind::CompiledData);
+
+        prereqs->insert(data_target);
+
+        if (data_target->existsAndIsUpToDate())
+        {
+          auto* font_def = 
+            builder->loadAsCompiledData<gfx::FontDef>(data_target);
+          if (font_def == nullptr)
+          {
+            result->setError("failed to load compiled font def\n"_str);
+            return;
+          }
+
+          if (isnil(font_def->name))
+          {
+            result->setError(
+              "font def does not specify a source font\n"_str);
+            return;
+          }
+
+          // Parse the source font name.
+          String source_font_name = 
+            fs::path::removeExtension(font_def->asset_path);
+          String source_font_type = 
+            fs::path::getExtension(font_def->asset_path);
+
+          // Get or create the source font target and mark it as a 
+          // prerequisite SourceAsset.
+          Target* source_font_target = builder->getTarget(
+            source_font_name, 
+            source_font_type, 
+            Target::Kind::SourceAsset);
+
+          prereqs->insert(source_font_target);
+        }
+      },
+
+      .build = [](Target* target, Builder* builder, BuildResult* result)
+      {
+        Target* data_target = 
+          builder->findKnownTarget(target->name, "font.data"_str);
+
+        PathBuffer data_path_buffer;
+        PathBuffer target_path_buffer;
+        PathBuffer target_texture_path_buffer;
+        io::formatv(
+          &target_texture_path_buffer, 
+          target->mount, '/', target->name, '.', 
+          "font.texture.compiled"_str);
+        
+        // TODO(sushi) compilation functions could take the BuildResult.
+        b8 success = 
+          gfx::compileFont(
+            data_target->formPath(&data_path_buffer),
+            target->formPath(&target_path_buffer),
+            String(target_texture_path_buffer));
+
+        if (!success)
+          result->setError();
+      }
+    });
 
   if (!builder.buildAssetList("tests/asset-builder/test.asset_list"_str))
     return false;

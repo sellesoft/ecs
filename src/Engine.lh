@@ -21,9 +21,14 @@ struct Reloader;
 
 /* ============================================================================
  */
-struct LaunchArg { u64 key; String value; };
-static u64 getLaunchArgKey(const LaunchArg* a) { return a->key; }
-typedef iro::AVL<LaunchArg, getLaunchArgKey> LaunchArgs;
+struct LaunchArg 
+{ 
+  u64 key; 
+  String value; 
+
+  static u64 getAVLKey(const LaunchArg& x) { return x.key; }
+};
+typedef iro::AVL<LaunchArg> LaunchArgs;
 
 /* ============================================================================
  * NOTE(delle) fields are in order of initialization

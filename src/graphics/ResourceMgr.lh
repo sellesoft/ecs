@@ -25,14 +25,14 @@ struct ResourceMgr
   {
     String name;
     T  resource;
+
+    static u64 getAVLKey(const Resource<T>& x) { return x.name.hash(); }
   };
 
-  template<typename T>
-  static u64 getResourceHash(const Resource<T>* r) { return r->name.hash(); }
-
   // TODO(sushi) use indexed pools once vulkan is merged
+  //             well vulkan is merged now sooo.
   template<typename T>
-  using ResourceMap = AVL<Resource<T>, getResourceHash>;
+  using ResourceMap = AVL<Resource<T>>;
 
   ResourceMap<CompiledTexture> textures;
   ResourceMap<CompiledShader> shaders;

@@ -3,6 +3,8 @@
  */
 
 $ local cmn = require "common"
+$ local m = require "reflect.Metadata"
+
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 #include "iro/traits/Nil.h"
@@ -63,6 +65,7 @@ enum class FontKind
 /* ============================================================================
  *  Compiled font data saved to disk. 
  */
+@m.compiled_data_type(font.compiled)
 struct FontData
 {
   FontKind kind;
@@ -83,6 +86,11 @@ struct FontData
 struct Font;
 
 typedef TypedAssetRef<FontData> FontDataRef;
+
+b8 compileFont(
+  String input_path, 
+  String output_path,
+  String texture_output_path);
 
 /* ============================================================================
  *  Runtime representation of a loaded font.

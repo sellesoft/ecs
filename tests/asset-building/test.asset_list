@@ -1,6 +1,6 @@
 return build::AssetList
 {
-  "assets/textures/DevSpawner.texture.data",
+  "assets/textures/DevSpawner.texture.compiled",
   "assets/shaders/Dither.frag.shader.data",
   "assets/skins/Editor.skin.data",
   "assets/shaders/UI.pipeline.data",

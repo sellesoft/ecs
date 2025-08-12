@@ -27,7 +27,7 @@ using namespace iro;
 struct AssetMgr
 {
   typedef DLinkedPool<Asset> AssetPool;
-  typedef AVL<Asset, Asset::getHash> AssetMap;
+  typedef AVL<Asset> AssetMap;
 
   AssetPool pool;
   AssetMap map;

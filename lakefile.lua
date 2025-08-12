@@ -195,7 +195,7 @@ if lake.cliargs[1] == "test" then
   return
 end
 
-buildAndRunTest "asset-building"
+buildTest "asset-building"
 
 do return end
 

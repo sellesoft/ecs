@@ -24,13 +24,11 @@ struct SourceDataFileReg
     String path;
     u64 path_hash;
 
-    static u64 getHash(const SourceDataFileSlot* x) { return x->path_hash; }
+    static u64 getAVLKey(const SourceDataFileSlot& x) { return x.path_hash; }
   };
 
   typedef Pool<SourceDataFileSlot> SourceDataFilePool;
-
-  typedef AVL<SourceDataFileSlot, SourceDataFileSlot::getHash> 
-    SourceDataFileMap;
+  typedef AVL<SourceDataFileSlot>  SourceDataFileMap;
 
   SourceDataFilePool pool;
   SourceDataFileMap  map;

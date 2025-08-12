@@ -15,8 +15,9 @@ struct CompiledTexture;
 
 /* ============================================================================
  */
-@metadata.source_data_type(texture)
 @metadata.def
+@metadata.source_data_type(texture)
+@metadata.compiled_type(gfx::CompiledTextureData)
 struct TextureDef
 {
   @metadata.source_types(png)
@@ -38,7 +39,6 @@ struct TextureDef
 /* ============================================================================
  */
 @metadata.def_type(gfx::TextureDef)
-@metadata.compiled_type(gfx::CompiledTextureData)
 struct TextureRef : TypedResourceRef<CompiledTexture> {};
 
 }

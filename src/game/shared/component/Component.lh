@@ -30,7 +30,7 @@ struct Component
   //             such that we can avoid needing to store this intrinsically.
   void* node = nullptr;
   
-  static u64 getKind(const Component* cmp) { return cmp->kind; }
+  static u64 getAVLKey(const Component& cmp) { return cmp.kind; }
 
   b8 is(u64 kind) const { return this->kind == kind; }
   

@@ -31,7 +31,7 @@ struct Asset
 {
   u64 hash = 0;
 
-  static u64 getHash(const Asset* asset) { return asset->hash; }
+  static u64 getAVLKey(const Asset& asset) { return asset.hash; }
 
   // Note that this String is owned by this Asset, so only point to it 
   // if you know that pointer will be used only during the lifetime of the 

@@ -10,6 +10,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "graphics/Shader.defs.lh"
 @@lpp.import "graphics/Font.lh"
 
 #include "math/Rect.h"
@@ -21,6 +22,8 @@ $ local cmn = require "common"
 @log.ger(test-asset-building, Info)
 
 typedef io::StaticBuffer<512> PathBuffer;
+
+using namespace build;
 
 // Packs an asset list asset at the given path using the provided PackedData.
 // The PackedData is initialized internally!
@@ -77,6 +80,7 @@ struct Target
 
   TargetSet dependents;
   TargetSet prerequisites;
+  TargetSet linked_targets;
 
   enum class State
   {
@@ -87,27 +91,7 @@ struct Target
 
   State state;
 
-  enum class Kind
-  {
-    // Not good.
-    Unknown,
-
-    // A file in our source data format.
-    SourceData,
-
-    // Source data that has been compiled.
-    // This typically has a SourceData target as its prereq.
-    CompiledData,
-
-    // Some kind of asset that is not source data, eg. a texture or shader
-    // to be compiled.
-    SourceAsset,
-    
-    // A compiled SourceAsset.
-    CompiledAsset,
-  };
-
-  Kind kind;
+  TargetKind kind;
   
   // If this Target exists on disk. Cached after a call to cacheExistance.
   b8 exists;
@@ -117,7 +101,7 @@ struct Target
 
   static u64 getAVLKey(const Target& x) { return x.hash; }
 
-  b8 init(String name, String type, String mount, Kind kind)
+  b8 init(String name, String type, String mount, TargetKind kind)
   {
     this->name = name;
     this->type = type;
@@ -132,6 +116,9 @@ struct Target
     if (!prerequisites.init())
       return ERROR("failed to init prerequisites\n");
 
+    if (!linked_targets.init())
+      return ERROR("failed to init linked_targets\n");
+
     cacheExistance();
 
     state = State::Unknown;
@@ -143,12 +130,18 @@ struct Target
   {
     dependents.deinit();
     prerequisites.deinit();
+    linked_targets.deinit();
   }
 
   void dependsOn(Target* prereq)
   {
     prerequisites.insert(prereq);
     prereq->dependents.insert(this);
+  }
+
+  void links(Target* linked)
+  {
+    linked_targets.insert(linked);
   }
 
   void cacheExistance()
@@ -191,6 +184,8 @@ struct Target
     {
       if (!prereq.exists || prereq.modtime > modtime)
         return false;
+
+      PathBuffer prereq_buffer;
     }
 
     return true;
@@ -206,6 +201,12 @@ struct Target
   {
     io::formatv(out, prefix, '/');
     return formPath(out);
+  }
+
+  String formMetaPath(PathBuffer* out)
+  {
+    io::formatv(out, mount, '/', name, '.', type, ".meta"_str);
+    return String(*out);
   }
 
   template<typename T>
@@ -293,6 +294,7 @@ struct Builder
   struct Rule
   {
     String type;
+    Array<String> secondary_types;
     IBuildRule interface;
   };
 
@@ -341,29 +343,79 @@ struct Builder
     target_set.deinit();
     target_queue.deinit();
     compiled_data_allocator.deinit();
+      
+    for (Rule& rule : build_rules)
+    {
+      if (notnil(rule.secondary_types))
+        rule.secondary_types.destroy();
+    }
+
     build_rules.destroy();
   }
 
   /* --------------------------------------------------------------------------
    */
-  void registerRule(String type, const IBuildRule& rule)
+  void registerRule(String type, const IBuildRule& interface)
   {
-    build_rules.push({type, rule});
+    Rule rule = {};
+
+    // Parse the provided output types.
+    String::Pair split = type.splitAtFirst(';');
+    
+    // Set the primary type to the first one specified.
+    rule.type = split.first;
+
+    if (notnil(split.second))
+    {
+      // If we found a secondary type, init the secondary array and parse
+      // the rest.
+      rule.secondary_types.init();
+      for (;;)
+      {
+        split = split.second.splitAtFirst(';');
+        rule.secondary_types.push(split.first);
+        if (isnil(split.second))
+          break;
+      }
+    }
+
+    rule.interface = interface;
+
+    build_rules.push(rule);
   }
 
   /* --------------------------------------------------------------------------
    */
-  Target* getTarget(String name, String type, Target::Kind kind)
+  Target* getTarget(String name, String type, TargetKind kind)
   {
     if (Target* known = findKnownTarget(name, type))
     {
+      assert(kind != TargetKind::Unknown || 
+             known->kind != TargetKind::Unknown);
+
+      if (kind == TargetKind::Unknown)
+        kind = known->kind;
+
+      if (known->kind == TargetKind::Unknown)
+        known->kind = kind;
+
       assert(kind == known->kind);
       return known;
     }
 
+    if (kind == TargetKind::Unknown)
+    {
+      if (type.endsWith(".compiled"_str))
+        kind = TargetKind::CompiledAsset;
+      else if (type.endsWith(".data"_str))
+        kind = TargetKind::CompiledData;
+    }
+
+    assert(kind != TargetKind::Unknown);
+
     String mount;
-    if (kind == Target::Kind::CompiledData ||
-        kind == Target::Kind::CompiledAsset)
+    if (kind == TargetKind::CompiledData ||
+        kind == TargetKind::CompiledAsset)
       mount = build_dir;
     else
       mount = source_dir;
@@ -376,7 +428,7 @@ struct Builder
   template<typename T>
   T* loadAsCompiledData(Target* target)
   {
-    assert(target && target->kind == Target::Kind::CompiledData);
+    assert(target && target->kind == TargetKind::CompiledData);
     return target->loadAsCompiledData<T>(&compiled_data_allocator);
   }
 
@@ -465,25 +517,47 @@ struct Builder
 
   /* --------------------------------------------------------------------------
    */
-  b8 checkDefTypeForCompileTasks(
-      Target* data_target,
-      rtr::TypeId def_type,
-      rtr::TypeId ref_type)
+  void loadTargetMetadata(Target* target)
   {
-    String source_type = 
-      rtr::getMetadataValue(def_type, "source_data_type"_str);
+    PathBuffer meta_path_buffer;
+    String meta_path = target->formMetaPath(&meta_path_buffer);
 
-    if (notnil(source_type))
+    if (!fs::path::exists(meta_path))
+      return;
+
+    PackedData packed_metadata;
+    if (!packAsset(meta_path, &packed_metadata))
+      return;
+    defer { packed_metadata.deinit(); };
+
+    auto* metadata = packed_metadata.getDataAs<build::TargetMetadata>();
+
+    // rtr::prettyPrint(*metadata);
+
+    for (TargetInfo& dep : metadata->prereqs)
     {
-    }
-    else
-    {
-      WARN("def_type ", rtr::typenameFromTypeId(def_type), 
-           " of ref type ", rtr::typenameFromTypeId(ref_type), 
-           " does not specify a source_data_type\n");
+      // TODO(sushi) need to avoid all of these string copies when 
+      //             merging into actual code. We should probably just 
+      //             always output the compiled version of the meta 
+      //             stuff and just optionally dump the source data 
+      //             to disk for debugging.
+      Target* dep_target = getTarget(
+        dep.name.allocateCopy(&string_pool), 
+        dep.type.allocateCopy(&string_pool), 
+        dep.kind);
+      target->dependsOn(dep_target);
+      loadTargetMetadata(dep_target);
     }
 
-    return true;
+    for (TargetInfo& linked : metadata->linked_targets)
+    {
+      Target* linked_target = getTarget(
+        linked.name.allocateCopy(&string_pool), 
+        linked.type.allocateCopy(&string_pool), 
+        linked.kind);
+      target->links(linked_target);
+      loadTargetMetadata(linked_target);
+    }
   }
 
   /* --------------------------------------------------------------------------
@@ -492,12 +566,9 @@ struct Builder
       String name, 
       String type, 
       String mount,
-      Target::Kind kind)
+      TargetKind kind)
   {
     INFO("new target ", name, '.', type, '\n');
-
-    if (name == "assets/fonts/gohu"_str && type == "texture.data"_str)
-      @dbgBreak;
 
     Target* target = targets.pushHead()->data;
     
@@ -507,254 +578,55 @@ struct Builder
              nullptr;
 
     target_set.insert(target);
-
-    PathBuffer dep_path_buffer;
-    target->formPath(&dep_path_buffer);
-    io::format(&dep_path_buffer, ".dep"_str);
-
-    if (fs::path::exists(String(dep_path_buffer)))
-    {
-      auto dep_file = fs::File::openForRead(String(dep_path_buffer));
-      defer { dep_file.close(); };
-
-      Scanner scanner;
-      scanner.init(&dep_file);
-      defer { scanner.deinit(); };
-
-      while (!scanner.eof())
-      {
-        String line = scanner.scanLine();
-        if (isnil(line))
-          break;
-
-        line = line
-          .removePrefix(build_dir)
-          .removePrefix(source_dir)
-          .removePrefix("/"_str);
-
-        String name = fs::path::removeExtension(line)
-          .nullTerminate(&string_pool);
-        String type = fs::path::getExtension(line)
-          .nullTerminate(&string_pool);
-
-        Target* dep_target = getTarget(name, type, kind);
-        target->prerequisites.insert(dep_target);
-      }
-      
-    }
+    loadTargetMetadata(target);
 
     return target;
   }
 
   /* --------------------------------------------------------------------------
    */
-  b8 buildSourceData(Target* target)
+  void addTargetInfo(Target* target, SourceData* data, SourceDataFile* file)
   {
-$ if false then
+    SourceData* info = data->addObject(*file, nil, "build::TargetInfo"_str);
 
-    // Remove data extension to get the source asset path.
-    PathBuffer source_path_buffer;
-    io::format(&source_path_buffer, target->path.subToLast('.'));
-    String source_path = String(source_path_buffer);
-
-    if (!fs::path::exists(String(source_path)))
-      return ERROR("no file at path '", String(source_path), "'\n");
-  
-    PathBuffer dest_path_buffer;
-    String dest_path = formOutputPath(&dest_path_buffer, target->path);
-
-    DEBUG("building source asset '", source_path, "' -> '",
-          dest_path, "'\n");
-
-    CompiledData* compiled = 
-      packAndCompileSourceDataAsset(source_path, dest_path);
-
-    if (compiled == nullptr)
-      return false;
-
-    compiled->fixPointers();
-
-    if (TEST_VERBOSITY(Trace))
-      rtr::prettyPrint(compiled->type, compiled->root.ptr.get());
-
-    auto refs = compiled->refs.getSlice();
-
-    for (auto& ref : refs)
-    { 
-      auto target = ref.target.getString();
-      auto ptr = ref.ptr.get();
-
-      String ref_typename = rtr::typenameFromTypeId(ref.type);
-
-      TRACE("refs ", target, " at ", ptr,'\n');
-
-      String def_type = rtr::getMetadataValue(ref.type, "def_type"_str);
-      if (notnil(def_type))
-      {
-        auto def_typeid = rtr::TypeId::fromString(def_type);
-        checkDefTypeForCompileTasks(target, def_typeid, ref.type);
-      }
-      else
-      {
-        WARN("ref type ", ref_typename, " does not specify a def_type\n");
-      }
-
-      // Check if this ref type needs to compile something else.
-      String compiled_type = 
-        rtr::getMetadataValue(ref.type, "compiled_type"_str);
-
-      if (notnil(compiled_type))
-      {
-        auto compiled_typeid = rtr::TypeId::fromString(compiled_type);
-
-        String compiled_data_type = rtr::getMetadataValue(
-          compiled_typeid, "compiled_data_type"_str);
-
-        if (notnil(compiled_data_type))
-        {
-          PathBuffer compiled_target;
-          io::formatv(&compiled_target, target, '.', compiled_data_type);
-
-          noteTarget(String(compiled_target));
-        }
-        else
-        {
-          WARN("compiled_type ", compiled_type, " of ref ", ref_typename, 
-               "does not specify a compiled_data_type\n");
-        }
-      }
-    }
-$ end
-    return true;
+    PathBuffer path_buffer;
+    info->addStringValue(*file, "name"_str, target->name);
+    info->addStringValue(*file, "type"_str, target->type);
+    info->addStringValue(
+      *file, "kind"_str, rtr::getEnumElementName(target->kind));
   }
 
   /* --------------------------------------------------------------------------
    */
-  b8 buildCompiledShader(Target* target)
+  void writeTargetMetaFile(Target* target)
   {
-    // PathBuffer shader_data_path_buffer;
-    // io::formatv(&shader_data_path_buffer, 
-    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
-    //
-    // String shader_data_path = String(shader_data_path_buffer);
-    //
-    // PathBuffer shader_compiled_path_buffer;
-    // String shader_compiled_path = formOutputPath(
-    //   &shader_compiled_path_buffer, target->path);
-    //
-    // gfx::CompileShaderParams compile_params = 
-    // {
-    //   .input_path = shader_data_path,
-    //   .output_path = shader_compiled_path,
-    // };
-    //
-    // if (!gfx::compileShader(compile_params))
-    //   return ERROR("failed to compile shader '", shader_data_path, "'\n");
-    //
-    return true;
-  }
+    SourceDataFile mfile;
+    if (!mfile.init())
+      return;
+    defer { mfile.deinit(); };
 
-  /* --------------------------------------------------------------------------
-   */
-  b8 buildCompiledTexture(Target* target)
-  {
-    // PathBuffer texture_data_path_buffer;
-    // io::formatv(&texture_data_path_buffer, 
-    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
-    //
-    // String texture_data_path = String(texture_data_path_buffer);
-    //
-    // PathBuffer texture_compiled_path_buffer;
-    // String texture_compiled_path = formOutputPath(
-    //   &texture_compiled_path_buffer, target->path);
-    //
-    // if (!gfx::compileTexture(texture_data_path, texture_compiled_path))
-    //   return ERROR("failed to compile texture '", texture_data_path, "'\n");
-    //
-    return true;
-  }
+    SourceData* data = mfile.addReturnData();
 
-  /* --------------------------------------------------------------------------
-   */
-  b8 buildFont(Target* target)
-  {
-    // PathBuffer font_data_path_buffer;
-    // io::formatv(&font_data_path_buffer,
-    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), ".data"_str);
-    //
-    // String font_data_path = String(font_data_path_buffer);
-    //
-    // PathBuffer font_compiled_path_buffer;
-    // String font_compiled_path = formOutputPath(
-    //   &font_compiled_path_buffer, target->path);
-    //
-    // PathBuffer font_compiled_texture_path_buffer;
-    // io::formatv(&font_compiled_texture_path_buffer,
-    //   build_dir, '/', target->path.removeSuffix(".compiled"_str), 
-    //   ".texture.compiled"_str);
-    //
-    // String font_compiled_texture_path = String(
-    //   font_compiled_texture_path_buffer);
-    //
-    // if (!gfx::compileFont(
-    //     font_data_path, font_compiled_path, font_compiled_texture_path))
-    //   return ERROR("failed to compile font '", font_data_path, "'\n");
+    data->setObject(nil);
+    data->type = "build::TargetMetadata"_str;
 
-    return true;
-  }
+    SourceData* prereqs = data->addObject(
+      mfile, "prereqs"_str, "build::TargetInfoList"_str);
 
-  /* --------------------------------------------------------------------------
-   */
-  b8 buildCompiledData(Target* target)
-  {
-    String source_type = target->type.removeSuffix(".data"_str);
-    Target* source_target = findKnownTarget(target->name, source_type);
+    SourceData* linked_targets = data->addObject(
+      mfile, "linked_targets"_str, "build::TargetInfoList"_str);
 
-    if (source_target == nullptr)
-      return ERROR("attempt to build compiled data target, but source data "
-                   "target was not already registered: ", 
-                   target->name, '.', source_type, '\n');
+    for (Target& prereq : target->prerequisites)
+      addTargetInfo(&prereq, prereqs, &mfile);
 
-    PathBuffer source_path_buffer;
-    String source_path = source_target->formPath(&source_path_buffer);
+    for (Target& linked : target->linked_targets)
+      addTargetInfo(&linked, linked_targets, &mfile);
 
-    PathBuffer compiled_path_buffer;
-    String compiled_path = target->formPath(&compiled_path_buffer);
+    PathBuffer meta_path;
+    target->formPath(&meta_path);
+    io::format(&meta_path, ".meta"_str);
 
-    CompiledData* compiled = 
-      packAndCompileSourceDataAsset(source_path, compiled_path);
-
-    if (compiled == nullptr)
-      return ERROR(
-        "failed to compile target '", target->name, '.', target->type, ")\n");
-
-    INFO("built ", target->name, '.', target->type, "\n");
-
-    auto refs = compiled->refs.getSlice();
-
-    for (auto& ref : refs)
-    {
-      auto target = ref.target.getString();
-
-      INFO("refs ", target, '\n');
-    }
-
-    return true;
-  }
-
-  /* --------------------------------------------------------------------------
-   */
-  b8 buildAsset(Target* target)
-  {
-    switch (target->kind)
-    {
-    case Target::Kind::CompiledData:
-      return buildCompiledData(target);
-    }
-
-    WARN("unhandled target kind passed tp buildAsset: ", target->name, '\n');
-
-    return true;
+    mfile.dumpToDisk(String(meta_path));
   }
 
   /* --------------------------------------------------------------------------
@@ -775,7 +647,8 @@ $ end
       {
         Target* next = target_queue.popHead();
 
-        Rule* rule = findRuleForTarget(next);
+        b8 is_secondary;
+        Rule* rule = findRuleForTarget(next, &is_secondary);
 
         // We should have had a rule for this target for us to know we can 
         // queue it for building.
@@ -800,20 +673,9 @@ $ end
           // If success is reported, assume the next is now up to date.
           DEBUG("built ", next->name, '.', next->type, '\n');
           next->state = Target::State::UpToDate;
+          next->cacheExistance();
 
-          PathBuffer target_dep_path_buffer;
-          next->formPath(&target_dep_path_buffer);
-          io::format(&target_dep_path_buffer, ".dep"_str);
-
-          fs::File dep_file = fs::File::createForTruncatedWriting(
-            String(target_dep_path_buffer));
-          defer { dep_file.close(); };
-
-          for (auto& prereq : next->prerequisites)
-          {
-            PathBuffer dep_path_buffer;
-            io::formatv(&dep_file, prereq.formPath(&dep_path_buffer),  '\n');
-          }
+          writeTargetMetaFile(next);
         }
       }
     }
@@ -860,19 +722,67 @@ $ end
       return known;
 
     return newTarget(
-      source_name, source_type, source_dir, Target::Kind::SourceData);
+      source_name, source_type, source_dir, TargetKind::SourceData);
   }
 
   /* --------------------------------------------------------------------------
    */
-  Rule* findRuleForTarget(Target* target)
+  Rule* findRuleForTarget(Target* target, b8* out_is_secondary)
   {
+    Rule* best_rule = nullptr;
+    String best_type = nil;
+    b8 best_is_secondary = false;
+
+    auto takeRule = [&](Rule* rule, String type, b8 is_secondary)
+    {
+      best_rule = rule;
+      best_type = type;
+      best_is_secondary = is_secondary;
+    };
+
     for (Rule& rule : build_rules)
     {
-      if (target->type.endsWith(rule.type))
-        return &rule;
+      if (target->type == rule.type)
+      {
+        // Exact type matches are taken immediately.
+        takeRule(&rule, rule.type, false);
+        break;
+      }
+      else if (target->type.endsWith(rule.type))
+      {
+        // If the target's type ends with this rule's type, 
+        // take it as best if the match is longer than that of the 
+        // current best rule.
+        if (rule.type.len > best_type.len)
+          takeRule(&rule, rule.type, false);
+      }
+
+      // Check the secondary output types of this rule as well, if any were 
+      // specified.
+      if (notnil(rule.secondary_types))
+      {
+        b8 exact_secondary = false;
+        for (String secondary : rule.secondary_types)
+        {
+          if (target->type == secondary)
+          {
+            // Again, exact secondary matches are taken immediately.
+            // Really wish C++ had labeled breaking.
+            exact_secondary = true;
+            takeRule(&rule, secondary, true);
+            break;
+          }
+          else if (target->type.endsWith(secondary))
+          {
+            if (secondary.len > best_type.len)
+              takeRule(&rule, secondary, true);
+          }
+        }
+      }
     }
-    return nullptr;
+
+    *out_is_secondary = best_is_secondary;
+    return best_rule;
   }
 
   /* --------------------------------------------------------------------------
@@ -892,7 +802,8 @@ $ end
         PathBuffer path_buffer;
         DEBUG("leaf: ", leaf.formPath(&path_buffer), '\n');
 
-        if (Rule* rule = findRuleForTarget(&leaf))
+        b8 is_secondary;
+        if (Rule* rule = findRuleForTarget(&leaf, &is_secondary))
         {
           BuildResult result;
           StackTargetSet rule_prereqs;
@@ -908,7 +819,11 @@ $ end
           // so, we can build it.
           if (leaf.allPrereqsUpToDate())
           {
-            if (!leaf.isNewerThanAllPrerequisites())
+            // TODO(sushi) it is likely a bad assumption to just set the 
+            //             target as up-to-date when we find that its rule
+            //             is for a secondary target. Once this is pulled into
+            //             main, we need to do something else.
+            if (!leaf.isNewerThanAllPrerequisites() && !is_secondary)
             {
               PathBuffer queued_path;
               DEBUG("adding '", leaf.formPath(&queued_path), "' to queue\n");
@@ -957,13 +872,13 @@ $ end
     {
       // This must be some CompiledData.
       result = newTarget(
-        name, type, build_dir, Target::Kind::CompiledData);
+        name, type, build_dir, TargetKind::CompiledData);
     }
     else if (type.endsWith(".compiled"_str))
     {
       // This must be some CompiledAsset.
       result = newTarget(
-        name, type, build_dir, Target::Kind::CompiledAsset);
+        name, type, build_dir, TargetKind::CompiledAsset);
     }
 
     assert(result != nullptr);
@@ -1024,7 +939,7 @@ b8 testAssetBuilding()
         Target* source_target = builder->getTarget(
           target->name,
           target->type.removeSuffix(".data"_str), 
-          Target::Kind::SourceData);
+          TargetKind::SourceData);
 
         // Note the source target as a prereq.
         prereqs->insert(source_target);
@@ -1035,7 +950,7 @@ b8 testAssetBuilding()
         Target* source_target = builder->getTarget(
           target->name,
           target->type.removeSuffix(".data"_str), 
-          Target::Kind::SourceData);
+          TargetKind::SourceData);
 
         PathBuffer source_path_buffer;
         PathBuffer target_path_buffer;
@@ -1047,51 +962,24 @@ b8 testAssetBuilding()
 
         for (CompiledData::Ref& ref : compiled->refs.getSlice())
         {
-          String def_type = rtr::getMetadataValue(ref.type, "def_type"_str);
-          if (isnil(def_type))
+          String def_links = rtr::getMetadataValue(ref.type, "links"_str);
+          
+          if (notnil(def_links))
           {
-            WARN("ref type ", rtr::typenameFromTypeId(ref.type), " does "
-                 "not specify a def_type\n");
-            continue;
-          }
-
-          rtr::TypeId def_typeid = rtr::TypeId::fromString(def_type);
-
-          String def_source_type = 
-            rtr::getMetadataValue(def_typeid, "source_data_type"_str);
-          if (notnil(def_source_type))
-          {
-            PathBuffer def_compiled_data_type;
-            io::formatv(&def_compiled_data_type, 
-              def_source_type, ".data"_str);
-
-            // Refs to source data will need the compiled data.
-            Target* compiled_def_target = builder->getTarget(
-              ref.target.getString(),
-              String(def_compiled_data_type)
-                .nullTerminate(&builder->string_pool),
-              Target::Kind::CompiledData);
-          }
-
-          String def_compiled_type = 
-            rtr::getMetadataValue(def_typeid, "compiled_type"_str);
-          if (notnil(def_compiled_type))
-          {
-            rtr::TypeId def_compiled_typeid =
-              rtr::TypeId::fromString(def_compiled_type);
-
-            String def_compiled_data_type = 
-              rtr::getMetadataValue(
-                // TODO(sushi) needs renamed to compiled_asset_type
-                //             and will probably need to support multiple?
-                def_compiled_typeid, "compiled_data_type"_str);
-
-            if (notnil(def_compiled_data_type))
+            String::Pair split = def_links.splitAtFirst(';');
+            for (;;)
             {
-              Target* compiled_asset = builder->getTarget(
+              Target* links_target = builder->getTarget(
                 ref.target.getString(),
-                def_compiled_data_type,
-                Target::Kind::CompiledAsset);
+                split.first,
+                TargetKind::Unknown);
+
+              target->links(links_target);
+
+              if (isnil(split.second))
+                break;
+
+              split = split.second.splitAtFirst(';');
             }
           }
         }
@@ -1112,7 +1000,7 @@ b8 testAssetBuilding()
         Target* data_target = builder->getTarget(
             target->name, 
             "texture.data"_str, 
-            Target::Kind::CompiledData);
+            TargetKind::CompiledData);
       
         // Note the data target as a prereq.
         prereqs->insert(data_target);
@@ -1149,7 +1037,7 @@ b8 testAssetBuilding()
           Target* source_texture_target = builder->getTarget(
             source_texture_name, 
             source_texture_type, 
-            Target::Kind::SourceAsset);
+            TargetKind::SourceAsset);
 
           prereqs->insert(source_texture_target);
         }
@@ -1174,7 +1062,7 @@ b8 testAssetBuilding()
       },
     });
 
-  builder.registerRule("font.compiled"_str,
+  builder.registerRule("font.compiled;font.texture.compiled"_str,
     {
       .getPrereqs = [](
           Target* target, 
@@ -1185,7 +1073,7 @@ b8 testAssetBuilding()
         Target* data_target = builder->getTarget(
           target->name,
           "font.data"_str,
-          Target::Kind::CompiledData);
+          TargetKind::CompiledData);
 
         prereqs->insert(data_target);
 
@@ -1217,7 +1105,7 @@ b8 testAssetBuilding()
           Target* source_font_target = builder->getTarget(
             source_font_name, 
             source_font_type, 
-            Target::Kind::SourceAsset);
+            TargetKind::SourceAsset);
 
           prereqs->insert(source_font_target);
         }
@@ -1246,6 +1134,76 @@ b8 testAssetBuilding()
         if (!success)
           result->setError();
       }
+    });
+
+  builder.registerRule("shader.compiled"_str,
+    {
+      .getPrereqs = [](
+          Target* target, 
+          Builder* builder, 
+          TargetSet* prereqs,
+          BuildResult* result) 
+      {
+        Target* data_target = builder->getTarget(
+          target->name,
+          "shader.data"_str,
+          TargetKind::CompiledData);
+        
+        prereqs->insert(data_target);
+
+        if (data_target->existsAndIsUpToDate())
+        {
+          auto* shader_def = 
+            builder->loadAsCompiledData<gfx::ShaderDef>(data_target);
+
+          if (shader_def == nullptr)
+          {
+            result->setError("failed to load compiled shader def\n"_str);
+            return;
+          }
+
+          if (isnil(shader_def->source))
+          {
+            result->setError(
+              "shader def does not specify a source shader\n"_str);
+            return;
+          }
+
+          String source_shader_name =
+            fs::path::removeExtension(shader_def->source);
+          String source_shader_type =
+            fs::path::getExtension(shader_def->source);
+
+          // Get or create the source shader target and mark it as a 
+          // prerequisite SourceAsset.
+          Target* source_shader_target = builder->getTarget(
+            source_shader_name, 
+            source_shader_type, 
+            TargetKind::SourceAsset);
+
+          prereqs->insert(source_shader_target);
+        }
+      },
+      .build = [](Target* target, Builder* builder, BuildResult* result) 
+      {
+        Target* data_target = 
+          builder->findKnownTarget(target->name, "shader.data"_str);
+
+        PathBuffer data_path_buffer;
+        PathBuffer target_path_buffer;
+        
+        gfx::CompileShaderParams params = 
+        {
+          .input_path = data_target->formPath(&data_path_buffer),
+          .output_path = target->formPath(&target_path_buffer),
+        };
+
+        // TODO(sushi) compilation functions could take the BuildResult.
+        b8 success = gfx::compileShader(params);
+
+        if (!success)
+          result->setError();
+      },
     });
 
   if (!builder.buildAssetList("tests/asset-builder/test.asset_list"_str))

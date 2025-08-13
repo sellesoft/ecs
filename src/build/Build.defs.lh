@@ -13,4 +13,42 @@ namespace build
 @m.def
 typedef reflect::Array<String> AssetList;
 
+@m.def
+enum class TargetKind
+{
+  // We don't know what this target represents.
+  Unknown,
+
+  // A file in our source data format.
+  SourceData,
+
+  // Source data that has been compiled.
+  // This typically has a SourceData target as its prereq.
+  CompiledData,
+
+  // Some kind of asset that is not source data, eg. a texture or shader
+  // to be compiled.
+  SourceAsset,
+  
+  // A compiled SourceAsset.
+  CompiledAsset,
+};
+
+@m.def 
+struct TargetInfo
+{
+  String name;
+  String type;
+  TargetKind kind;
+};
+
+typedef reflect::Array<TargetInfo> TargetInfoList;
+
+@m.def
+struct TargetMetadata
+{
+  TargetInfoList prereqs;
+  TargetInfoList linked_targets;
+};
+
 }

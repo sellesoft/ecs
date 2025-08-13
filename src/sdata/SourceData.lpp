@@ -118,12 +118,23 @@ void SourceData::setObject(String name)
  */
 SourceData* SourceData::addObject(SourceDataFile& file, String name)
 {
+  return addObject(file, name, nil);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addObject(
+    SourceDataFile& file, 
+    String name, 
+    String type)
+{
   SourceData* child = file.allocateSourceData();
   child->children.init();
 
   children.push(child);
 
   child->name = name;
+  child->type = type;
 
   return child;
 }
@@ -148,6 +159,26 @@ SourceData* SourceData::addVec2(SourceDataFile& file, String name, vec2f v)
 
   child->name = name;
   child->setVec2(file, v);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addStringValue(
+    SourceDataFile& file, 
+    String name,
+    String value)
+{
+  assert(notnil(children));
+
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  if (notnil(name))
+    child->name = name.allocateCopy(&file.string_cache);
+  child->setStringValue(value.allocateCopy(&file.string_cache));
 
   return child;
 }

@@ -13,6 +13,7 @@ struct CompiledShader;
  */
 @m.def
 @m.source_data_type(shader)
+@m.compiled_type(gfx::CompiledShaderData)
 struct ShaderDef
 {
   String source;
@@ -21,8 +22,7 @@ struct ShaderDef
 
 /* ============================================================================
  */
-@m.def_type(gfx::ShaderDef)
-@m.compiled_type(gfx::CompiledShaderData)
+@m.links(shader.compiled;shader.data)
 struct ShaderRef : TypedResourceRef<CompiledShader> {};
 
 }

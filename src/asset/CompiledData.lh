@@ -36,6 +36,25 @@ struct CompiledData
   //             This would help reduce generated code size, as well as 
   //             simplifying the process of fixing pointers. Might also make
   //             that faster too, since we would just be iterating an array.
+  // TODO(sushi) investigate if we can actually store refs and pointers as 
+  //             separate maps compiled to disk. I'm thinking that we could 
+  //             possibly keep the convenience of being able to iterate over
+  //             them linearly while also preventing CompiledData from having 
+  //             its size bloated if we just compile out the maps separately.
+  //             We could maybe load those maps, use them to find the refs
+  //             and unfixed pointers in compiled data, fix up the data, then
+  //             discard them once we don't need them anymore. Honestly, we
+  //             could probably get away with just writing out the 
+  //             CompiledRef/CompiledPointer structs defined in the lpp file, 
+  //             since they just store offsets into the buffer where those 
+  //             things are (to avoid usage of OffsetPtr and such).
+  //             My main concern is when we go to package data. We don't really 
+  //             want to have to store all refs and pointers in that data 
+  //             for every compiled source data asset. For a package we would
+  //             probably want to do something similar, where we can load all
+  //             of the packaged data plus some data telling us how to fix
+  //             pointers throughout the entire package, then discard the 
+  //             pointers map once we're done.
   struct Ref
   {
     rtr::TypeId type;

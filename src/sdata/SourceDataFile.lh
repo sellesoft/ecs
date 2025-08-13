@@ -30,11 +30,16 @@ struct SourceDataFile
   void deinit();
 
   // Helper for loading a source data file from some path. 
-  // Note that this is primarily for quick testing or usage of source data
-  // files and should needs to be cleaned up. Normal usage of source data
-  // files should be via the SourceDataFileReg.
-  // This assumes the provided 'sfile' has not been initialized yet.
   static b8 from(SourceDataFile* sfile, String path);
+
+  // Dumps this entire file to the provided stream.
+  void dump(io::IO* out);
+
+  // Dumps this entire file to stdout.
+  void dump();
+
+  // Dumps this entire file toa file at the provided path.
+  b8 dumpToDisk(String path);
 
   SourceData* allocateSourceData();
   SourceData* addAuxData();

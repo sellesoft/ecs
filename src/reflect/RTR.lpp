@@ -63,6 +63,7 @@ $ end
 
   return nil;
 }
+$ end
 
 $ if decl:is(ast.Enum) then
 /* ----------------------------------------------------------------------------
@@ -82,10 +83,8 @@ $   end
 $ end
   }
 
-  return "** Invalid value for enum $(name) **"_str;
+  return "** Invalid value for enum $(decl.type.name) **"_str;
 }
-
-$ end
 $ end
 
 $ end)

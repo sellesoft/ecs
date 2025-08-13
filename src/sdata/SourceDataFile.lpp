@@ -70,6 +70,40 @@ b8 SourceDataFile::from(SourceDataFile* sfile, String path)
 
 /* ----------------------------------------------------------------------------
  */
+void SourceDataFile::dump(io::IO* out)
+{
+  for (SourceData& aux : aux_data_list)
+    aux.dump(out);
+
+  if (returned_data != nullptr)
+  {
+    io::format(out, "return ");
+    returned_data->dump(out);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceDataFile::dump()
+{
+  dump(&fs::stdout);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 SourceDataFile::dumpToDisk(String path)
+{
+  auto file = fs::File::createForTruncatedWriting(path);
+  if (isnil(file))
+    return false;
+  defer { file.close(); };
+
+  dump(&file);
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 SourceData* SourceDataFile::allocateSourceData()
 {
   return data_pool.add();

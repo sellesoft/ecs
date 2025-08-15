@@ -1066,13 +1066,13 @@ b8 Vulkan::initVirtualFrames()
 
     if (!createVkCommandBuffer(
           &vframe->command_buffer,
-          name))
+          String(name)))
       return false;
 
     if (!createVkFence(
           &vframe->command_buffer_fence,
           true, // create signaled
-          name))
+          String(name)))
       return true;
 
     io::StaticBuffer<255> semaphore_name;
@@ -1080,7 +1080,7 @@ b8 Vulkan::initVirtualFrames()
     io::formatv(&semaphore_name, name, " acquire image");
     if (!createVkSemaphore(
           &vframe->acquire_semaphore,
-          semaphore_name))
+          String(semaphore_name)))
       return false;
   }
 
@@ -1354,7 +1354,7 @@ b8 Vulkan::initSwapchain()
           swapchain_name.asStr()))
       return ERROR("failed to create swapchain ", i, " image view\n");
 
-    if (!createVkSemaphore(&scb->submit_semaphore, swapchain_name))
+    if (!createVkSemaphore(&scb->submit_semaphore, String(swapchain_name)))
       return ERROR("failed to create swapchain ", i, " submit semaphore\n");
   }
 

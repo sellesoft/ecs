@@ -89,7 +89,7 @@ int main(int argc, const char** args)
   defer { iro::log.deinit(); };
 
   Logger logger;
-  logger.init("lpp"_str, Logger::Verbosity::Trace);
+  logger.init("ecs_main"_str, Logger::Verbosity::Trace);
 
   {
     using enum Log::Dest::Flag;

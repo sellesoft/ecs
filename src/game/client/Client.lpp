@@ -71,37 +71,7 @@ $ end
   };
   @init(renderer.init(renderer_params), Renderer);
 
-  // TODO(sushi) this is dumb, get rid of it by just making the texture
-  //             manually through gfx::Texture.
-  gfx::CompiledTexture::CompileParams white_texture_params =
-  {
-    .name         = "assets/textures/white"_str,
-    .width        = 2,
-    .height       = 2,
-    .format       = gfx::ImageFormat::BW,
-    .usage        = gfx::ImageUsage::Sampled,
-    .filter       = gfx::ImageFilter::Nearest,
-    .address_mode = gfx::ImageAddressMode::ClampToWhite,
-    .allocator    = &mem::stl_allocator,
-    .assetmgr     = &engine->assetmgr,
-  };
 
-  u8 pixels[16] =
-  {
-    0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff,
-  };
-
-  gfx::CompiledTexture::compileFromMemory(pixels, white_texture_params);
-
-  auto* white_texture_compiled =
-    gfx::CompiledTexture::load(
-      "assets/textures/white"_str, engine->assetmgr, renderer);
-  if (white_texture_compiled == nullptr)
-    return ERROR("failed to load white texture\n");
-  white_texture = white_texture_compiled->texture;
 
   AssetLoader asset_loader =
   {

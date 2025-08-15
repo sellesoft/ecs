@@ -22,6 +22,7 @@ $ require "common"
 @@lpp.import "graphics/Pipeline.lh"
 @@lpp.import "graphics/Pipeline.defs.lh"
 @@lpp.import "graphics/RenderTarget.lh"
+@@lpp.import "graphics/Texture.defs.lh"
 
 namespace gfx
 {

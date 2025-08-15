@@ -195,9 +195,7 @@ if lake.cliargs[1] == "test" then
   return
 end
 
-buildTest "asset-building"
-
-do return end
+-- buildTest "asset-building"
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
@@ -215,7 +213,7 @@ end
 
 objs:pushList(iro_objs)
 
-o.Exe "build/ecs" :link(objs, link_params)
+o.Exe "_build/ecs" :link(objs, link_params)
 
 cc:write "compile_commands.json"
 

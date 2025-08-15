@@ -7,6 +7,7 @@ $ require "common"
 @@lpp.import "input/InputMgr.lh"
 @@lpp.import "window/Window.lh"
 @@lpp.import "graphics/Renderer.lh"
+@@lpp.import "build/BuildSystem.lh"
 
 /* ============================================================================
  */
@@ -15,6 +16,7 @@ struct Editor
   InputMgr input;
   Window window;
   gfx::Renderer renderer;
+  build::BuildSystem build_system;
 
   struct InitParams
   {

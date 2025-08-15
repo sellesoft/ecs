@@ -1,5 +1,7 @@
 $ local cmn = require "common"
 
+$ if false then
+
 @@lpp.import "asset/AssetMgr.lh"
 
 @@lpp.import "graphics/Font.lh"
@@ -459,3 +461,5 @@ b8 Font::compileBDF(CompileParams& params)
 }
 
 }
+
+$ end

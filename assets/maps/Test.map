@@ -419,20 +419,6 @@ return MapDef
         {
           kind = "assets/floors/tiles/Floor",
           entities = { "assets/entities/locker/Locker" }
-          // entities =
-          // {
-          //   Entity
-          //   {
-          //     name = "Locker",
-          //     components =
-          //     {
-          //       Sprite
-          //       {
-          //         texture = "assets/textures/LockerLightGray",
-          //       },
-          //     },
-          //   },
-          // },
         },
         {
           kind = "assets/floors/tiles/Floor",

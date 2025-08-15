@@ -38,7 +38,6 @@ struct TextureDef
 
 /* ============================================================================
  */
-@metadata.def_type(gfx::TextureDef)
 @metadata.links(texture.data;texture.compiled)
 struct TextureRef : TypedResourceRef<CompiledTexture> {};
 

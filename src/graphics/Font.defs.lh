@@ -39,7 +39,6 @@ struct FontDef
 /* ============================================================================
  */
 struct Font;
-@metadata.def_type(gfx::FontDef)
 @metadata.links(font.compiled;font.texture.compiled)
 struct FontRef : TypedResourceRef<Font> {};
 

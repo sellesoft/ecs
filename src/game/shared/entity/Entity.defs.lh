@@ -19,5 +19,6 @@ struct EntityDef
 };
 
 @metadata.def_type(EntityDef)
+@metadata.links(entity.data)
 struct EntityDefRef : TypedSourceAssetRef<EntityDef> {};
 

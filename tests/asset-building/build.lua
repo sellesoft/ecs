@@ -27,6 +27,8 @@ return function(
   compileLpp "src/graphics/CompiledTexture.lpp"
   compileLpp "src/graphics/CompiledShader.lpp"
   compileLpp "src/graphics/Font.lpp"
+  compileLpp "src/build/BuildSystem.lpp"
+  compileLpp "src/build/Target.lpp"
   compileLpp "src/asset/CompiledData.lpp"
   compileLpp "src/asset/Packing.lpp"
   compileLpp "src/sdata/SourceDataFile.lpp"

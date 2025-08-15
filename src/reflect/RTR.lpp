@@ -18,7 +18,6 @@ $       f(decl)
 $     end
 $   end
 $ end
-$ print(astctx:lookupTypeDecl "gfx::Vulkan")
 
 namespace rtr
 {

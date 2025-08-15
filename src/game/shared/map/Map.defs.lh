@@ -31,6 +31,7 @@ struct TileKindDef
 };
 
 @metadata.def_type(TileKindDef)
+@metadata.links(tile_kind.data)
 struct TileKindRef : TypedSourceAssetRef<TileKindDef> {};
   
 /* ============================================================================

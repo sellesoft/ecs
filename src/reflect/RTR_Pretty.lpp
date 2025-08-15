@@ -561,9 +561,16 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local placing = {}
 $ putDeclPrinter = function(decl)
 $   decl.user = decl.user or {}
 $   if decl.user.placed then return end
+$
+$   if decl.user.placing then
+$     return
+$   end
+$
+$   decl.user.placing = true
 $ 
 $   if decl:is(ast.TagDecl) then
 $     if decl:is(ast.Record) then
@@ -572,17 +579,24 @@ $     elseif decl:is(ast.Enum) then
 $       putEnumPrinter(decl)
 $     end
 $   end
+$   decl.user.placing = false
 $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local type_nest = 0
 $ putTypePrinter = function(type)
+$   type_nest = type_nest + 1
+$   if type_nest > 50 then
+$     error "bad recurse"
+$   end
 $   type = type:desugar()
 $   if type:is(ast.TagType) then
 $     putDeclPrinter(type.decl)
 $   elseif type:is(ast.CArray) then
 $     putTypePrinter(type.subtype)
 $   end
+$   type_nest = type_nest - 1
 $ end
 
 $ -- * ------------------------------------------------------------------------

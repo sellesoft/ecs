@@ -29,6 +29,7 @@ $ if IRO_LINUX then
 #undef True
 #undef False
 #undef Status
+#undef Success
 
 struct X11Stuff
 {

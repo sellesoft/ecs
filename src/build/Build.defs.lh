@@ -7,8 +7,12 @@ $ local m = require "reflect.Metadata"
 
 @@lpp.import "reflect/types/Array.lh"
 
+#include "iro/Unicode.h"
+
 namespace build
 {
+
+using namespace iro;
 
 @m.def
 typedef reflect::Array<String> AssetList;

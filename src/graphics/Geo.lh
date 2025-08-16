@@ -15,7 +15,7 @@ using namespace iro;
 namespace gfx
 {
 
-struct Font;
+struct CompiledFont;
 
 struct Vertex
 {
@@ -636,7 +636,7 @@ void putGlyph(
   Vertex* vp,
   Index*  ip,
   vec2i*  counts,
-  Font*   font,
+  const CompiledFont& font,
   u32     codepoint,
   vec2f*  pos, 
   Color   color);
@@ -659,7 +659,7 @@ static void putGlyph(
   Vertex* vp,
   Index*  ip,
   vec2i*  counts,
-  Font*   font,
+  const CompiledFont& font,
   u32     codepoint,
   vec2f   pos, 
   Color   color)
@@ -671,7 +671,7 @@ static void putGlyph(
  */
 vec2f measureText(
   String      text,
-  const Font* font,
+  const CompiledFont& font,
   f32         font_height,
   f32         tab_spaces);
 
@@ -683,7 +683,7 @@ void putText(
   vec2i*      offsets,
   vec2f       pos,
   String      text,
-  const Font* font,
+  const CompiledFont& font,
   f32         font_height,
   f32         tab_spaces,
   Color       color,

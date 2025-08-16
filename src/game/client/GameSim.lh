@@ -30,11 +30,6 @@ struct GameSim : SharedGameSim
 
     gfx::Renderer& renderer;
     AssetMgr& assetmgr;
-    SourceDataFileReg* sfilereg;
-
-    gfx::Texture white_texture;
-
-    AssetLoader loader;
   };
 
   // Where on the screen the game is expected to render.
@@ -66,11 +61,6 @@ struct GameSim : SharedGameSim
   {
     this->viewport = viewport;
     gamemgr.setViewport(viewport);
-  }
-
-  b8 loadMap(String name, AssetLoader loader)
-  {
-    return gamemgr.loadMap(name, loader);
   }
 };
 

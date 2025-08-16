@@ -5,6 +5,8 @@ $ require "common"
 
 @@lpp.import "editor/Editor.lh"
 
+@@lpp.import "Engine.lh"
+
 @@lpp.import "graphics/RenderTarget.lh"
 @@lpp.import "graphics/Texture.defs.lh"
 @@lpp.import "graphics/Shader.defs.lh"
@@ -69,6 +71,11 @@ b8 Editor::init(const InitParams& params)
 
   build_system.buildAssetList("src/editor/Editor.asset_list"_str);
   build_system.buildAssetList("src/ui/UI.asset_list"_str);
+
+  Asset* asset = params.engine.assetmgr.loadAssetFromDisk(
+      "_data/assets/skins/Editor.skin.data"_str);
+
+  rtr::prettyPrint(*asset);
 
   return true;
 }

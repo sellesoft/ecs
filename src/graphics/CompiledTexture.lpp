@@ -5,9 +5,9 @@ $ local cmn = require "common"
 #include "iro/fs/fs.h"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
+#include "iro/memory/Bump.h"
 
-@@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/DescriptorSet.lh"
@@ -28,55 +28,30 @@ typedef io::StaticBuffer<512> PathBuffer;
 
 /* ----------------------------------------------------------------------------
  */
-CompiledTexture* CompiledTexture::load(
-    String name,
-    AssetMgr& assetmgr,
-    gfx::Renderer& renderer)
-{
-  assert(false);
-  return nullptr;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void CompiledTexture::unload(AssetMgr& assetmgr, Renderer& renderer)
-{
-  // image.destroy(renderer);
-  // view.destroy(renderer);
-  // sampler.destroy(renderer);
-  // texture.set.destroy(renderer);
-  //
-  // if (asset.isValid())
-  // {
-  //   assetmgr.unloadAsset(asset.asset);
-  //   asset.invalidate();
-  // }
-}
-
-/* ----------------------------------------------------------------------------
- */
-b8 CompiledTexture::compileFromMemory(void* pixels, CompileParams& params)
+b8 compileTextureFromMemory(
+    String output_path,
+    void* pixels, 
+    u32 width,
+    u32 height,
+    ImageFormat format)
 {
   using namespace fs;
 
-  String in = params.input_path;
-  String out = params.output_path;
-
-  if (isnil(in))
+  if (isnil(output_path))
     return ERROR(
-      "CompiledTexture::compileFromMemory called with nil input path\n");
+      "compileTextureFromMemory called with nil output path\n");
 
-  if (isnil(out))
-    return ERROR(
-      "CompiledTexture::compileFromMemory called with nil output path\n");
+  if (width == 0)
+    return ERROR("compileTextureFromMemory passed 0 width\n");
 
-  CompiledTextureData data;
+  if (height == 0)
+    return ERROR("compileTextureFromMemory passed 0 height\n");
 
-  data.format = params.format;
-  data.width  = params.width;
-  data.height = params.height;
+  CompiledTexture data;
 
-  assert(data.width != 0 && data.height != 0);
+  data.format = format;
+  data.width  = width;
+  data.height = height;
 
   data.pixels.set(&data + 1);
 
@@ -90,12 +65,12 @@ b8 CompiledTexture::compileFromMemory(void* pixels, CompileParams& params)
   }
   u64 pixels_size = pixel_stride * data.width * data.height;
 
-  auto data_file = File::createForTruncatedWriting(out);
+  auto data_file = File::createForTruncatedWriting(output_path);
   if (isnil(data_file))
     return ERROR("failed to open file for writing compiled texture at '",
-                 out, "'\n");
+                 output_path, "'\n");
 
-  data_file.write({(u8*)&data, sizeof(CompiledTextureData)});
+  data_file.write({(u8*)&data, sizeof(CompiledTexture)});
   data_file.write({(u8*)pixels, pixels_size});
 
   data_file.close();
@@ -105,18 +80,26 @@ b8 CompiledTexture::compileFromMemory(void* pixels, CompileParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-b8 CompiledTexture::compileFromMemory(
+b8 compileTextureFromMemory(
     void* pixels,
     fs::File* file,
-    CompileParams& params)
+    u32 width,
+    u32 height,
+    ImageFormat format)
 {
-  CompiledTextureData data;
+  CompiledTexture data;
 
-  data.format = params.format;
-  data.width  = params.width;
-  data.height = params.height;
+  assert(file != nullptr);
 
-  assert(data.width != 0 && data.height != 0);
+  if (height == 0)
+    return ERROR("compileTextureFromMemory passed 0 height\n");
+
+  if (width == 0)
+    return ERROR("compileTextureFromMemory passed 0 width\n");
+
+  data.format = format;
+  data.width  = width;
+  data.height = height;
 
   data.pixels.set(&data + 1);
 
@@ -130,11 +113,10 @@ b8 CompiledTexture::compileFromMemory(
   }
   u64 pixels_size = pixel_stride * data.width * data.height;
 
-  file->write({(u8*)&data, sizeof(CompiledTextureData)});
+  file->write({(u8*)&data, sizeof(CompiledTexture)});
   file->write({(u8*)pixels, pixels_size});
 
   return true;
-
 }
 
 /* ----------------------------------------------------------------------------
@@ -199,15 +181,7 @@ b8 compileTexture(String data_path, String output_path)
     desired_channels);
   defer { mem::stl_allocator.free(pixels); };
 
-  CompiledTexture::CompileParams compile_params = 
-  {
-    .output_path = output_path,
-    .format = def->format,
-    .width = u32(width),
-    .height = u32(height),
-  };
-
-  if (!CompiledTexture::compileFromMemory(pixels, &out_file, compile_params))
+  if (!compileTextureFromMemory(pixels, &out_file, width, height, def->format))
     return false;
 
   return true;

@@ -2,9 +2,8 @@ $ require "common"
 $ local m = require "reflect.Metadata"
 
 @@lpp.import "graphics/ShaderParams.lh"
-@@lpp.import "graphics/ResourceRef.lh"
 
-namespace build { struct Rule; }
+#include "iro/Unicode.h"
 
 namespace gfx
 {
@@ -14,19 +13,10 @@ struct CompiledShader;
 /* ============================================================================
  */
 @m.def
-@m.source_data_type(shader)
-@m.compiled_type(gfx::CompiledShaderData)
 struct ShaderDef
 {
-  String source;
+  iro::String source;
   ShaderStage stage;
 };
-
-/* ============================================================================
- */
-@m.links(shader.compiled;shader.data)
-struct ShaderRef : TypedResourceRef<CompiledShader> {};
-
-build::Rule getShaderBuildRule();
 
 }

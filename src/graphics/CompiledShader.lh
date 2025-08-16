@@ -3,7 +3,7 @@
  */
 
 $ require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -15,7 +15,7 @@ $ local m = require "reflect.Metadata"
 
 using namespace iro;
 
-struct AssetMgr;
+namespace build { struct Rule; }
 
 namespace gfx
 {
@@ -23,14 +23,14 @@ namespace gfx
 /* ============================================================================
  * Note that this structure represents exactly what we save to disk.
  */
-@m.compiled_data_type(shader.compiled)
-struct CompiledShaderData
+struct CompiledShader
 {
   ShaderStage stage;
   OffsetSlice<u8> binary;
 };
 
-typedef TypedAssetRef<CompiledShaderData> CompiledShaderDataRef;
+@metadata.links(shader.compiled)
+struct CompiledShaderLink : TypedAssetLink<CompiledShader> {};
 
 struct CompileShaderParams
 { 
@@ -41,38 +41,6 @@ struct CompileShaderParams
 
 b8 compileShader(const CompileShaderParams& params);
 
-/* ============================================================================
- */
-struct CompiledShader
-{
-  CompiledShaderDataRef asset;
-  Shader gfx_shader;
-
-  static s64 writeDataPath(io::IO* io, String name, AssetMgr& assetmgr);
-
-  static CompiledShader* load(
-    String name,
-    AssetMgr& assetmgr,
-    Renderer& renderer);
-
-  void unload(AssetMgr& assetmgr, Renderer& renderer);
-
-  struct CompileParams
-  {
-    String          name;
-    ShaderStage     stage;
-    mem::Allocator* allocator;
-    AssetMgr*       assetmgr;
-  };
-
-  static b8 compileGLSL(CompileParams& params);
-
-  const CompiledShaderData& getData() const
-  {
-    return *asset;
-  }
-};
-
-typedef TypedAssetRef<CompiledShader> CompiledShaderRef;
+build::Rule getShaderBuildRule();
 
 } // namespace gfx

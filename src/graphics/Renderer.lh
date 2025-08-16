@@ -14,6 +14,7 @@ $ require "common"
 
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/ResourceMgr.lh"
+@@lpp.import "graphics/TextureHandle.lh"
 
 using namespace iro;
 
@@ -35,12 +36,13 @@ struct Vulkan;
 struct Renderer
 {
   mem::Allocator* allocator;
-  ResourceMgr resource_mgr;
   
   // Temp until I figure out how to manage textures better.
   DescriptorSetLayout default_sampler_set_layout;
   DescriptorSetLayout default_ubo_set_layout;
 
+  // TODO(sushi) does this need to be here? it can probably just be stored
+  //             on Vulkan.
   u32 next_image;
 
   struct InitParams
@@ -87,7 +89,7 @@ struct Renderer
   void bindIndexBuffer(Buffer buffer);
   void bindUniformBuffer(Buffer buffer);
 
-  void bindTexture(Texture texture)
+  void bindTexture(TextureHandle texture)
   {
     bindDescriptorSet(1, texture.set);
   }

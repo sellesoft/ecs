@@ -1,0 +1,13 @@
+/*
+ *  Forward declarations of build stuff. Primarily useful for things to 
+ *  declare stuff related to the build system without needing to manually
+ *  declare its types.
+ */
+
+namespace build
+{
+struct Rule;
+struct Result;
+struct Target;
+struct BuildSystem;
+}

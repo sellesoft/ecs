@@ -24,7 +24,7 @@ struct Layer;
  */
 struct Tile
 {
-  TileKindRef kind;
+  TileKindLink kind;
 
   b8 init(
     const MapTileDef& def,

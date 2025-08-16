@@ -1,0 +1,105 @@
+$ require "common"
+
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/CompiledTexture.lh"
+@@lpp.import "build/Target.lh"
+@@lpp.import "build/Rule.lh"
+@@lpp.import "build/Result.lh"
+@@lpp.import "build/BuildSystem.lh"
+@@lpp.import "asset/CompiledData.lh"
+
+#include "iro/fs/fs.h"
+
+namespace gfx
+{
+
+using namespace build;
+
+/* ----------------------------------------------------------------------------
+ */
+static void textureGetPrereqs(const RuleParams_GetPrereqs& params)
+{
+  Target* target = params.target;
+  BuildSystem* build_system = params.build_system;
+
+  build::Target* data_target = build_system->findOrCreateTarget(
+    target->name, 
+    "texture.data"_str,
+    build::TargetKind::CompiledData);
+
+  params.prereqs->insert(data_target);
+
+  if (!data_target->existsAndIsUpToDate())
+    return;
+  
+  // If the texture's data has been compiled, load it and extract the 
+  // actual texture we want to use from it.
+  // TODO(sushi) we could maybe have Targets cache this info, so that 
+  //             when we get down to textureBuild(), we can just reuse 
+  //             the already loaded data. This may also be helpful for 
+  //             multithreading. We could have it so that a Target and 
+  //             perhaps any prerequisite Target is 'owned' by a worker
+  //             while it is used by it, and it can be freely mutated 
+  //             by it while only read by others, or somehing. Not sure.
+  auto* compiled_def = build_system->loadAsCompiledData(data_target);
+  if (compiled_def == nullptr)
+  {
+    params.result->setError("failed to load compiled TextureDef"_str);
+    return;
+  }
+
+  auto* texture_def = compiled_def->getRootAs<gfx::TextureDef>();
+  if (isnil(texture_def->name))
+  {
+    params.result->setError(
+      "TextureDef does not specify a source texture"_str);
+    return;
+  }
+
+  String source_texture_name = fs::path::removeExtension(texture_def->name);
+  String source_texture_type = fs::path::getExtension(texture_def->name);
+
+  build::Target* source_texture_target = build_system->findOrCreateTarget(
+    source_texture_name,
+    source_texture_type,
+    build::TargetKind::SourceAsset);
+
+  params.prereqs->insert(source_texture_target);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void textureBuild(const RuleParams_Build& params)
+{
+  build::Target* data_target = params.build_system->findTarget(
+    params.target->name,
+    "texture.data"_str,
+    build::TargetKind::CompiledData);
+
+  build::PathBuffer data_path_buffer;
+  build::PathBuffer target_path_buffer;
+
+  b8 success = gfx::compileTexture(
+    data_target->formFullPath(&data_path_buffer),
+    params.target->formFullPath(&target_path_buffer));
+
+  if (!success)
+    params.result->setError();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+build::Rule getTextureBuildRule()
+{
+  return 
+  {
+    .types = ".texture.compiled"_str,
+    .interface = 
+    {
+      .getPrereqs = textureGetPrereqs,
+      .build = textureBuild,
+    }
+  };
+}
+
+}

@@ -1,0 +1,88 @@
+$ require "common"
+
+@@lpp.import "build/Target.lh"
+
+#include "iro/fs/fs.h"
+
+@log.ger(build.target, Info)
+
+namespace build
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Target::init(String name, String type, String mount, TargetKind kind)
+{
+  this->name = name;
+  this->type = type;
+  this->mount = mount;
+  this->kind = kind;
+
+  id = combineHash(name.hash(), type.hash());
+
+  if (!dependents.init())
+    return ERROR("failed to initialize dependents set\n");
+
+  if (!prerequisites.init())
+    return ERROR("failed to initialize prerequisites set\n");
+
+  if (!linked_targets.init())
+    return ERROR("failed to initialize linked targets set\n");
+
+  rule = nullptr;
+  primary_target = nullptr;
+  modtime = nil;
+
+  cacheExistance();
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Target::deinit()
+{
+  name = nil;
+  type = nil;
+  mount = nil;
+  id = 0;
+  dependents.deinit();
+  prerequisites.deinit();
+  linked_targets.deinit();
+  flags.clear();
+  modtime = nil;
+  kind = TargetKind::Unknown;
+  rule = nullptr;
+  primary_target = nullptr;
+  build_time = nil;
+  get_prereqs_time = nil;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Target::cacheExistance()
+{
+  PathBuffer path_buffer;
+  String path = formFullPath(&path_buffer);
+
+  if (fs::path::exists(path))
+  {
+    flags.set(Flag::Exists);
+    modtime = fs::path::modtime(path);
+  }
+  else
+  {
+    modtime = nil;
+    flags.unset(Flag::Exists);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+String Target::formFullDirPath(PathBuffer* out) const
+{
+  io::formatv(out, mount, '/', fs::path::removeBasename(name));
+  return String(*out);
+}
+
+}

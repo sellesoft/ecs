@@ -1,8 +1,8 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "graphics/Font.defs.lh"
+@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/FontResource.lh"
 
 #include "math/Rect.h"
 #include "Color.h"
@@ -14,7 +14,7 @@ namespace ui
  */
 struct ItemSkin
 {
-  gfx::TextureRef texture;
+  gfx::TextureLink texture;
   Rect uv;
   Color color;
   Rect border;
@@ -36,13 +36,13 @@ enum class TextWrap
  */
 struct TextSkin
 {
-  gfx::FontRef font;
-  TextWrap     wrap;
+  gfx::FontLink font;
+  TextWrap      wrap;
   @m.default "{r=255,g=255,b=255,a=255}"
-  Color        color;
-  f32          font_height;
-  f32          tab_spaces;
-  vec2f        align;
+  Color         color;
+  f32           font_height;
+  f32           tab_spaces;
+  vec2f         align;
 };
 
 /* ============================================================================

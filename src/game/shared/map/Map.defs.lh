@@ -10,35 +10,29 @@ $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "asset/AssetRef.lh"
 @@lpp.import "reflect/types/Array.lh"
-@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/TextureResource.lh"
 @@lpp.import "game/shared/entity/Entity.defs.lh"
+@@lpp.import "asset/CompiledData.lh"
 
 using namespace iro;
-
-namespace gfx
-{
-  struct CompiledTexture;
-}
 
 /* ============================================================================
  */
 @metadata.def
-@metadata.source_data_type(tile_kind)
 struct TileKindDef
 {
   String name;
-  gfx::TextureRef texture;
+  gfx::TextureLink texture;
 };
 
-@metadata.def_type(TileKindDef)
 @metadata.links(tile_kind.data)
-struct TileKindRef : TypedSourceAssetRef<TileKindDef> {};
+struct TileKindLink : TypedCompiledDataLink<TileKindDef> {};
   
 /* ============================================================================
  */
 struct MapTileDef
 {
-  TileKindRef kind;
+  TileKindLink kind;
   reflect::Array<EntityDefRef> entities;
 
   TileKindDef& getKind() { return *kind; }
@@ -64,4 +58,4 @@ struct MapDef
 };
 
 @metadata.source_types(map)
-struct MapDefRef : TypedSourceAssetRef<MapDef> {};
+struct MapDefRef : TypedCompiledDataLink<MapDef> {};

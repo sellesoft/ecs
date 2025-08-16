@@ -46,15 +46,10 @@ struct AssetMgr
   // wanted Asset doesn't already exist!
   Asset* allocateAsset(String name);
 
-  Asset* loadAssetFromDisk(String path);
+  Asset* loadAssetFromDisk(String name, String type);
 
   void unloadAsset(Asset* asset);
 
   // Attempts to find an asset from a given name and returns it.
   Asset* findAsset(String name) const;
-
-  static b8 checkNeedsCompiled(String asset_path, String data_path);
-
-  String getAssetDir() const { return "assets"_str; }
-  String getDataDir() const { return "data"_str; }
 };

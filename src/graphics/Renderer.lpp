@@ -41,9 +41,6 @@ b8 Renderer::init(InitParams& params)
   if (!vk->init(vk_params))
     return ERROR("failed to initialize Vulkan\n");
 
-  if (!resource_mgr.init())
-    return ERROR("failed to initialize resource manager\n");
-
   DescriptorSetLayout::Binding ubo_binding = 
   {
     .binding = 0,
@@ -86,7 +83,6 @@ void Renderer::deinit(mem::Allocator* allocator)
 {
   default_ubo_set_layout.destroy(*this);
   default_sampler_set_layout.destroy(*this);
-  resource_mgr.deinit();
   vk->deinit(allocator);
   allocator->free(vk);
 }

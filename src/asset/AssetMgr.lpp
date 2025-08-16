@@ -8,23 +8,19 @@ $ local cmn = require "common"
 #include "iro/Platform.h"
 #include "iro/Logger.h"
 
-@cmn.defFileLogger(rsrcmgr, Info)
+@log.ger(assetmgr, Info)
 
 /* ----------------------------------------------------------------------------
  */
 b8 AssetMgr::init(mem::Allocator* allocator)
 {
-  INFO("initializing AssetMgr\n");
-  
   this->allocator = allocator;
 
   if (!map.init(allocator))
     return ERROR("failed to init asset map\n");
 
   if (!pool.init(allocator))
-    return @log.error("failed to init asset pool\n");
-
-  INFO("finished\n");
+    return ERROR("failed to init asset pool\n");
 
   return true;
 }
@@ -33,8 +29,6 @@ b8 AssetMgr::init(mem::Allocator* allocator)
  */
 void AssetMgr::deinit()
 {
-  INFO("deinitializing AssetMgr\n");
-
 // TODO(sushi) properly clean up assets. Currently we lose a lot of them,
 //             specifically when loading gfx resource defs because they 
 //             do not store the loaded source asset data used to find the 
@@ -56,8 +50,6 @@ $ end
   
   pool.deinit();
   map.deinit();
-
-  INFO("done\n");
 }
 
 /* ----------------------------------------------------------------------------
@@ -154,13 +146,4 @@ $ end
 Asset* AssetMgr::findAsset(String name) const
 {
   return map.find(name.hash());
-}
-
-/* ----------------------------------------------------------------------------
- */
-b8 AssetMgr::checkNeedsCompiled(String asset_path, String data_path)
-{
-  using namespace fs;
-  return !path::exists(data_path) ||
-         1 ==  path::compareModTimes(asset_path, data_path);
 }

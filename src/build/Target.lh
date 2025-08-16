@@ -1,0 +1,269 @@
+/*
+ *  A Target represents a file on disk of some kind, either one that 
+ *  the build system needs to compile, or some kind of source asset or data
+ *  that is used to compile other targets.
+ *
+ *  One main design point of this type is that it separates the name, type 
+ *  and mount of an asset. The reason we do this is that it massively 
+ *  simplifies the process of transforming a Target into other targets 
+ *  by means of modifying its extension and where it should be or go.
+ *
+ *  A simple example of this is with our SourceData and CompiledData.
+ *  SourceData is currently allowed to take whatever extension it wants, 
+ *  for example 'texture', 'map', 'pipeline', etc. When we want to tell the 
+ *  build system that it should be building CompiledData from some source 
+ *  data, we just append the ".data" extension to the source data's type.
+ *  For example, if we want the CompiledData of some map SourceData, we 
+ *  tell the build system to build 'assets/maps/Test.map.data'. The rule 
+ *  for building compiled data handles assets ending with 'data'. When 
+ *  it finds one, it simply removes ".data" from the Target's type to 
+ *  find the SourceData that it should be built from.
+ *
+ *  Since Target separates an asset's name/type/mount, there is very minimal
+ *  parsing that needs to be done to handle all of these transformations.
+ */
+
+$ require "common"
+
+@@lpp.import "build/Build.defs.lh"
+
+#include "iro/Unicode.h"
+#include "iro/io/IO.h"
+#include "iro/time/Time.h"
+#include "iro/containers/AVL.h"
+#include "iro/memory/Bump.h"
+
+namespace build
+{
+
+using namespace iro;
+
+struct Rule;
+struct Target;
+typedef AVL<Target> TargetSet;
+
+// I would like to put this somewhere more general (as I have for, like, 
+// months now), but I still don't know where.
+typedef io::StaticBuffer<512> PathBuffer;
+
+/* ============================================================================
+ */
+struct Target
+{
+  // The asset name of this Target. This is the filename of an asset as well
+  // as the directory it is contained in, but without the extension.
+  // For example, if we have an asset file:
+  //
+  //  assets/maps/Test.map
+  //
+  // its name is 
+  // 
+  //  asset/maps/Test
+  //
+  String name;
+
+  // The type of this Target, which is the extension of the relative path to
+  // the actual file this Target represents.
+  String type;
+
+  // The expected directory that this Target is to be in. This may currently
+  // either be the source assets directory (generally, the root of the project)
+  // or the data directory.
+  String mount;
+  
+  // This Target's 'id'. Used to uniquely identify it during a build. This 
+  // is currently just a combined hash of 'name' and 'type'. For now, we do 
+  // not include 'mount' in this hash, but we probably should eventually.
+  u64 id;
+
+  // A set of Targets that depend on this one.
+  // I don't believe that this is used very much at the moment, but I'm 
+  // keeping it just in case.
+  TargetSet dependents;
+
+  // A set of Targets that this one depends on before it can be built. 
+  // All of these must exist on disk, be up-to-date, and be older than 
+  // this Target. 
+  TargetSet prerequisites;
+
+  // A set of Targets that this one 'links' to. These are not required to 
+  // build this Target, but rather are expected to exist once this Target
+  // is put to use in a system. Links are tracked so that the build system
+  // is aware of things that need built for a Target to function properly
+  // upon loading. At the moment, these are only generated once some 
+  // SourceData has been compiled and we can extract any serialized *Ref
+  // types found within.
+  TargetSet linked_targets;
+
+  enum class Flag
+  {
+    MissingPrereqs,
+
+    // This Target was found on disk.
+    Exists,
+
+    // This Target needs its meta file regenerated for one reason or another.
+    // Likely because it failed to load.
+    RegenMeta,
+
+    // This Target is currently queued to be built.
+    QueuedForBuild,
+    
+    // This Target is considered up-to-date, that is, it exists and 
+    // can be used to build dependents.
+    UpToDate,
+
+    COUNT
+  };
+  typedef iro::Flags<Flag> Flags;
+
+  Flags flags;
+
+  // The percieved 'kind' of this Target. This is what the build system 
+  // expects this Target to represent and influences things such as where
+  // it either expects it to be or be built to (its mount) and what sort 
+  // of transformations can be done on it.
+  // The enum is defined in Build.defs.lh, because it is a reflected type.
+  TargetKind kind;
+
+  // When this Target does exist, this is its last modified time. Also cached
+  // in cacheExistance(). 
+  TimePoint modtime;
+
+  // When a Target is queued to be built, this will be set to the Rule 
+  // that should be used to build it. If a Target is found in queue 
+  // with rule == nullptr, the BuildSystem will assert.
+  const Rule* rule;
+
+  // If this Target is considered a secondary output of a build Rule, then
+  // this will point to what the build system considers to be its primary
+  // Target. This is used to determine if we should consider a secondary 
+  // Target up-to-date when it appears as a dependent of another Target. 
+  // I'm not sure if that will ever happen, but we shall see.
+  Target* primary_target;
+
+  // Times for tracking how long different things took relevant to this 
+  // Target, for stats.
+  // TODO(sushi) we probably only want these to exist in debug and other 
+  //             situations.
+  TimeSpan build_time;
+  TimeSpan get_prereqs_time;
+  
+  static u64 getAVLKey(const Target& x) { return x.id; }
+
+  // Initialize this target with a name, type, mount, and kind.
+  // cacheExistance() is called within this function.
+  b8 init(String name, String type, String mount, TargetKind kind);
+
+  void deinit();
+
+  b8 isUpToDate() const { return flags.test(Flag::UpToDate); }
+  b8 isQueuedForBuild() const { return flags.test(Flag::QueuedForBuild); }
+  b8 exists() const { return flags.test(Flag::Exists); }
+
+  // Declare a dependency on another Target.
+  void dependsOn(Target* prereq)
+  {
+    prerequisites.insert(prereq);
+    prereq->dependents.insert(this);
+  }
+
+  // Declare that this Target links to the given Target.
+  void links(Target* linked)
+  {
+    linked_targets.insert(linked);
+  }
+
+  // Caches the existance state of this Target.
+  // 1. Checks if this Target exists on disk.
+  // 2. Caches its modtime if it does.
+  void cacheExistance();
+
+  // Checks that all prerequites of this Target are marked UpToDate.
+  // TODO(sushi) could cache a flag for this, though whether this is 
+  //             true or not may be able to change during a build.
+  b8 allPrereqsUpToDate() const
+  {
+    for (const Target& prereq : prerequisites)
+    {
+      if (!prereq.isUpToDate())
+        return false;
+    }
+    return true;
+  }
+
+  b8 hasNewerPrereqs() const
+  {
+    for (const Target& prereq : prerequisites)
+    {
+      if (prereq.modtime > modtime)
+        return true;
+    }
+    return false;
+  }
+
+  b8 needsBuilt() const
+  {
+    return !exists() || hasNewerPrereqs();
+  }
+
+  // Checks that this Target exists and is marked up-to-date.
+  b8 existsAndIsUpToDate() const
+  {
+    return exists() && isUpToDate();
+  }
+
+  // Helper for forming the full path to this Target.
+  String formFullPath(PathBuffer* out) const
+  {
+    io::formatv(out, mount, '/', name, '.', type);
+    return String(*out);
+  }
+
+  // Helper for forming the path to this target.
+  String formPath(PathBuffer* out) const
+  {
+    io::formatv(out, name, '.', type);
+    return String(*out);
+  }
+
+  // Helper for forming the full path to this Target's meta file.
+  String formFullMetaPath(PathBuffer* out) const
+  {
+    io::formatv(out, mount, '/', name, '.', type, ".meta"_str);
+    return String(*out);
+  }
+
+  // Helper for forming an absolute path to this Target's containing 
+  // directory. This is primarily used for the build system to ensure 
+  // that the directory exists before trying to build it.
+  // This is defined in the lpp, because it uses fs.h, which I'd rather not 
+  // include here.
+  String formFullDirPath(PathBuffer* out) const;
+};
+
+// TODO(sushi) remove in favor of the BuildSystem passing a 
+//             SmallArray<TargetInfo> to rule interfaces. I'm not sure yet
+//             if that will work better though.
+struct ScopedTargetSet : TargetSet
+{
+  ScopedTargetSet()
+  {
+    TargetSet::init();
+  }
+
+  ~ScopedTargetSet()
+  {
+    TargetSet::deinit();
+  }
+};
+
+} // namespace build
+
+namespace iro::io
+{
+static s64 format(IO* io, const build::Target& target)
+{
+  return io::formatv(io, target.name, '.', target.type);
+}
+}

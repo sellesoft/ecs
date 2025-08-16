@@ -1,0 +1,98 @@
+$ require "common"
+
+@@lpp.import "graphics/Shader.defs.lh"
+@@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "build/Target.lh"
+@@lpp.import "build/Rule.lh"
+@@lpp.import "build/Result.lh"
+@@lpp.import "build/BuildSystem.lh"
+@@lpp.import "asset/CompiledData.lh"
+
+#include "iro/fs/fs.h"
+
+namespace gfx
+{
+
+using namespace build;
+
+/* ----------------------------------------------------------------------------
+ */
+static void shaderGetPrereqs(const RuleParams_GetPrereqs& params)
+{
+  build::Target* data_target = params.build_system->findOrCreateTarget(
+    params.target->name, 
+    "shader.data"_str,
+    build::TargetKind::CompiledData);
+
+  params.prereqs->insert(data_target);
+
+  if (!data_target->existsAndIsUpToDate())
+    return;
+
+  // Extract the desired shader source asset once the compiled data is 
+  // available.
+  auto* compiled_def = params.build_system->loadAsCompiledData(data_target);
+  if (compiled_def == nullptr)
+  {
+    params.result->setError("failed to load compiled ShaderDef"_str);
+    return;
+  }
+
+  auto* shader_def = compiled_def->getRootAs<gfx::ShaderDef>();
+
+  if (isnil(shader_def->source))
+  {
+    params.result->setError("ShaderDef does not specify a source shader"_str);
+    return;
+  }
+
+  String source_shader_name = fs::path::removeExtension(shader_def->source);
+  String source_shader_type = fs::path::getExtension(shader_def->source);
+
+  build::Target* source_shader_target = 
+    params.build_system->findOrCreateTarget(
+      source_shader_name,
+      source_shader_type,
+      build::TargetKind::SourceAsset);
+
+  params.prereqs->insert(source_shader_target);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void shaderBuild(const RuleParams_Build& params)
+{
+  build::Target* data_target = params.build_system->findTarget(
+    params.target->name,
+    "shader.data"_str,
+    build::TargetKind::CompiledData);
+
+  build::PathBuffer data_path_buffer;
+  build::PathBuffer target_path_buffer;
+
+  gfx::CompileShaderParams compile_params = 
+  {
+    .input_path = data_target->formFullPath(&data_path_buffer),
+    .output_path = params.target->formFullPath(&target_path_buffer),
+  };
+
+  if (!gfx::compileShader(compile_params))
+    params.result->setError();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+build::Rule getShaderBuildRule()
+{
+  return 
+  {
+    .types = "shader.compiled"_str,
+    .interface = 
+    {
+      .getPrereqs = shaderGetPrereqs,
+      .build = shaderBuild,
+    }
+  };
+}
+
+}

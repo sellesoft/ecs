@@ -1,6 +1,5 @@
 $ require "common"
 
-@@lpp.import "graphics/Font.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
 @@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 

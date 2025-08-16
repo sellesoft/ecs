@@ -1,7 +1,7 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "ui/Skin.defs.lh"
 
 /* ============================================================================
@@ -17,4 +17,4 @@ struct EditorSkinDef
   ui::ButtonSkin dropdown_option;
 };
 
-struct EditorSkinDefRef : TypedSourceAssetRef<EditorSkinDef> {};
+struct EditorSkinDefLink : TypedCompiledDataLink<EditorSkinDef> {};

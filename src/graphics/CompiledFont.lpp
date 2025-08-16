@@ -11,12 +11,14 @@ $ local cmn = require "common"
 
 #include "math/util.h"
 
-@@lpp.import "graphics/Font.lh"
-@@lpp.import "graphics/Renderer.lh"
+@@lpp.import "graphics/CompiledFont.lh"
+@@lpp.import "graphics/CompiledTexture.lh"
+@@lpp.import "graphics/TextureParams.lh"
+@@lpp.import "asset/CompiledData.lh"
 
-@@lpp.import "asset/AssetMgr.lh"
+#include "iro/memory/Bump.h"
 
-@defFileLogger(font, Debug)
+@log.ger(font, Debug)
 
 typedef io::StaticBuffer<512> PathBuffer;
 
@@ -33,10 +35,9 @@ static b8 codepointInRange(PackRange* range, u32 codepoint)
 
 /* ----------------------------------------------------------------------------
  */
-PackRange* Font::getRangeOfCodepoint(u32 codepoint) const
+PackRange* CompiledFont::getRangeOfCodepoint(u32 codepoint) const
 {
-  const FontData& data = getData();
-  const Slice<PackRange> ranges = data.ranges.getSlice();
+  const Slice<PackRange> ranges = this->ranges.getSlice();
 
   if (ranges.len == 1)
   {
@@ -59,7 +60,7 @@ PackRange* Font::getRangeOfCodepoint(u32 codepoint) const
 
 /* ----------------------------------------------------------------------------
  */
-b8 Font::getPackedChar(PackedChar* out, u32 codepoint) const
+b8 CompiledFont::getPackedChar(PackedChar* out, u32 codepoint) const
 {
   PackRange* range = getRangeOfCodepoint(codepoint);
   if (!range)
@@ -70,7 +71,7 @@ b8 Font::getPackedChar(PackedChar* out, u32 codepoint) const
 
 /* ----------------------------------------------------------------------------
  */
-vec2f Font::getGlyphSize(u32 codepoint) const
+vec2f CompiledFont::getGlyphSize(u32 codepoint) const
 {
   PackedChar pc;
   if (!getPackedChar(&pc, codepoint))
@@ -81,78 +82,12 @@ vec2f Font::getGlyphSize(u32 codepoint) const
 
 /* ----------------------------------------------------------------------------
  */
-void Font::getPackedChar(
+void CompiledFont::getPackedChar(
     PackedChar* out, 
     PackRange* range, 
     u32 codepoint) const
 {
   *out = *(range->chars.ptr.get() + codepoint - range->first_codepoint);
-}
-
-/* ----------------------------------------------------------------------------
- */
-Font* Font::load(
-    String name, 
-    AssetMgr& assetmgr,
-    gfx::Renderer& renderer)
-{
-  return nullptr;
-
-  // using namespace fs;
-  //
-  // if (Font* existing = renderer.resource_mgr.findFont(name))
-  //   return existing;
-  //
-  // PathBuffer data_path_buf;
-  // writeDataPath(&data_path_buf, name, assetmgr);
-  //
-  // String data_path = data_path_buf.asStr();
-  //
-  // assert(nullptr == assetmgr.findAsset(data_path));
-  //
-  // if (!fs::path::exists(data_path))
-  // {
-  //   ERROR("attempt to load font '", name, "' but there is no data at "
-  //         "path '", data_path, "'\n");
-  //   return nullptr;
-  // }
-  //
-  // Asset* asset = assetmgr.loadAssetFromDisk(data_path);
-  // if (asset == nullptr)
-  // {
-  //   @log.error("failed to load font asset '", data_path, "'\n");
-  //   return nullptr;
-  // }
-  //
-  // // TODO(sushi) need somewhere to put these.
-  // auto* font = renderer.resource_mgr.createFont(name);
-  // if (font == nullptr)
-  // {
-  //   ERROR("failed to allocate font asset\n");
-  //   return nullptr;
-  // }
-  //
-  // font->asset.asset = asset;
-  //
-  // INFO("loading font's texture\n");
-  //
-  // // Load the texture.
-  // font->texture = gfx::CompiledTexture::load(name, assetmgr, renderer);
-  // if (font->texture == nullptr)
-  // {
-  //   ERROR("failed to load font texture\n");
-  //   return nullptr;
-  // }
-  //
-  // return font;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void Font::unload(AssetMgr& assetmgr, Renderer& renderer)
-{
-  // texture->unload(assetmgr, renderer);
-  // assetmgr.unloadAsset(asset.asset);
 }
 
 /* ----------------------------------------------------------------------------
@@ -218,11 +153,11 @@ static b8 compileFontBDF(
 
   // Allocate the full buffer.
   u64 data_size = 
-    sizeof(FontData) + 
+    sizeof(CompiledFont) + 
     sizeof(PackRange) * def.ranges.len + 
     sizeof(PackedChar) * num_codepoints;
 
-  auto* data = (FontData*)data_buffer->allocateBytes(data_size);
+  auto* data = (CompiledFont*)data_buffer->allocateBytes(data_size);
   data->kind = FontKind::BDF;
 
   auto* ranges = (PackRange*)(data + 1);
@@ -613,16 +548,12 @@ b8 compileFont(
 
   out_file.write(font_data_buffer.asBytes());
 
-  // Compile the texture to our format.
-  gfx::CompiledTexture::CompileParams texture_params = 
-  {
-    .width = u32(texture_size.x),
-    .height = u32(texture_size.y),
-    .format = texture_format,
-  };
-
-  if (!CompiledTexture::compileFromMemory(
-        font_pixels_buffer.ptr, &texture_out_file, texture_params))
+  if (!compileTextureFromMemory(
+        font_pixels_buffer.ptr,
+        &texture_out_file,
+        texture_size.x,
+        texture_size.y,
+        texture_format))
     return ERROR(
       "failed to compile font texture '", def->asset_path, "'\n");
 

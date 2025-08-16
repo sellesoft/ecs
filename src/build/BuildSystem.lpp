@@ -1,0 +1,786 @@
+$ require "common"
+
+@@lpp.import "build/BuildSystem.lh"
+
+@@lpp.import "asset/Packing.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/RTR.lh"
+
+#include "iro/fs/fs.h"
+#include "iro/fs/File.h"
+
+@log.ger(bsys, Info)
+
+namespace build
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::init(const InitParams& params)
+{
+  if (isnil(params.source_mount))
+    return ERROR("no source mount provided\n");
+
+  if (isnil(params.compiled_mount))
+    return ERROR("no compiled mount provided\n");
+
+  if (isnil(params.rules))
+    return ERROR("no build rules provided\n");
+  
+  if (!rules.init())
+    return ERROR("failed to initialize rules array\n");
+
+  // I originally wanted to keep this as Slice<Rule> and leave maintaining them
+  // up to the caller, but that's annoying when BuildSystem is intended to 
+  // be kept around persistently.
+  for (const Rule& rule : params.rules)
+    rules.push(rule);
+
+  if (!targets.init())
+    return ERROR("failed to initialize targets pool\n");
+
+  if (!target_set.init())
+    return ERROR("failed to initialize target set\n");
+
+  if (!target_build_queue.init())
+    return ERROR("failed to initialize target build queue\n");
+
+  if (!compiled_data_allocator.init())
+    return ERROR("failed to initialize compiled data allocator\n");
+
+  if (!string_pool.init())
+    return ERROR("failed to initialize string pool\n");
+
+  // These are cached such that if build() is used later on, we don't risk
+  // the caller (me) having forgot to keep the Strings they gave us around.
+  source_mount = params.source_mount.allocateCopy(&string_pool);
+  compiled_mount = params.compiled_mount.allocateCopy(&string_pool);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BuildSystem::deinit()
+{
+  for (Target& target : targets)
+    target.deinit();
+  targets.deinit();
+  target_set.deinit();
+  target_build_queue.deinit();
+  rules.destroy();
+  source_mount = nil;
+  compiled_mount = nil;
+  compiled_data_allocator.deinit();
+  string_pool.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ *  Helper for packing some SourceData. 'packed' is assumed to not already 
+ *  be initialized, and must be deinitialized by the caller.
+ */
+static b8 packSourceData(String path, PackedData* packed)
+{
+  assert(notnil(path));
+
+  // Parse and load the source data file.
+  SourceDataFile sfile;
+  if (!SourceDataFile::from(&sfile, path))
+    return ERROR("failed to load source data file from '", path, "'\n");
+  defer { sfile.deinit(); };
+
+  if (!packed->init())
+    return ERROR(
+      "failed to initialize PackedData for source data file '", path, "'\n");
+
+  PackParams pack_params = { packed };
+
+  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+    return ERROR("failed to pack returned source data from '", path, "'\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Helper for packing some SourceData and getting it as 'T'.
+ */
+template<typename T>
+static T* packSourceDataAs(String path, PackedData* packed)
+{
+  if (!packSourceData(path, packed))
+    return nullptr;
+
+  return packed->getDataAs<T>();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::buildAssetList(String path)
+{
+  INFO("building asset list '", path, "'\n");
+
+  auto start_time = TimePoint::monotonic();
+
+  PackedData packed_asset_list;
+  auto* asset_list = packSourceDataAs<AssetList>(path, &packed_asset_list);
+  if (asset_list == nullptr)
+    return ERROR("failed to pack asset list at '", path, "'\n");
+  defer { packed_asset_list.deinit(); };
+
+  for (const auto& asset : *asset_list)
+  {
+    // Attempt to determine the type of the Target, which should either be 
+    // a compiled asset or compiled data. It's currently considered 
+    // invalid to specify a source asset or source data in an asset list,
+    // but we just warn about that case.
+
+    String asset_name = fs::path::removeExtension(asset);
+    String asset_type = fs::path::getExtension(asset);
+
+    if (isnil(asset_type))
+    {
+      WARN("asset '", asset, "' has no extension and so we are unable to "
+           "determine its asset type; it will be skipped\n");
+      continue;
+    }
+
+    TargetKind asset_kind = TargetKind::Unknown;
+
+    if (asset_type.endsWith(".compiled"_str))
+      asset_kind = TargetKind::CompiledAsset;
+    else if (asset_type.endsWith(".data"_str))
+      asset_kind = TargetKind::CompiledData;
+
+    if (asset_kind == TargetKind::Unknown)
+    {
+      WARN("asset '", asset, "' does not appear to be a compiled asset or "
+           "compiled data and will be ignored\n");
+      continue;
+    }
+
+    b8 already_listed = false;
+    Target* asset_target = findOrCreateTarget(
+      asset_name.allocateCopy(&string_pool),
+      asset_type.allocateCopy(&string_pool),
+      asset_kind,
+      &already_listed);
+
+    if (already_listed)
+      WARN("asset '", asset, "' specified multiple times in asset list\n");
+  }
+
+  // Start the main build loop for any targets found in the provided list.
+  b8 result = buildTargets();
+
+  INFO("build ", 
+    result? color::green("succeeded"_str) : color::red("failed"_str),
+    " in ", WithUnits(TimePoint::monotonic() - start_time), '\n');
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::build()
+{
+  INFO("building available targets...\n");
+
+  auto start_time = TimePoint::monotonic();
+
+  for (Target& target : targets)
+  {
+    DEBUG("resetting ", target, "\n");
+    target.cacheExistance();
+    target.flags.unset(Target::Flag::UpToDate);
+  }
+
+  b8 result = buildTargets();
+
+  INFO("build ", 
+    result? color::green("succeeded"_str) : color::red("failed"_str),
+    " in ", WithUnits(TimePoint::monotonic() - start_time), '\n');
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ *  The primary build loop which runs until there are no more targets in the 
+ *  queue.
+ */
+b8 BuildSystem::buildTargets()
+{
+  for (;;)
+  {
+    // Queue any Targets that are ready and need to be built.
+    queueTargets();
+
+    // If we didn't get any new Targets, we must be done!
+    if (target_build_queue.isEmpty())
+      break;
+
+    // Consume targets from the queue.
+    while (!target_build_queue.isEmpty())
+    {
+      Target* next_target = target_build_queue.popHead();
+
+      // Assert state is correct.
+      assert(next_target->isQueuedForBuild());
+      next_target->flags.unset(Target::Flag::QueuedForBuild);
+
+      // The Target should have had a Rule assigned once we found that it was
+      // a leaf in queueTargets();
+      assert(next_target->rule != nullptr);
+
+      const Rule* rule = next_target->rule;
+
+      // Ensure that the directory containing the Target exists, as we do not 
+      // expect the tools used to build them to do this themselves.
+      PathBuffer target_dir_buffer;
+      fs::mkdir(next_target->formFullDirPath(&target_dir_buffer), true);
+      
+      // Finally, ask the rule to build this Target.
+      Result result;
+      RuleParams_Build build_params = 
+      {
+        .target = next_target,
+        .build_system = this,
+        .result = &result,
+      };
+
+      rule->interface.build(build_params);
+
+      if (result.wasSuccessful())
+      {
+        INFO("built ", *next_target, '\n');
+        next_target->flags.set(Target::Flag::UpToDate);
+        next_target->cacheExistance();
+        
+        // Write out the meta file of this Target so that we can use the 
+        // cached information we've gathered in following builds.
+        // TODO(sushi) do we also want to do this when the target fails?
+        writeTargetMetaFile(next_target);
+      }
+      else
+      {
+        // TODO(sushi) collect these to be shown at the end. This is 
+        //             specifically important for multithreading.
+        ERROR("failed to build '", *next_target, "':\n", result.message, "\n");
+      }
+    }
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Attempts to find the best Rule for a given Target. 
+ *
+ *  This is, unfortunately, sometimes a heuristic and that's primarily due 
+ *  to how I decided to design our asset extension style. When finding 
+ *  a Rule for a Target, we iterate through them until we either find a rule
+ *  with an exact matching type or take the longest matching prefix we found.
+ *  This means that its possible for the build system to attempt to use an 
+ *  incorrect rule for a Target if its suffix happens to match. With our 
+ *  current set of asset types (just Shaders, Fonts, Textures, and SourceData)
+ *  I don't believe that this can happen, but its certainly a possibility in 
+ *  the future.
+ */
+static const Rule* findBestRuleForTarget(
+    Target* target, 
+    Slice<Rule> rules,
+    b8* out_is_secondary)
+{
+  const Rule* best_rule = nullptr;
+  String best_type = nil;
+  b8 best_is_secondary = false;
+
+  auto takeRule = [&](const Rule* rule, String type, b8 is_secondary)
+  {
+    best_rule = rule;
+    best_type = type;
+    best_is_secondary = is_secondary;
+  };
+
+  for (const Rule& rule : rules)
+  {
+    // TODO(sushi) can cache off rule types later to avoid parsing this 
+    //             everytime but don't want to get into more mem management
+    //             atm, and its easy to specify rules this way.
+    String::Pair split = rule.types.splitAtFirst(';');
+
+    String primary_type = split.first;
+
+    if (target->type == primary_type)
+    {
+      // Exact primary output matches are taken immediately.
+      takeRule(&rule, primary_type, false);
+      break;
+    }
+    else if (target->type.endsWith(primary_type))
+    {
+      // If the target's type ends with this rule's primary type,
+      // take it as best if the match is longer than that of the current
+      // best rule.
+      if (primary_type.len > best_type.len)
+        takeRule(&rule, primary_type, false);
+    }
+
+    b8 exact_secondary = false;
+    for (;;)
+    {
+      String secondary_type = split.second;
+
+      if (isnil(secondary_type))
+        break;
+      
+      if (target->type == secondary_type)
+      {
+        // Again, exact secondary matches are taken immediately.
+        exact_secondary = true;
+        takeRule(&rule, secondary_type, true);
+        break;
+      }
+      else if (target->type.endsWith(secondary_type))
+      {
+        // Take longer secondary types. 
+        if (secondary_type.len > best_type.len)
+          takeRule(&rule, secondary_type, true);
+      }
+
+      split = split.second.splitAtFirst(';');
+    }
+
+    // Early out if we exactly matched a secondary type.
+    if (exact_secondary)
+      break;
+  }
+
+  *out_is_secondary = best_is_secondary;
+  return best_rule;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::queueTargets()
+{
+  // Queue Targets until we don't find anymore leaves.
+  for (;;)
+  {
+    // Perform a search for 'leaf' Targets. A Target is considered a leaf 
+    // when it is not already queued for build, when all of its prerequisites
+    // are considered up-to-date, and when it is not up-to-date itself.
+    //
+    // This is also where we find and cache the Rule we will use to build 
+    // a Target.
+    //
+    // TODO(sushi) this will definitely need to be optimized later, as there
+    //             are certainly better ways to determine this without needing
+    //             to walk over all Targets. But for now it is simple and I'm
+    //             not sure how exactly this will need to work when we get to 
+    //             multithreading yet.
+    b8 found_leaf = false;
+    for (Target& target : target_set)
+    {
+      // If the Target is already queued for build, we don't want to queue 
+      // it again.
+      if (target.isQueuedForBuild())
+      {
+        DEBUG(target, " is already queued for build\n");
+        continue;
+      }
+
+      // We don't need to build Targets that are already up-to-date.
+      if (target.isUpToDate())
+        continue;
+
+      // If this is a secondary output Target who's primary is known, we simply 
+      // skip it, as we assume that once the primary Target is built, so will
+      // the secondary. We also mark the Target as up-to-date once its 
+      // primary is too. 
+      // TODO(sushi) we should really be setting its state to UpToDate as soon
+      //             as it is built, but currently we don't have a good 
+      //             mapping from primary to secondary.
+      if (target.primary_target != nullptr)
+      {
+        if (target.primary_target->isUpToDate())
+          target.flags.set(Target::Flag::UpToDate);
+        continue;
+      }
+
+      // If the Target still has out-of-date prereqs, we can't build it yet.
+      if (!target.allPrereqsUpToDate())
+        continue;
+
+      // We now know that this Target is a leaf, so we need to determine what 
+      // Rule to use to build it. 
+      found_leaf = true;
+
+      DEBUG("leaf: ", target.name, '.', target.type, "\n");
+      DEBUG("    ", UTCDate(target.modtime), '\n');
+
+      b8 is_secondary = false;
+      if (const Rule* rule = findBestRuleForTarget(
+            &target, rules.asSlice(), &is_secondary))
+      {
+        // If we find a Rule for this Target, we need to ask it what its 
+        // prerequisites are. However, when we encounter a secondary Target,
+        // we want to deal with the primary Target instead.
+        Target* primary_target = &target;
+        if (is_secondary)
+        {
+          if (target.primary_target == nullptr)
+          {
+            // If this Target has not yet had its primary target set, we need
+            // to find or create the primary now.
+            // TODO(sushi) I believe this will break if the primary type is 
+            //             a partial match. We should probably ask the Rule
+            //             to give us the primary Target explicitly instead.
+            target.primary_target = findOrCreateTarget(
+              target.name,
+              rule->types.subToFirst(';'),
+              // Another reason we should prob ask the Rule.
+              TargetKind::Unknown);
+          }
+
+          primary_target = target.primary_target;
+        }
+
+        // Set the Rule on the Target so that we don't have to look it up 
+        // again once we go to build it. The Target should not have already
+        // had a Rule assigned.
+        // assert(primary_target->rule == nullptr);
+        primary_target->rule = rule;
+
+        Result result;
+        ScopedTargetSet prereqs;
+        RuleParams_GetPrereqs rule_params = 
+        {
+          .target = primary_target,
+          .build_system = this,
+          .prereqs = &prereqs,
+          .result = &result,
+        };
+
+        // Ask the rule what its primary target's prerequisites are.
+        rule->interface.getPrereqs(rule_params);
+
+        // Add the prereqs to the primary target.
+        // TODO(sushi) it doesn't really make sense atm that we do this, as 
+        //             we aren't actually using the local prereqs to do 
+        //             anything and the rule could very well just add them
+        //             to the Target directly. I had done this under the idea
+        //             that it would be safer for when we get to multithreading
+        //             but now I'm wondering if we could instead put the 
+        //             Targets in some state that indicates what worker has 
+        //             'ownership' of them to allow them to be mutated directly
+        //             while also still read (when appropriate) by other 
+        //             workers. We'll see once we get there.
+        for (Target& prereq : prereqs)
+          primary_target->dependsOn(&prereq);
+
+        if (!primary_target->isQueuedForBuild())
+        {
+          if (primary_target->needsBuilt())
+          {
+            if (primary_target->allPrereqsUpToDate())
+            {
+              target_build_queue.pushTail(primary_target);
+              primary_target->flags.set(Target::Flag::QueuedForBuild);
+              DEBUG("queuing ", *primary_target, " for build because its " 
+                    "outdated or doesn't exist\n");
+            }
+            else
+            {
+              DEBUG("can't queue ", *primary_target, " because prereqs are "
+                    "out of date:\n");
+              for (Target& prereq : primary_target->prerequisites)
+              {
+                DEBUG("  ", prereq, '\n');
+              }
+            }
+          }
+          else if (primary_target->flags.test(Target::Flag::RegenMeta))
+          {
+            // We need to regenerate this Target's meta file, likely due to
+            // it failing to load earlier. So we build the Target anyways
+            // such that any information in the metafile that may come from 
+            // building the Target (such as links from CompiledData) is 
+            // properly regenerated.
+            if (primary_target->allPrereqsUpToDate())
+            {
+              target_build_queue.pushTail(primary_target);
+              primary_target->flags.set(Target::Flag::QueuedForBuild);
+              primary_target->flags.unset(Target::Flag::RegenMeta);
+              DEBUG("queuing ", *primary_target, " for build because its " 
+                    "needs a new meta file\n");
+            }
+          }
+          else
+          {
+            // Otherwise, we can consider it up-to-date.
+            primary_target->flags.set(Target::Flag::UpToDate);
+            DEBUG(*primary_target, " is up to date!\n");
+          }
+        }
+      }
+      else // if Rule
+      {
+        if (!target.exists())
+        {
+          // If we don't have a Rule to build this Target, and it doesn't 
+          // exist, then the build system doesn't know what to do.
+          PathBuffer non_existant_target;
+          ERROR("no rule provided for non-existant build target '",
+                target.formPath(&non_existant_target), "'\n");
+          return false;
+        }
+        else
+        {
+          // Just consider this Target as an up-to-date source file.
+          target.flags.set(Target::Flag::UpToDate);
+          DEBUG("this must be a source file\n");
+        }
+      }
+    }
+
+    // If we didn't find any leaves, then we may return to the build loop.
+    if (!found_leaf)
+      break;
+  }
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Target* BuildSystem::findTarget(String name, String type, TargetKind kind)
+{
+  if (Target* known = target_set.find(combineHash(name.hash(), type.hash())))
+  {
+    if (kind != TargetKind::Unknown)
+      assert(kind == known->kind);
+
+    return known;
+  }
+
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Target* BuildSystem::findOrCreateTarget(
+    String name,
+    String type, 
+    TargetKind kind,
+    b8* out_known)
+{
+  if (Target* known = findTarget(name, type, kind))
+  {
+    if (out_known != nullptr)
+      *out_known = true;
+
+    return known;
+  }
+
+  // If the caller doesn't know what kind of Target this should be, try 
+  // to determine it. Currently this only supports determining compiled 
+  // assets or data kinds. Otherwise, we just assert for now.
+  // TODO(sushi) we should handle this better.
+
+  if (kind == TargetKind::Unknown)
+  {
+    if (type.endsWith(".compiled"_str))
+      kind = TargetKind::CompiledAsset;
+    else if (type.endsWith(".data"_str))
+      kind = TargetKind::CompiledData;
+  }
+
+  assert(kind != TargetKind::Unknown);
+
+  String mount;
+  if (kind == TargetKind::CompiledData || kind == TargetKind::CompiledAsset)
+    mount = compiled_mount;
+  else
+    mount = source_mount;
+
+  Target* new_target = targets.pushHead()->data;
+
+  if (!new_target->init(name, type, mount, kind))
+    return ERROR("failed to initialize new Target '", name, '.', type, "'\n"),
+           nullptr;
+
+  target_set.insert(new_target);
+
+  // Upon creating a new Target, attempt to load its meta file such that we 
+  // also load any cached links and prerequisites from a previous build.
+  loadTargetMetaFile(new_target);
+
+  return new_target;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BuildSystem::writeTargetMetaFile(Target* target)
+{
+  // TODO(sushi) it would be nice to just make a build::TargetMetadata 
+  //             here and fill it out rather than manually constructing 
+  //             the SourceData, but we don't support binary -> SourceData
+  //             yet, and I would like to output plain SourceData for easy 
+  //             debugging for now.
+  SourceDataFile mfile;
+  if (!mfile.init())
+    return;
+  defer { mfile.deinit(); };
+
+  SourceData* data = mfile.addReturnData();
+
+  data->setObject(nil);
+  data->type = "build::TargetMetadata"_str;
+
+  SourceData* prereqs = data->addObject(
+    mfile, "prereqs"_str, "build::TargetInfoList"_str);
+
+  SourceData* linked_targets = data->addObject(
+    mfile, "linked_targets"_str, "build::TargetInfoList"_str);
+
+  auto addTargetInfo = [&](Target* target, SourceData* list)
+  {
+    SourceData* info = list->addObject(mfile, nil, "build::TargetInfo"_str);
+
+    PathBuffer path_buffer;
+    info->addStringValue(mfile, "name"_str, target->name);
+    info->addStringValue(mfile, "type"_str, target->type);
+    info->addStringValue(
+      mfile, "kind"_str, rtr::getEnumElementName(target->kind));
+  };
+
+  for (Target& prereq : target->prerequisites)
+    addTargetInfo(&prereq, prereqs);
+
+  for (Target& linked : target->linked_targets)
+    addTargetInfo(&linked, linked_targets);
+
+  PathBuffer meta_path;
+  mfile.dumpToDisk(target->formFullMetaPath(&meta_path));
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BuildSystem::loadTargetMetaFile(Target* target)
+{
+  PathBuffer meta_path_buffer;
+  String meta_path = target->formFullMetaPath(&meta_path_buffer);
+
+  if (!fs::path::exists(meta_path))
+    // Nothing to load, should be cached for next time.
+    return;
+
+  PackedData packed_metadata;
+  auto* metadata = 
+    packSourceDataAs<TargetMetadata>(meta_path, &packed_metadata);
+  defer { packed_metadata.deinit(); };
+
+  if (metadata == nullptr)
+  {
+    ERROR("failed to pack metadata for target '", 
+          target->name, '.', target->type, "'\n");
+    
+    // Mark the Target as needing to regenerate its meta file such that we do 
+    // once we find that it is up-to-date again.
+    target->flags.set(Target::Flag::RegenMeta);
+    return;
+  }
+
+  for (TargetInfo& dep : metadata->prereqs)
+  {
+    // TODO(sushi) need to avoid all of these string copies.
+    //             We should probably just always output the compiled version 
+    //             of the meta stuff and just optionally dump the source data 
+    //             to disk for debugging.
+    Target* dep_target = findOrCreateTarget(
+      dep.name.allocateCopy(&string_pool),
+      dep.type.allocateCopy(&string_pool),
+      dep.kind);
+
+    target->dependsOn(dep_target);
+
+    // TODO(sushi) it might be better to queue targets for loading so that 
+    //             we can drop some of the allocated data before recursing
+    //             like this.
+    loadTargetMetaFile(dep_target);
+  }
+
+  for (TargetInfo& linked : metadata->linked_targets)
+  {
+    Target* linked_target = findOrCreateTarget(
+      linked.name.allocateCopy(&string_pool),
+      linked.type.allocateCopy(&string_pool),
+      linked.kind);
+
+    target->links(linked_target);
+    loadTargetMetaFile(linked_target);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static CompiledData* compilePackedAsset(
+    const PackedData& packed,
+    String output_path,
+    mem::Allocator* allocator)
+{
+  CompiledData::CompileParams compile_params = 
+  {
+    .type = packed.type,
+    .dataptr = packed.data.ptr,
+    .output_path = output_path,
+  };
+
+  if (!CompiledData::compile(compile_params))
+    return nullptr;
+
+  return CompiledData::load(output_path, allocator);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledData* BuildSystem::packAndCompileSourceDataAsset(
+    String source_path, 
+    String compiled_path)
+{
+  PackedData packed;
+  if (!packSourceData(source_path, &packed))
+    return nullptr;
+  defer { packed.deinit(); };
+
+  CompiledData* compiled = 
+    compilePackedAsset(packed, compiled_path, &compiled_data_allocator);
+
+  if (compiled == nullptr)
+    return nullptr;
+
+  compiled->fixPointers();
+  return compiled;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+CompiledData* BuildSystem::loadAsCompiledData(Target* target)
+{
+  assert(target && target->kind == TargetKind::CompiledData);
+
+  PathBuffer path;
+  CompiledData* compiled = CompiledData::load(
+    target->formFullPath(&path), 
+    &compiled_data_allocator);
+
+  if (compiled == nullptr)
+    return nullptr;
+
+  compiled->fixPointers();
+
+  return compiled;
+}
+
+}

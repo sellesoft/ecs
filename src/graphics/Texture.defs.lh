@@ -6,9 +6,8 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "graphics/TextureParams.lh"
-@@lpp.import "graphics/ResourceRef.lh"
 
-namespace build { struct Rule; }
+#include "iro/Unicode.h"
 
 namespace gfx
 {
@@ -18,12 +17,10 @@ struct CompiledTexture;
 /* ============================================================================
  */
 @metadata.def
-@metadata.source_data_type(texture)
-@metadata.compiled_type(gfx::CompiledTextureData)
 struct TextureDef
 {
   @metadata.source_types(png)
-  String name;
+  iro::String name;
 
   @metadata.default("RGBA")
   ImageFormat format;
@@ -37,13 +34,5 @@ struct TextureDef
   @metadata.default("ClampToBlack")
   ImageAddressMode address_mode;
 };
-
-/* ============================================================================
- */
-@metadata.links(texture.data;texture.compiled)
-struct TextureRef : TypedResourceRef<CompiledTexture> {};
-
-// Constructs a build rule for building textures.
-build::Rule getTextureBuildRule();
 
 }

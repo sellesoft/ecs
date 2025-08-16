@@ -6,9 +6,9 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
-@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/TextureResource.lh"
 @@lpp.import "reflect/types/StringMap.lh"
-@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/CompiledData.lh"
 
 #include "Color.h"
 #include "math/vec.h"
@@ -23,7 +23,7 @@ struct CompiledTexture;
  */
 struct SpriteTexture
 {
-  gfx::TextureRef texture;
+  gfx::TextureLink texture;
 
   @metadata.default "{0,0,1,1}"
   Rect uv;
@@ -40,8 +40,8 @@ struct SpriteStatesDef
   reflect::StringMap<SpriteTexture> map;
 };
 
-@metadata.source_types(sprite_states)
-struct SpriteStatesRef : TypedSourceAssetRef<SpriteStatesDef> {};
+@metadata.links(sprite_states.data)
+struct SpriteStatesLink : TypedCompiledDataLink<SpriteStatesDef> {};
 
 namespace cl
 {
@@ -58,7 +58,7 @@ struct Sprite : Component
   u32 state;
 
   // The states this sprite may use.
-  SpriteStatesRef states;
+  SpriteStatesLink states;
 };
 
 }

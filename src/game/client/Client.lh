@@ -42,7 +42,7 @@ struct Client
   ui::UI ui;
   cl::GameSim sim;
 
-  gfx::Texture white_texture;
+  gfx::TextureHandle white_texture;
 
   b8 editor_active = false;
 
@@ -71,6 +71,4 @@ struct Client
   b8 connectToServer(net::Address address);
 
   void disconnectFromServer();
-
-  AssetLoader getAssetLoader();
 };

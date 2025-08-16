@@ -1,0 +1,34 @@
+/*
+ *  A Font asset managed by the ResourceMgr.
+ */
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "graphics/CompiledFont.lh"
+@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/ResourceLink.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+struct FontResource
+{
+  // A link to the compiled data asset of this Font.
+  CompiledFontLink compiled_font;
+
+  // A TextureResource containing this Font's compiled texture.
+  TextureResource texture;
+};
+
+@metadata.links(font.compiled;font.texture.compiled)
+struct FontLink : TypedResourceLink<FontResource> 
+{
+  TextureHandle getTextureHandle() const
+  {
+    return { get().texture.descriptor_set };
+  }
+};
+
+}

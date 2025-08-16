@@ -1,0 +1,147 @@
+/*
+ *  The build system! This uses a set of build::Rules to turn build::Targets
+ *  into other build::Targets.
+ * 
+ *  TODO(sushi) eventually, once the BuildSystem is more stable, we should
+ *              look into avoiding the use of so many Pools and Lists to 
+ *              track and store Targets. It's simple for now, though.
+ * 
+ * TODO(sushi) don't forget! Assuming that the build system works from 
+ *             a single root directory is a bad idea. It will work for 
+ *             our current purposes, but it should be kept in mind that
+ *             we will need to change this whenever we want to support 
+ *             building assets that are not necessarily reachable via
+ *             the project's root.
+ *             This would be a fun thing to experiment with a 
+ *             'VirtualFileSystem' type like llvm has, which lpp could also
+ *             make use of for things like sandboxing the filesystem when
+ *             running under the language server.
+ */
+
+$ require "common"
+
+@@lpp.import "build/Rule.lh"
+@@lpp.import "build/Target.lh"
+@@lpp.import "build/Result.lh"
+
+#include "iro/containers/Array.h"
+#include "iro/containers/LinkedPool.h"
+
+struct CompiledData;
+
+namespace build
+{
+
+/* ============================================================================
+ */
+struct BuildSystem
+{
+  typedef iro::DLinkedPool<Target> TargetPool;
+  typedef iro::DList<Target> TargetList;
+
+  // A pool where we keep all Targets the BuildSystem is aware of in memory.
+  TargetPool targets;
+
+  // A set tracking all known targets by their id.
+  TargetSet target_set;
+
+  // A list of Targets queued to be built.
+  TargetList target_build_queue;
+
+  // An Array of Rules provided by the user of BuildSystem to instruct it 
+  // how to build Targets of certain types. These should only be provided
+  // to init() and not touched afterwards, as Targets point to these.
+  iro::Array<Rule> rules;
+
+  // The directory from which source assets are expected to be found.
+  String source_mount;
+
+  // The directory in which built assets are expected to be found or 
+  // built to.
+  String compiled_mount;
+
+  // An allocator for storing compiled data persistently. 
+  // TODO(sushi) it would be ideal to get rid of this as it makes it easy 
+  //             to load some CompiledData several times, though it would 
+  //             be maybe useful to load any CompiledData Target's data 
+  //             and point to it on it such that we can cache that info,
+  //             maybe.
+  mem::LenientBump compiled_data_allocator;
+  
+  // The BuildSystem deals a lot with forming Strings, so we pool the 
+  // important ones to keep them around and so we can easily clean them 
+  // up once the BuildSystem is no longer needed. So, it's important to 
+  // keep in mind that any String appearing on any build related type 
+  // is likely to only live until BuildSystem::deinit() is called.
+  mem::LenientBump string_pool;
+
+  struct InitParams
+  {
+    // The mounts to use when finding or building targets.
+    String source_mount;
+    String compiled_mount;
+    
+    // A Slice of Rules to use to build Targets. Of course, since this is 
+    // a view, these are expected to outlive the BuildSystem.
+    Slice<Rule> rules;
+  };
+
+  b8 init(const InitParams& params);
+  void deinit();
+  
+  // Builds all targets found in the asset list asset at 'path'.
+  b8 buildAssetList(String path);
+
+  // Executes a fresh build on all currently cached Targets. This clears 
+  // their state and reevaluates if any needs built.
+  b8 build();
+
+  // The primary build loop of the BuildSystem. Searches for Targets to queue
+  // for build, then builds them, until no more targets are found to need 
+  // built.
+  b8 buildTargets();
+
+  // Contains logic for finding Targets to queue for building.
+  b8 queueTargets();
+
+  // Attempt to find a known Target by name and type. If kind is not 
+  // 'Unknown', (currently) the BuildSystem asserts that the kind matches
+  // when a Target is found. 
+  // TODO(sushi) handle that better. We shouldn't be asserting in the 
+  //             BuildSystem on stuff like that.
+  Target* findTarget(String name, String type, TargetKind kind);
+
+  // Attempt to find a known Target, or create a new one if we can't.
+  // The kind of Target will be set to 'kind' when it is not 'Unknown'.
+  // Otherwise, the BuildSystem will attempt to determine its kind internally.
+  // Optionally, a pointer to a boolean determining if the Target was already
+  // known may be provided.
+  Target* findOrCreateTarget(
+    String name, 
+    String type, 
+    TargetKind kind,
+    b8* out_known = nullptr);
+
+  // Handles writing out the meta file for a compiled target. These files
+  // cache information about what the Target depends on and links for future
+  // builds.
+  void writeTargetMetaFile(Target* target);
+
+  // Loads a Target's meta file, as well as loading any Targets listed within
+  // and their meta files, recursively.
+  void loadTargetMetaFile(Target* target);
+  
+  // A helper for handling the packing and compiling of a SourceData asset.
+  // TODO(sushi) this should be removed soon, I'm just using it again cause
+  //             I'm lazy. Since this uses the BuildSystem's compiled data
+  //             allocator, it is very not thread-safe.
+  CompiledData* packAndCompileSourceDataAsset(
+    String source_path, 
+    String compiled_path);
+
+  // Again, another helper because I'm lazy. Needs to be removed once we 
+  // get to multi-threading.
+  CompiledData* loadAsCompiledData(Target* target);
+};
+
+}

@@ -1,0 +1,318 @@
+$ local cmn = require "common"
+$ local ast = require "reflect.ast"
+$ local clog = require "iro.Logger" ("linker", Verbosity.Debug)
+
+$$$ 
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/**/*.defs.lh",
+  "src/**/*.comp.lh",
+}
+
+local ResourceLink = astctx:lookupTypeDecl "gfx::ResourceLink"
+local CompiledDataLink = astctx:lookupDecl "CompiledDataLink"
+local AssetLink = astctx:lookupDecl "AssetLink"
+
+local link_decls = cmn.List {}
+local link_decls_found = {}
+
+local function recordLinkDecl(decl)
+  if decl:is(ast.Template) then
+    return
+  end
+
+  if not link_decls_found[decl.type.name] then
+    link_decls_found[decl.type.name] = true
+    link_decls:push(decl)
+  end
+  decl.metadata.is_link = true
+end
+
+local decls_with_links = cmn.List {}
+local decls_with_links_found = {}
+
+local function recordDeclWithLinks(decl, has_link_fields)
+  if not decls_with_links_found[decl.type.name] then
+    decls_with_links_found[decl.type.name] = true
+    decls_with_links:push(decl)
+  end
+
+  decl.metadata.has_links = true
+  decl.metadata.has_link_fields = 
+    decl.metadata.has_link_fields or has_link_fields
+end
+
+local function searchForLinks(decl)
+  if decl:is(ast.Record) then
+    if decl:findMetadata "ref" then
+      recordLinkDecl(decl)
+    end
+
+    for field in decl:allFields() do
+      local type = field.type:desugar()
+      if type:is(ast.TagType) and type.decl:is(ast.Record) then
+        local field_type_decl = type.decl
+        if field_type_decl:findMetadata "ref" then
+          recordDeclWithLinks(decl, true)
+          field_type_decl.metadata.is_used_link = true
+          field.metadata.has_links = true
+        elseif field_type_decl:is(ast.TemplateSpec) then
+          local specname = field_type_decl.qname 
+          if specname == "reflect::Array" then
+            local subtype = field_type_decl.args[1]:desugar()
+            if subtype:is(ast.TagType) and subtype.decl:is(ast.Record) then
+              searchForLinks(subtype.decl)
+              if subtype.decl.metadata.has_links then
+                recordDeclWithLinks(field_type_decl, false)
+                recordDeclWithLinks(decl, false)
+                field.metadata.has_links = true
+              end
+            end
+          end
+        else
+          searchForLinks(field_type_decl)
+          if field_type_decl.metadata.has_links then
+            recordDeclWithLinks(decl, false)
+            field.metadata.has_links = true
+          end
+        end
+      end
+    end
+  end
+end
+
+for decl in astctx.type_decls:each() do
+  searchForLinks(decl)
+end
+
+-- Remove link decls that are unused.
+local used_link_decls = cmn.List {}
+for decl in link_decls:each() do
+  if decl.metadata.is_used_link then
+    used_link_decls:push(decl)
+  end
+end
+link_decls = used_link_decls
+
+-- for decl in decls_with_links:each() do
+--   ast.dumpout(decl)
+-- end
+--
+-- for decl in link_decls:each() do
+--   ast.dumpout(decl)
+-- end
+
+$$$
+@@imported:get
+
+@@lpp.import "graphics/ResourceMgr.lh"
+@@lpp.import "asset/AssetMgr.lh"
+
+@log.ger(linker, Debug)
+
+/* ============================================================================
+ */
+struct Linker
+{
+
+  gfx::ResourceMgr& resource_mgr;
+  AssetMgr& asset_mgr;
+
+$ local putDeclLinker 
+$ local putTypeLinker
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function recordPlaced(decl)
+$   decl.user = decl.user or {}
+$   decl.user.linker_placed = true
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclLinkerName(decl)
+$   return "link_"..decl:formCSafeName()
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getTypeLinkerName(type)
+$   type = type:desugar()
+$   if type:is(ast.TagType) then
+$     return (getDeclLinkerName(type.decl))
+$   else
+$     error("unhandled type passed to getTypeLinkerName: "..
+$           tostring(type)..'\n')
+$   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function getDeclLinkerSig(decl)
+$   return getDeclLinkerName(decl).."("..decl.type.name.."* data)"
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclLinker(decl)
+$   recordPlaced(decl)
+$   return "b8 "..getDeclLinkerSig(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function declareDeclLinkerFromName(name)
+$   local decl = lookup(name)
+$   if not decl then
+$     error("could not find declaration with name "..name)
+$   end
+$   return declareDeclLinker(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function maybeCallFieldLinker(field, record)
+$   if not field.metadata.has_links then return end
+    if (!$(getTypeLinkerName(field.type))(&data->$(field.name)))
+      return ERROR("failed to link field $(field.name) of $(record.qname)\n");
+$ end
+
+$ local function putStructLinker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+$   for field in decl:allFields() do
+$     maybeCallFieldLinker(field, decl)
+$   end
+    return true;
+  }
+$ end
+
+$ local function putArrayLinker(decl)
+$   local subtype = decl.args[1]
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+    u32 elem_idx = 0;
+    for (auto& elem : *data)
+    {
+      if (!$(getTypeLinkerName(subtype))(&elem))
+        return ERROR("failed to link element ", elem_idx, " of array\n");
+
+      elem_idx += 1;
+    }
+
+    return true;
+  }
+$ end
+
+$ for decl in decls_with_links:each() do
+$   if decl:is(ast.TemplateSpec) and 
+$      decl.specialized.qname == "reflect::Array" then
+$     putArrayLinker(decl)
+$   else
+$     putStructLinker(decl)
+$   end
+$ end
+
+$ local function putCompiledDataLinker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+    // Compiled data.
+$   local link_type = decl.metadata.links
+$   if not link_type then
+$      clog:warn("compiled asset link type ", decl.qname, " does not specify ",
+$                "what asset type it links\n")
+$   else
+    // Load the CompiledData as an Asset.
+    data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
+
+    if (data->asset == nullptr)
+      return ERROR("failed to link compiled data '", data->name, "' of type "
+                   "$(link_type)\n");
+
+    // Get the CompiledData.
+    CompiledData* compiled = &data->get();
+
+    // Fix its pointers.
+    compiled->fixPointers();
+
+    // Link any embedded links.
+    for (CompiledData::Ref& ref : compiled->refs.getSlice())
+    {
+      if (!linkByTypeId(ref.type, ref.ptr.get()))
+        return ERROR("failed to link embedded link in compiled data\n");
+    }
+$   end
+    return true;
+  }
+$ end
+
+$ local function putAssetLinker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+    // Generic asset.
+$   local link_type = decl.metadata.links
+$   if not link_type then
+$     clog:warn("asset link type ", decl.qname, " does not specify what ",
+$               "asset type it links\n")
+    WARN("unable to link asset type $(decl.qname) because it did not specify "
+         "metadata.links\n");
+$   else
+    data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
+
+    if (data->asset == nullptr)
+      return ERROR(
+        "failed to link asset '", data->name, "' of type $(link_type)\n");
+$   end
+
+    return true;
+  }
+$ end
+
+$ local function putResourceLinker(decl)
+$   ast.dumpout(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+    // Resource.
+    resource_mgr.loadLink(data, asset_mgr);
+    return true;
+  }
+$ end
+
+$ for decl in link_decls:each() do
+$   if decl:isDerivedFrom(CompiledDataLink) then
+$     putCompiledDataLinker(decl)
+$   elseif decl:isDerivedFrom(AssetLink) then
+$     putAssetLinker(decl)
+$   elseif decl:isDerivedFrom(ResourceLink) then
+$     putResourceLinker(decl)
+$   end
+$ end
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 linkByTypeId(rtr::TypeId type, void* data)
+  {
+    switch (type.val)
+    {
+$ for decl in link_decls:each() do
+    case "$(decl.type.name)"_typeid_val:
+      return $(getDeclLinkerName(decl))(($(decl.type.name)*)data);
+$ end
+$ for decl in decls_with_links:each() do
+    case "$(decl.type.name)"_typeid_val:
+      return $(getDeclLinkerName(decl))(($(decl.type.name)*)data);
+$ end
+    }
+    return true;
+  }
+};

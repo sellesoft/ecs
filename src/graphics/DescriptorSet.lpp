@@ -6,6 +6,8 @@ $ local helpers = require "graphics.Helpers"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/Renderer.lh"
 
+#include "iro/containers/SmallArray.h"
+
 @log.ger(gfx.dset, Info)
 
 namespace gfx

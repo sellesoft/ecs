@@ -1,8 +1,8 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "asset/Asset.lh"
-@@lpp.import "graphics/Shader.defs.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "graphics/ShaderResource.lh"
 
 namespace gfx
 {
@@ -14,8 +14,8 @@ struct PipelineDef
 {
   String name;
 
-  ShaderRef vertex_shader;
-  ShaderRef fragment_shader;
+  ShaderLink vertex_shader;
+  ShaderLink fragment_shader;
 
   u32 push_constant_size;
 
@@ -24,6 +24,6 @@ struct PipelineDef
 };
 
 @m.source_types(pipeline)
-struct PipelineDefRef : TypedSourceAssetRef<PipelineDef> {};
+struct PipelineDefRef : TypedCompiledDataLink<PipelineDef> {};
 
 }

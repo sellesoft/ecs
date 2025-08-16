@@ -14,8 +14,6 @@ $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "asset/Ref.lh"
 
-@@lpp.import "asset/CompiledData.lh"
-
 @@lpp.import "reflect/RTR.lh"
 
 using namespace iro;
@@ -24,8 +22,7 @@ struct AssetMgr;
 struct SourceData;
 
 /* ============================================================================
- *  The base of all Assets, including an interface that allows an Asset 
- *  to define behavior on load, reload, and unload.
+ *  The header of any Asset loaded via the AssetMgr.
  */
 struct Asset 
 {
@@ -49,111 +46,47 @@ struct Asset
 /* ============================================================================
  */
 @metadata.ref
-struct AssetRef
+struct AssetLink
 {
-  // The name of the asset, which is specified in source data.
-  String name = {};
-  
-  // The data being referenced.
-  @metadata.hidden
-  Asset* asset = nullptr;
+  // The name of the Asset this link references.
+  String name = nil;
 
-  static AssetRef invalid() { return {{}, nullptr}; }
+  // A pointer to the Asset, or nullptr if the link is broken.
+  // TODO(sushi) this makes this a triple-pointer, which sucks. We should 
+  //             try and reduce that later on. Ideally, though, we could 
+  //             have a super fancy setup where in release this is a direct
+  //             pointer.
+  @metadata.hidden
+  Asset* asset = nullptr; 
+
+  static AssetLink invalid() { return {}; }
+
+  b8 isValid() const { return notnil(name) && asset != nullptr; }
 
   void invalidate() { *this = invalid(); }
 
-  b8 isValid() const
-  {
-    return asset != nullptr && asset->data != nullptr;
-  }
+  Asset* tryGetAsset() const { return isValid()? asset : nullptr; }
 
-  void* getData() const
-  {
-    return isValid()? asset->data : nullptr;
-  }
-
-  bool operator == (const AssetRef& rhs) const
-  {
-    return asset == rhs.asset;
-  }
-
-  void compiledData_compile(IDataCompiler* interface) const
-  {
-    interface->writeString(name);
-    interface->writeData(&asset);
-  }
-
-  void compiledData_fixPointers(IFixPointers* interface)
-  {
-    interface->fixString(&name);
-  }
-
-  b8 pack(const SourceData& data, mem::Allocator* allocator);
-
-  b8 load(const RefLoadParams& params);
-};
-
-/* ============================================================================
- *  A reference to an asset providing source data.
- */
-struct SourceDataAssetRef : AssetRef 
-{ 
-  b8 load(const RefLoadParams& params);
-};
-
-/* ============================================================================
- *  A typed variant of the above for convenience. Aliases the loaded asset 
- *  as CompiledData representing the type 'T' and returns the data that was 
- *  loaded.
- */
-template<typename T>
-struct TypedSourceAssetRef : SourceDataAssetRef
-{
-  T* operator ->()
-  {
-    assert(isValid());
-    return ((CompiledData*)asset->data)->getRootAs<T>();
-  }
-
-  const T* operator ->() const
-  {
-    assert(isValid());
-    return ((CompiledData*)asset->data)->getRootAs<T>();
-  }
-
-  T& operator *()
-  {
-    assert(isValid());
-    return *((CompiledData*)asset->data)->getRootAs<T>();
-  }
-
-  const T& operator *() const
-  {
-    assert(isValid());
-    return *((CompiledData*)asset->data)->getRootAs<T>();
-  }
+  Asset* getAsset() const { assert(isValid()); return asset; }
 };
 
 /* ============================================================================
  */
 template<typename T>
-struct TypedAssetRef : AssetRef
+struct TypedAssetLink : AssetLink
 {
-  T* operator ->() 
-  {
-    assert(isValid());
-    return (T*)getData();
-  }
+  T* operator ->() { return (T*)getAsset()->data; }
 
-  T& operator*()
-  {
-    assert(isValid());
-    return *(T*)getData();
-  }
+  T& operator*() { return *(T*)getAsset()->data; }
+  const T& operator*() const { return *(T*)getAsset()->data; }
 
-  const T& operator*() const
+  T& get() { return *(T*)getAsset()->data; }
+  const T& get() const { return *(T*)getAsset()->data; }
+
+  T* tryGet()
   {
-    assert(isValid());
-    return *(T*)getData();
+    if (Asset* asset = tryGetAsset())
+      return (T*)asset->data;
+    return nullptr;
   }
 };

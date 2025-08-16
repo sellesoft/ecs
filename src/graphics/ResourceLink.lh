@@ -16,7 +16,7 @@ namespace gfx
 /* ============================================================================
  */
 @metadata.ref
-struct ResourceRef
+struct ResourceLink
 {
   String name = {};
 
@@ -33,7 +33,7 @@ struct ResourceRef
 /* ============================================================================
  */
 template<typename TResource>
-struct TypedResourceRef : ResourceRef
+struct TypedResourceLink : ResourceLink
 {
   TResource* operator->()
   {
@@ -58,6 +58,10 @@ struct TypedResourceRef : ResourceRef
     assert(isValid());
     return *(TResource*)resource;
   }
+
+  TResource& get() { assert(isValid()); return *(TResource*)resource; }
+  const TResource& get() const 
+    { assert(isValid()); return *(const TResource*)resource; }
 };
 
 }

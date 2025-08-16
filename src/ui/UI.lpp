@@ -910,7 +910,7 @@ void UI::putItem(Rect bounds, const ItemSkin& skin)
     // Skip queuing commands for invisible items.
     return;
 
-  gfx::Texture texture;
+  gfx::TextureHandle texture;
   vec4f uv;
 
   if (skin.texture.isValid())
@@ -918,10 +918,9 @@ void UI::putItem(Rect bounds, const ItemSkin& skin)
     // Compute the uvs. It would be nice to cache this, since we should 
     // know what the Texture is on load and it shouldn't change unless 
     // the skin is reloaded.
-    const gfx::CompiledTexture& ctex = *skin.texture;
-    const gfx::CompiledTextureData& cdata = ctex.getData();
+    const gfx::CompiledTexture& cdata = skin.texture->compiled_texture.get();
 
-    texture = ctex.texture;
+    texture = skin.texture.getHandle();
 
     vec2f tl = skin.uv.pos();
     vec2f br = skin.uv.extent();
@@ -975,13 +974,13 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
 
   TRACE("UI::putText\n");
 
-  const gfx::Font& font = *skin.font;
+  const gfx::CompiledFont& font = skin.font->compiled_font.get();
 
   gfx::PackedChar space_char;
   font.getPackedChar(&space_char, ' ');
   f32 space_width = space_char.xadvance;
 
-  vec2f text_size = gfx::measureText(text, &font, skin.font_height, 1.f);
+  vec2f text_size = gfx::measureText(text, font, skin.font_height, 1.f);
 
   vec2f cursor = {};
   cursor.x = bounds.x + skin.align.x * (bounds.w - text_size.x);
@@ -989,8 +988,6 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
   cursor = round(cursor);
 
   vec2f text_pos = cursor;
-
-  const gfx::FontData& font_data = font.getData();
 
   while (!text.isEmpty())
   {
@@ -1013,10 +1010,10 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
         font.getPackedChar(&pc, cp.codepoint);
         
         vec4f uv = {};
-        uv.x = f32(pc.x0) / font_data.size_x;
-        uv.y = f32(pc.y0) / font_data.size_y;
-        uv.z = f32(pc.x1) / font_data.size_x;
-        uv.w = f32(pc.y1) / font_data.size_y;
+        uv.x = f32(pc.x0) / font.size_x;
+        uv.y = f32(pc.y0) / font.size_y;
+        uv.z = f32(pc.x1) / font.size_x;
+        uv.w = f32(pc.y1) / font.size_y;
 
         auto glyph_size = vec2f(pc.x1 - pc.x0, pc.y1 - pc.y0);
 
@@ -1024,7 +1021,7 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
         //             the same texture and color over and over again.
         putQuad(
           Rect::from(cursor, glyph_size), 
-          font.texture->texture,
+          skin.font.getTextureHandle(),
           uv,
           skin.color);
 
@@ -1095,7 +1092,8 @@ b8 UI::putTextField(
 
   TextEdit* edit = &state->edit;
 
-  const gfx::Font& font = *skin.box.text.font;
+  const gfx::FontResource& font_resource = *skin.box.text.font;
+  const gfx::CompiledFont& font = font_resource.compiled_font.get();
 
   b8 focused = focus.test(FocusFlag::Focused);
 
@@ -1221,7 +1219,7 @@ $ end
     }
   
     gfx::PackedChar pc;
-    skin.box.text.font->getPackedChar(&pc, codepoint);
+    font.getPackedChar(&pc, codepoint);
 
     f32 next_text_width = text_width + pc.xadvance;
 
@@ -1283,7 +1281,7 @@ $ end
 
       if (focused)
       {
-        f32 cursor_height = font.getHeight();
+        f32 cursor_height = font.height;
 
         putQuad(
           Rect::from(
@@ -1486,7 +1484,11 @@ void ScissorCmd::execute(UI& ui, gfx::Renderer& renderer)
 
 /* ----------------------------------------------------------------------------
  */
-void UI::putQuad(Rect bounds, gfx::Texture texture, vec4f uv, Color color)
+void UI::putQuad(
+    Rect bounds, 
+    gfx::TextureHandle texture, 
+    vec4f uv, 
+    Color color)
 {
   assert(in_frame);
 
@@ -1505,7 +1507,7 @@ void UI::putQuad(Rect bounds, gfx::Texture texture, vec4f uv, Color color)
 
 /* ----------------------------------------------------------------------------
  */
-void UI::putQuad(Rect bounds, gfx::Texture texture, Color color)
+void UI::putQuad(Rect bounds, gfx::TextureHandle texture, Color color)
 {
   putQuad(bounds, texture, vec4f(0,0,1,1), color); 
 }

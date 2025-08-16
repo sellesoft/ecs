@@ -31,7 +31,6 @@ struct LaunchArg
 typedef iro::AVL<LaunchArg> LaunchArgs;
 
 /* ============================================================================
- * NOTE(delle) fields are in order of initialization
  */
 struct Engine
 {

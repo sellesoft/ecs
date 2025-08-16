@@ -3,10 +3,12 @@
  */
 
 $ require "common"
+$ local m = require "reflect.Metadata"
 
 @@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "asset/CompiledDataInterfaces.lh"
 @@lpp.import "reflect/TypeId.lh"
+@@lpp.import "asset/Asset.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/SmallArray.h"
@@ -133,4 +135,15 @@ struct CompiledData
   void fixPointers(); 
 
   static build::Rule getBuildRule();
+};
+
+struct CompiledDataLink : TypedAssetLink<CompiledData> { };
+
+template<typename T>
+struct TypedCompiledDataLink : CompiledDataLink
+{
+  // TODO(sushi) idk maybe just don't use operators at this point.
+  T* operator -> () { return get().template getRootAs<T>(); }
+  T& operator * () { return *get().template getRootAs<T>(); }
+  const T& operator * () const { return *get().template getRootAs<T>(); }
 };

@@ -3,30 +3,21 @@
  */
 
 $ require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 #include "iro/memory/Allocator.h"
 
-@@lpp.import "asset/Asset.lh"
 @@lpp.import "core/OffsetPtr.lh"
-@@lpp.import "graphics/Texture.lh"
-@@lpp.import "graphics/Image.lh"
-@@lpp.import "graphics/ImageView.lh"
-@@lpp.import "graphics/Sampler.lh"
+@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "graphics/TextureParams.lh"
 
 struct AssetMgr;
 
-namespace iro::fs
-{
-struct File;
-}
-
-namespace iro::io
-{
-struct IO;
-}
+namespace iro::fs { struct File; }
+namespace iro::io { struct IO; }
+namespace build { struct Rule; }
 
 namespace gfx
 {
@@ -36,8 +27,7 @@ struct Renderer;
 /* ============================================================================
  *  Note that this structure represents exactly what we save to disk.
  */
-@m.compiled_data_type(texture.compiled)
-struct CompiledTextureData
+struct CompiledTexture
 {
   s32 width;
   s32 height;
@@ -47,54 +37,25 @@ struct CompiledTextureData
   OffsetPtr<void> pixels;
 };
 
-typedef TypedAssetRef<CompiledTextureData> CompiledTextureDataRef;
+@metadata.links(texture.compiled)
+struct CompiledTextureLink : TypedAssetLink<CompiledTexture> {};
 
 b8 compileTexture(String data_path, String output_path);
 
-/* ============================================================================
- */
-struct CompiledTexture
-{
-  CompiledTextureDataRef asset;
+b8 compileTextureFromMemory(
+  String output_path,
+  void* data,
+  u32 width,
+  u32 height,
+  ImageFormat format);
 
-  const CompiledTextureData& getData() const
-  {
-    return *asset;
-  }
+b8 compileTextureFromMemory(
+  void* data,
+  fs::File* file,
+  u32 width,
+  u32 height,
+  ImageFormat format);
 
-  u32 gfx_id;
-
-  // gfx objects representing this texture.
-  Image image;
-  ImageView view;
-  Sampler sampler;
-  Texture texture; // This is what is actually bound to display this texture.
-
-  static CompiledTexture* load(
-    String name,
-    AssetMgr& assetmgr,
-    Renderer& renderer);
-
-  void unload(AssetMgr& assetmgr, Renderer& renderer);
-
-  struct CompileParams
-  {
-    String           input_path;
-    String           output_path;
-    u32              width;
-    u32              height;
-    ImageFormat      format;
-  };
-
-  static b8 compilePNG(CompileParams& params);
-  static b8 compileASE(CompileParams& params);
-
-  // In this case, 'path' is unused.
-  static b8 compileFromMemory(void* data, CompileParams& params);
-
-  // Compiles some memory into the given file.
-  static b8 compileFromMemory(
-    void* data, fs::File* file, CompileParams& params);
-};
+build::Rule getTextureBuildRule();
 
 }

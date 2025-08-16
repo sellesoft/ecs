@@ -23,15 +23,11 @@ b8 GameSim::init(InitParams& params)
     .sim = this,
     .renderer = params.renderer,
     .assetmgr = params.assetmgr,
-    .white_texture = params.white_texture,
-    .loader = params.loader,
   };
   if (!gamemgr.init(gamemgr_params))
     return false;
 
   setViewport(params.viewport);
-
-  loadMap("assets/maps/Test.map"_str, params.loader);
 
   return true;
 }

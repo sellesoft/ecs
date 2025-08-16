@@ -124,8 +124,8 @@ Pipeline Pipeline::create(Renderer& r, const PipelineDef& def)
 
   CreateParams params = 
   {
-    .vertex_shader = def.vertex_shader->gfx_shader,
-    .fragment_shader = def.fragment_shader->gfx_shader,
+    .vertex_shader = def.vertex_shader.getHandle(),
+    .fragment_shader = def.fragment_shader.getHandle(),
     .has_vertex_input = def.has_vertex_input,
     .layout = 
     {

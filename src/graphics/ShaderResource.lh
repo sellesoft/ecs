@@ -1,0 +1,33 @@
+/*
+ *  A Shader asset managed by the ResourceMgr. 
+ */
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "graphics/CompiledShader.lh"
+@@lpp.import "graphics/Shader.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+struct ShaderResource
+{
+  // A link to the compiled shader asset of this Shader.
+  CompiledShaderLink l_compiled_shader;
+
+  // The graphics object loaded for this Shader.
+  Shader handle;
+};
+
+@metadata.links(shader.compiled;shader.data)
+struct ShaderLink : TypedResourceLink<ShaderResource> 
+{
+  Shader getHandle() const
+  {
+    return get().handle;
+  }
+};
+
+}

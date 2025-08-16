@@ -7,14 +7,16 @@ $ require "common"
 #include "iro/containers/AVL.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "graphics/CompiledShader.lh"
-@@lpp.import "graphics/Font.lh"
+@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/ShaderResource.lh"
+@@lpp.import "graphics/FontResource.lh"
 
 using namespace iro;
 
 namespace gfx
 {
+
+struct Vulkan;
 
 /* ============================================================================
  */
@@ -34,22 +36,23 @@ struct ResourceMgr
   template<typename T>
   using ResourceMap = AVL<Resource<T>>;
 
-  ResourceMap<CompiledTexture> textures;
-  ResourceMap<CompiledShader> shaders;
-  ResourceMap<Font> fonts;
+  ResourceMap<TextureResource> textures;
+  ResourceMap<ShaderResource> shaders;
+  ResourceMap<FontResource> fonts;
 
   b8 init();
   void deinit();
 
-  CompiledTexture* createTexture(String name);
-  CompiledTexture* findTexture(String name);
+  template<typename T>
+  b8 loadLink(TypedResourceLink<T>* link, AssetMgr& asset_mgr);
 
-  CompiledShader* createShader(String name);
-  CompiledShader* findShader(String name);
-
-  Font* createFont(String name);
-  Font* findFont(String name);
-
+  // TODO(sushi) it is a bit weird to store Vulkan like this, but I would 
+  //             prefer to avoid needing gfx::Renderer to properly load 
+  //             resources. For now, it's whatever, since Vulkan is the only
+  //             backend we support, and I don't want to introduce an opaque
+  //             backend type that I have to constantly cast when there's no 
+  //             reason to yet.
+  Vulkan* vk;
 };
 
 }

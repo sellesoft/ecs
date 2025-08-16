@@ -71,17 +71,8 @@ $ end
   };
   @init(renderer.init(renderer_params), Renderer);
 
-
-
-  AssetLoader asset_loader =
-  {
-    .renderer = renderer,
-    .assetmgr = engine->assetmgr,
-  };
-
   cl::GameSim::InitParams sim_params =
   {
-    .loader   = asset_loader,
     .viewport = Rect::from({0,0}, vec2f(window.size)),
     .renderer = renderer,
     .assetmgr = engine->assetmgr,
@@ -246,15 +237,4 @@ b8 Client::connectToServer(net::Address address)
 void Client::disconnectFromServer()
 {
   netmgr.disconnectFromServer();
-}
-
-/* ----------------------------------------------------------------------------
- */
-AssetLoader Client::getAssetLoader()
-{
-  return 
-  { 
-    .renderer = renderer,
-    .assetmgr = engine->assetmgr,
-  };
 }

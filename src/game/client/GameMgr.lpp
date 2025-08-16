@@ -46,8 +46,6 @@ b8 GameMgr::init(InitParams& params)
   {
     .renderer = params.renderer,
     .assetmgr = params.assetmgr,
-    .white_texture = params.white_texture,
-    .loader = params.loader,
   };
   if (!game_renderer.init(render_params))
     return @log.error("failed to initialize rendersys\n");
@@ -95,29 +93,6 @@ b8 GameMgr::render(const RenderParams& params)
 
   if (!game_renderer.render(render_params))
     return false;
-
-  return true;
-}
-
-/* ----------------------------------------------------------------------------
- */
-b8 GameMgr::loadMap(String name, AssetLoader loader)
-{
-  assert(false);
-
-  // INFO("setting map to ", name, "\n");
-  //
-  // if (!loader.load(&loaded_map, name))
-  //   return ERROR("failed to load map asset ", name, '\n');
-  //
-  // MapSys::LoadParams map_params =
-  // {
-  //   .assetmgr = loader.assetmgr,
-  //   .entmgr   = sim->entmgr,
-  // };
-  //
-  // if(!entsysmgr.get<MapSys>().load(*loaded_map, map_params))
-  //   return ERROR("failed to load map '", name, "'\n");
 
   return true;
 }

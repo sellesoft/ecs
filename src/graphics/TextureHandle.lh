@@ -1,0 +1,41 @@
+/*
+ *  A Texture handle, which is really just a lightweight way to reference
+ *  some Texture regardless of its origin. This is intended to be what is 
+ *  passed around and passed to the Renderer when dealing with Textures.
+ *  
+ *  It is not recommended to store these persistently unless there's a very 
+ *  good reason to. In most cases, a TextureLink should be used instead 
+ *  such that the Texture may be properly hot reloaded by the ResourceMgr.
+ *  However, these may be desired when dealing with textures generated in 
+ *  code or when storing a possibly common used texture that isn't expected
+ *  to be hot reloaded.
+ *
+ *  This is currently just a wrapper around DescriptorSet, as that is how 
+ *  we tell the Renderer to bind a Texture. This is a typesafe wrapper
+ *  around it to make it more clear when code is dealing with Textures, rather
+ *  than say, a Buffer, instead of just passing around plain DescriptorSets.
+ *  It's also possible that we may move away from using DescriptorSets to 
+ *  bind Textures in Shaders eventually, so ideally this wrapper will help
+ *  with that process.
+ */
+
+$ require "common"
+
+@@lpp.import "graphics/DescriptorSet.lh"
+
+namespace gfx
+{
+
+struct TextureHandle
+{
+  DescriptorSet set;
+
+  bool operator == (const TextureHandle& rhs) const
+  {
+    return set.handle == rhs.set.handle;
+  }
+ 
+  DefineNilTrait(TextureHandle, {nil}, isnil(x.set));
+};
+
+}

@@ -11,6 +11,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/Pipeline.lh"
 @@lpp.import "graphics/Shader.lh"
+@@lpp.import "graphics/TextureHandle.lh"
 @@lpp.import "graphics/Pipeline.defs.lh"
 
 @@lpp.import "input/InputState.lh"
@@ -137,7 +138,7 @@ struct ScissorCmd : Cmd
  */
 struct QuadDrawCmd : Cmd
 {
-  gfx::Texture texture;
+  gfx::TextureHandle texture;
   Color color;
   Rect bounds;
   vec4f uv;
@@ -356,9 +357,8 @@ struct UI
   struct InitParams
   {
     gfx::Renderer& renderer;
-    gfx::Texture white_texture;
+    gfx::TextureHandle white_texture;
     Rect viewport;
-    AssetLoader loader;
   };
 
   b8   init(InitParams& params);
@@ -389,8 +389,8 @@ struct UI
   f32 getWidth() const { return getCurrentGroup()->bounds.w; }
   f32 getHeight() const { return getCurrentGroup()->bounds.h; }
 
-  void putQuad(Rect bounds, gfx::Texture texture, vec4f uv, Color color);
-  void putQuad(Rect bounds, gfx::Texture texture, Color color);
+  void putQuad(Rect bounds, gfx::TextureHandle texture, vec4f uv, Color color);
+  void putQuad(Rect bounds, gfx::TextureHandle texture, Color color);
   void putQuad(Rect bounds, Color color);
 
   FocusFlags putFocusableBounds(ItemId id, Rect bounds)
@@ -523,7 +523,7 @@ struct UI
   gfx::Pipeline pipeline;
   gfx::PipelineDefRef pipeline_defref;
 
-  gfx::Texture white_texture;
+  gfx::TextureHandle white_texture;
 
   gfx::Buffer vertex_buffer;
   gfx::Buffer index_buffer;

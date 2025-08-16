@@ -39,10 +39,6 @@ struct GameMgr
 
     gfx::Renderer& renderer;
     AssetMgr& assetmgr;
-
-    gfx::Texture white_texture;
-
-    AssetLoader loader;
   };
 
   b8 init(InitParams& params);
@@ -66,11 +62,6 @@ struct GameMgr
   };
 
   b8 render(const RenderParams& params);
-
-  /* --------------------------------------------------------------------------
-   *  Loads the client into some map.
-   */
-  b8 loadMap(String name, AssetLoader loader);
 
   void setViewport(Rect viewport);
 };

@@ -1,8 +1,7 @@
 $ local cmn = require "common"
 
 @@lpp.import "graphics/Geo.lh"
-
-@@lpp.import "graphics/Font.lh"
+@@lpp.import "graphics/CompiledFont.lh"
 
 namespace gfx
 {
@@ -81,20 +80,20 @@ void putGlyph(
     Vertex* vp,
     Index*  ip,
     vec2i*  counts,
-    const Font*   font,
+    const CompiledFont& font,
     u32     codepoint,
     vec2f*  pos, 
     Color   color)
 {
   gfx::PackedChar pc;
-  font->getPackedChar(&pc, codepoint);
+  font.getPackedChar(&pc, codepoint);
 
   putGlyph(
     vp, ip,
     counts,
     pc,
-    font->getData().size_x,
-    font->getData().size_y,
+    font.size_x,
+    font.size_y,
     *pos,
     color);
 
@@ -105,7 +104,7 @@ void putGlyph(
  */
 vec2f measureText(
     String text,
-    const Font* font,
+    const CompiledFont& font,
     f32 font_height,
     f32 tab_spaces)
 {
@@ -114,7 +113,7 @@ vec2f measureText(
 
   // Cache off space width since its used in a couple places.
   gfx::PackedChar space_char;
-  font->getPackedChar(&space_char, ' ');
+  font.getPackedChar(&space_char, ' ');
   f32 space_width = space_char.xadvance;
 
   while (!text.isEmpty())
@@ -134,7 +133,7 @@ vec2f measureText(
     default:
       {
         gfx::PackedChar pc;
-        font->getPackedChar(&pc, cp.codepoint);
+        font.getPackedChar(&pc, cp.codepoint);
         cursor.x += pc.xadvance;
       }
       break;
@@ -155,7 +154,7 @@ void putText(
     vec2i*  offsets,
     vec2f   pos,
     String  text,
-    const Font*   font,
+    const CompiledFont& font,
     f32     font_height,
     f32     tab_spaces,
     Color   color,
@@ -166,11 +165,10 @@ void putText(
   auto* ip = putindices;
 
   vec2f cursor = pos;
-  const FontData& font_data = font->getData();
 
   // Cache off space width since its used in a couple places.
   gfx::PackedChar space_char;
-  font->getPackedChar(&space_char, ' ');
+  font.getPackedChar(&space_char, ' ');
   f32 space_width = space_char.xadvance;
 
   while (!text.isEmpty())
@@ -191,14 +189,14 @@ void putText(
     default:
       {
         gfx::PackedChar pc;
-        font->getPackedChar(&pc, cp.codepoint);
+        font.getPackedChar(&pc, cp.codepoint);
         putGlyph(
           vp, 
           ip, 
           offsets, 
           pc,
-          font_data.size_x,
-          font_data.size_y,
+          font.size_x,
+          font.size_y,
           cursor, 
           color);
         cursor.x += pc.xadvance;

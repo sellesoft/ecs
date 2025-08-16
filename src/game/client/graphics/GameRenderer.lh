@@ -17,7 +17,8 @@ $ require "common"
 #include "math/mat.h"
 #include "Color.h"
 
-@@lpp.import "graphics/CompiledTexture.lh"
+@@lpp.import "graphics/TextureHandle.lh"
+@@lpp.import "graphics/TextureResource.lh"
 @@lpp.import "graphics/Buffer.lh"
 @@lpp.import "graphics/Pipeline.lh"
 @@lpp.import "graphics/Pipeline.defs.lh"
@@ -51,7 +52,7 @@ struct GameRenderer
   struct QuadBatch
   {
     u32 quad_count = 0;
-    gfx::Texture texture;
+    gfx::TextureHandle texture;
   };
 
   //NOTE: every field is padded to 16 bytes due to std140
@@ -66,9 +67,6 @@ struct GameRenderer
   {
     gfx::Renderer& renderer;
     AssetMgr& assetmgr;
-    gfx::Texture& white_texture;
-
-    AssetLoader loader;
   };
 
   b8 init(InitParams& params);
@@ -90,12 +88,11 @@ struct GameRenderer
   void drawQuad(
     gfx::Renderer& renderer,
     vec2f pos,
-    gfx::Texture texture,
+    gfx::TextureHandle texture,
     vec4f uv,
     Color color);
 
-  gfx::TextureRef null_texture;
-  gfx::Texture white_texture;
+  gfx::TextureLink null_texture;
 
   Scene scene;
   gfx::Buffer scene_uniform_buffer;

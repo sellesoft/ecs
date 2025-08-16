@@ -1,0 +1,44 @@
+/*
+ *  A helper type for extracting information about the result of building 
+ *  a Target (or other operations performed on it) for use by the BuildSystem.
+ *
+ *  The point of this is to prevent emitting information about something to 
+ *  do with a Target until the BuildSystem wants to. This allows it to prevent 
+ *  messages about building a Target from being emitted until it is thread-safe
+ *  to do so, and so it can gather all errors emitted about Targets for 
+ *  emitting at the end of a build rather than interleaved with all the 
+ *  other messages that may be getting emitted.
+ *
+ *  It is recommended that any tool used to build something take this as 
+ *  an argument and only output information (specifically, errors) to it 
+ *  rather than just printing it to stdout.
+ *
+ *  A Result starts in the Success state by default, so simply not touching 
+ *  it indicates success.
+ */
+
+ $ require "common"
+
+namespace build
+{
+
+/* ============================================================================
+ */
+struct Result
+{
+  enum class Status
+  {
+    Success,
+    Error,
+  };
+
+  Status status = Status::Success;
+  String message = nil;
+
+  void setError() { status = Status::Error; }
+  void setError(String message) { setError(); this->message = message; }
+
+  b8 wasSuccessful() const { return status == Status::Success; }
+};
+
+}

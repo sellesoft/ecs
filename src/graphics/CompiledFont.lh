@@ -1,9 +1,15 @@
 /*
  *  A font loaded from disk.
+ *
+ *  TODO(sushi) we can likely organize our font data more appropriately than
+ *              just copying what stbtt does. We don't even support TTF fonts
+ *              at time of writing. Eventually, we'll want to move towards 
+ *              fonts being defined from glyph sets anyways, rather than just 
+ *              a single font file.
  */
 
 $ local cmn = require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -16,14 +22,13 @@ using namespace iro;
 @@lpp.import "asset/Asset.lh"
 @@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "graphics/Font.defs.lh"
-@@lpp.import "graphics/CompiledTexture.lh"
 
-struct AssetMgr;
+namespace build { struct Rule; }
 
 namespace gfx 
 { 
 
-struct Renderer; 
+struct CompiledTexture;
 
 /* ==========================================================================
  *  This mirrors stbtt_aligned_quad
@@ -55,18 +60,23 @@ struct PackRange
 };
 
 /* ============================================================================
+ *  NOTE(sushi) we will eventually want to get rid of this distinction 
+ *              as Fonts should be compiled from glyph sets that mix 
+ *              different fonts and arbitrary textures together.
  */
 enum class FontKind
 {
   BDF,
-  TTF,
+  // NOTE(sushi) not currently supported.
+  // TODO(sushi) get supported once we get to displaying fonts other 
+  //             than gohu :)
+  // TTF,
 };
 
 /* ============================================================================
  *  Compiled font data saved to disk. 
  */
-@m.compiled_data_type(font.compiled)
-struct FontData
+struct CompiledFont
 {
   FontKind kind;
 
@@ -80,41 +90,6 @@ struct FontData
 
   OffsetSlice<PackRange> ranges;
 
-  static b8 deserialize(FontData* out, void* data);
-};
-
-struct Font;
-
-typedef TypedAssetRef<FontData> FontDataRef;
-
-b8 compileFont(
-  String input_path, 
-  String output_path,
-  String texture_output_path);
-
-/* ============================================================================
- *  Runtime representation of a loaded font.
- */
-struct Font 
-{
-  FontDataRef asset;
-  gfx::CompiledTexture* texture;
-
-  const FontData& getData() const
-  {
-    return *asset;
-  }
-
-  gfx::Texture getTexture() const
-  {
-    return texture->texture;
-  }
-
-  f32 getHeight() const
-  {
-    return getData().height;
-  }
-
   // It's recommended to use this to find the proper range for a given
   // codepoint and then passing it to getPackedChar() when you know what
   // ranges you'll be working with.
@@ -125,38 +100,20 @@ struct Font
   // stored by this font.
   b8 getPackedChar(PackedChar* out, u32 codepoint) const;
 
-  vec2f getGlyphSize(u32 codepoint) const;
-
-  // This ASSUMES that the given codepoint exists in the given range,
-  // BE CAREFUL!
-  // TODO(sushi) a safe alternative to this when we get to user input
-  //             in text boxes and such. Especially since ECS is meant to 
-  //             be played online, this could potentially be used to send
-  //             arbitrary data via, say, a chat system or something.
+  // TODO(sushi) this is a dangerous function that needs to be redone.
   void getPackedChar(PackedChar* out, PackRange* range, u32 codepoint) const;
 
-  static s64 writeDataPath(
-    io::IO* out, 
-    String name, 
-    AssetMgr& assetmgr);
-
-  static Font* load(
-    String name, 
-    AssetMgr& assetmgr,
-    gfx::Renderer& renderer);
-
-  void unload(AssetMgr& assetmgr, Renderer& renderer);
-
-  struct CompileParams
-  {
-    String name;
-    CodepointRanges ranges;
-    mem::Allocator* allocator;
-    AssetMgr* assetmgr;
-  };
-
-  static b8 compileTTF(CompileParams& params);
-  static b8 compileBDF(CompileParams& params);
+  vec2f getGlyphSize(u32 codepoint) const;
 };
+
+@metadata.links(font.compiled)
+struct CompiledFontLink : TypedAssetLink<CompiledFont> {};
+
+b8 compileFont(
+  String input_path, 
+  String output_path,
+  String texture_output_path);
+
+build::Rule getFontBuildRule();
 
 }

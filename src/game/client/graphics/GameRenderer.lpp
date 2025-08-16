@@ -31,9 +31,6 @@ b8 GameRenderer::init(InitParams& params)
 {
   gfx::Renderer& renderer = params.renderer;
   AssetMgr& assetmgr = params.assetmgr;
-  AssetLoader& loader = params.loader;
-
-  white_texture = params.white_texture;
 
   assert(false);
 
@@ -94,13 +91,14 @@ b8 GameRenderer::init(InitParams& params)
     return ERROR("failed to init the quads index buffer\n");
 
   //init quads batches
-  batches[0].texture = null_texture->texture;
+  batches[0].texture = null_texture.getHandle();
   batch_count = 1;
   quad_count = 0;
 
+  assert(false);
   // Initialize the quad pipeline.
-  if (!loader.load(&quad_pipeline_defref, "assets/shaders/Quad"_str))
-    return ERROR("failed to load quad pipeline def\n");
+  // if (!loader.load(&quad_pipeline_defref, "assets/shaders/Quad"_str))
+  //   return ERROR("failed to load quad pipeline def\n");
 
   quad_pipeline = gfx::Pipeline::create(renderer, *quad_pipeline_defref);
   if (isnil(quad_pipeline))
@@ -113,7 +111,6 @@ b8 GameRenderer::init(InitParams& params)
  */
 void GameRenderer::deinit(gfx::Renderer& renderer)
 {
-  white_texture = nil;
   scene_uniform_buffer.destroy(renderer);
   quads_vertex_buffer.destroy(renderer);
   quads_index_buffer.destroy(renderer);
@@ -141,7 +138,7 @@ static void drawBatches(GameRenderer& sys, gfx::Renderer& renderer)
   assert(index_offset == 6*sys.quad_count);
 
   sys.batches[0].quad_count = 0;
-  sys.batches[0].texture = sys.null_texture->texture;
+  sys.batches[0].texture = sys.null_texture.getHandle();
   sys.batch_count = 1;
   sys.quad_count = 0;
 }
@@ -152,7 +149,7 @@ IRO_FORCE_INLINE
 void GameRenderer::drawQuad(
   gfx::Renderer& renderer,
   vec2f pos,
-  gfx::Texture texture,
+  gfx::TextureHandle texture,
   vec4f uv,
   Color color)
 {
@@ -310,10 +307,10 @@ b8 GameRenderer::render(const RenderParams& params)
 
         const TileKindDef& tilekind = *tile.kind;
 
-        gfx::Texture texture = 
+        gfx::TextureHandle texture = 
           tilekind.texture.isValid() 
-          ? tilekind.texture->texture
-          : null_texture->texture;
+          ? tilekind.texture.getHandle()
+          : null_texture.getHandle();
 
         vec2f pos = map.getTilePos(layer, tile);
         drawQuad(renderer, pos, texture, {0.f,0.f,1.f,1.f}, tint);
@@ -343,7 +340,7 @@ b8 GameRenderer::render(const RenderParams& params)
         continue;
       }
       
-      gfx::Texture texture = null_texture->texture;
+      gfx::TextureHandle texture = null_texture.getHandle();
       vec4f uv = {0.f, 0.f, 1.f, 1.f};
       Color color = 0xff0000ff;
       if (sprite.states.isValid())
@@ -353,12 +350,13 @@ b8 GameRenderer::render(const RenderParams& params)
 
         if (stex != nullptr && stex->texture.isValid())
         {
-          const gfx::CompiledTextureData& tex_data = stex->texture->getData();
+          const gfx::CompiledTexture& tex_data = 
+            stex->texture->compiled_texture.get();
 
           // Sooo many dereferences. 
           // TODO(sushi) it would be nice to cache this somehow but I'm not 
           //             sure if that's possible given our current setup.
-          texture = stex->texture->texture;
+          texture = stex->texture.getHandle();
           color = stex->color;
 
           vec2f uv_min = stex->uv.pos();

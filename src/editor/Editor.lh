@@ -3,6 +3,8 @@ $ require "common"
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
+@@lpp.import "editor/Skin.defs.lh"
+
 @@lpp.import "ui/UI.lh"
 @@lpp.import "input/InputMgr.lh"
 @@lpp.import "window/Window.lh"
@@ -17,6 +19,8 @@ struct Editor
   Window window;
   gfx::Renderer renderer;
   build::BuildSystem build_system;
+
+  EditorSkinDefLink l_skin;
 
   struct InitParams
   {

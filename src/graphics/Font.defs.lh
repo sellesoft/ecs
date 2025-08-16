@@ -3,15 +3,11 @@ $ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
-#include "iro/containers/Array.h"
 #include "iro/containers/Slice.h"
 
 @@lpp.import "reflect/types/Array.lh"
-@@lpp.import "graphics/ResourceRef.lh"
 
 using namespace iro;
-
-namespace build { struct Rule; }
 
 namespace gfx
 {
@@ -29,21 +25,11 @@ typedef Slice<CodepointRange> CodepointRanges;
 /* ============================================================================
  */
 @metadata.def
-@metadata.source_data_type(font)
-@metadata.compiled_type(gfx::FontData)
 struct FontDef
 {
   String name;
   String asset_path;
   reflect::Array<CodepointRange> ranges;
 };
-
-/* ============================================================================
- */
-struct Font;
-@metadata.links(font.compiled;font.texture.compiled)
-struct FontRef : TypedResourceRef<Font> {};
-
-build::Rule getFontBuildRule();
 
 }

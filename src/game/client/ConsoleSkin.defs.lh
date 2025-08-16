@@ -1,7 +1,7 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "asset/Asset.lh"
+@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "ui/Skin.defs.lh"
 
 /* ============================================================================
@@ -13,4 +13,4 @@ struct ConsoleSkinDef
 };
 
 @m.ref
-struct ConsoleSkinDefRef : TypedSourceAssetRef<ConsoleSkinDef> {};
+struct ConsoleSkinDefRef : TypedCompiledDataLink<ConsoleSkinDef> {};

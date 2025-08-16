@@ -1,0 +1,99 @@
+$ require "common"
+
+@@lpp.import "graphics/Font.defs.lh"
+@@lpp.import "graphics/FontResource.lh"
+@@lpp.import "build/Target.lh"
+@@lpp.import "build/Rule.lh"
+@@lpp.import "build/Result.lh"
+@@lpp.import "build/BuildSystem.lh"
+@@lpp.import "asset/CompiledData.lh"
+
+#include "iro/fs/fs.h"
+
+namespace gfx
+{
+
+/* ----------------------------------------------------------------------------
+ */
+static void fontGetPrereqs(const build::RuleParams_GetPrereqs& params)
+{
+  build::Target* data_target = params.build_system->findOrCreateTarget(
+    params.target->name,
+    "font.data"_str,
+    build::TargetKind::CompiledData);
+
+  params.prereqs->insert(data_target);
+
+  if (!data_target->existsAndIsUpToDate())
+    return;
+
+  auto* compiled_def = params.build_system->loadAsCompiledData(data_target);
+  if (compiled_def == nullptr)
+  {
+    params.result->setError("failed to load compiled FontDef"_str);
+    return;
+  }
+
+  auto* font_def = compiled_def->getRootAs<gfx::FontDef>();
+
+  if (isnil(font_def->name))
+  {
+    params.result->setError("FontDef does not specify a source font"_str);
+    return;
+  }
+  
+  // Parse the source font name.
+  String source_font_name = fs::path::removeExtension(font_def->asset_path);
+  String source_font_type = fs::path::getExtension(font_def->asset_path);
+
+  build::Target* source_font_target = params.build_system->findOrCreateTarget(
+    source_font_name,
+    source_font_type,
+    build::TargetKind::SourceAsset);
+
+  params.prereqs->insert(source_font_target);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void fontBuild(const build::RuleParams_Build& params)
+{
+  build::Target* data_target = params.build_system->findTarget(
+    params.target->name,
+    "font.data"_str,
+    build::TargetKind::CompiledData);
+
+  build::Target* texture_target = params.build_system->findTarget(
+    params.target->name,
+    "font.texture.compiled"_str,
+    build::TargetKind::CompiledAsset);
+
+  build::PathBuffer data_path_buffer;
+  build::PathBuffer target_path_buffer;
+  build::PathBuffer target_texture_path_buffer;
+  
+  b8 success = gfx::compileFont(
+    data_target->formFullPath(&data_path_buffer),
+    params.target->formFullPath(&target_path_buffer),
+    texture_target->formFullPath(&target_texture_path_buffer));
+
+  if (!success)
+    params.result->setError();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+build::Rule getFontBuildRule()
+{
+  return 
+  {
+    .types = "font.compiled;font.texture.compiled"_str,
+    .interface = 
+    {
+      .getPrereqs = fontGetPrereqs,
+      .build = fontBuild,
+    }
+  };
+}
+
+}

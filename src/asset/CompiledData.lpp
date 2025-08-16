@@ -31,6 +31,7 @@ end
 $$$
 @@imported:get
 
+@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "reflect/TypeId.lh"
 @@lpp.import "build/Target.lh"
 @@lpp.import "build/Rule.lh"

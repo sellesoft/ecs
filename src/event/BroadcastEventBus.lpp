@@ -20,6 +20,8 @@ $     end
 $   end
 $ end
 
+/* ============================================================================
+ */
 struct BroadcastEventBusData
 {
 $ eachEvent(function(decl)
@@ -36,6 +38,8 @@ $ end)
 
 $ eachEvent(function(decl)
 $   local cname = decl:formCSafeName()
+/* ----------------------------------------------------------------------------
+ */
 template<>
 void BroadcastEventBus::subscribeTo<$(decl.type.name)>(
   void* subscriber, 
@@ -47,6 +51,8 @@ void BroadcastEventBus::subscribeTo<$(decl.type.name)>(
   data->$(cname)Subscriber_list.push(sub);
 }
 
+/* ----------------------------------------------------------------------------
+ */
 template<>
 void BroadcastEventBus::raise<$(decl.type.name)>(
     $(decl.type.name)& event) const
@@ -58,14 +64,27 @@ void BroadcastEventBus::raise<$(decl.type.name)>(
 }
 $ end)
 
+/* ----------------------------------------------------------------------------
+ */
 b8 BroadcastEventBus::init()
 {
-  data = (BroadcastEventBusData*)mem::stl_allocator.allocate(
-    sizeof(BroadcastEventBusData));
+  data = mem::stl_allocator.construct<BroadcastEventBusData>();
 $ eachEvent(function(decl)
 $   local cname = decl:formCSafeName()
   if (!data->$(cname)Subscriber_list.init()) return false;
   if (!data->$(cname)Subscriber_pool.init()) return false;
 $ end)
   return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BroadcastEventBus::deinit()
+{
+$ eachEvent(function(decl)
+$  local cname = decl:formCSafeName()
+  data->$(cname)Subscriber_pool.deinit();
+  data->$(cname)Subscriber_list.deinit();
+$ end)
+  mem::stl_allocator.free(data);
 }

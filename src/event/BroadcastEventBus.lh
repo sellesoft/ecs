@@ -11,6 +11,8 @@ $ require "common"
 
 using namespace iro;
 
+/* ============================================================================
+ */
 struct BroadcastEventBus
 {
   struct BroadcastEventBusData* data;
@@ -25,4 +27,5 @@ struct BroadcastEventBus
   void raise(T& event) const;
 
   b8 init();
+  void deinit();
 };

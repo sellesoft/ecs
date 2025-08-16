@@ -63,7 +63,7 @@ void Engine::deinit()
 {
   editor.deinit();
   assetmgr.deinit();
-  // TODO(sushi) eventbus.broadcast.deinit();
+  broadcast_eventbus.deinit();
 }
 
 /* ----------------------------------------------------------------------------

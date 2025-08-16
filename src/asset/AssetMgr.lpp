@@ -54,6 +54,7 @@ $ if false then
   }
 $ end
   
+  pool.deinit();
   map.deinit();
 
   INFO("done\n");

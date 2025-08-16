@@ -8,6 +8,8 @@ $ local metadata = require "reflect.Metadata"
 @@lpp.import "graphics/TextureParams.lh"
 @@lpp.import "graphics/ResourceRef.lh"
 
+namespace build { struct Rule; }
+
 namespace gfx
 {
 
@@ -40,5 +42,8 @@ struct TextureDef
  */
 @metadata.links(texture.data;texture.compiled)
 struct TextureRef : TypedResourceRef<CompiledTexture> {};
+
+// Constructs a build rule for building textures.
+build::Rule getTextureBuildRule();
 
 }

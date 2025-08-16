@@ -189,6 +189,7 @@ b8 Window::init(Engine& eng, String title, InputMgr& inputmgr)
  */
 void Window::deinit()
 {
+  XFreeGC(x11.display, (GC)context);
   XDestroyWindow(x11.display, (X11Window)handle);
 }
 

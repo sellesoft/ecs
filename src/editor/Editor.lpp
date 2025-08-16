@@ -1,9 +1,18 @@
 $ require "common"
 
+#include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
 @@lpp.import "editor/Editor.lh"
+
 @@lpp.import "graphics/RenderTarget.lh"
+@@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "graphics/Shader.defs.lh"
+@@lpp.import "graphics/Font.defs.lh"
+
+@@lpp.import "asset/CompiledData.lh"
+
+@@lpp.import "build/BuildSystem.lh"
 
 @@lpp.import "reflect/RTR.lh"
 
@@ -31,6 +40,36 @@ b8 Editor::init(const InitParams& params)
   if (!renderer.init(renderer_params))
     return ERROR("failed to initialize Renderer\n");
 
+  build::Rule build_rules[] = 
+  {
+    gfx::getTextureBuildRule(),
+    gfx::getShaderBuildRule(),
+    gfx::getFontBuildRule(),
+    CompiledData::getBuildRule(),
+  };
+
+  build::PathBuffer cwd_buffer;
+  cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
+  if (cwd_buffer.len == 0)
+    return ERROR("failed to get current working directory\n");
+  String cwd = String(cwd_buffer);
+
+  build::PathBuffer compiled_dir_buffer;
+  io::formatv(&compiled_dir_buffer, cwd, "/_data"_str);
+
+  build::BuildSystem::InitParams build_system_params = 
+  {
+    .source_mount = cwd,
+    .compiled_mount = String(compiled_dir_buffer),
+    .rules = makeSlice(build_rules),
+  };
+
+  if (!build_system.init(build_system_params))
+    return ERROR("failed to initialize build system\n");
+
+  build_system.buildAssetList("src/editor/Editor.asset_list"_str);
+  build_system.buildAssetList("src/ui/UI.asset_list"_str);
+
   return true;
 }
 
@@ -44,6 +83,8 @@ void Editor::deinit()
   renderer.deinit(&mem::stl_allocator);
   window.deinit();
   input.deinit();
+
+  build_system.deinit();
 }
 
 /* ----------------------------------------------------------------------------
@@ -97,10 +138,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
       ERROR("failed to present frame\n");
   }
 
-
-  INFO("----------------------------------------- \n");
-  rtr::prettyPrint(window_result);
-  last_print = now;
+  if (input.real_state.wasKeyPressed(Key::B))
+    build_system.build();
 
   return result;
 }

@@ -4,6 +4,8 @@ $ local m = require "reflect.Metadata"
 @@lpp.import "graphics/ShaderParams.lh"
 @@lpp.import "graphics/ResourceRef.lh"
 
+namespace build { struct Rule; }
+
 namespace gfx
 {
 
@@ -24,5 +26,7 @@ struct ShaderDef
  */
 @m.links(shader.compiled;shader.data)
 struct ShaderRef : TypedResourceRef<CompiledShader> {};
+
+build::Rule getShaderBuildRule();
 
 }

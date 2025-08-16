@@ -473,9 +473,11 @@ void Vulkan::deinit(mem::Allocator* allocator)
     
   // NOTE(sushi) we manaually destroy the swapchain here because 
   //             deinitSwapchain is currently designed for use in recreating it
-  //             so doesn't call this (so we can pass it to swapchain creation\
+  //             so doesn't call this (so we can pass it to swapchain creation
   //             to help save resources).
   vkDestroySwapchainKHR(device, swapchain, &allocator_callbacks);
+
+  swapchain_buffers.destroy();
 
   deinitDescriptorPools();
   deinitVirtualFrames();

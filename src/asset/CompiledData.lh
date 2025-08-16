@@ -16,6 +16,8 @@ struct Asset;
 struct Ref;
 struct SourceData;
 
+namespace build { struct Rule; }
+
 /* ============================================================================
  *  Note that this structure reprensents the header of the compiled data 
  *  as written to disk.
@@ -129,4 +131,6 @@ struct CompiledData
   // Fixes all pointers in the loaded data to absolute addresses.
   // This must be called before trying to use the data!!
   void fixPointers(); 
+
+  static build::Rule getBuildRule();
 };

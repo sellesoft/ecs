@@ -11,6 +11,8 @@ $ local metadata = require "reflect.Metadata"
 
 using namespace iro;
 
+namespace build { struct Rule; }
+
 namespace gfx
 {
 
@@ -41,5 +43,7 @@ struct FontDef
 struct Font;
 @metadata.links(font.compiled;font.texture.compiled)
 struct FontRef : TypedResourceRef<Font> {};
+
+build::Rule getFontBuildRule();
 
 }

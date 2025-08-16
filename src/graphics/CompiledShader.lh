@@ -8,8 +8,10 @@ $ local m = require "reflect.Metadata"
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
+@@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "graphics/Shader.lh"
 @@lpp.import "graphics/ShaderParams.lh"
+@@lpp.import "asset/Asset.lh"
 
 using namespace iro;
 

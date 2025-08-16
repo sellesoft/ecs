@@ -32,6 +32,10 @@ $$$
 @@imported:get
 
 @@lpp.import "reflect/TypeId.lh"
+@@lpp.import "build/Target.lh"
+@@lpp.import "build/Rule.lh"
+@@lpp.import "build/Result.lh"
+@@lpp.import "build/BuildSystem.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
@@ -998,4 +1002,86 @@ $ end
   }
 
   pointer_state = PointerState::Absolute;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void compiledDataGetPrereqs(const build::RuleParams_GetPrereqs& params)
+{
+  // Data targets need some SourceData to build, which should have the same 
+  // name and type, but without the .data extension.
+  build::Target* source_target = params.build_system->findOrCreateTarget(
+    params.target->name,
+    params.target->type.removeSuffix(".data"_str),
+    build::TargetKind::SourceData);
+
+  // Note the source target as a prereq.
+  params.prereqs->insert(source_target);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void compiledDataBuild(const build::RuleParams_Build& params)
+{
+   // Get the target we are building from, it should already exist.
+  build::Target* source_target = params.build_system->findTarget(
+    params.target->name, 
+    params.target->type.removeSuffix(".data"_str),
+    build::TargetKind::SourceData);
+
+  assert(source_target != nullptr);
+
+  build::PathBuffer source_path_buffer;
+  build::PathBuffer target_path_buffer;
+
+  CompiledData* compiled = params.build_system->packAndCompileSourceDataAsset(
+    source_target->formFullPath(&source_path_buffer),
+    params.target->formFullPath(&target_path_buffer));
+
+  if (compiled == nullptr)
+  {
+    params.result->setError("failed to compile source data"_str);
+    return;
+  }
+
+  for (CompiledData::Ref& ref : compiled->refs.getSlice())
+  {
+    String def_links = rtr::getMetadataValue(ref.type, "links"_str);
+
+    if (isnil(def_links))
+      continue;
+
+    String::Pair split = def_links.splitAtFirst(';');
+
+    for (;;)
+    {
+      build::Target* links_target = params.build_system->findOrCreateTarget(
+        ref.target.getString(),
+        split.first,
+        build::TargetKind::Unknown);
+
+      params.target->links(links_target);
+
+      if (isnil(split.second))
+        break;
+
+      split = split.second.splitAtFirst(';');
+    }
+  }
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+build::Rule CompiledData::getBuildRule()
+{
+  return 
+  {
+    .types = "data"_str,
+    .interface = 
+    {
+      .getPrereqs = compiledDataGetPrereqs,
+      .build = compiledDataBuild,
+    }
+  };
 }

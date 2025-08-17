@@ -41,39 +41,6 @@ b8 Renderer::init(InitParams& params)
   if (!vk->init(vk_params))
     return ERROR("failed to initialize Vulkan\n");
 
-  DescriptorSetLayout::Binding ubo_binding = 
-  {
-    .binding = 0,
-    .count = 1,
-    .kind = DescriptorKind::UniformBuffer,
-    .stages = ShaderStage::Vertex | ShaderStage::Fragment,
-  };
-
-  default_ubo_set_layout = DescriptorSetLayout::create(
-    *this,
-    makeSlice(&ubo_binding, 1),
-    "default ubo"_str);
-
-  if (isnil(default_ubo_set_layout))
-    return ERROR("failed to create default uniform buffer descriptor set "
-                 "layout\n");
-
-  DescriptorSetLayout::Binding sampler_binding = 
-  {
-    .binding = 0,
-    .count = 1,
-    .kind = DescriptorKind::CombinedImageSampler,
-    .stages = ShaderStage::Fragment,
-  };
-
-  default_sampler_set_layout = DescriptorSetLayout::create(
-    *this,
-    makeSlice(&sampler_binding, 1),
-    "default sampler"_str);
-
-  if (isnil(default_sampler_set_layout))
-    return ERROR("failed to create default sampler descriptor set layout\n");
-
   return true;
 }
 
@@ -81,8 +48,6 @@ b8 Renderer::init(InitParams& params)
  */
 void Renderer::deinit(mem::Allocator* allocator)
 {
-  default_ubo_set_layout.destroy(*this);
-  default_sampler_set_layout.destroy(*this);
   vk->deinit(allocator);
   allocator->free(vk);
 }

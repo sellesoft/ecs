@@ -28,6 +28,7 @@ namespace gfx
 {
   struct Buffer;
   struct Renderer;
+  struct ResourceMgr;
 }
 
 struct InputMgr;
@@ -357,8 +358,10 @@ struct UI
   struct InitParams
   {
     gfx::Renderer& renderer;
-    gfx::TextureHandle white_texture;
+    gfx::ResourceMgr& resource_mgr;
+    AssetMgr& asset_mgr;
     Rect viewport;
+    gfx::TextureHandle white_texture;
   };
 
   b8   init(InitParams& params);
@@ -521,7 +524,7 @@ struct UI
 
   // Graphics stuff.
   gfx::Pipeline pipeline;
-  gfx::PipelineDefRef pipeline_defref;
+  gfx::PipelineLink l_pipeline;
 
   gfx::TextureHandle white_texture;
 

@@ -110,7 +110,7 @@ struct GameRenderer
   u32 quad_count = 0;
 
   gfx::Pipeline quad_pipeline;
-  gfx::PipelineDefRef quad_pipeline_defref;
+  gfx::PipelineLink quad_pipeline_defref;
 };
 
 }

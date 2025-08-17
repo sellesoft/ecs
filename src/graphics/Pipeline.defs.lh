@@ -23,7 +23,7 @@ struct PipelineDef
   b8 has_vertex_input;
 };
 
-@m.source_types(pipeline)
-struct PipelineDefRef : TypedCompiledDataLink<PipelineDef> {};
+@m.links(pipeline.data)
+struct PipelineLink : TypedCompiledDataLink<PipelineDef> {};
 
 }

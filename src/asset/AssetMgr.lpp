@@ -12,9 +12,10 @@ $ local cmn = require "common"
 
 /* ----------------------------------------------------------------------------
  */
-b8 AssetMgr::init(mem::Allocator* allocator)
+b8 AssetMgr::init(mem::Allocator* allocator, String data_mount)
 {
   this->allocator = allocator;
+  this->data_mount = data_mount;
 
   if (!map.init(allocator))
     return ERROR("failed to init asset map\n");
@@ -75,41 +76,45 @@ Asset* AssetMgr::allocateAsset(String name)
 
 /* ----------------------------------------------------------------------------
  */
-Asset* AssetMgr::loadAssetFromDisk(String name)
+Asset* AssetMgr::loadAssetFromDisk(String name, String type)
 {
   using namespace fs;
+  
+  io::StaticBuffer<512> path_buffer;
+  io::formatv(&path_buffer, data_mount, '/', name, '.', type);
+  String path = String(path_buffer);
 
-  u64 name_hash = name.hash();
+  u64 name_hash = path.hash();
   if (Asset* existing = map.find(name_hash))
   {
-    @log.debug("asset '", name, "' already loaded\n");
+    @log.debug("asset '", path, "' already loaded\n");
     return existing;
   }
 
-  @log.debug("loading asset '", name, "' from disk\n");
+  @log.debug("loading asset '", path, "' from disk\n");
 
-  if (!path::exists(name))
+  if (!path::exists(path))
   {
-    @log.error("no asset exists at path '", name, "'\n");
+    @log.error("no asset exists at path '", path, "'\n");
     return nullptr;
   }
 
-  auto file = File::from(name, OpenFlag::Read);
+  auto file = File::from(path, OpenFlag::Read);
   if (isnil(file))
   {
-    @log.error("failed to open asset file at '", name, "'\n");
+    @log.error("failed to open asset file at '", path, "'\n");
     return nullptr;
   }
 
-  Asset* asset = allocateAsset(name);
+  Asset* asset = allocateAsset(path);
   if (asset == nullptr)
   {
-    @log.error("failed to allocate asset '", name, "'\n");
+    @log.error("failed to allocate asset '", path, "'\n");
     return nullptr;
   }
 
   Stat stat;
-  fs::stat(name, &stat);
+  fs::stat(path, &stat);
 
   asset->size = stat.byte_size;
   asset->data = allocator->allocate(asset->size);

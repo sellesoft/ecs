@@ -3,6 +3,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/Vulkan.lh"
 @@lpp.import "graphics/Geo.lh"
 @@lpp.import "window/Window.lh"
+@@lpp.import "graphics/DescriptorSetLayout.lh"
 
 #include "string.h"
 #include "iro/fs/fs.h"
@@ -447,6 +448,47 @@ $ end
   @initpool(image)
   @initpool(shader)
   @initpool(pipeline)
+
+  // Initialize the default descriptor set layouts for sampled textures and 
+  // buffers. See the comment on these fields about how I'd like to remove 
+  // them. Also note that we use the high-level api to do this such that
+  // they are initialized in the same way.
+
+  DescriptorSetLayout::Binding ubo_binding = 
+  {
+    .binding = 0,
+    .count = 1,
+    .kind = DescriptorKind::UniformBuffer,
+    .stages = ShaderStage::Vertex | ShaderStage::Fragment,
+  };
+
+  auto ubo_layout = DescriptorSetLayout::create(
+    *this,
+    makeSlice(&ubo_binding, 1),
+    "default ubo"_str);
+
+  if (isnil(ubo_layout))
+    return false;
+
+  default_ubo_set_layout = (VkDescriptorSetLayout)ubo_layout.handle;
+
+  DescriptorSetLayout::Binding sampler_binding = 
+  {
+    .binding = 0,
+    .count = 1,
+    .kind = DescriptorKind::CombinedImageSampler,
+    .stages = ShaderStage::Fragment,
+  };
+
+  auto sampler_layout = DescriptorSetLayout::create(
+    *this,
+    makeSlice(&sampler_binding, 1),
+    "default sampler"_str);
+
+  if (isnil(sampler_layout))
+    return false;
+
+  default_sampler_set_layout = (VkDescriptorSetLayout)sampler_layout.handle;
 
   return true;
 }

@@ -3,7 +3,6 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/Shader.lh"
 @@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 @log.ger(gfx.shader, Info)
 
@@ -12,7 +11,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-Shader Shader::create(Renderer& r, const CreateParams& params)
+Shader Shader::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -27,7 +26,7 @@ $ local cerr = helpers.defCreateErr("gfx::Shader", "name")
   }
 
   VkShaderModule shader;
-  if (!r.vk->createVkShaderModule(
+  if (!vk.createVkShaderModule(
         &shader,
         params.spv_binary,
         name))
@@ -37,7 +36,7 @@ $ local cerr = helpers.defCreateErr("gfx::Shader", "name")
   }
   
   // TODO(sushi) I don't think we need to do this.
-  DeviceShader* dev_shader = r.vk->shader_pool.add();
+  DeviceShader* dev_shader = vk.shader_pool.add();
   dev_shader->module = shader;
   dev_shader->stage = shaderStageToVulkan(params.stage);
 
@@ -46,15 +45,15 @@ $ local cerr = helpers.defCreateErr("gfx::Shader", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void Shader::destroy(Renderer& r)
+void Shader::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
   auto* dev_shader = (DeviceShader*)handle;
 
-  r.vk->destroyVkShaderModule(dev_shader->module);
-  r.vk->shader_pool.remove(dev_shader);
+  vk.destroyVkShaderModule(dev_shader->module);
+  vk.shader_pool.remove(dev_shader);
   handle = nullptr;
 }
 

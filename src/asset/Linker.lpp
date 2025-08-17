@@ -13,6 +13,8 @@ local ResourceLink = astctx:lookupTypeDecl "gfx::ResourceLink"
 local CompiledDataLink = astctx:lookupDecl "CompiledDataLink"
 local AssetLink = astctx:lookupDecl "AssetLink"
 
+ast.dumpout(astctx:lookupDecl "EditorSkinDefLink")
+
 local link_decls = cmn.List {}
 local link_decls_found = {}
 
@@ -43,19 +45,36 @@ local function recordDeclWithLinks(decl, has_link_fields)
 end
 
 local function searchForLinks(decl)
-  if decl:is(ast.Record) then
+  if decl:is(ast.TypedefDecl) then
+    if decl:findMetadata "ref" then
+      recordLinkDecl(decl)
+    end
+  elseif decl:is(ast.Record) then
     if decl:findMetadata "ref" then
       recordLinkDecl(decl)
     end
 
     for field in decl:allFields() do
-      local type = field.type:desugar()
+      local type = field.type
+      if type:is(ast.Elaborated) then
+        type = type.subtype
+      end
+
+      if type:is(ast.TypedefType) then
+        local typedef_decl = type.decl
+        if typedef_decl:findMetadata "ref" then
+          typedef_decl.metadata.is_used_link = true
+        end
+        type = typedef_decl.subtype:desugar()
+      end
+
       if type:is(ast.TagType) and type.decl:is(ast.Record) then
         local field_type_decl = type.decl
         if field_type_decl:findMetadata "ref" then
           recordDeclWithLinks(decl, true)
           field_type_decl.metadata.is_used_link = true
           field.metadata.has_links = true
+          field.metadata.is_link = true
         elseif field_type_decl:is(ast.TemplateSpec) then
           local specname = field_type_decl.qname 
           if specname == "reflect::Array" then
@@ -88,9 +107,13 @@ end
 -- Remove link decls that are unused.
 local used_link_decls = cmn.List {}
 for decl in link_decls:each() do
-  if decl.metadata.is_used_link then
+  if decl.qname ~= "AssetLink" and decl.qname ~= "gfx::ResourceLink" then
     used_link_decls:push(decl)
   end
+
+  -- if decl.metadata.is_used_link then
+  --   used_link_decls:push(decl)
+  -- end
 end
 link_decls = used_link_decls
 
@@ -137,6 +160,14 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function getTypeLinkerName(type)
+$   if type:is(ast.Elaborated) then
+$     type = type.subtype
+$   end
+$
+$   if type:is(ast.TypedefType) then
+$     return (getDeclLinkerName(type.decl))
+$   end
+$  
 $   type = type:desugar()
 $   if type:is(ast.TagType) then
 $     return (getDeclLinkerName(type.decl))
@@ -157,16 +188,6 @@ $ -- * ------------------------------------------------------------------------
 $ local function declareDeclLinker(decl)
 $   recordPlaced(decl)
 $   return "b8 "..getDeclLinkerSig(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclLinkerFromName(name)
-$   local decl = lookup(name)
-$   if not decl then
-$     error("could not find declaration with name "..name)
-$   end
-$   return declareDeclLinker(decl)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -227,6 +248,8 @@ $   local link_type = decl.metadata.links
 $   if not link_type then
 $      clog:warn("compiled asset link type ", decl.qname, " does not specify ",
 $                "what asset type it links\n")
+    WARN("cannot link $(decl.type.name) because it does not specify what "
+         "asset type it links\n");
 $   else
     // Load the CompiledData as an Asset.
     data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
@@ -277,24 +300,65 @@ $   end
 $ end
 
 $ local function putResourceLinker(decl)
-$   ast.dumpout(decl)
+$   local function getResourceType(decl)
+$     if decl:is(ast.TemplateSpec) then
+$       if decl.specialized.qname == "gfx::TypedResourceLink" then
+$         return decl.args[1]
+$       end
+$     end
+$     if decl.base then
+$       return getResourceType(decl.base)
+$     end
+$   end
+$   local resource_type = getResourceType(decl)
+$   if not resource_type then
+$     error("failed to find resource type from "..decl.qname)
+$   end
+$   local resource_decl = resource_type.decl
+$   local rname = resource_decl.name
+$   local rtname = resource_decl.type.name
   /* --------------------------------------------------------------------------
    */
   $(declareDeclLinker(decl))
   {
     // Resource.
-    resource_mgr.loadLink(data, asset_mgr);
+    // Ask the ResourceMgr to create the resource or give us it if it already
+    // exists.
+    // TODO(sushi) check if it already exists.
+    data->resource = resource_mgr.getOrCreate$(rname)(data->name);
+
+    auto* r = ($(rtname)*)data->resource;
+
+    // Set nested links to reference what the data wants.
+$ for field in resource_decl:allFields() do
+$   if field.metadata.is_link then
+    r->$(field.name).name = data->name;
+$   end
+$ end
+    
+    // Link any internals the Resource may have.
+    if (!$(getTypeLinkerName(resource_type))(r))
+      return ERROR("failed to link resource $(rname)\n");
+
+    // Ask the resource manager to load the resource.
+    if (!resource_mgr.load$(rname)(r))
+      return ERROR("failed to load resource $(rname)\n");
+
     return true;
   }
 $ end
 
 $ for decl in link_decls:each() do
+$   local real_decl = decl
+$   if decl:is(ast.TypedefDecl) then
+$     decl = decl.subtype:desugar().decl
+$   end
 $   if decl:isDerivedFrom(CompiledDataLink) then
-$     putCompiledDataLinker(decl)
+$     putCompiledDataLinker(real_decl)
 $   elseif decl:isDerivedFrom(AssetLink) then
-$     putAssetLinker(decl)
+$     putAssetLinker(real_decl)
 $   elseif decl:isDerivedFrom(ResourceLink) then
-$     putResourceLinker(decl)
+$     putResourceLinker(real_decl)
 $   end
 $ end
 
@@ -316,3 +380,22 @@ $ end
     return true;
   }
 };
+
+
+/* ----------------------------------------------------------------------------
+ *  Generate the actual function used through the interface.
+ *  Currently only accessible via runtime typing. Can improve later.
+ *
+ *  Note that currently, any type that isn't recognized as needing to be linked
+ *  just falls through and returns true.
+ */
+b8 linkData(
+    rtr::TypeId type, 
+    void* data, 
+    gfx::ResourceMgr& resource_mgr, 
+    AssetMgr& asset_mgr)
+{
+  Linker linker = { .asset_mgr = asset_mgr, .resource_mgr = resource_mgr };
+
+  return linker.linkByTypeId(type, data);
+}

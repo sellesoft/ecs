@@ -536,9 +536,36 @@ TypedefDecl.__tostring = function(self)
   return qstr("TypedefDecl(", self.name, ",", self.subtype, ")")
 end
 
+--- Attempts to find metadata of the given name on this typedef decl. If its 
+--- not find, attempts to unwrap the typedef to a decl that may have metadata
+--- and asks it for it instead.
+---
+--- Currently, this only supports unwrapping to subtypes that are also typedefs
+--- and subtypes that are TagDecls.
+---
+---@param name string
+---@return string?
+TypedefDecl.findMetadata = function(self, name)
+  if self.metadata[name] then
+    return self.metadata[name]
+  end
+
+  local subtype = self.subtype
+  if subtype:is(ast.Elaborated) then
+    subtype = subtype.subtype
+  end
+
+  if subtype:is(ast.TypedefType) or subtype:is(ast.TagType) then
+    return (subtype.decl:findMetadata(name))
+  end
+end
+
 TypedefDecl.dump = function(self, dump)
   dump:node("TypedefDecl", function()
     dump:tag("name", self.name)
+    for k,v in pairs(self.metadata) do
+      dump:tag("<meta> "..k, v)
+    end
     dump:tag("subtype", self.subtype)
   end)
 end

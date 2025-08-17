@@ -33,7 +33,7 @@ $ end
 /* ----------------------------------------------------------------------------
  */
 DescriptorSetLayout DescriptorSetLayout::create(
-    Renderer& r,
+    Vulkan& vk,
     Slice<Binding> bindings,
     String debug_name)
 {
@@ -63,7 +63,7 @@ $ local cerr = helpers.defCreateErr("gfx::DescriptorSetLayout", "name")
   }
 
   VkDescriptorSetLayout layout;
-  if (!r.vk->createVkDescriptorSetLayout(
+  if (!vk.createVkDescriptorSetLayout(
         &layout,
         vk_bindings.asSlice(),
         name))
@@ -77,14 +77,14 @@ $ local cerr = helpers.defCreateErr("gfx::DescriptorSetLayout", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void DescriptorSetLayout::destroy(Renderer& r)
+void DescriptorSetLayout::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
   DEBUG("destroying ", *this, '\n');
 
-  r.vk->destroyVkDescriptorSetLayout((VkDescriptorSetLayout)handle);
+  vk.destroyVkDescriptorSetLayout((VkDescriptorSetLayout)handle);
   handle = nullptr;
 }
 

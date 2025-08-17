@@ -7,6 +7,7 @@ $ local cmn = require "common"
 @@lpp.import "math/util.h"
 @@lpp.import "ui/TextEdit.lh"
 @@lpp.import "Profiling.lh"
+@@lpp.import "asset/Linker.lh"
 
 #include "iro/Logger.h"
 #include "iro/containers/SmallArray.h"
@@ -35,17 +36,20 @@ b8 UI::init(InitParams& params)
   if (!frame_allocator.init())
     return ERROR("failed to initialize UI frame allocator\n");
 
-  assert(false);
+  l_pipeline.name = "assets/shaders/UI"_str;
 
-  // if (!params.loader.load(&pipeline_defref, "assets/shaders/UI"_str))
-  //   return ERROR("failed to load UI pipeline def\n");
+  linkData(
+    "gfx::PipelineLink"_typeid,
+    &l_pipeline,
+    params.resource_mgr,
+    params.asset_mgr);
 
-  pipeline = gfx::Pipeline::create(renderer, *pipeline_defref);
+  pipeline = gfx::Pipeline::create(*renderer.vk, *l_pipeline);
   if (isnil(pipeline))
     return ERROR("failed to initialize UI pipeline\n");
 
   vertex_buffer = gfx::Buffer::create(
-    renderer,
+    *renderer.vk,
     {
       .data       = nullptr,
       .size       = sizeof(gfx::Vertex) * c_MaxVertices,
@@ -56,7 +60,7 @@ b8 UI::init(InitParams& params)
     });
 
   index_buffer = gfx::Buffer::create(
-    renderer,
+    *renderer.vk,
     {
       .data       = nullptr,
       .size       = sizeof(gfx::Index) * c_MaxIndices,
@@ -65,7 +69,6 @@ b8 UI::init(InitParams& params)
       .behavior   = gfx::Buffer::MappingBehavior::Occasional,
       .debug_name = "ui.index"_str,
     });
-
 
   if (isnil(index_buffer))
     return ERROR("failed to initialize ui index buffer\n");
@@ -80,9 +83,9 @@ b8 UI::init(InitParams& params)
  */
 void UI::deinit(gfx::Renderer& renderer)  
 {
-  pipeline.destroy(renderer);
-  vertex_buffer.destroy(renderer);
-  index_buffer.destroy(renderer);
+  pipeline.destroy(*renderer.vk);
+  vertex_buffer.destroy(*renderer.vk);
+  index_buffer.destroy(*renderer.vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -357,8 +360,8 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
 
   // Map the draw info buffers.
   TRACE("mapping ui draw info buffers\n");
-  vertex_buffer.map(renderer);
-  index_buffer.map(renderer);
+  vertex_buffer.map(*renderer.vk);
+  index_buffer.map(*renderer.vk);
 
   // Execute each layer's Cmds.
   TRACE("executing layer draw commands\n");
@@ -438,12 +441,12 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
 
   // Flush and unmap the buffers.
   TRACE("flushing ui draw buffers\n");
-  vertex_buffer.flush(renderer, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-  index_buffer.flush(renderer, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  vertex_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  index_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
 
   TRACE("unmapping ui draw buffers\n");
-  vertex_buffer.unmap(renderer);
-  index_buffer.unmap(renderer);
+  vertex_buffer.unmap(*renderer.vk);
+  index_buffer.unmap(*renderer.vk);
 
   // Reset layer states.
   root_layer = nullptr;

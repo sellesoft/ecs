@@ -1,8 +1,8 @@
 $ require "common"
 
 @@lpp.import "graphics/RenderTarget.lh"
-@@lpp.import "graphics/Renderer.lh"
 @@lpp.import "graphics/Descriptor.lh"
+@@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/Vulkan.lh"
 
 #include "iro/io/IO.h"
@@ -15,7 +15,7 @@ namespace gfx
 /* ----------------------------------------------------------------------------
  */
 RenderTarget RenderTarget::create(
-    Renderer& renderer, 
+    Vulkan& vk, 
     const CreateParams& params)
 {
   String debug_name = resolved(params.debug_name, "unnamed"_str);
@@ -26,7 +26,7 @@ RenderTarget RenderTarget::create(
   // TODO(sushi) because we set the pipeline's format to whatever the 
   //             surface's format is, we have to keep it the same here.
   //             Make pipeline formats parameterized soon.
-  ImageFormat forced_format = renderer.vk->getSurfaceImageFormat();
+  ImageFormat forced_format = vk.getSurfaceImageFormat();
 
   Image::CreateParams image_params = 
   {
@@ -37,7 +37,7 @@ RenderTarget RenderTarget::create(
     .debug_name = target_name.asStr(),
   };
 
-  Image image = Image::create(renderer, image_params);
+  Image image = Image::create(vk, image_params);
 
   if (isnil(image))
     return nil;
@@ -50,21 +50,21 @@ RenderTarget RenderTarget::create(
     .debug_name = target_name.asStr(),
   };
 
-  ImageView view = ImageView::create(renderer, view_params);
+  ImageView view = ImageView::create(vk, view_params);
 
   if (isnil(view))
     return nil;
 
   auto set = DescriptorSet::create(
-    renderer,
-    renderer.default_sampler_set_layout,
+    vk,
+    DescriptorSetLayout{vk.default_sampler_set_layout},
     debug_name);
 
   if (isnil(set))
     return nil;
 
   auto sampler = Sampler::create(
-    renderer,
+    vk,
     {
       .filter = ImageFilter::Nearest,
       .address_mode = ImageAddressMode::ClampToBlack,
@@ -77,22 +77,22 @@ RenderTarget RenderTarget::create(
     .sampler = sampler,
   };
 
-  set.update(renderer, 0, 0, makeSlice(&descriptor, 1));
+  set.update(vk, 0, 0, makeSlice(&descriptor, 1));
 
   return {image, view, set, sampler};
 }
 
 /* ----------------------------------------------------------------------------
  */
-void RenderTarget::destroy(Renderer& renderer)
+void RenderTarget::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
-  image.destroy(renderer);
-  view.destroy(renderer);
-  set.destroy(renderer);
-  sampler.destroy(renderer);
+  image.destroy(vk);
+  view.destroy(vk);
+  set.destroy(vk);
+  sampler.destroy(vk);
 }
 
 }

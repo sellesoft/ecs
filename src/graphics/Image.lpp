@@ -12,7 +12,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-Image Image::create(Renderer& r, const CreateParams& params)
+Image Image::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -43,7 +43,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
     usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
   
   VkImage image;
-  if (!r.vk->createVkImage(
+  if (!vk.createVkImage(
         &image,
         params.size,
         format,
@@ -55,7 +55,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
   }
 
   DeviceHeapAllocation* ptr =
-    r.vk->allocateAndBindVkImageMemory(image);
+    vk.allocateAndBindVkImageMemory(image);
 
   if (ptr == nullptr)
   {
@@ -65,7 +65,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
 
   auto failsafe_deallocate = deferWithCancel
   {
-    r.vk->deallocate(ptr);
+    vk.deallocate(ptr);
   };
 
   if (params.pixels != nullptr)
@@ -74,7 +74,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
       params.size.x * params.size.y * 
       imageFormatToBytesPerPixel(params.format);
 
-    if (!r.vk->stageVkImageMemory(
+    if (!vk.stageVkImageMemory(
           params.pixels,
           size,
           image,
@@ -87,7 +87,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
   
   // Track the Image internally since we have to allocate device memory
   // for it.
-  DeviceImage* internal_image = r.vk->image_pool.add();
+  DeviceImage* internal_image = vk.image_pool.add();
   internal_image->handle = image;
   internal_image->ptr = ptr;
 
@@ -100,7 +100,7 @@ $ local cerr = helpers.defCreateErr("gfx::Image", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void Image::destroy(Renderer& r)
+void Image::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
@@ -113,12 +113,12 @@ void Image::destroy(Renderer& r)
   // which we do not own.
   // This needs to be done better eventually, but I just wanna get stuff
   // working again!
-  if (!r.vk->isSwapchainImage(handle))
+  if (!vk.isSwapchainImage(handle))
   {
     auto* internal_image = (DeviceImage*)handle;
-    r.vk->destroyVkImage(internal_image->handle);
-    r.vk->deallocate(internal_image->ptr);
-    r.vk->image_pool.remove(internal_image);
+    vk.destroyVkImage(internal_image->handle);
+    vk.deallocate(internal_image->ptr);
+    vk.image_pool.remove(internal_image);
   }
 
   *this = nil;

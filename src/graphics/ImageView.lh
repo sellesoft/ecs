@@ -11,6 +11,8 @@ $ require "common"
 namespace gfx
 {
 
+struct Vulkan;
+
 /* ----------------------------------------------------------------------------
  */
 struct ImageView
@@ -28,8 +30,8 @@ struct ImageView
     String debug_name;
   };
 
-  static ImageView create(Renderer& renderer, const CreateParams& params);
-  void destroy(Renderer& renderer);
+  static ImageView create(Vulkan& vk, const CreateParams& params);
+  void destroy(Vulkan& vk);
 
   DefineNilTrait(ImageView, {nullptr}, x.handle == nullptr);
 };

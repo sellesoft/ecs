@@ -16,7 +16,7 @@ using namespace iro;
 namespace gfx
 {
 
-struct Renderer;
+struct Vulkan;
 
 /* ============================================================================
  */
@@ -32,8 +32,8 @@ struct Shader
     String debug_name;
   };
 
-  static Shader create(Renderer& renderer, const CreateParams& params);
-  void destroy(Renderer& renderer);
+  static Shader create(Vulkan& vk, const CreateParams& params);
+  void destroy(Vulkan& vk);
 
   inline bool operator==(const Shader& other) const
   {

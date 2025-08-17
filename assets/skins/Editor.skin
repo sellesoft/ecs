@@ -82,4 +82,6 @@ return EditorSkinDef
   },
 
   dropdown_option = dropdown_button,
+
+  text = text,
 }

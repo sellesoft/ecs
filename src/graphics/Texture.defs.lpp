@@ -93,7 +93,7 @@ build::Rule getTextureBuildRule()
 {
   return 
   {
-    .types = ".texture.compiled"_str,
+    .types = "texture.compiled"_str,
     .interface = 
     {
       .getPrereqs = textureGetPrereqs,

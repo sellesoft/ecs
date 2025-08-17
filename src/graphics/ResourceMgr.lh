@@ -25,26 +25,76 @@ struct ResourceMgr
   template<typename T>
   struct Resource
   {
-    String name;
+    String name = nil;
     T  resource;
+    b8 is_loaded = false;
 
     static u64 getAVLKey(const Resource<T>& x) { return x.name.hash(); }
+
+    static Resource<T>* fromResource(T* x)
+    {
+      return (Resource<T>*)((u8*)x - offsetof(Resource<T>, resource));
+    }
   };
 
-  // TODO(sushi) use indexed pools once vulkan is merged
-  //             well vulkan is merged now sooo.
+  // TODO(sushi) we can manage the memory of these better.
+  //             Should prob just use indexed pools or something.
+  //             Just doesn't need to be so dynamic, nor use 2 pools 
+  //             as this currently does.
   template<typename T>
-  using ResourceMap = AVL<Resource<T>>;
+  struct ResourcePool
+  {
+    AVL<Resource<T>> map;
+    Pool<Resource<T>> pool;
 
-  ResourceMap<TextureResource> textures;
-  ResourceMap<ShaderResource> shaders;
-  ResourceMap<FontResource> fonts;
+    b8 init()
+    {
+      if (!map.init())
+        return false;
 
-  b8 init();
+      if (!pool.init())
+        return false;
+    
+      return true;
+    }
+
+    void deinit()
+    {
+      map.deinit();
+      pool.deinit();
+    }
+
+    Resource<T>* find(String name) { return map.find(name.hash()); }
+
+    Resource<T>* create(String name)
+    {
+      Resource<T>* r = pool.add();
+
+      r->name = name;
+      map.insert(r);
+
+      return r;
+    }
+  };
+
+  ResourcePool<TextureResource> textures;
+  ResourcePool<ShaderResource> shaders;
+  ResourcePool<FontResource> fonts;
+
+  b8 init(Vulkan* vk);
   void deinit();
 
-  template<typename T>
-  b8 loadLink(TypedResourceLink<T>* link, AssetMgr& asset_mgr);
+  // Gets a resource if it already exists, or creates a new (uninitialized)
+  // resource.
+  TextureResource* getOrCreateTextureResource(String name);
+  ShaderResource*  getOrCreateShaderResource(String name);
+  FontResource*    getOrCreateFontResource(String name);
+
+  // Loads the given resource onto the GPU and such, or does nothing if its 
+  // already loaded.
+  b8 loadTextureResource(TextureResource* texture);
+  b8 loadShaderResource(ShaderResource* shader);
+  b8 loadFontResource(FontResource* font);
 
   // TODO(sushi) it is a bit weird to store Vulkan like this, but I would 
   //             prefer to avoid needing gfx::Renderer to properly load 

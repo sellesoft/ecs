@@ -4,7 +4,6 @@ $ local helpers = require "graphics.Helpers"
 @@lpp.import "graphics/DescriptorSet.lh"
 @@lpp.import "graphics/Vulkan.lh"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 #include "iro/containers/SmallArray.h"
 
@@ -16,7 +15,7 @@ namespace gfx
 /* ----------------------------------------------------------------------------
  */
 DescriptorSet DescriptorSet::create(
-    Renderer& r, 
+    Vulkan& vk, 
     DescriptorSetLayout layout,
     String debug_name)
 {
@@ -33,7 +32,7 @@ $ local cerr = helpers.defCreateErr("gfx::DescriptorSet", "name")
   }
 
   VkDescriptorSet set;
-  if (!r.vk->allocateVkDescriptorSet(
+  if (!vk.allocateVkDescriptorSet(
         &set,
         &(VkDescriptorSetLayout&)layout.handle,
         name))
@@ -47,21 +46,21 @@ $ local cerr = helpers.defCreateErr("gfx::DescriptorSet", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void DescriptorSet::destroy(Renderer& r)
+void DescriptorSet::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
   DEBUG("destroying ", *this, '\n');
 
-  r.vk->deallocateVkDescriptorSet((VkDescriptorSet)handle);
+  vk.deallocateVkDescriptorSet((VkDescriptorSet)handle);
   handle = nullptr;
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DescriptorSet::update(
-    Renderer& r,
+    Vulkan& vk,
     u32 binding,
     u32 array_offset,
     Slice<ImageDescriptor> images)
@@ -96,7 +95,7 @@ void DescriptorSet::update(
     });
   }
 
-  r.vk->updateVkDescriptorSet_Image(
+  vk.updateVkDescriptorSet_Image(
     (VkDescriptorSet)handle,
     array_offset,
     binding,
@@ -106,7 +105,7 @@ void DescriptorSet::update(
 /* ----------------------------------------------------------------------------
  */
 void DescriptorSet::update(
-    Renderer& r,
+    Vulkan& vk,
     u32 binding,
     u32 array_offset,
     Slice<UniformBufferDescriptor> buffers)
@@ -137,7 +136,7 @@ void DescriptorSet::update(
     });
   }
 
-  r.vk->updateVkDescriptorSet_Buffer(
+  vk.updateVkDescriptorSet_Buffer(
     (VkDescriptorSet)handle,
     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     binding,

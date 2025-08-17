@@ -13,7 +13,7 @@ namespace gfx
 struct ImageDescriptor;
 struct DescriptorSetLayout;
 struct UniformBufferDescriptor;
-struct Renderer;
+struct Vulkan;
 
 /* ============================================================================
  */
@@ -22,20 +22,20 @@ struct DescriptorSet
   void* handle;
 
   static DescriptorSet create(
-    Renderer& renderer, 
+    Vulkan& vk, 
     DescriptorSetLayout layout,
     String debug_name);
 
-  void destroy(Renderer& renderer);
+  void destroy(Vulkan& vk);
 
   void update(
-    Renderer& renderer, 
+    Vulkan& vk, 
     u32 binding,
     u32 array_offset,
     Slice<ImageDescriptor> images);
 
   void update(
-    Renderer& renderer,
+    Vulkan& vk,
     u32 binding,
     u32 array_offset,
     Slice<UniformBufferDescriptor> buffers);

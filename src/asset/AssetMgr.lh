@@ -34,7 +34,9 @@ struct AssetMgr
 
   mem::Allocator* allocator;
 
-  b8 init(mem::Allocator* allocator);
+  String data_mount;
+
+  b8 init(mem::Allocator* allocator, String data_mount);
   void deinit();
 
   // Allocates a block of memory as an Asset, returns a reference to it 

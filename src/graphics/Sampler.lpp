@@ -3,7 +3,6 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/Sampler.lh"
 @@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 @log.ger(gfx.sampler, Info)
 
@@ -12,7 +11,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-Sampler Sampler::create(Renderer& r, const CreateParams& params)
+Sampler Sampler::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -21,7 +20,7 @@ Sampler Sampler::create(Renderer& r, const CreateParams& params)
 $ local cerr = helpers.defCreateErr("gfx::Sampler", "name")
 
   VkSampler sampler;
-  if (!r.vk->createVkSampler(
+  if (!vk.createVkSampler(
         &sampler,
         imageFilterToVulkan(params.filter),
         imageAddressModeToVulkan(params.address_mode),
@@ -36,12 +35,12 @@ $ local cerr = helpers.defCreateErr("gfx::Sampler", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void Sampler::destroy(Renderer& r)
+void Sampler::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
-  r.vk->destroyVkSampler((VkSampler)handle);
+  vk.destroyVkSampler((VkSampler)handle);
 
   handle = nullptr;
 }

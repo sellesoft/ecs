@@ -5,7 +5,6 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/Buffer.lh"
 @@lpp.import "graphics/Geo.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 #include "iro/Logger.h"
 
@@ -16,7 +15,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-Buffer Buffer::create(Renderer& r, const CreateParams& params)
+Buffer Buffer::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -62,12 +61,12 @@ $ local cerr = helpers.defCreateErr("gfx::Buffer", "name")
     usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
   VkBuffer handle;
-  if (!r.vk->createVkBuffer(&handle, params.size, usage, name))
+  if (!vk.createVkBuffer(&handle, params.size, usage, name))
     return nil;
 
   auto failsafe_destroy_buffer = deferWithCancel
   {
-    r.vk->destroyVkBuffer(handle);
+    vk.destroyVkBuffer(handle);
   };
 
   VkMemoryPropertyFlags properties = 0;
@@ -82,10 +81,10 @@ $ end
   @mapprop(LazilyAllocated, LAZILY_ALLOCATED);
 
   VkMemoryRequirements memreq;
-  vkGetBufferMemoryRequirements(r.vk->device, handle, &memreq);
+  vkGetBufferMemoryRequirements(vk.device, handle, &memreq);
 
   DeviceHeapAllocation* ptr = 
-    r.vk->allocateAndBindVkBufferMemory(handle, properties, memreq);
+    vk.allocateAndBindVkBufferMemory(handle, properties, memreq);
 
   if (ptr == nullptr)
   {
@@ -95,7 +94,7 @@ $ end
 
   auto failsafe_deallocate = deferWithCancel
   {
-    r.vk->deallocate(ptr);
+    vk.deallocate(ptr);
   };
 
   void* mapped_data = nullptr;
@@ -112,7 +111,7 @@ $ end
     }
     else
     {
-      if (!r.vk->stageVkBufferMemory(
+      if (!vk.stageVkBufferMemory(
             params.data,
             params.size,
             handle,
@@ -127,7 +126,7 @@ $ end
   case MappingBehavior::Occasional:
     if (params.data != nullptr)
     {
-      if (!r.vk->mapCopyAndFlushVkBufferMemory(
+      if (!vk.mapCopyAndFlushVkBufferMemory(
             params.data,
             ptr->aligned_offset,
             params.size,
@@ -141,7 +140,7 @@ $ end
 
   case MappingBehavior::Persistent:
     {
-      if (!r.vk->mapVkBuffer(
+      if (!vk.mapVkBuffer(
             &mapped_data, 
             ptr->aligned_offset,
             ptr))
@@ -153,7 +152,7 @@ $ end
       if (params.data != nullptr)
       {
         mem::copy(mapped_data, params.data, params.size);
-        r.vk->flushMappedVkBuffer(
+        vk.flushMappedVkBuffer(
             ptr->aligned_offset, 
             VK_WHOLE_SIZE, 
             ptr);
@@ -162,15 +161,15 @@ $ end
     break;
   }
 
-  DeviceBuffer* internal_buffer = r.vk->buffer_pool.add();
+  DeviceBuffer* internal_buffer = vk.buffer_pool.add();
   internal_buffer->handle = handle;
   internal_buffer->ptr = ptr;
 
   if (params.usage == Buffer::UniformBuffer)
   {
-    if (!r.vk->allocateVkDescriptorSet(
+    if (!vk.allocateVkDescriptorSet(
           &internal_buffer->set,
-          &(VkDescriptorSetLayout&)r.default_ubo_set_layout.handle,
+          &vk.default_ubo_set_layout,
           name))
     {
       @cerr("failed to allocate descriptor set");
@@ -184,7 +183,7 @@ $ end
       .range = params.size,
     };
 
-    r.vk->updateVkDescriptorSet_Buffer(
+    vk.updateVkDescriptorSet_Buffer(
       internal_buffer->set,
       VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
       0,
@@ -202,7 +201,7 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-void Buffer::destroy(Renderer& r)
+void Buffer::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
@@ -212,20 +211,20 @@ void Buffer::destroy(Renderer& r)
   auto* internal_buffer = (DeviceBuffer*)handle;
 
   if (internal_buffer->set != VK_NULL_HANDLE)
-    r.vk->deallocateVkDescriptorSet(internal_buffer->set);
+    vk.deallocateVkDescriptorSet(internal_buffer->set);
 
   // Unmapping when this is not mapped is safe and handled in this call.
-  r.vk->unmapVkBuffer(internal_buffer->ptr);
-  r.vk->destroyVkBuffer(internal_buffer->handle);
-  r.vk->deallocate(internal_buffer->ptr);
+  vk.unmapVkBuffer(internal_buffer->ptr);
+  vk.destroyVkBuffer(internal_buffer->handle);
+  vk.deallocate(internal_buffer->ptr);
 
-  r.vk->buffer_pool.remove(internal_buffer);
+  vk.buffer_pool.remove(internal_buffer);
   handle = nullptr;
 }
 
 /* ----------------------------------------------------------------------------
  */
-void* Buffer::map(Renderer& r)
+void* Buffer::map(Vulkan& vk)
 {
   if (isnil(*this))
   {
@@ -237,7 +236,7 @@ void* Buffer::map(Renderer& r)
 
   TRACE("mapping ", *this, "\n");
 
-  if (!r.vk->mapVkBuffer(
+  if (!vk.mapVkBuffer(
       &mapped_data, 
       internal_buffer->ptr->aligned_offset,
       internal_buffer->ptr))
@@ -248,7 +247,7 @@ void* Buffer::map(Renderer& r)
 
 /* ----------------------------------------------------------------------------
  */
-b8 Buffer::flush(Renderer& r, u64 offset, u64 size)
+b8 Buffer::flush(Vulkan& vk, u64 offset, u64 size)
 {
   if (isnil(*this))
     return ERROR("attempt to flush a nil gfx::Buffer\n");
@@ -270,12 +269,12 @@ b8 Buffer::flush(Renderer& r, u64 offset, u64 size)
     dev_size = ptr->aligned_size;
 
   // NOTE(sushi) size and offset are aligned inside this call.
-  return r.vk->flushMappedVkBuffer(dev_offset, dev_size, internal_buffer->ptr);
+  return vk.flushMappedVkBuffer(dev_offset, dev_size, internal_buffer->ptr);
 }
 
 /* ----------------------------------------------------------------------------
  */
-b8 Buffer::copyAndFlush(Renderer& r, void* data, u64 size)
+b8 Buffer::copyAndFlush(Vulkan& vk, void* data, u64 size)
 {
   if (isnil(*this))
     return ERROR("attempt to copy and flush a nil gfx::Buffer\n");
@@ -297,16 +296,16 @@ b8 Buffer::copyAndFlush(Renderer& r, void* data, u64 size)
   if (size == FLUSH_WHOLE_BUFFER)
     dev_size = VK_WHOLE_SIZE;
   else 
-    dev_size = alignUp(size, r.vk->getHeap(ptr)->alignment);
+    dev_size = alignUp(size, vk.getHeap(ptr)->alignment);
 
   DEBUG("dsize: ", dev_size, '\n');
 
-  return r.vk->flushMappedVkBuffer(dev_offset, dev_size, ptr);
+  return vk.flushMappedVkBuffer(dev_offset, dev_size, ptr);
 }
 
 /* ----------------------------------------------------------------------------
  */
-void Buffer::unmap(Renderer& r)
+void Buffer::unmap(Vulkan& vk)
 {
   if (isnil(*this))
   {
@@ -318,7 +317,7 @@ void Buffer::unmap(Renderer& r)
 
   TRACE("unmapping ", *this, '\n');
 
-  if (!r.vk->unmapVkBuffer(internal_buffer->ptr))
+  if (!vk.unmapVkBuffer(internal_buffer->ptr))
     ERROR("attempt to unmap ", *this, " but it was already unmapped\n"); 
 }
 

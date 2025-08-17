@@ -12,6 +12,8 @@ $ require "common"
 namespace gfx
 {
 
+struct Vulkan;
+
 /* ============================================================================
  */
 struct RenderTarget
@@ -36,8 +38,8 @@ struct RenderTarget
     String debug_name;
   };
 
-  static RenderTarget create(Renderer& renderer, const CreateParams& params);
-  void destroy(Renderer& renderer);
+  static RenderTarget create(Vulkan& vk, const CreateParams& params);
+  void destroy(Vulkan& vk);
 
   DefineNilTrait(RenderTarget, {nil}, isnil(x.image))
 };

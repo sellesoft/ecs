@@ -3,7 +3,6 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/Pipeline.lh"
 @@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 @@lpp.import "graphics/Pipeline.defs.lh"
 
@@ -14,7 +13,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-Pipeline Pipeline::create(Renderer& r, const CreateParams& params)
+Pipeline Pipeline::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -37,11 +36,11 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
   SmallArray<VkPushConstantRange, 8> push_constant_ranges;
   for (const PushConstant& pc : params.layout.push_constant_ranges)
   {
-    if (pc.size > r.vk->physical_device_properties.limits.maxPushConstantsSize)
+    if (pc.size > vk.physical_device_properties.limits.maxPushConstantsSize)
     {
       @cerr("requested push constant size is greater than the selected "
             "device's maximum (", pc.size, " > ", 
-            r.vk->physical_device_properties.limits.maxPushConstantsSize, ')');
+            vk.physical_device_properties.limits.maxPushConstantsSize, ')');
       return nil;
     }
 
@@ -65,7 +64,7 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
   }
 
   VkPipelineLayout layout;
-  if (!r.vk->createVkPipelineLayout(
+  if (!vk.createVkPipelineLayout(
         &layout,
         descriptor_set_layouts.asSlice(),
         push_constant_ranges.asSlice(),
@@ -77,14 +76,14 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
 
   auto failsafe_destroy_layout = deferWithCancel
   {
-    r.vk->destroyVkPipelineLayout(layout);
+    vk.destroyVkPipelineLayout(layout);
   };
 
   auto* vert_shader = (DeviceShader*)params.vertex_shader.handle;
   auto* frag_shader = (DeviceShader*)params.fragment_shader.handle;
 
   VkPipeline pipeline;
-  if (!r.vk->createVkPipeline(
+  if (!vk.createVkPipeline(
         &pipeline,
         layout,
         vert_shader->module,
@@ -96,7 +95,7 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
     return nil;
   }
 
-  DevicePipeline* dev_pipeline = r.vk->pipeline_pool.add();
+  DevicePipeline* dev_pipeline = vk.pipeline_pool.add();
   dev_pipeline->pipeline = pipeline;
   dev_pipeline->layout = layout;
 
@@ -107,12 +106,12 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
 
 /* ----------------------------------------------------------------------------
  */
-Pipeline Pipeline::create(Renderer& r, const PipelineDef& def)
+Pipeline Pipeline::create(Vulkan& vk, const PipelineDef& def)
 {
   DescriptorSetLayout layouts[2] = 
   {
-    r.default_ubo_set_layout,
-    r.default_sampler_set_layout,
+    DescriptorSetLayout{vk.default_ubo_set_layout},
+    DescriptorSetLayout{vk.default_sampler_set_layout},
   };
 
   PushConstant push_constant = 
@@ -135,23 +134,23 @@ Pipeline Pipeline::create(Renderer& r, const PipelineDef& def)
     .debug_name = def.name,
   };
 
-  return create(r, params);
+  return create(vk, params);
 }
 
 /* ----------------------------------------------------------------------------
  */
-void Pipeline::destroy(Renderer& r)
+void Pipeline::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
 
   auto* pipeline = (DevicePipeline*)handle;
 
-  r.vk->destroyVkPipeline(pipeline->pipeline);
-  r.vk->destroyVkPipelineLayout(pipeline->layout);
+  vk.destroyVkPipeline(pipeline->pipeline);
+  vk.destroyVkPipelineLayout(pipeline->layout);
 
   handle = nullptr;
-  r.vk->pipeline_pool.remove(pipeline);
+  vk.pipeline_pool.remove(pipeline);
 }
 
 }

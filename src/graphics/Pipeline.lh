@@ -15,7 +15,7 @@ using namespace iro;
 namespace gfx
 {
 
-struct Renderer;
+struct Vulkan;
 struct PipelineDef;
 
 struct Pipeline
@@ -49,10 +49,10 @@ struct Pipeline
 
   // TODO(sushi) maybe just make all the gfx objects have a Def and 
   //             use that instead of a CreateParams?
-  static Pipeline create(Renderer& renderer, const CreateParams& params);
-  static Pipeline create(Renderer& renderer, const PipelineDef& def);
+  static Pipeline create(Vulkan& vk, const CreateParams& params);
+  static Pipeline create(Vulkan& vk, const PipelineDef& def);
 
-  void destroy(Renderer& renderer);
+  void destroy(Vulkan& vk);
 
   DefineNilTrait(Pipeline, {nullptr}, x.handle == nullptr);
 };

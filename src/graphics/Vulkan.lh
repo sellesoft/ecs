@@ -693,6 +693,13 @@ struct Vulkan
   //             support displaying multiple at the moment so don't have a
   //             reason to yet.
   Window* window;
+
+  // The default descriptor set layouts used for sampled textures and buffers.
+  // I would like to get rid of this and have it so that the user may define
+  // these, but at the moment I'd rather not complicate the internals and apis
+  // to do so, so for now shaders are just retricted to how these are set up.
+  VkDescriptorSetLayout default_sampler_set_layout;
+  VkDescriptorSetLayout default_ubo_set_layout;
 };
 
 /* ----------------------------------------------------------------------------

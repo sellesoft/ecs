@@ -32,15 +32,15 @@ struct Pipeline;
 struct Vulkan;
 
 /* ============================================================================
+ *  TODO(sushi) remove ownership of Vulkan from this. We should probably also
+ *              just rework this to be an interface to emitting render 
+ *              commands to Vulkan, where it can just be created on the 
+ *              stack and used temporarily.
  */
 struct Renderer
 {
   mem::Allocator* allocator;
   
-  // Temp until I figure out how to manage textures better.
-  DescriptorSetLayout default_sampler_set_layout;
-  DescriptorSetLayout default_ubo_set_layout;
-
   // TODO(sushi) does this need to be here? it can probably just be stored
   //             on Vulkan.
   u32 next_image;

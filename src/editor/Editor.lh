@@ -10,6 +10,7 @@ $ require "common"
 @@lpp.import "window/Window.lh"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "build/BuildSystem.lh"
+@@lpp.import "graphics/TextureResource.lh"
 
 /* ============================================================================
  */
@@ -18,9 +19,12 @@ struct Editor
   InputMgr input;
   Window window;
   gfx::Renderer renderer;
+  gfx::ResourceMgr resource_mgr;
   build::BuildSystem build_system;
+  ui::UI ui;
 
   EditorSkinDefLink l_skin;
+  gfx::TextureLink l_white_texture;
 
   struct InitParams
   {

@@ -17,6 +17,7 @@ $ require "common"
 @@lpp.import "build/BuildSystem.lh"
 
 @@lpp.import "reflect/RTR.lh"
+@@lpp.import "asset/Linker.lh"
 
 @log.ger(editor, Info)
 
@@ -41,6 +42,9 @@ b8 Editor::init(const InitParams& params)
 
   if (!renderer.init(renderer_params))
     return ERROR("failed to initialize Renderer\n");
+
+  if (!resource_mgr.init(renderer.vk))
+    return ERROR("failed to initialize ResourceMgr\n");
 
   build::Rule build_rules[] = 
   {
@@ -72,10 +76,33 @@ b8 Editor::init(const InitParams& params)
   build_system.buildAssetList("src/editor/Editor.asset_list"_str);
   build_system.buildAssetList("src/ui/UI.asset_list"_str);
 
-  Asset* asset = params.engine.assetmgr.loadAssetFromDisk(
-      "_data/assets/skins/Editor.skin.data"_str);
+  l_skin.name = "assets/skins/Editor"_str;
 
-  rtr::prettyPrint(*asset);
+  linkData(
+    "EditorSkinDefLink"_typeid, 
+    &l_skin, 
+    resource_mgr, 
+    params.engine.assetmgr);
+
+  l_white_texture.name = "assets/textures/white"_str;
+
+  linkData(
+    "gfx::TextureLink"_typeid,
+    &l_white_texture,
+    resource_mgr,
+    params.engine.assetmgr);
+
+  ui::UI::InitParams ui_params = 
+  {
+    .renderer = renderer,
+    .resource_mgr = resource_mgr,
+    .asset_mgr = params.engine.assetmgr,
+    .viewport = Rect::from(0,0,window.size.x,window.size.y),
+    .white_texture = l_white_texture.getHandle(),
+  };
+
+  if (!ui.init(ui_params))
+    return ERROR("failed to init UI\n");
 
   return true;
 }
@@ -120,6 +147,23 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (window_result.size_changed)
     renderer.onWindowResized(vec2u(window.size));
 
+  InputState ui_input;
+  input.cloneInputState(&ui_input);
+
+  ui::UI::FrameParams ui_frame_params = 
+  {
+    .input = ui_input,
+    .viewport = Rect::from(vec2f(0,0), vec2f(window.size)),
+  };
+
+  ui.beginFrame(ui_frame_params);
+  {
+    const EditorSkinDef& skin = *l_skin;
+
+    ui.putText(Rect::from(0,0,10,10), "hello"_str, skin.text);
+  }
+  ui.endFrame();
+
   if (!window_result.size_changed && renderer.beginFrame())
   {
     gfx::RenderTarget swapchain_target;
@@ -132,7 +176,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
           swapchain_target,
           0x000000ff))
     {
-      
+      ui.render(renderer, Rect::from({0,0}, vec2f(window.size)));
       renderer.endRenderPass();
     }
 

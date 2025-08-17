@@ -11,7 +11,7 @@ $ require "common"
 namespace gfx
 {
 
-struct Renderer;
+struct Vulkan;
 
 /* ============================================================================
  */
@@ -27,8 +27,8 @@ struct Sampler
     String debug_name;
   };
 
-  static Sampler create(Renderer& renderer, const CreateParams& params);
-  void destroy(Renderer& renderer);
+  static Sampler create(Vulkan& vk, const CreateParams& params);
+  void destroy(Vulkan& vk);
 
   DefineNilTrait(Sampler, {nullptr}, x.handle == nullptr);
 };

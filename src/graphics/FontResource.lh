@@ -1,5 +1,28 @@
 /*
  *  A Font asset managed by the ResourceMgr.
+ *
+ *  TODO(sushi) currently this resource is an edge case in the whole automated
+ *              linking and asset hot-reloading set up. Since fonts output 
+ *              their texture as a secondary output, we have to handle both
+ *              the font's compiled data and compiled texture. While it would
+ *              be nice to just use a TextureLink for its texture, we can't atm
+ *              because it will want to load an asset with type 
+ *              'texture.compiled' and not 'font.texture.compiled', as is the 
+ *              type of font textures. We don't currently have a good way to 
+ *              override the asset type loaded while also keeping it a 
+ *              TextureLink, so for now FontResources will just manaully 
+ *              manage their texture's gpu objects.
+ *              On the brightside, this is at least somewhat better from a 
+ *              performance point-of-view, since we don't have to deref a 
+ *              TextureLink to get at a font's texture handle.
+ *
+ *              Really though.. this is only an issue cause I want to keep
+ *              Resource linking automated. We could just pass ResourceLinks
+ *              to the ResourceMgr and have it handle them entirely, but..
+ *              I'd like to see this work. If this edge case causes anymore
+ *              problems in the future, though, just passing links to the 
+ *              ResourceMgr is probably the best solution. Resources (probably)
+ *              shouldn't change very much anyways.
  */
 $ require "common"
 $ local metadata = require "reflect.Metadata"
@@ -13,13 +36,24 @@ namespace gfx
 
 /* ============================================================================
  */
+@metadata.links(font.texture.compiled)
+typedef CompiledTextureLink CompiledFontTextureLink;
+
+/* ============================================================================
+ */
 struct FontResource
 {
   // A link to the compiled data asset of this Font.
   CompiledFontLink compiled_font;
 
-  // A TextureResource containing this Font's compiled texture.
-  TextureResource texture;
+  // A link to this font's compiled Texture.
+  CompiledFontTextureLink compiled_texture;
+
+  // The graphics objects for this font's Texture.
+  Image         image;
+  ImageView     view;
+  Sampler       sampler;
+  DescriptorSet descriptor_set;
 };
 
 @metadata.links(font.compiled;font.texture.compiled)
@@ -27,7 +61,7 @@ struct FontLink : TypedResourceLink<FontResource>
 {
   TextureHandle getTextureHandle() const
   {
-    return { get().texture.descriptor_set };
+    return { get().descriptor_set };
   }
 };
 

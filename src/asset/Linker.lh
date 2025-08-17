@@ -1,3 +1,13 @@
 /*
  *  Provides an interface for linking assets.
  */
+
+namespace rtr { struct TypeId; }
+namespace gfx { struct ResourceMgr; }
+struct AssetMgr;
+
+b8 linkData(
+    rtr::TypeId type, 
+    void* data, 
+    gfx::ResourceMgr& resource_mgr, 
+    AssetMgr& asset_mgr);

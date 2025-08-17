@@ -3,7 +3,6 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/ImageView.lh"
 @@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Renderer.lh"
 
 #include "iro/containers/StackArray.h"
 
@@ -14,7 +13,7 @@ namespace gfx
 
 /* ----------------------------------------------------------------------------
  */
-ImageView ImageView::create(Renderer& r, const CreateParams& params)
+ImageView ImageView::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
@@ -56,7 +55,7 @@ $ local cerr = helpers.defCreateErr("gfx::ImageView", "name")
   }
 
   VkImageView view;
-  if (!r.vk->createVkImageView(
+  if (!vk.createVkImageView(
         &view,
         internal_image->handle,
         imageFormatToVulkan(params.format),
@@ -72,7 +71,7 @@ $ local cerr = helpers.defCreateErr("gfx::ImageView", "name")
 
 /* ----------------------------------------------------------------------------
  */
-void ImageView::destroy(Renderer& r)
+void ImageView::destroy(Vulkan& vk)
 {
   if (isnil(*this))
     return;
@@ -86,8 +85,8 @@ void ImageView::destroy(Renderer& r)
   // the swapchain..
   // This needs to be done better eventually, but I just wanna get stuff
   // working again!
-  if (!r.vk->isSwapchainView(handle))
-    r.vk->destroyVkImageView((VkImageView)handle);
+  if (!vk.isSwapchainView(handle))
+    vk.destroyVkImageView((VkImageView)handle);
 
   handle = nullptr;
 }

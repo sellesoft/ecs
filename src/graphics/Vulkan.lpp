@@ -2233,16 +2233,14 @@ DeviceHeapAllocation* Vulkan::allocate(
       if (size_after_alloc < alignment)
       {
         DeviceHeapBlock& block = heap.blocks[free_chunk.block_index];
-        heap.allocations.add(free_chunk);
+        result = heap.allocations.add(free_chunk);
         heap.free_chunks.remove(&free_chunk);
 
-        free_chunk.aligned_offset = chunk_aligned_offset;
-        free_chunk.aligned_size = aligned_size;
+        result->aligned_offset = chunk_aligned_offset;
+        result->aligned_size = aligned_size;
 
-        assert(isAligned(free_chunk.aligned_offset, alignment));
-        assert(isAligned(free_chunk.aligned_size, alignment));
-
-        result = &free_chunk;
+        assert(isAligned(result->aligned_offset, alignment));
+        assert(isAligned(result->aligned_size, alignment));
       }
       else
       {

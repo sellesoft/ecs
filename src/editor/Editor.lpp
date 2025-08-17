@@ -3,6 +3,10 @@ $ require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
+#include "iro/concurrent/Atomic.h"
+#include "iro/concurrent/ConditionVar.h"
+#include "iro/concurrent/Mutex.h"
+
 @@lpp.import "editor/Editor.lh"
 
 @@lpp.import "Engine.lh"
@@ -20,6 +24,120 @@ $ require "common"
 @@lpp.import "asset/Linker.lh"
 
 @log.ger(editor, Info)
+
+struct BuildThread
+{
+  enum class State
+  {
+    Idle,
+    RequestBuild,
+    Building,
+
+    BuildSuccess,
+    BuildFailed,
+  };
+
+  conc::Thread thread;
+  conc::Atomic<State> state;
+  conc::ConditionVar signal;
+  conc::Mutex mutex;
+  conc::Atomic<b8> terminate;
+
+  build::BuildSystem* build_system;
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 init(build::BuildSystem* build_system)
+  {
+    this->build_system = build_system;
+
+    state.storeRelaxed(State::Idle);
+    terminate.storeRelaxed(false);
+
+    signal = conc::ConditionVar::create();
+    mutex = conc::Mutex::create();
+
+    thread = conc::Thread::create(this, [](void* opaque) -> void*
+    {
+      ((BuildThread*)opaque)->worker();
+      return nullptr;
+    });
+
+    return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 isIdle() const
+  {
+    return state.loadSeqCst() == State::Idle;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void requestBuild()
+  {
+    assert(isIdle());
+    state.storeSeqCst(State::RequestBuild);
+    signal.signalOne();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 isBuilding() const
+  {
+    return state.loadSeqCst() == State::Building;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 hasResult() const
+  {
+    State current = state.loadSeqCst();
+    return current == State::BuildSuccess || current == State::BuildFailed;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 consumeResult()
+  {
+    State result = state.loadSeqCst();
+    assert(result == State::BuildSuccess || result == State::BuildFailed);
+    state.storeSeqCst(State::Idle);
+    return result == State::BuildSuccess;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void worker()
+  {
+    for (;;)
+    {
+      // Sleep until the thread's state is set to RequestBuild or until
+      // termination is requested.
+      mutex.lock();
+      while (state.loadSeqCst() != State::RequestBuild && 
+             !terminate.loadSeqCst())
+      {
+        signal.wait(mutex);
+      }
+      mutex.unlock();
+
+      if (terminate.loadSeqCst())
+        break;
+
+      // If we didn't wake up due to a termination request, then we have to 
+      // be in the RequestBuild state.
+      assert(state.loadSeqCst() == State::RequestBuild);
+
+      state.storeSeqCst(State::Building);
+
+      b8 success = build_system->build();
+
+      state.storeSeqCst(success? State::BuildSuccess : State::BuildFailed);
+    }
+  }
+};
 
 /* ----------------------------------------------------------------------------
  */
@@ -104,6 +222,11 @@ b8 Editor::init(const InitParams& params)
   if (!ui.init(ui_params))
     return ERROR("failed to init UI\n");
 
+  build_thread = mem::stl_allocator.construct<BuildThread>();
+  build_thread->init(&build_system);
+
+  start_time = TimePoint::monotonic();
+
   return true;
 }
 
@@ -160,7 +283,14 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   {
     const EditorSkinDef& skin = *l_skin;
 
-    ui.putText(Rect::from(0,0,10,10), "hello"_str, skin.text);
+    f32 time = (TimePoint::monotonic() - start_time).toSeconds();
+
+    vec2f pos = {};
+    pos.x = (cos(time) + 1) / 2.f * window.size.x;
+    pos.y = (sin(time) + 1) / 2.f * window.size.y;
+    pos = floor(pos);
+
+    ui.putText(Rect::from(pos.x, pos.y, 10, 10), "hello"_str, skin.text);
   }
   ui.endFrame();
 
@@ -190,7 +320,15 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   }
 
   if (input.real_state.wasKeyPressed(Key::B))
-    build_system.build();
+  {
+    if (build_thread->isIdle())
+      build_thread->requestBuild();
+  }
+
+  if (build_thread->hasResult())
+  {
+    build_thread->consumeResult();
+  }
 
   return result;
 }

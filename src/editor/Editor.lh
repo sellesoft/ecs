@@ -2,6 +2,7 @@ $ require "common"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
+#include "iro/concurrent/Thread.h"
 
 @@lpp.import "editor/Skin.defs.lh"
 
@@ -11,6 +12,8 @@ $ require "common"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "build/BuildSystem.lh"
 @@lpp.import "graphics/TextureResource.lh"
+
+struct BuildThread;
 
 /* ============================================================================
  */
@@ -25,6 +28,11 @@ struct Editor
 
   EditorSkinDefLink l_skin;
   gfx::TextureLink l_white_texture;
+
+  BuildThread* build_thread;
+
+  // Set when the Editor finishes initializing.
+  TimePoint start_time;
 
   struct InitParams
   {

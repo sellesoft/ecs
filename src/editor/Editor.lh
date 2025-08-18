@@ -11,7 +11,8 @@ $ require "common"
 @@lpp.import "window/Window.lh"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "build/BuildSystem.lh"
-@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/Texture.resource.lh"
+@@lpp.import "asset/AssetMgr.lh"
 
 struct BuildThread;
 
@@ -21,18 +22,30 @@ struct Editor
 {
   InputMgr input;
   Window window;
+
+  build::BuildSystem build_system;
+
   gfx::Renderer renderer;
   gfx::ResourceMgr resource_mgr;
-  build::BuildSystem build_system;
+
+  AssetMgr asset_mgr;
+
   ui::UI ui;
 
   EditorSkinDefLink l_skin;
   gfx::TextureLink l_white_texture;
 
+  gfx::TextureLink l_test_texture;
+
   BuildThread* build_thread;
+
+  u8 buffer[255];
+  s32 buffer_len;
 
   // Set when the Editor finishes initializing.
   TimePoint start_time;
+
+  TimePoint frame_mark_time;
 
   struct InitParams
   {

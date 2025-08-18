@@ -32,13 +32,13 @@ struct CompiledData;
 namespace build
 {
 
+typedef iro::DLinkedPool<Target> TargetPool;
+typedef iro::DList<Target> TargetList;
+
 /* ============================================================================
  */
 struct BuildSystem
 {
-  typedef iro::DLinkedPool<Target> TargetPool;
-  typedef iro::DList<Target> TargetList;
-
   // A pool where we keep all Targets the BuildSystem is aware of in memory.
   TargetPool targets;
 
@@ -94,12 +94,17 @@ struct BuildSystem
 
   // Executes a fresh build on all currently cached Targets. This clears 
   // their state and reevaluates if any needs built.
-  b8 build();
+  // A TargetList may be provided, which will have each Target built within
+  // this call added to it.
+  b8 build(TargetList* built_targets = nullptr);
+
+  void resetTargetState();
+  b8 anyTargetHasNewerPrereqs();
 
   // The primary build loop of the BuildSystem. Searches for Targets to queue
   // for build, then builds them, until no more targets are found to need 
   // built.
-  b8 buildTargets();
+  b8 buildTargets(TargetList* built_targets = nullptr);
 
   // Contains logic for finding Targets to queue for building.
   b8 queueTargets();

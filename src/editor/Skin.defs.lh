@@ -15,6 +15,9 @@ struct EditorSkinDef
   ui::ButtonSkin button;
   ui::DropDownSkin dropdown;
   ui::ButtonSkin dropdown_option;
+  ui::ScrollBarSkin scroll_bar;
+
+  ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
 };

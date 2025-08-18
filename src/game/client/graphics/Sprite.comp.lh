@@ -6,7 +6,7 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "game/shared/component/Component.lh"
-@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/Texture.resource.lh"
 @@lpp.import "reflect/types/StringMap.lh"
 @@lpp.import "asset/CompiledData.lh"
 

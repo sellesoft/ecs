@@ -35,7 +35,7 @@ button_base = { text = text }
 
 button = 
 {
-  normal = button_base : { item = { color = dark_blue, } },
+  normal = button_base : { item = { color = dark_blue,  } },
   hovered = button_base : { item = { color = blue, } },
   pressed = button_base : { item = { color = light_blue, } },
 }
@@ -82,6 +82,35 @@ return EditorSkinDef
   },
 
   dropdown_option = dropdown_button,
+
+  scroll_bar = 
+  {
+    thumb = button,
+    rail = { color = rich_black },
+    thumb_size = 5,
+    rail_size = 5,
+  },
+
+  text_field = 
+  {
+    box = 
+    {
+      text = text : 
+      {
+        align = {0.5, 0.5},
+      },
+      item = 
+      {
+        color = dark_blue,
+        border = { 1,1,1,1 },
+        border_color = {155,155,155},
+      }
+    },
+
+    padding = {4, 0},
+
+    cursor_color = {255,255,255},
+  },
 
   text = text,
 }

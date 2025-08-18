@@ -100,9 +100,9 @@ b8 GameRenderer::init(InitParams& params)
   // if (!loader.load(&quad_pipeline_defref, "assets/shaders/Quad"_str))
   //   return ERROR("failed to load quad pipeline def\n");
 
-  quad_pipeline = gfx::Pipeline::create(*renderer.vk, *quad_pipeline_defref);
-  if (isnil(quad_pipeline))
-    return ERROR("failed to initialize quad pipeline\n");
+  // quad_pipeline = gfx::Pipeline::create(*renderer.vk, *quad_pipeline_defref);
+  // if (isnil(quad_pipeline))
+  //   return ERROR("failed to initialize quad pipeline\n");
 
   return true;
 }

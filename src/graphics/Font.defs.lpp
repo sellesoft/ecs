@@ -1,7 +1,7 @@
 $ require "common"
 
 @@lpp.import "graphics/Font.defs.lh"
-@@lpp.import "graphics/FontResource.lh"
+@@lpp.import "graphics/Font.resource.lh"
 @@lpp.import "build/Target.lh"
 @@lpp.import "build/Rule.lh"
 @@lpp.import "build/Result.lh"

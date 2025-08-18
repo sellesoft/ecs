@@ -28,7 +28,7 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @@lpp.import "graphics/CompiledFont.lh"
-@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/Texture.resource.lh"
 @@lpp.import "graphics/ResourceLink.lh"
 
 namespace gfx

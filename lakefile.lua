@@ -23,7 +23,7 @@ end
 --             for doing that yet, though.
 -- TODO(sushi) command for building with/without this since it doesn't work
 --             under debuggers.
-local asan = true
+local asan = false
 
 local objs = List {}
 

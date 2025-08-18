@@ -11,7 +11,7 @@
 #include "iro/Unicode.h"
 #include "iro/containers/AVL.h"
 #include "iro/containers/LinkedPool.h"
-#include "iro/fs/Path.h"
+#include "iro/fs/fs.h"
 #include "iro/memory/Allocator.h"
 #include "iro/memory/Bump.h"
 
@@ -39,19 +39,16 @@ struct AssetMgr
   b8 init(mem::Allocator* allocator, String data_mount);
   void deinit();
 
-  // Allocates a block of memory as an Asset, returns a reference to it 
-  // and registers it with 'name'. The given size is allocated AFTER 
-  // the Asset structure.
-  //
-  // This will assert if an Asset with the given name already exists, as 
-  // these functions are expected to be called when we know that the 
-  // wanted Asset doesn't already exist!
-  Asset* allocateAsset(String name);
+  String formAssetPath(fs::PathBuffer* buffer, String name, String type) const;
 
+  Asset* allocateAsset(String name);
   Asset* loadAssetFromDisk(String name, String type);
+  Asset* reloadAsset(String name, String type);
+  Asset* tryReloadAsset(String name, String type);
 
   void unloadAsset(Asset* asset);
 
   // Attempts to find an asset from a given name and returns it.
-  Asset* findAsset(String name) const;
+  Asset* findAsset(String name, String type) const;
+  Asset* findAsset(String path) const;
 };

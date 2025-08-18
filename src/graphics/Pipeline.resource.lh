@@ -1,0 +1,37 @@
+/*
+ *  A Pipeline managed by the ResourceMgr.
+ *  
+ *  This is really only a thing because when we tell Vulkan we want to use 
+ *  a shader, we bind a pipeline. Before this, pipelines were just defined 
+ *  as data that links Shaders, but simply reloading a Shader isn't enough
+ *  since it belongs to a pipeline. 
+ */
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@@lpp.import "graphics/Pipeline.defs.lh"
+@@lpp.import "graphics/Pipeline.lh"
+@@lpp.import "graphics/ResourceLink.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+struct PipelineResource
+{
+  PipelineDataLink data;
+
+  Pipeline handle;
+};
+
+@metadata.links(pipeline.data)
+struct PipelineLink : TypedResourceLink<PipelineResource>
+{
+  Pipeline getHandle() const
+  {
+    return get().handle;
+  }
+};
+
+}

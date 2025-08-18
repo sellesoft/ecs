@@ -26,6 +26,9 @@ b8 ResourceMgr::init(Vulkan* vk)
   if (!fonts.init())
     return false;
 
+  if (!pipelines.init())
+    return false;
+
   return true;
 }
 
@@ -36,6 +39,7 @@ void ResourceMgr::deinit()
   textures.deinit();
   shaders.deinit();
   fonts.deinit();
+  pipelines.deinit();
 }
 
 /* ----------------------------------------------------------------------------
@@ -76,12 +80,30 @@ FontResource* ResourceMgr::getOrCreateFontResource(String name)
 
 /* ----------------------------------------------------------------------------
  */
+PipelineResource* ResourceMgr::getOrCreatePipelineResource(String name)
+{
+  auto* r = pipelines.find(name);
+
+  if (r == nullptr)
+    r = pipelines.create(name);
+
+  return &r->resource;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 ResourceMgr::loadTextureResource(TextureResource* texture)
 {
   auto* r = Resource<TextureResource>::fromResource(texture);
 
   if (r->is_loaded)
-    return true;
+  {
+    r->contained_assets.clear();
+    unloadTextureResource(texture);
+  }
+
+  r->contained_assets.push(
+    {texture->compiled_texture.name, "texture.compiled"_str});
 
   const CompiledTexture& compiled = texture->compiled_texture.get();
   
@@ -148,11 +170,27 @@ b8 ResourceMgr::loadTextureResource(TextureResource* texture)
 
 /* ----------------------------------------------------------------------------
  */
+void ResourceMgr::unloadTextureResource(TextureResource* texture)
+{
+  texture->image.destroy(*vk);
+  texture->view.destroy(*vk);
+  texture->sampler.destroy(*vk);
+  texture->descriptor_set.destroy(*vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 ResourceMgr::loadShaderResource(ShaderResource* shader)
 {
   auto* r = Resource<ShaderResource>::fromResource(shader);
   if (r->is_loaded)
-    return true;
+  {
+    r->contained_assets.clear();
+    unloadShaderResource(shader);
+  }
+
+  r->contained_assets.push(
+    {shader->compiled_shader.name, "shader.compiled"_str});
 
   const CompiledShader& compiled = shader->compiled_shader.get();
 
@@ -172,11 +210,25 @@ b8 ResourceMgr::loadShaderResource(ShaderResource* shader)
 
 /* ----------------------------------------------------------------------------
  */
+void ResourceMgr::unloadShaderResource(ShaderResource* shader)
+{
+  shader->handle.destroy(*vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 ResourceMgr::loadFontResource(FontResource* font)
 {
   auto* r = Resource<FontResource>::fromResource(font);
   if (r->is_loaded)
-    return true;
+  {
+    r->contained_assets.clear();
+    unloadFontResource(font);
+  }
+
+  r->contained_assets.push({font->compiled_font.name, "font.compiled"_str});
+  r->contained_assets.push(
+    {font->compiled_texture.name, "font.texture.compiled"_str});
 
   const CompiledTexture& compiled = font->compiled_texture.get();
   
@@ -239,7 +291,123 @@ b8 ResourceMgr::loadFontResource(FontResource* font)
 
   r->is_loaded = true;
   return true;
+}
 
+/* ----------------------------------------------------------------------------
+ */
+void ResourceMgr::unloadFontResource(FontResource* font)
+{
+  font->descriptor_set.destroy(*vk);
+  font->view.destroy(*vk);
+  font->sampler.destroy(*vk);
+  font->image.destroy(*vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ResourceMgr::loadPipelineResource(PipelineResource* pipeline)
+{
+  auto* r = Resource<PipelineResource>::fromResource(pipeline);
+  if (r->is_loaded)
+  {
+    r->contained_assets.clear();
+    unloadPipelineResource(pipeline);
+  }
+
+  const PipelineDef& def = *pipeline->data;
+
+  r->contained_assets.push({
+    pipeline->data.name, "pipeline.data"_str});
+
+  r->contained_assets.push(
+    {def.vertex_shader->compiled_shader.name.allocateCopy(), 
+    "shader.compiled"_str});
+
+  r->contained_assets.push(
+    {def.fragment_shader->compiled_shader.name.allocateCopy(), 
+    "shader.compiled"_str});
+
+  pipeline->handle = gfx::Pipeline::create(*vk, def);
+  if (isnil(pipeline->handle))
+    return false;
+
+  r->is_loaded = true;
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ResourceMgr::unloadPipelineResource(PipelineResource* pipeline)
+{
+  pipeline->handle.destroy(*vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ResourceMgr::notifyAssetChanged(String name, String type)
+{
+  // NOTE(sushi) the way this is done is very bad, I'm just lazy.
+  //             All this is doing is searching all loaded resources for if
+  //             they 'contain' an asset matching the given name and type
+  //             and reloads it if so. This information needs stored better 
+  //             so we can actually look these up quickly and only deal with
+  //             what actually deals with a given asset. Or it should be done
+  //             a completely different way, idk.
+
+  for (auto& texture : textures.map)
+  {
+    for (auto& contained : texture.contained_assets)
+    {
+      if (contained.name == name && contained.type == type)
+      {
+        INFO("reloading ", texture.name, " because it contains ", 
+             name, '.', type, '\n');
+        loadTextureResource(&texture.resource);
+      }
+    }
+  }
+
+  for (auto& shader : shaders.map)
+  {
+    for (auto& contained : shader.contained_assets)
+    {
+      if (contained.name == name && contained.type == type)
+      {
+        INFO("reloading ", shader.name, " because it contains ", 
+             name, '.', type, '\n');
+        loadShaderResource(&shader.resource);
+      }
+    }
+  }
+
+  for (auto& font : fonts.map)
+  {
+    for (auto& contained : font.contained_assets)
+    {
+      if (contained.name == name && contained.type == type)
+      {
+        INFO("reloading ", font.name, " because it contains ", 
+             name, '.', type, '\n');
+        loadFontResource(&font.resource);
+      }
+    }
+  }
+
+  for (auto& pipeline : pipelines.map)
+  {
+    INFO(pipeline.name, '\n');
+    for (auto& contained : pipeline.contained_assets)
+    {
+      INFO(contained.name, ' ', contained.type, "\n");
+
+      if (contained.name == name && contained.type == type)
+      {
+        INFO("reloading ", pipeline.name, " because it contains ", 
+             name, '.', type, '\n');
+        loadPipelineResource(&pipeline.resource);
+      }
+    }
+  }
 }
 
 }

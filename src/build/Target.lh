@@ -95,6 +95,12 @@ struct Target
   // types found within.
   TargetSet linked_targets;
 
+  // A set of Targets that are expected to built as secondary outputs 
+  // of the Rule that builds this Target.
+  // TODO(sushi) explain why this is here later or remove if I think of a 
+  //             nicer way to handle this.
+  TargetSet secondary_targets;
+
   enum class Flag
   {
     MissingPrereqs,

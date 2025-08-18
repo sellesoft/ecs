@@ -7,6 +7,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
   "src/**/*.defs.lh",
   "src/**/*.comp.lh",
+  "src/**/*.resource.lh",
 }
 
 local ResourceLink = astctx:lookupTypeDecl "gfx::ResourceLink"
@@ -288,6 +289,10 @@ $               "asset type it links\n")
     WARN("unable to link asset type $(decl.qname) because it did not specify "
          "metadata.links\n");
 $   else
+    
+    if (isnil(data->name))
+      return true; // nothing to link.
+
     data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
 
     if (data->asset == nullptr)
@@ -321,6 +326,9 @@ $   local rtname = resource_decl.type.name
    */
   $(declareDeclLinker(decl))
   {
+    if (isnil(data->name))
+      return true; // nothing to link.
+
     // Resource.
     // Ask the ResourceMgr to create the resource or give us it if it already
     // exists.

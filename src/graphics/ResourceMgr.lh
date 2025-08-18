@@ -5,11 +5,13 @@
 $ require "common"
 
 #include "iro/containers/AVL.h"
+#include "iro/containers/Array.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "graphics/TextureResource.lh"
-@@lpp.import "graphics/ShaderResource.lh"
-@@lpp.import "graphics/FontResource.lh"
+@@lpp.import "graphics/Texture.resource.lh"
+@@lpp.import "graphics/Shader.resource.lh"
+@@lpp.import "graphics/Font.resource.lh"
+@@lpp.import "graphics/Pipeline.resource.lh"
 
 using namespace iro;
 
@@ -28,6 +30,14 @@ struct ResourceMgr
     String name = nil;
     T  resource;
     b8 is_loaded = false;
+
+    struct ContainedAsset
+    {
+      String name; 
+      String type;
+    };
+
+    iro::Array<ContainedAsset> contained_assets;
 
     static u64 getAVLKey(const Resource<T>& x) { return x.name.hash(); }
 
@@ -70,7 +80,8 @@ struct ResourceMgr
     {
       Resource<T>* r = pool.add();
 
-      r->name = name;
+      r->name = name.allocateCopy();
+      r->contained_assets.init();
       map.insert(r);
 
       return r;
@@ -80,21 +91,34 @@ struct ResourceMgr
   ResourcePool<TextureResource> textures;
   ResourcePool<ShaderResource> shaders;
   ResourcePool<FontResource> fonts;
+  ResourcePool<PipelineResource> pipelines;
 
   b8 init(Vulkan* vk);
   void deinit();
 
   // Gets a resource if it already exists, or creates a new (uninitialized)
   // resource.
-  TextureResource* getOrCreateTextureResource(String name);
-  ShaderResource*  getOrCreateShaderResource(String name);
-  FontResource*    getOrCreateFontResource(String name);
+  TextureResource*  getOrCreateTextureResource(String name);
+  // TODO(sushi) I don't think there's any reason to have these as a resource
+  //             anymore since reloading them isnt possible w/o reloading the 
+  //             entire pipeline.
+  ShaderResource*   getOrCreateShaderResource(String name);
+  FontResource*     getOrCreateFontResource(String name);
+  PipelineResource* getOrCreatePipelineResource(String name);
 
   // Loads the given resource onto the GPU and such, or does nothing if its 
   // already loaded.
   b8 loadTextureResource(TextureResource* texture);
   b8 loadShaderResource(ShaderResource* shader);
   b8 loadFontResource(FontResource* font);
+  b8 loadPipelineResource(PipelineResource* pipeline);
+
+  void unloadTextureResource(TextureResource* texture);
+  void unloadShaderResource(ShaderResource* shader);
+  void unloadFontResource(FontResource* font);
+  void unloadPipelineResource(PipelineResource* pipeline);
+
+  void notifyAssetChanged(String name, String type);
 
   // TODO(sushi) it is a bit weird to store Vulkan like this, but I would 
   //             prefer to avoid needing gfx::Renderer to properly load 

@@ -40,8 +40,6 @@ struct Engine
 
   BroadcastEventBus broadcast_eventbus;
 
-  AssetMgr assetmgr;
-
   hr::Reloader* reloader;
 
   // Time point at which the Engine finished initialization.

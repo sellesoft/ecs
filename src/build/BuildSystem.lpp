@@ -182,20 +182,15 @@ b8 BuildSystem::buildAssetList(String path)
 
 /* ----------------------------------------------------------------------------
  */
-b8 BuildSystem::build()
+b8 BuildSystem::build(TargetList* built_targets)
 {
   INFO("building available targets...\n");
 
   auto start_time = TimePoint::monotonic();
 
-  for (Target& target : targets)
-  {
-    DEBUG("resetting ", target, "\n");
-    target.cacheExistance();
-    target.flags.unset(Target::Flag::UpToDate);
-  }
+  resetTargetState();
 
-  b8 result = buildTargets();
+  b8 result = buildTargets(built_targets);
 
   INFO("build ", 
     result? color::green("succeeded"_str) : color::red("failed"_str),
@@ -205,10 +200,37 @@ b8 BuildSystem::build()
 }
 
 /* ----------------------------------------------------------------------------
+ */
+void BuildSystem::resetTargetState()
+{
+  for (Target& target : targets)
+  {
+    DEBUG("resetting ", target, "\n");
+    target.cacheExistance();
+    target.flags.unset(Target::Flag::UpToDate);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::anyTargetHasNewerPrereqs()
+{
+  resetTargetState();
+
+  for (Target& target : targets)
+  {
+    if (target.hasNewerPrereqs())
+      return true;
+  }
+
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
  *  The primary build loop which runs until there are no more targets in the 
  *  queue.
  */
-b8 BuildSystem::buildTargets()
+b8 BuildSystem::buildTargets(TargetList* built_targets)
 {
   for (;;)
   {
@@ -248,13 +270,28 @@ b8 BuildSystem::buildTargets()
         .result = &result,
       };
 
+      auto build_start = TimePoint::monotonic();
+
       rule->interface.build(build_params);
+
+      next_target->build_time = TimePoint::monotonic() - build_start;
 
       if (result.wasSuccessful())
       {
-        INFO("built ", *next_target, '\n');
+        INFO("built ", *next_target, " in ", 
+             WithUnits(next_target->build_time), '\n');
         next_target->flags.set(Target::Flag::UpToDate);
         next_target->cacheExistance();
+
+        if (built_targets != nullptr)
+        {
+          built_targets->pushTail(next_target);
+
+          // Also notify caller about secondary Targets that would have been
+          // been built (if any).
+          for (Target& target : next_target->secondary_targets)
+            built_targets->pushTail(&target);
+        }
         
         // Write out the meta file of this Target so that we can use the 
         // cached information we've gathered in following builds.
@@ -441,6 +478,13 @@ b8 BuildSystem::queueTargets()
               rule->types.subToFirst(';'),
               // Another reason we should prob ask the Rule.
               TargetKind::Unknown);
+
+            // Also note on the primary Target this secondary Target.
+            // This is used so that when a TargetList is provided to 
+            // get what Targets have been built, we can also output 
+            // secondaries (since those never appear in the actual build
+            // queue).
+            target.primary_target->secondary_targets.insert(&target);
           }
 
           primary_target = target.primary_target;

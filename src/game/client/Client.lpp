@@ -44,6 +44,8 @@ static void handleConnectCommand(void* context, const CommandArgs& args)
  */
 b8 Client::init(Engine* engine)
 {
+
+$ if false then
   this->engine = engine;
 
 $ local function init(act, name)
@@ -78,7 +80,7 @@ $ end
     .assetmgr = engine->assetmgr,
   };
   @init(sim.init(sim_params), cl::GameSim);
-
+$ end
   return true;
 }
 

@@ -38,7 +38,6 @@ $ local initSystem = function(act, name)
 $ end
 
   @initSystem(broadcast_eventbus.init(),                broadcast event bus);
-  @initSystem(assetmgr.init(&mem::stl_allocator, "_data"_str),    asset mgr);
 
   Editor::InitParams editor_params = 
   {
@@ -60,7 +59,6 @@ $ end
 void Engine::deinit()
 {
   editor.deinit();
-  assetmgr.deinit();
   broadcast_eventbus.deinit();
 }
 

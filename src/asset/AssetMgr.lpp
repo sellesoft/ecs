@@ -55,6 +55,17 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+String AssetMgr::formAssetPath(
+    fs::PathBuffer* buffer, 
+    String name, 
+    String type) const
+{
+  io::formatv(buffer, data_mount, '/', name, '.', type);
+  return String(*buffer);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 Asset* AssetMgr::allocateAsset(String name)
 {
   u64 name_hash = name.hash();
@@ -80,9 +91,8 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
 {
   using namespace fs;
   
-  io::StaticBuffer<512> path_buffer;
-  io::formatv(&path_buffer, data_mount, '/', name, '.', type);
-  String path = String(path_buffer);
+  PathBuffer path_buffer;
+  String path = formAssetPath(&path_buffer, name, type);
 
   u64 name_hash = path.hash();
   if (Asset* existing = map.find(name_hash))
@@ -126,6 +136,54 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
 
 /* ----------------------------------------------------------------------------
  */
+Asset* AssetMgr::reloadAsset(String name, String type)
+{
+  using namespace fs;
+
+  PathBuffer path_buffer;
+  String path = formAssetPath(&path_buffer, name, type);
+
+  u64 name_hash = path.hash();
+  
+  Asset* asset = map.find(name_hash);
+  if (asset == nullptr)
+  {
+    ERROR("attempt to reload asset ", name, '.', type, " but it is not "
+          "known to the AssetMgr\n");
+    return nullptr;
+  }
+
+  auto file = File::from(path, OpenFlag::Read);
+  if (isnil(file))
+  {
+    ERROR("failed to open asset file at '", path, "'\n");
+    return nullptr;
+  }
+
+  Stat stat;
+  fs::stat(path, &stat);
+
+  allocator->free(asset->data);
+
+  asset->size = stat.byte_size;
+  asset->data = allocator->allocate(asset->size);
+
+  assert(asset->size == file.read({(u8*)asset->data, asset->size}));
+
+  return asset;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Asset* AssetMgr::tryReloadAsset(String name, String type)
+{
+  if (nullptr != findAsset(name, type))
+    return reloadAsset(name, type);
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void AssetMgr::unloadAsset(Asset* asset)
 {
 // NOTE(sushi) disabling because something is currently broken in the AVL
@@ -148,7 +206,15 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-Asset* AssetMgr::findAsset(String name) const
+Asset* AssetMgr::findAsset(String path) const
 {
-  return map.find(name.hash());
+  return map.find(path.hash());
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Asset* AssetMgr::findAsset(String name, String type) const
+{
+  iro::fs::PathBuffer path_buffer;
+  return findAsset(formAssetPath(&path_buffer, name, type));
 }

@@ -29,6 +29,9 @@ b8 Target::init(String name, String type, String mount, TargetKind kind)
   if (!linked_targets.init())
     return ERROR("failed to initialize linked targets set\n");
 
+  if (!secondary_targets.init())
+    return ERROR("failed to initialize secondary targets set\n");
+
   rule = nullptr;
   primary_target = nullptr;
   modtime = nil;
@@ -49,6 +52,7 @@ void Target::deinit()
   dependents.deinit();
   prerequisites.deinit();
   linked_targets.deinit();
+  secondary_targets.deinit();
   flags.clear();
   modtime = nil;
   kind = TargetKind::Unknown;

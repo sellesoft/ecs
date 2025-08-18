@@ -18,10 +18,10 @@ $ require "common"
 #include "Color.h"
 
 @@lpp.import "graphics/TextureHandle.lh"
-@@lpp.import "graphics/TextureResource.lh"
+@@lpp.import "graphics/Texture.resource.lh"
 @@lpp.import "graphics/Buffer.lh"
 @@lpp.import "graphics/Pipeline.lh"
-@@lpp.import "graphics/Pipeline.defs.lh"
+@@lpp.import "graphics/Pipeline.resource.lh"
 @@lpp.import "graphics/RenderTarget.lh"
 @@lpp.import "graphics/Texture.defs.lh"
 

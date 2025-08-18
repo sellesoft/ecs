@@ -2,7 +2,7 @@ $ require "common"
 $ local m = require "reflect.Metadata"
 
 @@lpp.import "asset/CompiledData.lh"
-@@lpp.import "graphics/ShaderResource.lh"
+@@lpp.import "graphics/Shader.resource.lh"
 
 namespace gfx
 {
@@ -24,6 +24,6 @@ struct PipelineDef
 };
 
 @m.links(pipeline.data)
-struct PipelineLink : TypedCompiledDataLink<PipelineDef> {};
+struct PipelineDataLink : TypedCompiledDataLink<PipelineDef> {};
 
 }

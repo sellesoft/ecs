@@ -44,10 +44,6 @@ b8 UI::init(InitParams& params)
     params.resource_mgr,
     params.asset_mgr);
 
-  pipeline = gfx::Pipeline::create(*renderer.vk, *l_pipeline);
-  if (isnil(pipeline))
-    return ERROR("failed to initialize UI pipeline\n");
-
   vertex_buffer = gfx::Buffer::create(
     *renderer.vk,
     {
@@ -234,7 +230,7 @@ void UI::endFrame(InputState* consumed_input)
   Layer* top_layer = nullptr;
 
   // TODO(sushi) this sucks and we need to track the top layer while a 
-  //             UI frame is active. We didn't originally because rendering
+  //             UI frame is active. We did originally because rendering
   //             and UI logic were performed in this function, but due to 
   //             how the rendering api is now we can no longer do that.
   for (Layer* layer = root_layer; layer; layer = layer->next)
@@ -353,10 +349,12 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
 {
   // Bind UI's gfx objects.
   TRACE("binding ui gfx objects\n");
-  renderer.bindPipeline(pipeline);
+  renderer.bindPipeline(l_pipeline.getHandle());
   renderer.bindVertexBuffer(vertex_buffer);
   renderer.bindIndexBuffer(index_buffer);
   renderer.setViewport({0,0}, viewport.size());
+
+  frame_viewport = viewport;
 
   // Map the draw info buffers.
   TRACE("mapping ui draw info buffers\n");
@@ -990,6 +988,9 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
   cursor.y = bounds.y + skin.align.y * (bounds.h - text_size.y);
   cursor = round(cursor);
 
+  auto* group = getCurrentGroup();
+  vec2f group_screen_pos = group->transform.getTranslation();
+
   vec2f text_pos = cursor;
 
   while (!text.isEmpty())
@@ -1020,13 +1021,18 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
 
         auto glyph_size = vec2f(pc.x1 - pc.x0, pc.y1 - pc.y0);
 
-        // TODO(sushi) group quad commands so we aren't storing 
-        //             the same texture and color over and over again.
-        putQuad(
-          Rect::from(cursor, glyph_size), 
-          skin.font.getTextureHandle(),
-          uv,
-          skin.color);
+        f32 cursor_viewport_y = cursor.y + group_screen_pos.y;
+
+        if (cursor_viewport_y > 0.f && cursor_viewport_y < frame_viewport.h)
+        {
+          // TODO(sushi) group quad commands so we aren't storing 
+          //             the same texture and color over and over again.
+          putQuad(
+            Rect::from(cursor, glyph_size), 
+            skin.font.getTextureHandle(),
+            uv,
+            skin.color);
+        }
 
         cursor.x += pc.xadvance;
       }
@@ -1459,7 +1465,7 @@ void UI::endScrollGroup(const ScrollBarSkin& skin)
   if (!drag_scroll && 
       screen_bounds.containsPoint(frame_input.getCursorPos()))
   {
-    *scroll_value -= frame_input.consumeScroll();
+    *scroll_value -= 11.f * frame_input.consumeScroll();
   }
 
   *scroll_value = floor(max(0.f, min(max_scroll, *scroll_value)));
@@ -1528,6 +1534,7 @@ void QuadDrawCmd::execute(UI& ui, gfx::Renderer& renderer)
 {
   TRACE("execute draw quad ", bounds.pos(), " ", bounds.size(), 
         " ", color, "\n");
+
 
   renderer.bindTexture(texture);
 

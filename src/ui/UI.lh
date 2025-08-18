@@ -12,7 +12,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/Pipeline.lh"
 @@lpp.import "graphics/Shader.lh"
 @@lpp.import "graphics/TextureHandle.lh"
-@@lpp.import "graphics/Pipeline.defs.lh"
+@@lpp.import "graphics/Pipeline.resource.lh"
 
 @@lpp.import "input/InputState.lh"
 
@@ -378,6 +378,9 @@ struct UI
 
   void beginFrame(const FrameParams& params);
   void endFrame(InputState* consumed_input = nullptr);
+
+  // TODO(sushi) remove.
+  Rect frame_viewport;
 
   // NOTE(sushi) UI state is not cleared in endFrame but here, for now.
   //             I need to clean that up later but i want to be done with 

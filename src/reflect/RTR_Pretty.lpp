@@ -296,6 +296,13 @@ $     local subtype = type.subtype
 $     callTypePrinter(subtype, valaccess.."[i]")
         if (i != $(type.len) - 1)
           io::format(out, '\n');
+
+        if (opts.hide_long_arrays && i >= 10)
+        {
+          indent();
+          io::formatv(out, "... ", $(type.len) - i, " more elems\n");
+          break;
+        }
       }
     }
 $   else
@@ -331,6 +338,13 @@ $   end
   $(declareDeclPrinter(decl))
   {
     @scopedIndent
+      
+    if (opts.depth_limit && depth > opts.depth_limit)
+    {
+      indent();
+      io::format(out, "...");
+      return;
+    }
 
 $ if decl.base then
     indent();
@@ -380,7 +394,8 @@ $ -- * ------------------------------------------------------------------------
 $ local function putArrayPrinter(decl)
 $   local subtype = decl.args[1]
 $   putTypePrinter(subtype)
-$   local len_access = decl.specialized == reflect_types.Array and "len" or "len()"
+$   local len_access = decl.specialized == 
+$         reflect_types.Array and "len" or "len()"
 
   /* --------------------------------------------------------------------------
    */
@@ -403,6 +418,13 @@ $   local len_access = decl.specialized == reflect_types.Array and "len" or "len
 $     callTypePrinter(subtype, "val[i]")
       if (i != val.$(len_access) - 1)
         io::format(out, '\n');
+
+      if (opts.hide_long_arrays && i >= 10)
+      {
+        indent();
+        io::formatv(out, "[", val.$(len_access) - i, " more elems..]\n");
+        break;
+      }
     }
   }
 $ end
@@ -494,6 +516,55 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putDLinkedPoolPrinter(decl)
+$   local subtype = decl.args[1]
+$   local subdecl = subtype:desugar().decl
+$   print(subdecl)
+    $(declareDeclPrinter(decl))
+    {
+      for (auto& elem : val)
+      {
+        @scopedIndent
+$   callTypePrinter(subtype, "elem")
+        io::format(out, '\n');
+      }
+    }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putDListPrinter(decl)
+$   local subtype = decl.args[1]
+  $(declareDeclPrinter(decl))
+  {
+    @scopedIndent
+
+    for (auto& elem : val)
+    {
+      @scopedIndent
+$     callTypePrinter(subtype, "elem")
+      io::format(out, '\n');
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putAVLPrinter(decl)
+$   local subtype = decl.args[1]
+  $(declareDeclPrinter(decl))
+  {
+    for (auto& elem : val)
+    {
+      @scopedIndent
+$    callTypePrinter(subtype, "elem")
+      io::format(out, '\n');
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putTemplateSpecPrinter(decl)
 $   for arg in decl.args:each() do
 $     if ast.Type:isTypeOf(arg) then
@@ -504,6 +575,12 @@ $
 $   local name = decl.specialized_name
 $   if name == "Array" or name == "ArrayDef" then
 $     putArrayPrinter(decl)
+$   elseif name == "AVL" then
+$     putAVLPrinter(decl)
+$   elseif name == "DList" then
+$     putDListPrinter(decl)
+$   elseif name == "DLinkedPool" then
+$     putDLinkedPoolPrinter(decl)
 $   elseif name == "Flags" then
 $     putFlagsPrinter(decl)
 $   elseif name == "StringMap" then
@@ -535,6 +612,7 @@ $ local function putRefPrinter(decl)
   }
 $   decl.user.break_before_field = false
 $ end
+
 
 $ -- * ------------------------------------------------------------------------
 
@@ -623,6 +701,10 @@ void prettyPrint(
     const void* val,
     const PrettyPrintOpts& opts)
 {
+  b8 was_color_allowed = iro::io::g_allow_color;
+  if (opts.disable_color)
+    iro::io::g_allow_color = false;
+
   Printer printer(out, opts);
 
   switch (type.val)
@@ -635,6 +717,8 @@ $ end
   }
 
   io::format(out, '\n');
+
+  iro::io::g_allow_color = was_color_allowed;
 }
 
 /* ----------------------------------------------------------------------------

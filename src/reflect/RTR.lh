@@ -47,6 +47,9 @@ String getEnumElementName(T x);
 struct PrettyPrintOpts
 {
   b8 deref_ptrs = false;
+  b8 disable_color = false;
+  u32 depth_limit = 0;
+  b8 hide_long_arrays = true;
 };
 
 void prettyPrint(

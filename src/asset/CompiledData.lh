@@ -18,7 +18,7 @@ struct Asset;
 struct Ref;
 struct SourceData;
 
-namespace build { struct Rule; }
+namespace build { struct Rule; struct Result; }
 
 /* ============================================================================
  *  Note that this structure reprensents the header of the compiled data 
@@ -88,6 +88,8 @@ struct CompiledData
     //             rather wait until iro's IO model is rewritten or otherwise
     //             improved before trying to use that here.
     String output_path;
+
+    build::Result* result;
   };
 
   static b8 compile(const CompileParams& params);
@@ -99,7 +101,10 @@ struct CompiledData
   //             Maybe add a thing to get the required size later (which
   //             also sucks cause that would be checking something on disk
   //             to do so).
-  static CompiledData* load(String path, mem::Allocator* allocator);
+  static CompiledData* load(
+    String path, 
+    mem::Allocator* allocator,
+    build::Result* result);
 
   // Gets the loaded data as the specified C++ type. Note that currently there 
   // are no safety checks for if the provided 'T' actually matches the type the 

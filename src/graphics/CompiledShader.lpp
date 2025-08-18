@@ -13,6 +13,7 @@ $ require "common"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "graphics/CompiledShader.lh"
 @@lpp.import "graphics/Shader.defs.lh"
+@@lpp.import "build/Result.lh"
 
 namespace gfx
 {
@@ -20,6 +21,19 @@ namespace gfx
 @defFileLogger(gfx.shader, Debug)
 
 typedef io::StaticBuffer<512> PathBuffer;
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename... Args>
+b8 buildError(build::Result* result, Args... args)
+{
+  if (result != nullptr)
+    result->pushError(args...);
+  else
+    ERROR(args..., '\n');
+
+  return false;
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -45,53 +59,70 @@ b8 compileShader(const CompileShaderParams& params)
   String out = params.output_path;
 
   if (isnil(in))
-    return ERROR("compileShader was not given an input path\n");
+    return buildError(params.result, 
+      "compileShader was not given an input path");
 
   if (isnil(out))
-    return ERROR("compileShader was not given an output path\n");
+    return buildError(params.result, 
+      "compileShader was not given an output path");
 
   // Open (and lock) the destination file immediately to catch any errors 
   // with doing so early (such as the containing directory not existing).
   File data_file = File::createForTruncatedWriting(out);
   if (isnil(data_file))
-    return ERROR("failed to open output file '", out, "'\n");
+    return buildError(params.result, 
+      "failed to open output file '", out, "'");
   defer { data_file.close(); };
+
+  auto failsafe_delete_datafile = deferWithCancel
+  {
+    fs::unlink(out);
+  };
 
   // Load the compiled ShaderDef.
   mem::LenientBump compiled_data_allocator;
   if (!compiled_data_allocator.init())
-    return ERROR("failed to initialize compiled_data_allocator to load "
-                 "ShaderDef for shader '", in, "'\n");
+    return buildError(params.result, 
+      "failed to initialize compiled_data_allocator to load ShaderDef for " 
+      "shader '", in, "'");
   defer { compiled_data_allocator.deinit(); };
 
-  auto* compiled_def = CompiledData::load(in, &compiled_data_allocator);
+  auto* compiled_def = CompiledData::load(
+    in, 
+    &compiled_data_allocator,
+    params.result);
+
   if (compiled_def == nullptr)
-    return ERROR("failed to load compiled ShaderDef for shader '", in, "'\n");
+    return buildError(params.result, 
+      "failed to load compiled ShaderDef for shader '", in, "'");
   compiled_def->fixPointers();
 
   ShaderDef* def = compiled_def->getRootAs<ShaderDef>();
   if (isnil(def->source))
-    return ERROR(
-      "shader def for shader '", in, "' does not specify a source path\n");
+    return buildError(params.result, 
+      "shader def for shader '", in, "' does not specify a source path");
 
   io::Memory source_buffer;
   if (!source_buffer.open())
-    return ERROR("failed to init memory buffer for reading shader\n");
+    return buildError(params.result, 
+      "failed to init memory buffer for reading shader");
   defer { source_buffer.close(); };
 
   if (!File::openAndRead(&source_buffer, def->source))
-    return ERROR(
-      "failed to open/read shader source file '", def->source, "'\n");
+    return buildError(params.result, 
+      "failed to open/read shader source file '", def->source, "'");
 
   shaderc_compiler_t compiler = shaderc_compiler_initialize();
   if (compiler == nullptr)
-    return ERROR("failed to create shader compiler\n");
+    return buildError(params.result, 
+      "failed to create shader compiler");
   defer { shaderc_compiler_release(compiler); };
 
   shaderc_compile_options_t options = shaderc_compile_options_initialize();
   if (options == nullptr)
   {
-    return ERROR("failed to create shader compile options\n");
+    return buildError(params.result, 
+      "failed to create shader compile options");
   }
   defer { shaderc_compile_options_release(options); };
 
@@ -112,8 +143,8 @@ $ end -- if ECS_DEBUG
 
   if (   shaderc_result_get_compilation_status(result)
       != shaderc_compilation_status_success)
-    return ERROR("failed to compile shader: ",
-      shaderc_result_get_error_message(result), "\n");
+    return buildError(params.result, 
+      shaderc_result_get_error_message(result));
 
   u8* spv_binary_bytes = (u8*)shaderc_result_get_bytes(result);
   u64 spv_binary_length = shaderc_result_get_length(result);
@@ -127,6 +158,7 @@ $ end -- if ECS_DEBUG
   data_file.write({(u8*)&data, sizeof(CompiledShader)});
   data_file.write({spv_binary_bytes, spv_binary_length});
 
+  failsafe_delete_datafile.cancel();
   return true;
 }
 

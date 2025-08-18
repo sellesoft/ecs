@@ -25,6 +25,9 @@ b8 BuildSystem::init(const InitParams& params)
   if (isnil(params.compiled_mount))
     return ERROR("no compiled mount provided\n");
 
+  if (isnil(params.trash_mount))
+    return ERROR("no trash mount provided\n");
+
   if (isnil(params.rules))
     return ERROR("no build rules provided\n");
   
@@ -56,6 +59,7 @@ b8 BuildSystem::init(const InitParams& params)
   // the caller (me) having forgot to keep the Strings they gave us around.
   source_mount = params.source_mount.allocateCopy(&string_pool);
   compiled_mount = params.compiled_mount.allocateCopy(&string_pool);
+  trash_mount = params.trash_mount.allocateCopy(&string_pool);
 
   return true;
 }
@@ -116,9 +120,9 @@ static T* packSourceDataAs(String path, PackedData* packed)
 
 /* ----------------------------------------------------------------------------
  */
-b8 BuildSystem::buildAssetList(String path)
+b8 BuildSystem::loadAssetList(String path)
 {
-  INFO("building asset list '", path, "'\n");
+  INFO("loading asset list '", path, "'\n");
 
   auto start_time = TimePoint::monotonic();
 
@@ -170,14 +174,7 @@ b8 BuildSystem::buildAssetList(String path)
       WARN("asset '", asset, "' specified multiple times in asset list\n");
   }
 
-  // Start the main build loop for any targets found in the provided list.
-  b8 result = buildTargets();
-
-  INFO("build ", 
-    result? color::green("succeeded"_str) : color::red("failed"_str),
-    " in ", WithUnits(TimePoint::monotonic() - start_time), '\n');
-
-  return result;
+  return true;
 }
 
 /* ----------------------------------------------------------------------------
@@ -208,6 +205,7 @@ void BuildSystem::resetTargetState()
     DEBUG("resetting ", target, "\n");
     target.cacheExistance();
     target.flags.unset(Target::Flag::UpToDate);
+    target.flags.unset(Target::Flag::FailedLastBuild);
   }
 }
 
@@ -232,6 +230,7 @@ b8 BuildSystem::anyTargetHasNewerPrereqs()
  */
 b8 BuildSystem::buildTargets(TargetList* built_targets)
 {
+  b8 success = true;
   for (;;)
   {
     // Queue any Targets that are ready and need to be built.
@@ -273,8 +272,8 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
       auto build_start = TimePoint::monotonic();
 
       rule->interface.build(build_params);
-
       next_target->build_time = TimePoint::monotonic() - build_start;
+      next_target->last_build_time = TimePoint::monotonic();
 
       if (result.wasSuccessful())
       {
@@ -297,17 +296,38 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
         // cached information we've gathered in following builds.
         // TODO(sushi) do we also want to do this when the target fails?
         writeTargetMetaFile(next_target);
+
+        // Also write one for the Target's secondary outputs. This is currently
+        // only necessary to avoid deleting secondary targets when we find
+        // they don't have a metafile.
+        // TODO(sushi) this should be handled better.
+        for (Target& target : next_target->secondary_targets)
+          writeTargetMetaFile(&target);
       }
       else
       {
         // TODO(sushi) collect these to be shown at the end. This is 
         //             specifically important for multithreading.
-        ERROR("failed to build '", *next_target, "':\n", result.message, "\n");
+        ERROR("\nfailed to build '", *next_target, "'");
+        if (result.buffer.len == 0)
+          ERROR('\n');
+        else
+          ERROR(":\n", String(result.buffer), '\n');
+        next_target->flags.set(Target::Flag::FailedLastBuild);
+        success = false;
+        
+        // Trash the Target such that its non-existance will cause and 
+        // any dependents to be rebuilt next time a build happens. This is 
+        // especially important for if, for whatever reason, the process 
+        // crashes due to a failed build. We don't want the old data (or, 
+        // possibly corrupt data) to be there so that things don't just 
+        // assume it can load it.
+        trashTarget(next_target, "because it failed to build"_str);
       }
     }
   }
 
-  return true;
+  return success;
 }
 
 /* ----------------------------------------------------------------------------
@@ -424,6 +444,14 @@ b8 BuildSystem::queueTargets()
       if (target.isQueuedForBuild())
       {
         DEBUG(target, " is already queued for build\n");
+        continue;
+      }
+
+      // If the Target failed to build the last time we attempted to build it
+      // and it hasn't been updated since, don't try to build it again.
+      if (target.failedLastBuild())
+      {
+        DEBUG(target, " failed last build\n");
         continue;
       }
 
@@ -717,8 +745,17 @@ void BuildSystem::loadTargetMetaFile(Target* target)
   String meta_path = target->formFullMetaPath(&meta_path_buffer);
 
   if (!fs::path::exists(meta_path))
-    // Nothing to load, should be cached for next time.
+  {
+    // Check if the Target exists on disk. If it does, we assume that it 
+    // it is no longer valid because we do not have any metadata about it.
+    // So we just delete the file such that it is rebuilt.
+    if (target->exists() && isCompiledTarget(target->kind))
+    {
+      trashTarget(target, "because it is missing a .meta file"_str);
+      target->cacheExistance();
+    }
     return;
+  }
 
   PackedData packed_metadata;
   auto* metadata = 
@@ -784,7 +821,7 @@ static CompiledData* compilePackedAsset(
   if (!CompiledData::compile(compile_params))
     return nullptr;
 
-  return CompiledData::load(output_path, allocator);
+  return CompiledData::load(output_path, allocator, nullptr);
 }
 
 /* ----------------------------------------------------------------------------
@@ -817,7 +854,8 @@ CompiledData* BuildSystem::loadAsCompiledData(Target* target)
   PathBuffer path;
   CompiledData* compiled = CompiledData::load(
     target->formFullPath(&path), 
-    &compiled_data_allocator);
+    &compiled_data_allocator,
+    nullptr);
 
   if (compiled == nullptr)
     return nullptr;
@@ -825,6 +863,54 @@ CompiledData* BuildSystem::loadAsCompiledData(Target* target)
   compiled->fixPointers();
 
   return compiled;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BuildSystem::trashPath(String path, String trash_name, String reason)
+{
+  if (fs::path::exists(path))
+  {
+    NOTICE("trashing '", path, "'\n  reason: ", reason, "\n");
+
+    PathBuffer dest_path;
+    io::formatv(&dest_path, trash_mount, '/', trash_name);
+
+    // Ensure dest dir exists.
+    PathBuffer dest_dir;
+    io::formatv(&dest_dir, fs::path::removeBasename(String(dest_path)));
+    fs::mkdir(String(dest_dir), true);
+
+    fs::move(String(dest_path), path);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BuildSystem::trashTarget(Target* target, String reason)
+{
+  if (!isCompiledTarget(target->kind))
+  {
+    // Only allow trashing targets that are marked as compiled kind.
+    assert(!"build system attempted to trash a Target that is not compiled");
+  }
+
+  PathBuffer target_path;
+  PathBuffer target_trash_path;
+  PathBuffer target_meta_path;
+  PathBuffer target_meta_trash_path;
+
+  trashPath(
+    target->formFullPath(&target_path), 
+    target->formPath(&target_trash_path),
+    reason);
+
+  trashPath(
+    target->formFullMetaPath(&target_meta_path),
+    target->formMetaPath(&target_meta_trash_path),
+    reason);
+
+  target->cacheExistance();
 }
 
 }

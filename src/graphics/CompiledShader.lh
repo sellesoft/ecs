@@ -15,7 +15,7 @@ $ local metadata = require "reflect.Metadata"
 
 using namespace iro;
 
-namespace build { struct Rule; }
+namespace build { struct Rule; struct Result; }
 
 namespace gfx
 {
@@ -37,6 +37,8 @@ struct CompileShaderParams
   // Path to compiled ShaderDef defining this shader.
   String input_path;
   String output_path;
+
+  build::Result* result;
 };
 
 b8 compileShader(const CompileShaderParams& params);

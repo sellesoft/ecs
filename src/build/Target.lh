@@ -119,6 +119,8 @@ struct Target
     // can be used to build dependents.
     UpToDate,
 
+    FailedLastBuild,
+
     COUNT
   };
   typedef iro::Flags<Flag> Flags;
@@ -154,6 +156,13 @@ struct Target
   //             situations.
   TimeSpan build_time;
   TimeSpan get_prereqs_time;
+
+  // If this Target has been previously built since it was created, this notes
+  // the time at which it was built. This is primarily used in the case of 
+  // a Target having encountered an error in its last build so that when 
+  // BuildSystem is used to live build assets, we can check that the file 
+  // has been updated since it last failed to build.
+  TimePoint last_build_time;
   
   static u64 getAVLKey(const Target& x) { return x.id; }
 
@@ -166,6 +175,7 @@ struct Target
   b8 isUpToDate() const { return flags.test(Flag::UpToDate); }
   b8 isQueuedForBuild() const { return flags.test(Flag::QueuedForBuild); }
   b8 exists() const { return flags.test(Flag::Exists); }
+  b8 failedLastBuild() const { return flags.test(Flag::FailedLastBuild); }
 
   // Declare a dependency on another Target.
   void dependsOn(Target* prereq)
@@ -230,6 +240,12 @@ struct Target
   String formPath(PathBuffer* out) const
   {
     io::formatv(out, name, '.', type);
+    return String(*out);
+  }
+
+  String formMetaPath(PathBuffer* out) const
+  {
+    io::formatv(out, name, '.', type, ".meta"_str);
     return String(*out);
   }
 

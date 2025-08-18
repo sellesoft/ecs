@@ -30,7 +30,7 @@ static void fontGetPrereqs(const build::RuleParams_GetPrereqs& params)
   auto* compiled_def = params.build_system->loadAsCompiledData(data_target);
   if (compiled_def == nullptr)
   {
-    params.result->setError("failed to load compiled FontDef"_str);
+    params.result->pushError("failed to load compiled FontDef"_str);
     return;
   }
 
@@ -38,7 +38,7 @@ static void fontGetPrereqs(const build::RuleParams_GetPrereqs& params)
 
   if (isnil(font_def->name))
   {
-    params.result->setError("FontDef does not specify a source font"_str);
+    params.result->pushError("FontDef does not specify a source font"_str);
     return;
   }
   
@@ -72,13 +72,18 @@ static void fontBuild(const build::RuleParams_Build& params)
   build::PathBuffer target_path_buffer;
   build::PathBuffer target_texture_path_buffer;
   
-  b8 success = gfx::compileFont(
-    data_target->formFullPath(&data_path_buffer),
-    params.target->formFullPath(&target_path_buffer),
-    texture_target->formFullPath(&target_texture_path_buffer));
+  CompileFontParams compile_params = 
+  {
+    
+    .input_path = data_target->formFullPath(&data_path_buffer),
+    .output_path = params.target->formFullPath(&target_path_buffer),
+    .texture_output_path = 
+      texture_target->formFullPath(&target_texture_path_buffer),
 
-  if (!success)
-    params.result->setError();
+    .result = params.result,
+  };
+
+  gfx::compileFont(compile_params);
 }
 
 /* ----------------------------------------------------------------------------

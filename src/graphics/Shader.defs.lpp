@@ -34,7 +34,7 @@ static void shaderGetPrereqs(const RuleParams_GetPrereqs& params)
   auto* compiled_def = params.build_system->loadAsCompiledData(data_target);
   if (compiled_def == nullptr)
   {
-    params.result->setError("failed to load compiled ShaderDef"_str);
+    params.result->pushError("failed to load compiled ShaderDef"_str);
     return;
   }
 
@@ -42,7 +42,7 @@ static void shaderGetPrereqs(const RuleParams_GetPrereqs& params)
 
   if (isnil(shader_def->source))
   {
-    params.result->setError("ShaderDef does not specify a source shader"_str);
+    params.result->pushError("ShaderDef does not specify a source shader"_str);
     return;
   }
 
@@ -74,6 +74,7 @@ static void shaderBuild(const RuleParams_Build& params)
   {
     .input_path = data_target->formFullPath(&data_path_buffer),
     .output_path = params.target->formFullPath(&target_path_buffer),
+    .result = params.result,
   };
 
   if (!gfx::compileShader(compile_params))

@@ -191,18 +191,25 @@ b8 Editor::init(const InitParams& params)
   build::PathBuffer compiled_dir_buffer;
   io::formatv(&compiled_dir_buffer, cwd, "/_data"_str);
 
+  build::PathBuffer trash_dir_buffer;
+  io::formatv(&trash_dir_buffer, cwd, "/_trash"_str);
+
   build::BuildSystem::InitParams build_system_params = 
   {
     .source_mount = cwd,
     .compiled_mount = String(compiled_dir_buffer),
+    .trash_mount = String(trash_dir_buffer),
     .rules = makeSlice(build_rules),
   };
 
   if (!build_system.init(build_system_params))
     return ERROR("failed to initialize build system\n");
 
-  build_system.buildAssetList("src/editor/Editor.asset_list"_str);
-  build_system.buildAssetList("src/ui/UI.asset_list"_str);
+  build_system.loadAssetList("src/editor/Editor.asset_list"_str);
+  build_system.loadAssetList("src/ui/UI.asset_list"_str);
+
+  if (!build_system.build())
+    return ERROR("failed to build required Editor assets\n");
 
   l_skin.name = "assets/skins/Editor"_str;
 
@@ -364,7 +371,6 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     ui.putTextField("text_test"_fid, {300.f, 10.f, 100.f, 15.f}, 
       {buffer, &buffer_len, 255}, skin.text_field);
 
-
     io::StaticBuffer<64> fps_buffer;
     io::format(&fps_buffer, 1.f / delta);
     ui.putText(Rect::from(440.f, 10.f, 10.f, 10.f), String(fps_buffer), 
@@ -404,13 +410,10 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
   if (input.real_state.wasKeyPressed(Key::B))
   {
-    if (build_thread->isIdle())
-      build_thread->requestBuild();
-  }
+    INFO("---------------------------------------------------\n",
+         "  build requested by keybind...\n");
 
-  if (build_thread->isIdle())
-  {
-    if (build_system.anyTargetHasNewerPrereqs())
+    if (build_thread->isIdle())
       build_thread->requestBuild();
   }
 

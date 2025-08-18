@@ -57,8 +57,17 @@ struct BuildSystem
   String source_mount;
 
   // The directory in which built assets are expected to be found or 
-  // built to.
+  // built.
   String compiled_mount;
+
+  // The directory in which the build system will move Targets that need to 
+  // be deleted for one reason or another.
+  String trash_mount;
+
+  // Directory in which the build system will transfer any files that it 
+  // believes should be deleted such that they are not actually removed 
+  // from the file system. This is both for safety and for debugging what 
+  // the build system deletes.
 
   // An allocator for storing compiled data persistently. 
   // TODO(sushi) it would be ideal to get rid of this as it makes it easy 
@@ -80,6 +89,7 @@ struct BuildSystem
     // The mounts to use when finding or building targets.
     String source_mount;
     String compiled_mount;
+    String trash_mount;
     
     // A Slice of Rules to use to build Targets. Of course, since this is 
     // a view, these are expected to outlive the BuildSystem.
@@ -89,8 +99,8 @@ struct BuildSystem
   b8 init(const InitParams& params);
   void deinit();
   
-  // Builds all targets found in the asset list asset at 'path'.
-  b8 buildAssetList(String path);
+  // Loads all Targets from the asset list file at the given path.
+  b8 loadAssetList(String path);
 
   // Executes a fresh build on all currently cached Targets. This clears 
   // their state and reevaluates if any needs built.
@@ -147,6 +157,10 @@ struct BuildSystem
   // Again, another helper because I'm lazy. Needs to be removed once we 
   // get to multi-threading.
   CompiledData* loadAsCompiledData(Target* target);
+
+  // Functions for trashing files at a path or Targets.
+  void trashPath(String path, String trash_name, String reason);
+  void trashTarget(Target* target, String reason);
 };
 
 }

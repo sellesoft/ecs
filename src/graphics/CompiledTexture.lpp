@@ -12,6 +12,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/DescriptorSet.lh"
 @@lpp.import "graphics/Texture.defs.lh"
+@@lpp.import "build/Result.lh"
 
 #include "cassert"
 
@@ -28,24 +29,38 @@ typedef io::StaticBuffer<512> PathBuffer;
 
 /* ----------------------------------------------------------------------------
  */
+template<typename... Args>
+b8 buildError(build::Result* result, Args... args)
+{
+  if (result != nullptr)
+    result->pushError(args...);
+  else
+    ERROR(args..., '\n');
+
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 compileTextureFromMemory(
     String output_path,
     void* pixels, 
     u32 width,
     u32 height,
-    ImageFormat format)
+    ImageFormat format,
+    build::Result* result)
 {
   using namespace fs;
 
   if (isnil(output_path))
-    return ERROR(
-      "compileTextureFromMemory called with nil output path\n");
+    return buildError(result,
+      "compileTextureFromMemory called with nil output path");
 
   if (width == 0)
-    return ERROR("compileTextureFromMemory passed 0 width\n");
+    return buildError(result, "compileTextureFromMemory passed 0 width");
 
   if (height == 0)
-    return ERROR("compileTextureFromMemory passed 0 height\n");
+    return buildError(result, "compileTextureFromMemory passed 0 height");
 
   CompiledTexture data;
 
@@ -67,8 +82,9 @@ b8 compileTextureFromMemory(
 
   auto data_file = File::createForTruncatedWriting(output_path);
   if (isnil(data_file))
-    return ERROR("failed to open file for writing compiled texture at '",
-                 output_path, "'\n");
+    return buildError(result, 
+      "failed to open file for writing compiled texture at '",
+      output_path, "'");
 
   data_file.write({(u8*)&data, sizeof(CompiledTexture)});
   data_file.write({(u8*)pixels, pixels_size});
@@ -85,17 +101,18 @@ b8 compileTextureFromMemory(
     fs::File* file,
     u32 width,
     u32 height,
-    ImageFormat format)
+    ImageFormat format,
+    build::Result* result)
 {
   CompiledTexture data;
 
   assert(file != nullptr);
 
   if (height == 0)
-    return ERROR("compileTextureFromMemory passed 0 height\n");
+    return buildError(result, "compileTextureFromMemory passed 0 height");
 
   if (width == 0)
-    return ERROR("compileTextureFromMemory passed 0 width\n");
+    return buildError(result, "compileTextureFromMemory passed 0 width");
 
   data.format = format;
   data.width  = width;
@@ -121,43 +138,56 @@ b8 compileTextureFromMemory(
 
 /* ----------------------------------------------------------------------------
  */
-b8 compileTexture(String data_path, String output_path)
+b8 compileTexture(const CompileTextureParams& params)
 {
   using namespace fs;
 
+  String data_path = params.data_path;
+  String output_path = params.output_path;
+  build::Result* result = params.result;
+
   if (isnil(data_path))
-    return ERROR("compileTexture called with nil data path\n");
+    return buildError(result, "compileTexture called with nil data path");
 
   if (isnil(output_path))
-    return ERROR("compileTexture called with nil output path\n");
+    return buildError(result, "compileTexture called with nil output path");
 
   File out_file = File::createForTruncatedWriting(output_path);
   if (isnil(out_file))
-    return ERROR("failed to open file for writing compiled texture at '",
-                 output_path, "'\n");
+    return buildError(result, 
+      "failed to open file for writing compiled texture at '", 
+      output_path, "'");
   defer { out_file.close(); };
 
   mem::LenientBump compiled_data_allocator;
   if (!compiled_data_allocator.init())
-    return ERROR("failed to initialize temp compiled_data_allocator\n");
+    return buildError(result, 
+      "failed to initialize temp compiled_data_allocator");
   defer { compiled_data_allocator.deinit(); };
   
-  auto* compiled_def = CompiledData::load(data_path, &compiled_data_allocator);
+  auto* compiled_def = CompiledData::load(
+    data_path, 
+    &compiled_data_allocator,
+    params.result);
+
   if (compiled_def == nullptr)
-    return ERROR("failed to load compiled data from '", data_path, "'\n");
+    return buildError(result, 
+      "failed to load compiled data from '", data_path, "'");
+
   compiled_def->fixPointers();
 
   auto* def = compiled_def->getRootAs<TextureDef>();
   if (isnil(def->name))
-    return ERROR("texture def '", data_path, "' has no name\n");
+    return buildError(result, "texture def '", data_path, "' has no name\n");
 
   io::Memory buffer;
   if (!buffer.open())
-    return ERROR("failed to initialize buffer for reading texture file\n");
+    return buildError(result, 
+      "failed to initialize buffer for reading texture file");
   defer { buffer.close(); };
   
   if (!File::openAndRead(&buffer, def->name))
-    return ERROR("failed to open/read texture ", def->name, '\n');
+    return buildError(result, "failed to open/read texture ", def->name);
 
   int desired_channels = 0;
   switch (def->format)
@@ -169,7 +199,7 @@ b8 compileTexture(String data_path, String output_path)
   }
 
   if (desired_channels == 0)
-    return ERROR("invalid or missing texture format\n");
+    return buildError(result, "invalid or missing texture format");
 
   int width, height, channels;
   stbi_uc* pixels = stbi_load_from_memory(

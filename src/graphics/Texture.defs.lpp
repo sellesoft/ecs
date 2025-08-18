@@ -44,14 +44,14 @@ static void textureGetPrereqs(const RuleParams_GetPrereqs& params)
   auto* compiled_def = build_system->loadAsCompiledData(data_target);
   if (compiled_def == nullptr)
   {
-    params.result->setError("failed to load compiled TextureDef"_str);
+    params.result->pushError("failed to load compiled TextureDef"_str);
     return;
   }
 
   auto* texture_def = compiled_def->getRootAs<gfx::TextureDef>();
   if (isnil(texture_def->name))
   {
-    params.result->setError(
+    params.result->pushError(
       "TextureDef does not specify a source texture"_str);
     return;
   }
@@ -79,12 +79,14 @@ static void textureBuild(const RuleParams_Build& params)
   build::PathBuffer data_path_buffer;
   build::PathBuffer target_path_buffer;
 
-  b8 success = gfx::compileTexture(
-    data_target->formFullPath(&data_path_buffer),
-    params.target->formFullPath(&target_path_buffer));
+  CompileTextureParams compile_params = 
+  {
+    .data_path = data_target->formFullPath(&data_path_buffer),
+    .output_path = params.target->formFullPath(&target_path_buffer),
+    .result = params.result,
+  };
 
-  if (!success)
-    params.result->setError();
+  gfx::compileTexture(compile_params);
 }
 
 /* ----------------------------------------------------------------------------

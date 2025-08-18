@@ -23,7 +23,7 @@ using namespace iro;
 @@lpp.import "core/OffsetPtr.lh"
 @@lpp.import "graphics/Font.defs.lh"
 
-namespace build { struct Rule; }
+namespace build { struct Rule; struct Result; }
 
 namespace gfx 
 { 
@@ -109,10 +109,16 @@ struct CompiledFont
 @metadata.links(font.compiled)
 struct CompiledFontLink : TypedAssetLink<CompiledFont> {};
 
-b8 compileFont(
-  String input_path, 
-  String output_path,
-  String texture_output_path);
+struct CompileFontParams
+{
+  String input_path;
+  String output_path;
+  String texture_output_path;
+
+  build::Result* result;
+};
+
+b8 compileFont(const CompileFontParams& params);
 
 build::Rule getFontBuildRule();
 

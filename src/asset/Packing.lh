@@ -63,13 +63,11 @@ struct PackedData
 };
 
 /* ============================================================================
- *  Parameters specifying the destination of packing. 
- *  This is wrapping a single param for now in case we ever get to a point 
- *  where we want to parameterize packing more.
  */
 struct PackParams
 {
   PackedData* packed;
+  build::Result* result;
 };
 
 // Packs some SourceData based on what its type value is.

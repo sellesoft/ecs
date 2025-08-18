@@ -86,12 +86,23 @@ $$$
 @@lpp.import "sdata/SourceData.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
 @@lpp.import "sdata/SourceDataParser.lh"
+@@lpp.import "build/Result.lh"
 
 @@lpp.import "reflect/types/Array.lh"
 
 #include "iro/containers/BitArray.h"
 
 using namespace iro;
+
+template<typename... Args>
+b8 buildError(build::Result* result, Args... args)
+{
+  if (result != nullptr)
+    result->pushError(args...);
+  else
+    ERROR(args..., '\n');
+  return false;
+}
 
 /* ============================================================================
  */
@@ -102,6 +113,16 @@ struct Packer
   // A SourceDataFile that's used to cache parsed defaults for fields that 
   // have default metadata.
   SourceDataFile defaults_cache;
+
+  // When provided, points to a build::Result that errors will be output
+  // to rather than normal logging.
+  build::Result* result;
+
+  template<typename... Args>
+  b8 error(Args... args)
+  {
+    return buildError(result, args...);
+  }
 
 $ -- Forward declared such that these may be called back into from within 
 $ -- packer placing functions, eg. a Struct calls this for the type of 
@@ -178,7 +199,7 @@ $ local function putNumberPacker(name)
   b8 pack_$(name)(const SourceData& data, $(name)* out)
   {
     if (!data.hasNumberValue())
-      return ERROR("expected a number value to pack $(name)\n");
+      return error("expected a number value to pack $(name)");
 
       // TODO(sushi) use proper conversion funcs. Like I've written in 
       //             20 other places, we really need to write our own.
@@ -206,7 +227,7 @@ $ -- * ------------------------------------------------------------------------
   b8 pack_b8(const SourceData& data, b8* out)
   {
     if (!data.hasBooleanValue())
-      return ERROR("expected a boolean value to pack b8\n");
+      return error("expected a boolean value to pack b8");
 
     *out = data.testBooleanValue();
 
@@ -244,7 +265,7 @@ $ -- * ------------------------------------------------------------------------
   $(packerFuncName "iro::utf8::String")
   {
     if (!data.hasStringValue())
-      return ERROR("expected a string value to pack String\n");
+      return error("expected a string value to pack String");
 
     *out = data.val.str.allocateCopy(&packed->buffer);
 
@@ -261,10 +282,10 @@ $ local function putVec2Packer(name)
   $(packerFuncName(name))
   {
     if (!data.hasChildren())
-      return ERROR("expected an object to pack vec2\n");
+      return error("expected an object to pack vec2");
 
     if (data.children.len() != 2)
-      return ERROR("too many children in vec2 source data\n");
+      return error("too many children in vec2 source data");
 
     if (isnil(data.children[0]->name))
     {
@@ -274,12 +295,12 @@ $ local function putVec2Packer(name)
       SourceData* y = data.children[1];
 
       if (!x->hasNumberValue())
-        return ERROR("vec2 members must be numbers\n");
+        return error("vec2 members must be numbers");
 
       out->x = strtof((char*)x->val.str.ptr, nullptr);
 
       if (!y->hasNumberValue())
-        return ERROR("vec2 members must be numbers\n");
+        return error("vec2 members must be numbers");
 
       out->y = strtof((char*)y->val.str.ptr, nullptr);
     }
@@ -288,7 +309,7 @@ $ local function putVec2Packer(name)
       for (const SourceData* child : data.children)
       {
         if (!child->hasNumberValue())
-          return ERROR("vec2 members can only be numbers\n");
+          return error("vec2 members can only be numbers");
 
         switch (child->name.hash())
         {
@@ -299,7 +320,7 @@ $ local function putVec2Packer(name)
           out->y = strtof((char*)child->val.str.ptr, nullptr);
           break;
         default:
-          return ERROR("no member named ", child->name, " in vec2\n");
+          return error("no member named ", child->name, " in vec2");
         }
       }
     }
@@ -319,23 +340,24 @@ $ -- * ------------------------------------------------------------------------
   $(packerFuncName "Rect")
   {
     if (!data.hasObjectData())
-      return ERROR("expected object data to pack Rect\n");
+      return error("expected object data to pack Rect");
 
     if (data.children.len() != 4)
-      return ERROR("expected 4 components to pack Rect\n");
+      return error("expected 4 components to pack Rect");
 
     if (isnil(data.children[0]->name))
     {
       // Unnamed initialization.
 
-      auto packComponent = [&](const SourceData* comp, f32* out, const char* n)
-      {
-        if (!comp->hasNumberValue())
-          return ERROR("expected number value to pack Rect::", n, "\n");
+      auto packComponent = 
+        [&](const SourceData* comp, f32* out, const char* n) -> b8
+        {
+          if (!comp->hasNumberValue())
+            return error("expected number value to pack Rect::", n);
 
-        *out = strtof((char*)comp->val.str.ptr, nullptr);
-        return true;
-      };
+          *out = strtof((char*)comp->val.str.ptr, nullptr);
+          return true;
+        };
 
       if (!packComponent(data.children[0], &out->x, "x"))
         return false;
@@ -354,7 +376,7 @@ $ -- * ------------------------------------------------------------------------
       for (const SourceData* child : data.children)
       {
         if (!child->hasNumberValue())
-          return ERROR("Rect members can only be numbers\n");
+          return error("Rect members can only be numbers");
 
         switch (child->name.hash())
         {
@@ -371,7 +393,7 @@ $ -- * ------------------------------------------------------------------------
           out->h = strtof((char*)child->val.str.ptr, nullptr);
           break;
         default:
-          return ERROR("no member named ", child->name, " in Rect\n");
+          return error("no member named ", child->name, " in Rect");
         }
       }
     }
@@ -395,17 +417,17 @@ $ -- * ------------------------------------------------------------------------
       return true;
     }
     else if (!data.hasChildren())
-      return ERROR("expected an object or hex number to pack Color\n");
+      return error("expected an object or hex number to pack Color");
 
     if (isnil(data.children[0]->name))
     {
       if (data.children.len() < 3)
-        return ERROR("array Color data must specify at least r, g, and b\n");
+        return error("array Color data must specify at least r, g, and b");
 
-      auto getCol = [&](SourceData* comp, u8* dest)
+      auto getCol = [&](SourceData* comp, u8* dest) -> b8
       {
         if (!comp->hasNumberValue())
-          return ERROR("Color component must be a number\n");
+          return error("Color component must be a number");
 
         *dest = strtof((char*)comp->val.str.ptr, nullptr);
 
@@ -428,8 +450,8 @@ $ -- * ------------------------------------------------------------------------
       }
       else if (data.children.len() > 4)
       {
-        return ERROR(
-          "array Color data must specify at most r, g, b, and a\n");
+        return error(
+          "array Color data must specify at most r, g, b, and a");
       }
       else
       {
@@ -441,7 +463,7 @@ $ -- * ------------------------------------------------------------------------
       for (const SourceData* child : data.children)
       {
         if (!child->hasNumberValue())
-          return ERROR("Color members can only be numbers\n");
+          return error("Color members can only be numbers");
 
         switch (child->name.hash())
         {
@@ -458,7 +480,7 @@ $ -- * ------------------------------------------------------------------------
           out->a = strtof((char*)child->val.str.ptr, nullptr);
           break;
         default:
-          return ERROR("no member named ", child->name, " in Color\n");
+          return error("no member named ", child->name, " in Color");
         }
       }
     }
@@ -476,7 +498,7 @@ $ local function putEnumPacker(decl)
   $(packerFuncDecl(decl))
   {
     if (!data.hasStringValue())
-      return ERROR("expected a string value to pack $(decl.name)\n");
+      return error("expected a string value to pack $(decl.name)");
 
     switch (data.val.str.hash())
     {
@@ -486,11 +508,11 @@ $     if not elem.metadata.hidden then
       *out = $(decl.type.name)::$(elem.name);
       return true;
 $     else
-      return ERROR("element $(elem.name) of $(decl.name) is marked hidden\n");
+      return error("element $(elem.name) of $(decl.name) is marked hidden");
 $     end
 $   end
     default:
-      return ERROR("no element named '", data.val.str, "' in $(decl.name)\n");
+      return error("no element named '", data.val.str, "' in $(decl.name)");
     }
   }
 $ end
@@ -552,13 +574,13 @@ $         local default_aux_name = decl.type.name.."::"..field.name
               "$(default_aux_name)"_str);
 
           if (default_data == nullptr)
-            return ERROR("failed to parse default value $(default_aux_name)\n");
+            return error("failed to parse default value $(default_aux_name)");
         }
 
         // Pack the default data.
         if (!$(getTypePackerName(field.type))(
               *default_data, &out->$(field.name)))
-          return ERROR("failed to pack default value $(default_aux_name)\n");
+          return error("failed to pack default value $(default_aux_name)");
 
 $       else
 
@@ -570,8 +592,8 @@ $         if field_type:is(ast.TagType) and field_type.decl:is(ast.Record)
 $         then
         if (!$(getPackerName(field_type.decl))_defaults(
               &out->$(field.name), {}))
-          return ERROR("failed to pack nested defaults of $(decl.type.name)::"
-                       "$(field.name)\n");
+          return error("failed to pack nested defaults of $(decl.type.name)::"
+                       "$(field.name)");
 $         end
 $       end
       }
@@ -609,7 +631,7 @@ $  end
     for (const SourceData* child : data.children)
     {
       if (isnil(child->name))
-        return ERROR("struct field data must be named\n");
+        return error("struct field data must be named");
 
       switch (child->name.hash())
       {
@@ -618,20 +640,22 @@ $     if not field.metadata.hidden then
       case "$(field.name)"_hashed:
         if (!$(getTypePackerName(field.type))(
             *child, &out->$(field.name)))
-          return ERROR("failed to pack field $(field.name) of $(decl.name)\n");
+          return error("failed to pack field $(field.name) of $(decl.name)");
         found_fields->set($(i-1));
         break;
 $     else
-        return ERROR("field $(field.name) of $(decl.name) is marked hidden\n");
+        return error("field $(field.name) of $(decl.name) is marked hidden");
 $     end
 $   end
-      }
+      default:
+        return error("$(decl.type.name) has no field '", child->name, "'");
+      } 
     }
 
     if (data.base != nullptr)
     {
       if (!$(packer_name)_impl(*data.base, out, found_fields))
-        return ERROR("failed to back base data\n");
+        return error("failed to back base data");
     }
 
     return true;
@@ -642,7 +666,7 @@ $   end
   $(packerFuncDecl(decl))
   {
     if (!data.hasObjectData() && data.base == nullptr)
-      return ERROR("expected object data to pack $(decl.name)\n");
+      return error("expected object data to pack $(decl.name)");
 
     mem::zero(out, sizeof($(decl.type.name)));
       
@@ -672,15 +696,15 @@ $   end
   $(packerFuncDecl(decl))
   {
     if (!data.hasObjectData())
-      return ERROR("expected object data to pack $(decl.type.name)\n");
+      return error("expected object data to pack $(decl.type.name)");
 
     for (const SourceData* child : data.children)
     {
       if (notnil(child->name))
-        return ERROR("elements of $(decl.type.name) data cannot be named\n");
+        return error("elements of $(decl.type.name) data cannot be named");
 
       if (!child->hasStringValue())
-        return ERROR("expected an element string to pack $(decl.type.name)\n");
+        return error("expected an element string to pack $(decl.type.name)");
 
       switch (child->val.str.hash())
       {
@@ -690,13 +714,13 @@ $     if not elem.metadata.hidden then
       out->set($(subdecl.type.name)::$(elem.name));
       break;
 $     else
-      return ERROR(
-        "element $(elem.name) of $(decl.type.name) is marked hidden\n");
+      return error(
+        "element $(elem.name) of $(decl.type.name) is marked hidden");
 $     end
 $   end
       default:
-        return ERROR(
-          "no element named '", child->val.str, "' in $(decl.type.name)\n");
+        return error(
+          "no element named '", child->val.str, "' in $(decl.type.name)");
       }
     }
 
@@ -715,21 +739,21 @@ $   putTypePacker(subtype)
   $(packerFuncDecl(decl))
   {
     if (!data.hasObjectData())
-      return ERROR("expected object data to pack $(decl.type.name)\n");
+      return error("expected object data to pack $(decl.type.name)");
 
     s32 child_count = data.children.len();
 
     if (!out->init(child_count, &packed->buffer))
-      return ERROR("failed to initialize $(decl.type.name)\n");
+      return error("failed to initialize $(decl.type.name)");
 
     for (s32 i = 0; i < child_count; ++i)
     {
       const SourceData* child = data.children[i];
       if (notnil(child->name))
-        return ERROR('[', i, "]: array elements cannot have names\n");
+        return error('[', i, "]: array elements cannot have names");
 
       if (!$(getTypePackerName(subtype))(*child, &(*out)[i]))
-        return ERROR("failed to pack [",i,"] of $(decl.type.name)\n");
+        return error("failed to pack [",i,"] of $(decl.type.name)");
     }
 
     return true;
@@ -747,20 +771,20 @@ $   putTypePacker(subtype)
   $(packerFuncDecl(decl))
   {
     if (!data.hasObjectData())
-      return ERROR("expected object data to pack into $(decl.type.name)\n");
+      return error("expected object data to pack into $(decl.type.name)");
 
     if (!out->init(data.children.len(), &packed->buffer))
-      return ERROR("failed to initialize $(decl.type.name)\n");
+      return error("failed to initialize $(decl.type.name)");
 
     for (const SourceData* child : data.children)
     {
       if (isnil(child->name))
-        return ERROR("StringMap data must be named\n");
+        return error("StringMap data must be named");
 
       auto* elem = out->add(child->name);
 
       if (!$(getTypePackerName(subtype))(*child, elem))
-        return ERROR("failed to pack key ", child->name, '\n');
+        return error("failed to pack key ", child->name);
     }
 
     return true;
@@ -786,7 +810,7 @@ $   end
    */
   $(packerFuncDecl(decl))
   {
-    return ERROR("typed string map packing not implemented yet\n");
+    return error("typed string map packing not implemented yet");
   }
 $   putDummyDefaultsHandler(decl)
 $ end
@@ -805,7 +829,7 @@ $   end
   {
     if (!data.hasStringValue())
       return 
-        ERROR("expected string data to pack ref type $(decl.type.name)\n");
+        error("expected string data to pack ref type $(decl.type.name)");
 
     out->name = data.val.str.allocateCopy(&packed->buffer);
 
@@ -918,13 +942,16 @@ $ end
 b8 packSourceDataFromType(const SourceData& data, PackParams& ctx)
 {
   if (isnil(data.type))
-    return ERROR("packSourceDataFromType passed untyped data\n");
+    return buildError(ctx.result, 
+      "packSourceDataFromType passed untyped data");
 
   Packer packer;
   packer.packed = ctx.packed;
+  packer.result = ctx.result;
 
   if (!packer.defaults_cache.init())
-    return ERROR("failed to initialize packer defaults cache\n");
+    return buildError(ctx.result, 
+      "failed to initialize packer defaults cache");
   defer { packer.defaults_cache.deinit(); };
 
   switch (data.type.hash())
@@ -949,8 +976,9 @@ $     end
   case "$(decl.type.name)"_hashed:
     packer.packed->data.ptr = 
       (u8*)packer.packed->buffer.allocateType<$(decl.type.name)>();
-    packer.$(getPackerName(decl))(
-      data, ($(decl.type.name)*)packer.packed->data.ptr);
+    if (!packer.$(getPackerName(decl))(
+          data, ($(decl.type.name)*)packer.packed->data.ptr))
+      return false;
     // Set the typeid on the PackedData to whatever was specified by the 
     // given data. We do this at runtime to ensure that we can't accidentally 
     // set it incorrectly when typedefs and base types have the same case.
@@ -959,8 +987,9 @@ $     end
 $   end
 $ end
   default:
-    return ERROR("data given to packSourceDataFromType specifies unhandled "
-                 "type: ", data.type, "\n");
+    return buildError(ctx.result, 
+      "data given to packSourceDataFromType specifies unhandled type: ", 
+      data.type);
   }
 
   return true;

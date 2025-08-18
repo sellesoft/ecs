@@ -395,11 +395,8 @@ void ResourceMgr::notifyAssetChanged(String name, String type)
 
   for (auto& pipeline : pipelines.map)
   {
-    INFO(pipeline.name, '\n');
     for (auto& contained : pipeline.contained_assets)
     {
-      INFO(contained.name, ' ', contained.type, "\n");
-
       if (contained.name == name && contained.type == type)
       {
         INFO("reloading ", pipeline.name, " because it contains ", 

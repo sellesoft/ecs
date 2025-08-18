@@ -17,7 +17,7 @@ struct AssetMgr;
 
 namespace iro::fs { struct File; }
 namespace iro::io { struct IO; }
-namespace build { struct Rule; }
+namespace build { struct Rule; struct Result; }
 
 namespace gfx
 {
@@ -40,21 +40,32 @@ struct CompiledTexture
 @metadata.links(texture.compiled)
 struct CompiledTextureLink : TypedAssetLink<CompiledTexture> {};
 
-b8 compileTexture(String data_path, String output_path);
+struct CompileTextureParams
+{
+  String data_path;
+  String output_path;
+
+  // When provided, errors will be reported to here rather than printed.
+  build::Result* result;
+};
+
+b8 compileTexture(const CompileTextureParams& params);
 
 b8 compileTextureFromMemory(
   String output_path,
   void* data,
   u32 width,
   u32 height,
-  ImageFormat format);
+  ImageFormat format,
+  build::Result* result = nullptr);
 
 b8 compileTextureFromMemory(
   void* data,
   fs::File* file,
   u32 width,
   u32 height,
-  ImageFormat format);
+  ImageFormat format,
+  build::Result* result = nullptr);
 
 build::Rule getTextureBuildRule();
 

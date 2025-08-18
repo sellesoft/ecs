@@ -37,6 +37,8 @@ $$$
 @@lpp.import "build/Rule.lh"
 @@lpp.import "build/Result.lh"
 @@lpp.import "build/BuildSystem.lh"
+@@lpp.import "sdata/SourceDataFile.lh"
+@@lpp.import "asset/Packing.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
@@ -78,6 +80,18 @@ struct CompiledRef
 };
 
 typedef SmallArray<CompiledRef, 64> CompiledRefs;
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename... Args>
+b8 buildError(build::Result* result, Args... args)
+{
+  if (result != nullptr)
+    result->pushError(args...);
+  else
+    ERROR(args..., '\n');
+  return false;
+}
 
 /* ============================================================================
  *  Data compiler state and interface, this provides the actual implementations
@@ -683,8 +697,9 @@ $ end
 b8 CompiledData::compile(const CompileParams& params)
 {
 $ local function err(...)
-$   return [[ERROR("while compiling '", params.output_path, "': ", ]]..
-$     cmn.joinArgs(',',...)..[[, '\n')]]
+$   return [[buildError(params.result, "while compiling '", ]]..
+$     [[params.output_path, "': ", ]]..
+$     cmn.joinArgs(',',...)..[[)]]
 $ end
 
   assert(notnil(params.type));
@@ -697,6 +712,11 @@ $ end
   if (isnil(out_file))
     return @err("failed to open file");
   defer { out_file.close(); };
+
+  auto failsafe_delete_outfile = deferWithCancel
+  {
+    fs::unlink(params.output_path);
+  };
 
   // TODO(sushi) should take an allocator for this eventually. Prob when we 
   //             get to multithreading this where we'd prob wanna dedicate
@@ -932,6 +952,7 @@ $ end
   if (has_refs)
     out_file.write(ref_table.data);
 
+  failsafe_delete_outfile.cancel();
   return true;
 }
 
@@ -939,12 +960,15 @@ $ end
  *  Take an allocator or provide a function for getting the size required 
  *  for compiled data at a given path (which is just its file size but yeah).
  */
-CompiledData* CompiledData::load(String path, mem::Allocator* allocator)
+CompiledData* CompiledData::load(
+    String path, 
+    mem::Allocator* allocator,
+    build::Result* result)
 {
 $ local function err(...)
 $   return 
-$     [[ERROR("while loading compiled data '", path, "': ", ]]..
-$     cmn.joinArgs(',',...)..[[, '\n'), nullptr]]
+$     [[buildError(result, "while loading compiled data '", path, "': ", ]]..
+$     cmn.joinArgs(',',...)..[[), nullptr]]
 $ end
 
   assert(notnil(path) && allocator != nullptr);
@@ -1020,6 +1044,7 @@ static void compiledDataGetPrereqs(const build::RuleParams_GetPrereqs& params)
   params.prereqs->insert(source_target);
 }
 
+
 /* ----------------------------------------------------------------------------
  */
 static void compiledDataBuild(const build::RuleParams_Build& params)
@@ -1035,15 +1060,62 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
   build::PathBuffer source_path_buffer;
   build::PathBuffer target_path_buffer;
 
-  CompiledData* compiled = params.build_system->packAndCompileSourceDataAsset(
-    source_target->formFullPath(&source_path_buffer),
-    params.target->formFullPath(&target_path_buffer));
+  String source_path = source_target->formFullPath(&source_path_buffer);
+  String target_path = params.target->formFullPath(&target_path_buffer);
 
-  if (compiled == nullptr)
+  // Load the source data file.
+  // TODO(sushi) we should be passing in a build::Result here but that's 
+  //             starting to cause build related stuff to intrude on most 
+  //             systems. For tooling, we should experiment with iro providing
+  //             a generic interface for emitting diagnostics that can be 
+  //             passed around to all the tools in enosi and is not tied to 
+  //             how some system would like them to work. Something similar 
+  //             to how llvm's diagnostic consumer thing works.
+  SourceDataFile sfile;
+  if (!SourceDataFile::from(&sfile, source_path))
   {
-    params.result->setError("failed to compile source data"_str);
+    buildError(params.result, "failed to load source data file");
     return;
   }
+  defer { sfile.deinit(); };
+
+  PackedData packed;
+  if (!packed.init())
+  {
+    buildError(params.result, "failed to initialied PackedData");
+    return;
+  }
+  defer { packed.deinit(); };
+
+  PackParams pack_params = 
+  {
+    .packed = &packed,
+    .result = params.result,
+  };
+
+  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+    return; // error will have been emitted internally.
+
+  CompiledData::CompileParams compile_params = 
+  {
+    .type = packed.type,
+    .dataptr = packed.data.ptr,
+    .output_path = target_path,
+    .result = params.result,
+  };
+
+  if (!CompiledData::compile(compile_params))
+    return;
+
+  CompiledData* compiled = CompiledData::load(
+    compile_params.output_path, 
+    &params.build_system->compiled_data_allocator,
+    params.result);
+
+  if (compiled == nullptr)
+    return;
+
+  compiled->fixPointers();
 
   for (CompiledData::Ref& ref : compiled->refs.getSlice())
   {
@@ -1069,7 +1141,6 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
       split = split.second.splitAtFirst(';');
     }
   }
-
 }
 
 /* ----------------------------------------------------------------------------

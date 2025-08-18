@@ -13,11 +13,16 @@
  *  an argument and only output information (specifically, errors) to it 
  *  rather than just printing it to stdout.
  *
+ *  Result also contains a SmallBuffer for keeping around error messages that
+ *  need to be constructed.
+ *
  *  A Result starts in the Success state by default, so simply not touching 
  *  it indicates success.
  */
 
- $ require "common"
+$ require "common"
+
+#include "iro/io/IO.h"
 
 namespace build
 {
@@ -33,10 +38,17 @@ struct Result
   };
 
   Status status = Status::Success;
-  String message = nil;
+
+  io::SmallBuffer<512> buffer;
 
   void setError() { status = Status::Error; }
-  void setError(String message) { setError(); this->message = message; }
+
+  template<typename... Args>
+  void pushError(Args... args)
+  {
+    setError();
+    io::formatv(&buffer, args..., '\n');
+  }
 
   b8 wasSuccessful() const { return status == Status::Success; }
 };

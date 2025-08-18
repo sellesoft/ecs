@@ -15,6 +15,7 @@ $ local cmn = require "common"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/TextureParams.lh"
 @@lpp.import "asset/CompiledData.lh"
+@@lpp.import "build/Result.lh"
 
 #include "iro/memory/Bump.h"
 
@@ -24,6 +25,19 @@ typedef io::StaticBuffer<512> PathBuffer;
 
 namespace gfx
 {
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename... Args>
+b8 buildError(build::Result* result, Args... args)
+{
+  if (result != nullptr)
+    result->pushError(args...);
+  else
+    ERROR(args..., '\n');
+
+  return false;
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -97,7 +111,8 @@ static b8 compileFontBDF(
     io::Memory* data_buffer,
     io::Memory* pixels_buffer,
     vec2i* out_texture_size,
-    ImageFormat* out_format)
+    ImageFormat* out_format,
+    build::Result* result)
 {
   using namespace fs;
 
@@ -110,13 +125,13 @@ static b8 compileFontBDF(
 
   Scanner scanner = {};
   if (!scanner.init(&file))
-    return ERROR("failed to initialize Scanner\n");
+    return buildError(result, "failed to initialize Scanner\n");
   defer { scanner.deinit(); };
 
   auto err = [&](auto... args)
   {
-    ERROR(source_path, ':', scanner.line, ':', scanner.column, ": ", 
-          args..., '\n');
+    buildError(result, source_path, ':', scanner.line, ':', scanner.column, ": ", 
+          args...);
     return false;
   };
     
@@ -466,66 +481,73 @@ static b8 compileFontBDF(
 
 /* ----------------------------------------------------------------------------
  */
-b8 compileFont(
-    String input_path, 
-    String output_path,
-    String texture_output_path)
+b8 compileFont(const CompileFontParams& params)
 {
    using namespace fs;
+
+   String input_path = params.input_path;
+   String output_path = params.output_path;
+   String texture_output_path = params.texture_output_path;
+   build::Result* result = params.result;
   
   if (isnil(input_path))
-    return ERROR("compileFont called with a nil input path\n");
+    return buildError(result, "compileFont called with a nil input path");
 
   if (isnil(output_path))
-    return ERROR("compileFont called with a nil output path\n");
+    return buildError(result, "compileFont called with a nil output path");
 
   if (isnil(texture_output_path))
-    return ERROR("compileFont called with a nil texture output path\n");
+    return buildError(result, 
+      "compileFont called with a nil texture output path");
 
   // Immediately open (and thus lock) the desired output file to quickly 
   // catch any possible errors with doing so.
   File out_file = File::createForTruncatedWriting(output_path);
   if (isnil(out_file))
-    return ERROR("failed to open file for writing compiled font at '",
-                 output_path, "'\n");
+    return buildError(result, 
+      "failed to open file for writing compiled font at '",output_path, "'");
   defer { out_file.close(); };
 
   // Do the same with the texture.
   File texture_out_file = File::createForTruncatedWriting(texture_output_path);
   if (isnil(texture_out_file))
-    return ERROR("failed to open file for writing compiled font texture at '",
-                 texture_output_path, "'\n");
+    return buildError(result, 
+      "failed to open file for writing compiled font texture at '",
+                 texture_output_path, "'");
   defer { texture_out_file.close(); };
 
   // Load the FontDef.
   mem::LenientBump compiled_data_allocator;
   if (!compiled_data_allocator.init())
-    return ERROR("failed to initialize temp compiled_data_allocator\n");
+    return buildError(result, 
+      "failed to initialize temp compiled_data_allocator");
   defer { compiled_data_allocator.deinit(); };
 
   auto* compiled_def = 
-    CompiledData::load(input_path, &compiled_data_allocator);
+    CompiledData::load(input_path, &compiled_data_allocator, result);
   if (compiled_def == nullptr)
-    return ERROR("failed to load compiled data from '", input_path, "'\n");
+    return buildError(result, 
+      "failed to load compiled data from '", input_path, "'");
   compiled_def->fixPointers();
 
   auto* def = compiled_def->getRootAs<FontDef>();
   if (isnil(def->asset_path))
-    return ERROR(
-      "font def '", input_path, "' does not specify a font asset\n"); 
+    return buildError(result, 
+      "font def '", input_path, "' does not specify a font asset"); 
 
   String ext = path::getLastExtension(def->asset_path);
   if (isnil(ext))
-    return ERROR("def asset path '", def->asset_path, "' has no extension\n");
+    return buildError(result, 
+      "def asset path '", def->asset_path, "' has no extension");
 
   io::Memory font_data_buffer;
   if (!font_data_buffer.open())
-    return ERROR("failed to open font_data_buffer\n");
+    return buildError(result, "failed to open font_data_buffer");
   defer { font_data_buffer.close(); };
 
   io::Memory font_pixels_buffer;
   if (!font_pixels_buffer.open())
-    return ERROR("failed to open font_pixels_buffer\n");
+    return buildError(result, "failed to open font_pixels_buffer");
   defer { font_pixels_buffer.close(); };
 
   vec2i texture_size;
@@ -538,12 +560,14 @@ b8 compileFont(
           &font_data_buffer, 
           &font_pixels_buffer,
           &texture_size,
-          &texture_format))
-      return ERROR("failed to compile font BDF '", def->asset_path, "'\n");
+          &texture_format,
+          result))
+      return buildError(result, 
+        "failed to compile font BDF '", def->asset_path, "'");
   }
   else
   {
-    return ERROR("unsupported font asset type '", ext, "'\n");
+    return buildError(result, "unsupported font asset type '", ext, "'");
   }
 
   out_file.write(font_data_buffer.asBytes());
@@ -553,9 +577,9 @@ b8 compileFont(
         &texture_out_file,
         texture_size.x,
         texture_size.y,
-        texture_format))
-    return ERROR(
-      "failed to compile font texture '", def->asset_path, "'\n");
+        texture_format,
+        result))
+    return false;
 
   return true;
 }

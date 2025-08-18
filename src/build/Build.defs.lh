@@ -65,6 +65,7 @@ struct TargetMetadata
 {
   TargetInfoList prereqs;
   TargetInfoList linked_targets;
+  TargetInfoList secondary_outputs;
 };
 
 }

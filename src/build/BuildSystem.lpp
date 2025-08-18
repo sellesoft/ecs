@@ -716,6 +716,9 @@ void BuildSystem::writeTargetMetaFile(Target* target)
   SourceData* linked_targets = data->addObject(
     mfile, "linked_targets"_str, "build::TargetInfoList"_str);
 
+  SourceData* secondary_outputs = data->addObject(
+    mfile, "secondary_outputs"_str, "build::TargetInfoList"_str);
+
   auto addTargetInfo = [&](Target* target, SourceData* list)
   {
     SourceData* info = list->addObject(mfile, nil, "build::TargetInfo"_str);
@@ -732,6 +735,9 @@ void BuildSystem::writeTargetMetaFile(Target* target)
 
   for (Target& linked : target->linked_targets)
     addTargetInfo(&linked, linked_targets);
+
+  for (Target& secondary : target->secondary_targets)
+    addTargetInfo(&secondary, secondary_outputs);
 
   PathBuffer meta_path;
   mfile.dumpToDisk(target->formFullMetaPath(&meta_path));

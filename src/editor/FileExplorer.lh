@@ -1,0 +1,18 @@
+/*
+ *  Editor document for viewing and interacting with the file system.
+ */
+$ require "common"
+
+@@lpp.import "editor/Doc.lh"
+
+namespace editor
+{
+
+
+struct FileExplorer : Doc
+{
+  
+};
+
+
+}

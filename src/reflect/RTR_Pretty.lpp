@@ -170,6 +170,9 @@ $       ["long long"] = "s64",
 $       ["unsigned long long"] = "u64",
 $       ["signed long long"] = "s64",
 $       ["long double"] = "f64",
+$       -- whatever dude
+$       ["__int128"] = "s64",
+$       ["unsigned __int128"] = "u64",
 $     }
 $     local ambiguous = ambiguous_types[builtin.name]
 $     if ambiguous then
@@ -353,11 +356,13 @@ $ if decl.base then
 $ end
 
 $ for field in decl:eachField() do
+$   if field.name ~= nil and field.name ~= "" then
     indent();
     io::formatv(out, color::yellow("$(field.name): "_str));
 $   callTypePrinter(field.type, "val."..field.name)
 $   if not field.is_last then
     io::format(out, "\n");
+$   end
 $   end
 $ end
   }
@@ -415,6 +420,9 @@ $         reflect_types.Array and "len" or "len()"
       indent();
       io::formatv(out, '[', color::magenta(i), "]:");
       @scopedIndent
+      if (i >= val.$(len_access))
+        break; // NOTE(sushi) extra check incase we are printing something 
+               //             that is touched by another thread.
 $     callTypePrinter(subtype, "val[i]")
       if (i != val.$(len_access) - 1)
         io::format(out, '\n');
@@ -565,6 +573,17 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putAtomicPrinter(decl)
+$   local subtype = decl.args[1]
+  $(declareDeclPrinter(decl))
+  {
+$   callTypePrinter(subtype, "val.loadRelaxed()")
+  }
+$  decl.user.break_before_field = false
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putTemplateSpecPrinter(decl)
 $   for arg in decl.args:each() do
 $     if ast.Type:isTypeOf(arg) then
@@ -585,6 +604,8 @@ $   elseif name == "Flags" then
 $     putFlagsPrinter(decl)
 $   elseif name == "StringMap" then
 $     putStringMapPrinter(decl)
+$   elseif name == "Atomic" then
+$     putAtomicPrinter(decl)
 $   elseif name == "EnumBitArray" then
 $     putEnumBitArrayPrinter(decl)
 $   else

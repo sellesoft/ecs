@@ -1,0 +1,129 @@
+/*
+ *  Editor thread that watches for changes to directories the Editor cares 
+ *  about and sanitizes the events to make it easier for the Editor to 
+ *  raise File..Events.
+ *
+ *  Also, putting this in a header because I want rtr to be able to pretty
+ *  print it to make it easier to debug. Will also probably look cool.
+ */
+
+$ require "common"
+
+#include "iro/memory/Bump.h"
+#include "iro/containers/Array.h"
+#include "iro/concurrent/Atomic.h"
+#include "iro/concurrent/ConditionVar.h"
+#include "iro/concurrent/Mutex.h"
+#include "iro/concurrent/Thread.h"
+
+namespace iro::os { struct FileWatcher; }
+
+namespace editor
+{
+
+/* ============================================================================
+ *  The reason this is delegated to its own thread is that its common for 
+ *  programs to perform several operations on a file, especially when modifying
+ *  them. For example, neovim (my editor) creates several temporary files 
+ *  while saving a file. Programs usually do this to back up the contents of 
+ *  a file such that if something goes wrong during modification, the user 
+ *  isn't left with corrupted data. Another program that does this is 
+ *  Photoshop. 
+ *
+ *  This thread will remove unecessary events from its event buffer to prevent
+ *  the Editor seeing irrelevant events. For example, if neovim creates a temp
+ *  file and then deletes it, the create and delete events will be removed 
+ *  from the queue such that the Editor never sees them. This is done on a 
+ *  separate thread so that the Editor's loop doesn't have to spend time 
+ *  doing this.
+ */
+struct FileWatcherThread
+{
+  enum class State
+  {
+    // Thread isn't doing anything and can be signaled to gather events
+    // or terminated.
+    Idle,
+    // The Editor has requested to poll for events.
+    RequestProcess,
+    // Thread is within FileWatcher::processEvents()
+    ProcessingEvents,
+    // Thread's event buffer is ready to be consumed.
+    ReadyForConsume,
+  };
+
+  iro::conc::Thread thread;
+  iro::conc::Atomic<State> state;
+  iro::conc::ConditionVar signal;
+  iro::conc::Mutex mutex;
+  iro::conc::Atomic<b8> terminate;
+
+  iro::os::FileWatcher* watcher;
+
+  // Buffer for gathering strings while processing events.
+  // This is cleared each time events are consumed.
+  iro::mem::Bump string_pool;
+
+  struct Event
+  {
+    enum class Kind
+    {
+      Created,
+      Deleted,
+      Modified,
+      Renamed,
+    };
+
+    Kind kind;
+
+    iro::String path0;
+    iro::String path1;
+
+    // Used to connect MoveTo/MoveFrom events such that we can properly find
+    // the Renamed event created by MoveFrom upon finding its MoveTo.
+    u32 id;
+  };
+
+  // The actual buffer of events.
+  iro::Array<Event> events;
+
+  b8 init(iro::os::FileWatcher* watcher);
+  void deinit();
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 isIdle()
+  {
+    signal.signalOne();
+    return state.loadSeqCst() == State::Idle;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void requestProcess() 
+  {
+    assert(isIdle());
+    state.storeSeqCst(State::RequestProcess);
+    signal.signalOne();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 readyToConsume() const
+  {
+    return state.loadSeqCst() == State::ReadyForConsume;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  iro::Slice<Event> consumeEvents()
+  {
+    assert(readyToConsume());
+    state.storeSeqCst(State::Idle);
+    return events.asSlice();
+  }
+
+  void worker();
+};
+
+}

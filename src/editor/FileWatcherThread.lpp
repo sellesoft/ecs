@@ -1,0 +1,205 @@
+$ require "common"
+
+@@lpp.import "editor/FileWatcherThread.lh"
+
+@@lpp.import "reflect/RTR.lh"
+
+#include "iro/os/FileWatcher.h"
+
+using namespace iro;
+
+@log.ger(file-watcher, Info)
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 FileWatcherThread::init(os::FileWatcher* watcher)
+{
+  this->watcher = watcher;
+
+  state.storeRelaxed(State::Idle);
+  terminate.storeRelaxed(false);
+
+  signal = conc::ConditionVar::create();
+  mutex = conc::Mutex::create();
+
+  events.init();
+  string_pool.init();
+
+  thread = conc::Thread::create(this, [](void* opaque) -> void*
+  {
+    ((FileWatcherThread*)opaque)->worker();
+    return nullptr;
+  });
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void FileWatcherThread::deinit()
+{
+  terminate.storeSeqCst(true);
+  signal.signalOne();
+  thread.join();
+
+  events.destroy();
+  thread = nil;
+  signal.destroy();
+  mutex.destroy();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void eventProcessor(
+    const os::FileWatcher::Event& event, 
+    FileWatcherThread* self)
+{
+  using Action = os::WatchEvent;
+  using Event = FileWatcherThread::Event;
+
+  if (event.actions.test(Action::Create))
+  {
+    // Check if this file is being created after it was renamed to something
+    // else. If it was, simply don't add the created file to the buffer.
+    // NOTE(sushi) this kind of a weird way to handle the behavior of how 
+    //             neovim backs up files before modifying them. I have a 
+    //             feeling this will break when dealing with other programs.
+    //             So, sorry.
+    b8 apparent_copy = false;
+    for (s32 i = self->events.len() - 1; i >= 0; --i)
+    {
+      Event* prev_event = &self->events[i];
+
+      if (prev_event->kind == Event::Kind::Renamed &&
+          prev_event->path0 == event.path)
+      {
+        apparent_copy = true;
+        break;
+      }
+    }
+
+    if (!apparent_copy)
+    {
+      auto* ievent = self->events.push();
+      ievent->kind = Event::Kind::Created;
+      ievent->path0 = event.path.allocateCopy(&self->string_pool);
+      ievent->id = event.id;
+    }
+  }
+  else if (event.actions.test(Action::Delete))
+  {
+    b8 dont_queue = false;
+    for (s32 i = self->events.len() - 1; i >= 0; --i)
+    {
+      Event prev_event = self->events[i];
+
+      b8 deletes_created = 
+        prev_event.kind == Event::Kind::Created &&
+        prev_event.path0 == event.path;
+
+      b8 deletes_renamed = 
+        prev_event.kind == Event::Kind::Renamed &&
+        prev_event.path1 == event.path;
+
+      if (deletes_renamed || deletes_created)
+      {
+        dont_queue = true;
+        self->events.remove(i);
+      }
+    }
+
+    if (!dont_queue)
+    {
+      auto* ievent = self->events.push();
+      ievent->kind = Event::Kind::Deleted;
+      ievent->path0 = event.path.allocateCopy(&self->string_pool);
+      ievent->id = event.id;
+    }
+  }
+  else if (event.actions.test(Action::Modify))
+  {
+    b8 is_duplicate = false;
+    if (!self->events.isEmpty())
+    {
+      Event* last_event = self->events.last();
+      if (last_event->kind == Event::Kind::Modified &&
+          last_event->path0 == event.path)
+      {
+        is_duplicate = true;
+      }
+    }
+
+    // Some programs will modify a file twice in a row, so just try and 
+    // filter that out.
+    if (!is_duplicate)
+    {
+      auto* ievent = self->events.push();
+      ievent->kind = Event::Kind::Modified;
+      ievent->path0 = event.path.allocateCopy(&self->string_pool);
+      ievent->id = event.id;
+    }
+  }
+  else if (event.actions.test(Action::MoveFrom))
+  {
+    auto* ievent = self->events.push();
+    ievent->kind = Event::Kind::Renamed;
+    ievent->path0 = event.path.allocateCopy(&self->string_pool);
+    ievent->id = event.id;
+  }
+  else if (event.actions.test(Action::MoveTo))
+  {
+    b8 found_event = false;
+    for (Event& prev_event : self->events)
+    {
+      if (prev_event.id == event.id)
+      {
+        found_event = true;
+        prev_event.path1 = event.path.allocateCopy(&self->string_pool);
+        break;
+      }
+    }
+
+    if (!found_event)
+    {
+      WARN("failed to find previous Renamed event upon encountering MoveTo "
+           "with path '", event.path, "'\n");
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void FileWatcherThread::worker()
+{
+  for (;;)
+  {
+    if (terminate.loadSeqCst())
+      break;
+
+    if (state.loadSeqCst() != State::ReadyForConsume)
+    {
+      // Clear state from previous event processing.
+      events.clear();
+      string_pool.clear();
+
+      state.storeSeqCst(State::ProcessingEvents);
+
+      watcher->processEvents<FileWatcherThread>(this, eventProcessor);
+
+      if (events.isEmpty())
+      {
+        // Just return to idling.
+        state.storeSeqCst(State::Idle);
+      }
+      else
+      {
+        state.storeSeqCst(State::ReadyForConsume);
+      }
+    }
+  }
+}
+
+}

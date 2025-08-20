@@ -64,6 +64,12 @@ dropdown_button =
   },
 }
 
+menu_bar = EditorMenuBarSkin
+{
+  bg_color = black,
+  height = 20,
+}
+
 return EditorSkinDef
 {
   bg_color = black,
@@ -113,4 +119,6 @@ return EditorSkinDef
   },
 
   text = text,
+
+  menu_bar = menu_bar,
 }

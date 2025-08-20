@@ -37,11 +37,12 @@ $ local initSystem = function(act, name)
     }
 $ end
 
-  @initSystem(broadcast_eventbus.init(),                broadcast event bus);
+  @initSystem(broadcast_eventbus.init(), broadcast event bus);
 
-  Editor::InitParams editor_params = 
+  editor::Editor::InitParams editor_params = 
   {
     .engine = *this,
+    .eventbus = broadcast_eventbus,
   };
 
   @initSystem(editor.init(editor_params), Editor);
@@ -77,10 +78,18 @@ Engine::UpdateResult Engine::update()
 {
   UpdateResult result = {};
 
-  Editor::UpdateResult editor_result = editor.update({});
+  { using namespace editor;
+      
+    Editor::UpdateParams update_params = 
+    {
+      .eventbus = broadcast_eventbus,
+    };
 
-  if (editor_result.should_deinit)
-    result.should_close = true;
+    Editor::UpdateResult editor_result = editor.update(update_params);
+
+    if (editor_result.should_deinit)
+      result.should_close = true;
+  }
 
   return result;
 }

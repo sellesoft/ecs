@@ -1,0 +1,34 @@
+$ require "common"
+
+@@lpp.import "editor/MenuBar.lh"
+@@lpp.import "editor/Editor.lh"
+
+@@lpp.import "ui/UI.lh"
+@@lpp.import "editor/Skin.defs.lh"
+
+@log.ger(menu-bar, Info)
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+{
+  const EditorMenuBarSkin& bar_skin = skin.menu_bar;
+
+  ui.putQuad(
+    Rect::from(0, 0, ui.getWidth(), bar_skin.height), 
+    bar_skin.bg_color);
+
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void MenuBar::onFileModified(FileModifiedEvent& e)
+{
+  INFO("MenuBar::onFileModified: ", e.path, "\n");
+}
+
+}

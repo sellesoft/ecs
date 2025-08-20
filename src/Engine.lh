@@ -45,7 +45,7 @@ struct Engine
   // Time point at which the Engine finished initialization.
   TimePoint init_time;
 
-  Editor editor;
+  editor::Editor editor;
 
   b8 init();
   void deinit();

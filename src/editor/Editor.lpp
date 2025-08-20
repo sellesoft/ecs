@@ -3,11 +3,13 @@ $ require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
+
 #include "iro/concurrent/Atomic.h"
 #include "iro/concurrent/ConditionVar.h"
 #include "iro/concurrent/Mutex.h"
 
 @@lpp.import "editor/Editor.lh"
+@@lpp.import "editor/Editor.events.lh"
 
 @@lpp.import "Engine.lh"
 
@@ -25,6 +27,11 @@ $ require "common"
 
 @log.ger(editor, Info)
 
+namespace editor
+{
+
+/* ============================================================================
+ */
 struct BuildThread
 {
   enum class State
@@ -70,6 +77,20 @@ struct BuildThread
     });
 
     return true;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void deinit()
+  {
+    terminate.storeSeqCst(true);
+    signal.signalOne();
+    thread.join();
+
+    built_targets.deinit();
+    thread = nil;
+    signal.destroy();
+    mutex.destroy();
   }
 
   /* --------------------------------------------------------------------------
@@ -227,14 +248,6 @@ b8 Editor::init(const InitParams& params)
     resource_mgr,
     asset_mgr);
 
-  l_test_texture.name = "assets/floors/tiles/LightGray"_str;
-
-  linkData(
-    "gfx::TextureLink"_typeid,
-    &l_test_texture,
-    resource_mgr,
-    asset_mgr);
-
   ui::UI::InitParams ui_params = 
   {
     .renderer = renderer,
@@ -249,6 +262,24 @@ b8 Editor::init(const InitParams& params)
 
   build_thread = mem::stl_allocator.construct<BuildThread>();
   build_thread->init(&build_system);
+
+  if (!file_watcher.init({.blocking = false}))
+    return ERROR("failed to initialize file watcher\n");
+
+  fs::PathBuffer assets_path;
+  io::formatv(&assets_path, cwd, "/assets");
+
+  file_watcher.addWatch(
+  {
+    .path = String(assets_path),
+    .events = os::WatchEventFlags::all(),
+    .recursive = true,
+  });
+
+  watcher_thread = mem::stl_allocator.construct<FileWatcherThread>();
+  watcher_thread->init(&file_watcher);
+
+  menu_bar.init(params.eventbus);
 
   start_time = TimePoint::monotonic();
 
@@ -268,7 +299,12 @@ void Editor::deinit()
 
   asset_mgr.deinit();
 
+  build_thread->terminate.storeSeqCst(true);
+
   build_system.deinit();
+
+  mem::stl_allocator.free(build_thread);
+  mem::stl_allocator.free(watcher_thread);
 }
 
 /* ----------------------------------------------------------------------------
@@ -303,84 +339,33 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   InputState ui_input;
   input.cloneInputState(&ui_input);
 
-  static io::Memory mem;
-  if (!mem.isOpen())
-    mem.open();
-
   ui::UI::FrameParams ui_frame_params = 
   {
     .input = ui_input,
     .viewport = Rect::from(vec2f(0,0), vec2f(window.size)),
   };
 
-  static u32 depth_limit = 1;
-
   ui.beginFrame(ui_frame_params);
   {
     const EditorSkinDef& skin = *l_skin;
 
-    f32 time = (TimePoint::monotonic() - start_time).toSeconds();
+    io::Memory pp;
+    pp.open();
+    defer { pp.close(); };
 
-    Rect button_bounds = {};
-    button_bounds.w = 50;
-    button_bounds.h = 100;
-
-    button_bounds.x = 10.f;
-      // (cos(time) + 1) / 2.f * (window.size.x - button_bounds.w);
-
-    button_bounds.y = 10.f;
-      // (sin(time) + 1) / 2.f * (window.size.y - button_bounds.h);
-
-    if (ui.putButton(
-          "test"_fid,
-          button_bounds,
-          "+ depth"_str,
-          skin.button))
-    {
-      depth_limit += 1;
-    }
-
-    if (ui.putButton(
-          "-depth"_fid,
-          {button_bounds.x + button_bounds.w, button_bounds.y, 
-           button_bounds.w, button_bounds.h},
-          "- depth"_str,
-          skin.button))
-    {
-      if (depth_limit > 1)
-        depth_limit -= 1;
-    }
-
-    if (build_thread->isBuilding())
-    {
-      ui.putText(Rect::from(0,0,10,10), "building..."_str, skin.text);
-    }
-
-    ui.putQuad(
-      {110.f, 10.f, 100.f, 100.f}, 
-      l_test_texture.getHandle(),
-      0xffffffff);
+    rtr::prettyPrint(&pp, *watcher_thread, {.disable_color=true});
 
     ui.beginScrollGroup(
-      "ui_print"_fid, {10.f, 110.f, 500.f, 500.f}, skin.scroll_bar);
-    ui.putTextItem({0.f, 0.f, 0.f, 0.f}, String(mem), skin.button.normal);
+      "file_watcher"_fid, {0.f, 30.f, 300.f, 300.f}, skin.scroll_bar);
+    {
+      ui.putText(ui.getBounds(), pp.asStr(), skin.text);
+    }
     ui.endScrollGroup(skin.scroll_bar);
 
-    static ui::TextFieldState text_field_state;
+    menu_bar.placeUI(ui, skin);
 
-    ui.putTextField("text_test"_fid, {300.f, 10.f, 100.f, 15.f}, 
-      {buffer, &buffer_len, 255}, skin.text_field);
 
-    io::StaticBuffer<64> fps_buffer;
-    io::format(&fps_buffer, 1.f / delta);
-    ui.putText(Rect::from(440.f, 10.f, 10.f, 10.f), String(fps_buffer), 
-      skin.text);
   }
-
-  mem.clear();
-  rtr::prettyPrint(&mem, *this,
-    { .disable_color = true, .deref_ptrs = true, .depth_limit = depth_limit });
-
   ui.endFrame();
 
   if (!window_result.size_changed && renderer.beginFrame())
@@ -448,5 +433,25 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     }
   }
 
+  if (watcher_thread->readyToConsume())
+  {
+    for (auto& ev : watcher_thread->consumeEvents())
+    {
+      using EKind = FileWatcherThread::Event::Kind;
+
+      switch (ev.kind)
+      {
+      case EKind::Created:
+        params.eventbus.raise<FileCreatedEvent>({ .path = ev.path0 });
+        break;
+      case EKind::Modified:
+        params.eventbus.raise<FileModifiedEvent>({ .path = ev.path0 });
+        break;
+      }
+    }
+  }
+
   return result;
+}
+
 }

@@ -6,6 +6,14 @@ $ local metadata = require "reflect.Metadata"
 
 /* ============================================================================
  */
+struct EditorMenuBarSkin
+{
+  Color bg_color;
+  f32 height;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -20,6 +28,8 @@ struct EditorSkinDef
   ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
+
+  EditorMenuBarSkin menu_bar;
 };
 
 @metadata.links(skin.data)

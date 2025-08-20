@@ -1,0 +1,55 @@
+/*
+ *  Events that may be raised by the Editor through the Engine's 
+ *  broadcast event bus.
+ *
+ *  TODO(sushi) it might be better to just have an Editor event bus, but this
+ *              should be fine for now.
+ */
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+#include "iro/Unicode.h"
+
+namespace editor
+{
+
+using namespace iro;
+
+/* ============================================================================
+ *  A file has been created in a directory watched by the Editor.
+ */
+@metadata.event(broadcast)
+struct FileCreatedEvent
+{
+  String path;
+};
+
+/* ============================================================================
+ *  A file has been deleted in a directory watched by the Editor.
+ */
+@metadata.event(broadcast)
+struct FileDeletedEvent
+{
+  String path;
+};
+
+/* ============================================================================
+ *  A file has been modified in a directory watched by the Editor.
+ */
+@metadata.event(broadcast)
+struct FileModifiedEvent
+{
+  String path;
+};
+
+/* ============================================================================
+ *  A file has been renamed in a directory watched by the Editor.
+ */
+@metadata.event(broadcast)
+struct FileRenamedEvent
+{
+  String from;
+  String to;
+};
+
+}

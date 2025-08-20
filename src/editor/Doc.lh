@@ -1,0 +1,32 @@
+/*
+ */
+$ require "common"
+
+#include "iro/Common.h"
+
+namespace ui { struct UI; }
+namespace gfx { struct Renderer; }
+
+struct EditorSkinDef;
+
+namespace editor
+{
+
+struct Editor;
+
+/* ============================================================================
+ */
+struct Doc
+{ 
+  // A handle to the Editor. This is set before init() is called.
+  Editor* editor;
+
+  virtual b8 init() { return true; }
+  virtual void deinit() {}
+
+  virtual void placeUI(ui::UI& ui, const EditorSkinDef& skin) { }
+  virtual void update()  { }
+  virtual void render(gfx::Renderer& r)  { }
+};
+
+}

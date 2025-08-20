@@ -20,6 +20,21 @@ struct BroadcastEventBus
   template<typename T>
   void subscribeTo(void* subscriber, void (*callback)(void*, T&));
 
+  template<typename E, typename S>
+  void subscribeTo(S* sub, void (S::* in)(E&))
+  {
+    // Evil magic necessary to convince clang that passing 'this'
+    // as the sub of the callback is ok.
+    // It probably really isn't, though.
+    static union
+    {
+      void (S::* x)(E&);
+      void (*y)(void*, E&);
+    } x { in };
+
+    subscribeTo<E>(sub, x.y);
+  }
+
   template<typename T>
   void raise(T&& event) const { raise<T>(event); }
 

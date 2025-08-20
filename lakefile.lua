@@ -23,7 +23,8 @@ end
 --             for doing that yet, though.
 -- TODO(sushi) command for building with/without this since it doesn't work
 --             under debuggers.
-local asan = false
+local asan = true
+local tsan = false
 
 local objs = List {}
 
@@ -78,6 +79,7 @@ local cpp_params =
   nortti = true,
 
   asan = asan,
+  tsan = tsan,
 }
 
 ---@type lake.obj.Lpp.PreprocessParams
@@ -104,6 +106,7 @@ local link_params =
   lib_dirs    = lib_dirs,
 
   asan = asan,
+  tsan = tsan,
 }
 
 local iro_objs = List {}

@@ -1,0 +1,36 @@
+/*
+ *  Menu bar that appears across the top of the Editor's Window.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+
+@@lpp.import "event/BroadcastEventBus.lh"
+@@lpp.import "editor/Editor.events.lh"
+
+namespace ui { struct UI; }
+namespace gfx { struct Renderer; }
+
+struct EditorSkinDef;
+
+namespace editor
+{
+
+/* ============================================================================
+ */
+struct MenuBar
+{
+  b8 init(BroadcastEventBus& beb) 
+  { 
+    beb.subscribeTo<FileModifiedEvent>(this, &MenuBar::onFileModified);
+    return true; 
+  }
+  void deinit() {}
+
+  void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+
+  void onFileModified(FileModifiedEvent& e);
+};
+
+}

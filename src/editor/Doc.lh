@@ -18,14 +18,25 @@ struct Editor;
  */
 struct Doc
 { 
-  // A handle to the Editor. This is set before init() is called.
+  // A handle to the Editor. This is set by the Editor upon allocation of the 
+  // document.
   Editor* editor;
 
-  virtual b8 init() { return true; }
-  virtual void deinit() {}
+  // Interface called by the Editor to display this document. 
 
+  // Called just after this doc has been allocated.
+  virtual void onAllocated() { }
+
+  // Called just before the Editor will deallocate this document.
+  virtual void beforeDeallocate() {}
+
+  // Called within a group that will contain this document's contents.
   virtual void placeUI(ui::UI& ui, const EditorSkinDef& skin) { }
+
+  // Not sure where will be called yet.
   virtual void update()  { }
+
+  // Called for when this doc needs to perform some kind of rendering.
   virtual void render(gfx::Renderer& r)  { }
 };
 

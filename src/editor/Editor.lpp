@@ -263,7 +263,7 @@ b8 Editor::init(const InitParams& params)
   build_thread = mem::stl_allocator.construct<BuildThread>();
   build_thread->init(&build_system);
 
-  if (!file_watcher.init({.blocking = false}))
+  if (!file_watcher.init())
     return ERROR("failed to initialize file watcher\n");
 
   fs::PathBuffer assets_path;
@@ -280,6 +280,9 @@ b8 Editor::init(const InitParams& params)
   watcher_thread->init(&file_watcher);
 
   menu_bar.init(params.eventbus);
+
+  file_explorer.onAllocated();
+  file_explorer.changeDir(cwd);
 
   start_time = TimePoint::monotonic();
 
@@ -348,23 +351,17 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   ui.beginFrame(ui_frame_params);
   {
     const EditorSkinDef& skin = *l_skin;
-
-    io::Memory pp;
-    pp.open();
-    defer { pp.close(); };
-
-    rtr::prettyPrint(&pp, *watcher_thread, {.disable_color=true});
-
-    ui.beginScrollGroup(
-      "file_watcher"_fid, {0.f, 30.f, 300.f, 300.f}, skin.scroll_bar);
-    {
-      ui.putText(ui.getBounds(), pp.asStr(), skin.text);
-    }
-    ui.endScrollGroup(skin.scroll_bar);
-
     menu_bar.placeUI(ui, skin);
 
-
+    ui.beginGroup(
+      {
+        0.f, skin.menu_bar.height, 
+        ui.getWidth(), ui.getHeight()-skin.menu_bar.height
+      });
+    {
+      file_explorer.placeUI(ui, skin);
+    }
+    ui.endGroup();
   }
   ui.endFrame();
 

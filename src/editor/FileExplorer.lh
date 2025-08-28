@@ -5,14 +5,40 @@ $ require "common"
 
 @@lpp.import "editor/Doc.lh"
 
+#include "iro/fs/fs.h"
+#include "iro/containers/SmallArray.h"
+
 namespace editor
 {
 
-
+/* ============================================================================
+ */
 struct FileExplorer : Doc
 {
-  
-};
+  iro::fs::PathBuffer current_dir;
 
+  struct DirEntry
+  {
+    enum class Kind
+    {
+      Unknown,
+      File,
+      Directory,
+    };
+
+    Kind kind;
+    iro::fs::PathBuffer name;
+  };
+
+  iro::SmallArray<DirEntry, 64> entries;
+
+  void onAllocated() override {   }
+  void beforeDeallocate() override { entries.deinit(); }
+
+  void changeDir(iro::String path);
+  iro::String currentDir() const { return iro::String(current_dir); }
+
+  void placeUI(ui::UI& ui, const EditorSkinDef& skin) override;
+};
 
 }

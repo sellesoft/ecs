@@ -179,6 +179,7 @@ void FileWatcherThread::worker()
     if (terminate.loadSeqCst())
       break;
 
+    // TODO(sushi) remove spinning.
     if (state.loadSeqCst() != State::ReadyForConsume)
     {
       // Clear state from previous event processing.
@@ -187,7 +188,10 @@ void FileWatcherThread::worker()
 
       state.storeSeqCst(State::ProcessingEvents);
 
-      watcher->processEvents<FileWatcherThread>(this, eventProcessor);
+      watcher->processEvents<FileWatcherThread>(
+        this, 
+        eventProcessor,
+        TimeSpan::fromSeconds(1));
 
       if (events.isEmpty())
       {

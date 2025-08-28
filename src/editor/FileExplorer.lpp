@@ -1,0 +1,86 @@
+$ require "common"
+
+@@lpp.import "editor/FileExplorer.lh"
+@@lpp.import "editor/Skin.defs.lh"
+@@lpp.import "ui/UI.lh"
+
+#include "iro/fs/fs.h"
+#include "iro/fs/Dir.h"
+
+@log.ger(editor.file-explorer, Info)
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void FileExplorer::changeDir(String path) 
+{
+  if (!fs::path::exists(path))
+  {
+    WARN("attempt to set FileExplorer to non-existant dir '", path, "'\n");
+    return;
+  }
+
+  if (!fs::path::isDirectory(path))
+  {
+    WARN("FileExplorer::changeDir: '", path, "' is not a directory\n");
+    return;
+  }
+
+  entries.clear();
+  String cd = fs::path::canonicalize(&current_dir, path);
+
+  fs::Dir hcd = fs::Dir::open(cd);
+  if (isnil(hcd))
+  {
+    ERROR("FileExplorer::changeDir: "
+          "failed to open dir '", cd, "' for entry caching\n");
+    return;
+  }
+  defer { hcd.close(); };
+
+  for (;;)
+  {
+    fs::PathBuffer entry_name;
+    entry_name.len = hcd.next(entry_name.asBytesBuffer());
+    if (entry_name.len == 0)
+      break;
+
+    if (entry_name.len == -1)
+    {
+      ERROR("FileExplorer::changeDir encountered an error while "
+            "caching dir entries\n");
+      return;
+    }
+
+    fs::PathBuffer full_path;
+    io::formatv(&full_path, String(current_dir), '/', String(entry_name));
+
+    DirEntry* ent = entries.push();
+    io::format(&ent->name, String(entry_name));
+
+    if (fs::path::isRegularFile(String(full_path)))
+      ent->kind = DirEntry::Kind::File;
+    else if (fs::path::isDirectory(String(full_path)))
+      ent->kind = DirEntry::Kind::Directory;
+    else
+      ent->kind = DirEntry::Kind::Unknown;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+{
+  f32 y = 0.f;
+
+  for (const DirEntry& ent : entries)
+  {
+    ui.putText({0.f, y, ui.getWidth(), 20.f}, String(ent.name), skin.text);
+    y += 20.f;
+  }
+}
+
+
+}

@@ -200,6 +200,33 @@ end
 
 -- buildTest "asset-building"
 
+local loggen_step = lake.task "loggen"
+
+for ldfile in lake.utils.glob "src/core/logging/*.loggen" :each() do
+  local output = build_dir.."/"..ldfile..".h"
+
+  local gen = 
+    lake.task("loggen "..ldfile)
+      :cond(function()
+        if not fs.path.exists(output) then
+          return true
+        end
+
+        local output_modtime = fs.path.modtime(output)
+
+        if lake.utils.checkImplicitLakefileDep(output_modtime) or 
+           fs.path.modtime(ldfile) > output_modtime
+        then
+          return true
+        end
+      end)
+      :recipe(function()
+
+      end)
+end
+
+do return end
+
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
   local o_output = cpp_output..".o"

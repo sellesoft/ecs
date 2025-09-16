@@ -1,0 +1,64 @@
+/*
+ *  Core definitions for ecs' logging infrastructure.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/Unicode.h"
+
+namespace log
+{
+
+/* ============================================================================
+ */
+enum class Verbosity
+{
+  Trace,
+  Debug,
+  Info,
+  Notice,
+  Error,
+  Fatal
+};
+
+/* ============================================================================
+ */
+struct Category
+{
+  // The name of this category. Must be unique, as this is how it is referred
+  // to in UI and console commands and such.
+  String name;
+  
+  // The current verbosity setting of this category. Initialized to a default
+  // value where it is defined and adjustable at runtime through UI and 
+  // console commands.
+  Verbosity verbosity;
+};
+
+/* ============================================================================
+ *  Data representing a log 'entry'. These are passed to Destinations when the
+ *  verbosity of the Entry is above or equal to that of the Category that 
+ *  it was logged through
+ */
+struct Entry
+{
+  // The Category this Entry was logged through.
+  const Category* category;
+
+  // The Verbosity of this Entry.
+  Verbosity verbosity;
+};
+
+/* ============================================================================
+ */
+struct State
+{
+  // An OWNED view of all categories.
+  Slice<Category> categories; 
+};
+
+// Gets the global log state.
+State* get();
+
+}

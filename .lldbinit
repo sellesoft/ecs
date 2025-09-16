@@ -1,0 +1,3 @@
+command sc import lldb_ecs
+
+set set auto-confirm true

@@ -1,0 +1,14 @@
+{
+	"runtime.version": "luajit",
+	"workspace.library": 
+	[ 
+		"include/lake/lua",
+    "include/lppclang",
+    "src"
+	],
+  "diagnostics.disable":
+  [
+    "redefined-local",
+    "trailing-space"
+  ]
+}

@@ -27,6 +27,11 @@ $ require "common"
 
 @log.ger(editor, Info)
 
+@logging.import
+
+$ local lerr = log.editor.error
+$ local linfo = log.editor.info
+
 namespace editor
 {
 
@@ -173,6 +178,7 @@ b8 Editor::init(const InitParams& params)
 {
   if (!asset_mgr.init(&mem::stl_allocator, "_data"_str))
     return ERROR("failed to initialize AssetMgr\n");
+    return @log_err "failed to initialize AssetMgr"
 
   if (!input.init())
     return ERROR("failed to initialize InputMgr\n");

@@ -1,0 +1,20 @@
+CompileFlags:
+  Add: ['-ferror-limit=0', '-Wunused-variable']
+
+Index:
+  StandardLibrary: No
+
+Completion:
+  ArgumentLists: None
+  CodePatterns: None
+  HeaderInsertion: Never
+
+Diagnostics:
+  ClangTidy:
+    Add: 
+      [
+        'misc-use-internal-linkage',
+        'bugprone-unused-local-non-trivial-variable'
+      ]
+    FastCheckFilter: None
+

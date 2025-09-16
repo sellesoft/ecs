@@ -1,0 +1,5 @@
+# _build/*
+tmp/*
+.clangd/*
+.cache/*
+third_party/*

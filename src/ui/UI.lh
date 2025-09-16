@@ -26,9 +26,9 @@ $ local cmn = require "common"
 
 namespace gfx
 {
-  struct Buffer;
-  struct Renderer;
-  struct ResourceMgr;
+struct Buffer;
+struct Renderer;
+struct ResourceMgr;
 }
 
 struct InputMgr;

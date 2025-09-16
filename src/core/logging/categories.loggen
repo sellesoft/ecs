@@ -1,0 +1,6 @@
+/*
+ */
+
+$ local def = require "core.logging.loggen"
+
+$ local categories = def._get_categories().list

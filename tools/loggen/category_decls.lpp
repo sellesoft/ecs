@@ -1,0 +1,33 @@
+/*
+ *  Template file that generates the categories header, which contains 
+ *  declarations of each category, as well as the functions which log through
+ *  them.
+ */
+
+$ local lpp = require "lpp"
+$ local conf = require "core.logging.conf"
+$ local def = require "tools.loggen.gather"
+$ local categories = def._get_categories().list
+
+@@lpp.import "core/logging/core.lh"
+
+#include "iro/fs/fs.h"
+
+namespace log
+{
+
+$ for cat in categories:each() do
+
+extern Category cat_$(cat.name);
+
+template<typename... Args>
+void through_cat_$(cat.name)(Verbosity v, Args... args)
+{
+  assert(v >= cat_$(cat.name).verbosity && 
+    "Verbosity of category $(cat.name) was not checked externally");
+
+  iro::io::formatv(iro::fs::stdout(), args...);
+}
+
+$ end
+}

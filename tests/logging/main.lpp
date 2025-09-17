@@ -1,0 +1,8 @@
+$ require "common"
+
+@log.import
+
+int main()
+{
+  @log.debug(editor, "hello ", 1, 2, 3, '\n');
+}

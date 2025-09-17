@@ -28,7 +28,7 @@ struct Category
 {
   // The name of this category. Must be unique, as this is how it is referred
   // to in UI and console commands and such.
-  String name;
+  iro::String name;
   
   // The current verbosity setting of this category. Initialized to a default
   // value where it is defined and adjustable at runtime through UI and 
@@ -48,6 +48,11 @@ struct Entry
 
   // The Verbosity of this Entry.
   Verbosity verbosity;
+
+  // The fully formed message.
+  iro::String message;
+
+  // TODO(sushi) perhaps some kinda data field. Not needed at the moment.
 };
 
 /* ============================================================================
@@ -55,7 +60,7 @@ struct Entry
 struct State
 {
   // An OWNED view of all categories.
-  Slice<Category> categories; 
+  iro::Slice<Category> categories; 
 };
 
 // Gets the global log state.

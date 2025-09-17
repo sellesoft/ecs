@@ -1,0 +1,20 @@
+/*
+ *  Definition of category globals.
+ */
+
+$ local lpp = require "lpp"
+$ local def = require "tools.loggen.gather"
+$ local categories = def._get_categories().list
+
+#include "loggen/log_categories.h"
+
+namespace log
+{
+
+$ for cat in categories:each() do
+
+Category cat_$(cat.name);
+
+$ end
+
+}

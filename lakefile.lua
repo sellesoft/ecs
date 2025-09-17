@@ -8,7 +8,15 @@ local cwd = fs.cwd()
 
 lake.setMaxJobs(8)
 
+--- Directory where *all* build artifacts go. This allows a build of ecs or 
+--- any of the tools to be cleanly wiped completely by simply deleting this 
+--- directory.
 local build_dir = cwd.."/_build"
+
+--- Directory in which generated files live. This is separated such that we 
+--- can tell build tools that this is an include, require, import, etc. dir
+--- without the stuff being mixed with other build artifacts.
+local generated_dir = build_dir.."/_generated"
 
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
@@ -52,6 +60,7 @@ local include_dirs = List
   cwd.."/src",
   cwd.."/include",
   cwd.."/third_party/include",
+  generated_dir,
 }
 
 local lib_dirs = List
@@ -88,14 +97,6 @@ local lpp_params =
   require_dirs = List { "src" },
   cpath_dirs = List { "lib" },
   import_dirs = List { "src" },
-
-  cmd_callback = function(cmd, file)
-    if file:find "main" then
-      local f = io.open("cmd.txt", "w")
-      f:write("lldb -- "..table.concat(cmd, " "))
-      f:close()
-    end
-  end
 }
 
 ---@type lake.obj.Exe.LinkParams
@@ -149,14 +150,43 @@ lpp_params.meta_args = List { meta_arg }
 
 cpp_params.cmd_callback = cc:cmdCallback()
 
+---@type tools.loggen.Params
+local loggen_params = 
+{
+  generated_dir = generated_dir,
+  build_dir = build_dir,
+  lpp_params = lpp_params,
+  cpp_params = cpp_params,
+  out_objs = List{}
+}
+
+local loggen = require "tools.loggen.run" (loggen_params)
+local loggen_objs = loggen_params.out_objs
+
 ---@return lake.obj.Exe
 local function buildTest(name)
-  return require("tests."..name..".build") (
-    build_dir,
-    lpp_params,
-    cpp_params,
-    link_params,
-    iro_objs)
+  ---@type ecs.test.Params
+  local test_params = 
+  {
+    build_dir = build_dir,
+    lpp_params = lpp_params,
+    cpp_params = cpp_params,
+    link_params = link_params,
+  }
+
+  local test_objs = require("tests."..name..".build") (test_params)
+
+  for obj in test_objs:each() do
+    obj.task:dependsOn(loggen)
+  end
+
+  test_objs:pushList(iro_objs)
+  test_objs:pushList(loggen_objs)
+
+  local exe = o.Exe (build_dir.."/tests/"..name.."/run")
+  exe:link(test_objs, link_params)
+
+  return exe
 end
 
 local function buildAndRunTest(name)
@@ -195,35 +225,13 @@ if lake.cliargs[1] == "test" then
 
   buildAndRunTest(testname)
 
+  cc:write "compile_commands.json"
+
   return
 end
 
 -- buildTest "asset-building"
 
-local loggen_step = lake.task "loggen"
-
-for ldfile in lake.utils.glob "src/core/logging/*.loggen" :each() do
-  local output = build_dir.."/"..ldfile..".h"
-
-  local gen = 
-    lake.task("loggen "..ldfile)
-      :cond(function()
-        if not fs.path.exists(output) then
-          return true
-        end
-
-        local output_modtime = fs.path.modtime(output)
-
-        if lake.utils.checkImplicitLakefileDep(output_modtime) or 
-           fs.path.modtime(ldfile) > output_modtime
-        then
-          return true
-        end
-      end)
-      :recipe(function()
-
-      end)
-end
 
 do return end
 

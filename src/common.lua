@@ -11,7 +11,7 @@ os.exit = function()
 end
 
 -- Introduces the log global
-require "Log"
+require "core.logging.log"
 
 function dbgBreak()
   return "__builtin_debugtrap()"

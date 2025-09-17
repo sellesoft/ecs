@@ -1,3 +1,7 @@
+---
+up: "[[root_source_tree]]"
+instance-of: directory
+---
 # Main source tree.
 
 `src/` contains code that's compiled into the ecs editor and game executables. 
@@ -26,7 +30,7 @@
 * `external/`
   To be moved to the third_party/ directory.
 
-* `game/`
+* [[game|game/]]
   All code related to the game running in ecs' engine. Entity stuff, 
   entity systems, components, the Client and Server, etc.
 
@@ -46,7 +50,7 @@
   The networking api, used by `Client`s and `Server`s (defined in `game/`) to
   talk to each other.
 
-* `reflect/`
+* [[reflection|reflect/]]
   Systems/types/apis/and such used to generate reflected compile time code
   as well as an api for getting runtime type information.
 

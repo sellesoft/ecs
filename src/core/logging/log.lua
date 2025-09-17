@@ -16,10 +16,14 @@ log.import = function()
 end
 
 local function genverb(verb)
-  log[verb:lower()] = function(cat, ...)
+  log[verb:lower()] = function(cat, first, ...)
+    if not first then
+      error("log called without something to print")
+    end
+
     local buf = require "string.buffer" .new()
 
-    buf:put("::log::through_cat_", cat, "(::log::Verbosity::", verb, ',')
+    buf:put("__ECS_LOG_MACRO(", cat, ',', verb, ',')
 
     local function recur(a, b, ...)
       buf:put(a)
@@ -29,7 +33,7 @@ local function genverb(verb)
       end
     end
 
-    recur(...)
+    recur(first, ...)
 
     buf:put ')'
 

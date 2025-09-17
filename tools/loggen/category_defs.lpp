@@ -8,12 +8,18 @@ $ local categories = def._get_categories().list
 
 #include "loggen/log_categories.h"
 
+using namespace iro;
+
 namespace log
 {
 
 $ for cat in categories:each() do
 
-Category cat_$(cat.name);
+Category cat_$(cat.name) = 
+{
+  .name = "$(cat.name)"_str,
+  .verbosity = Verbosity::$(cat.opts.verbosity),
+};
 
 $ end
 

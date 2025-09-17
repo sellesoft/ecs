@@ -1,5 +1,6 @@
 local lake = require "lake"
 local o = lake.obj
+local List = require "iro.List"
 
 ---@class tools.loggen.Params
 ---
@@ -29,6 +30,13 @@ return function(params)
   local generated_dir = params.generated_dir.."/loggen"
   local build_dir = params.build_dir.."/tools/loggen"
 
+  local logdefs = List {}
+
+  for logdef in lake.utils.glob "src/**/*.logdef.lua" :each() do
+    print(logdef)
+    logdefs:push(o.Lua(logdef))
+  end
+
   local cat_decls = 
     o.Lpp "tools/loggen/category_decls.lpp" 
       :preprocess(generated_dir.."/log_categories.h", params.lpp_params)
@@ -37,6 +45,12 @@ return function(params)
     o.Lpp "tools/loggen/category_defs.lpp"
       :preprocessToCpp(generated_dir.."/log_categories.cpp", params.lpp_params)
       :compile(build_dir.."/category_defs.lpp.cpp.o", params.cpp_params)
+
+  for logdef in logdefs:each() do
+    print(logdef)
+    cat_decls.task:dependsOn(logdef.task)
+    cat_defs_o.task:dependsOn(logdef.task)
+  end
 
   params.out_objs:push(cat_defs_o)
 

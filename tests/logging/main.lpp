@@ -4,5 +4,5 @@ $ require "common"
 
 int main()
 {
-  @log.debug(editor, "hello ", 1, 2, 3, '\n');
+  @log.trace(main, "hello ", 1, 2, 3, 4);
 }

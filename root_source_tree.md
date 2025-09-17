@@ -1,11 +1,12 @@
+---
+instance-of: directory
+---
 ## Source tree summary.
 ---
-(as of 2025-09-16)
-
 Here is a summary of the top level source tree of ecs. Most sub-directories (should) have their own readme, which explain their content in more detail or links to other notes explaining specific things.
 
 * assets/
-  Contains source assets used in ecs' engine, game, and editor. These are typically either binary source assets (such as a `.png`, `.bdf`, etc.) or are our custom [[SourceData]] format.
+  Contains source assets used in ecs' engine, game, and editor. These are typically either binary source assets (such as a `.png`, `.bdf`, etc.) or our custom [[source_data|SourceData]] format.
 * bin/
   External tool binaries used by ecs in one way or another. The primary tools being `lake`, the build system, and `lpp`, the preprocessor ecs was originally started to test.
 * include/

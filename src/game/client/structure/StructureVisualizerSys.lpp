@@ -8,7 +8,7 @@ $ require "common"
 @@lpp.import "game/shared/Transform.comp.lh"
 @@lpp.import "game/client/graphics/Sprite.comp.lh"
 
-@log.ger(cl.sys.structure, Debug)
+@log.import
 
 namespace cl
 {
@@ -30,14 +30,15 @@ void StructureVisualizerSys::onAppearanceChange(
   Layer* layer = map->getLayerByIndex(transform->placement_layer);
   if (layer == nullptr)
   {
-    ERROR("entity ", ec.ent, " has an invalid layer placement\n");
+    @log.error(game, "entity ", ec.ent, " has an invalid layer placement\n");
     return;
   }
 
   Tile* tile = layer->getTileAtPos(transform->pos);
   if (tile == nullptr)
   {
-    ERROR("structure entity ", ec.ent, " placed out of layer bounds\n");
+    @log.error(game, 
+      "structure entity ", ec.ent, " placed out of layer bounds\n");
     return;
   }
 
@@ -142,7 +143,8 @@ void StructureVisualizerSys::onAppearanceChange(
   u64 state_idx = sprite_states.map.findIndex(state_map[mask]);
   if (state_idx == sprite_states.map.len)
   {
-    WARN("missing sprite for state ", state_string_map[mask], "\n");
+    @log.warn(game, 
+      "missing sprite for state ", state_string_map[mask], "\n");
 
     // Try to default back to a horizontal/vertical state if one of the
     // caps are missing.

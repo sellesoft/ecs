@@ -1,7 +1,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 @@lpp.import "game/shared/component/Component.lh"
 
@@ -20,5 +20,5 @@ struct EntityDef
 
 @metadata.def_type(EntityDef)
 @metadata.links(entity.data)
-struct EntityDefRef : TypedCompiledDataLink<EntityDef> {};
+struct EntityDefRef : reflect::TypedCompiledDataLink<EntityDef> {};
 

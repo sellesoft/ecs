@@ -8,11 +8,12 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/containers/EnumArray.h"
 #include "math/vec.h"
 
-@@lpp.import "asset/AssetRef.lh"
 @@lpp.import "reflect/types/Array.lh"
+@@lpp.import "reflect/CompiledData.lh"
+
 @@lpp.import "graphics/Texture.resource.lh"
+
 @@lpp.import "game/shared/entity/Entity.defs.lh"
-@@lpp.import "asset/CompiledData.lh"
 
 using namespace iro;
 
@@ -26,7 +27,7 @@ struct TileKindDef
 };
 
 @metadata.links(tile_kind.data)
-struct TileKindLink : TypedCompiledDataLink<TileKindDef> {};
+struct TileKindLink : reflect::TypedCompiledDataLink<TileKindDef> {};
   
 /* ============================================================================
  */
@@ -58,4 +59,4 @@ struct MapDef
 };
 
 @metadata.source_types(map)
-struct MapDefRef : TypedCompiledDataLink<MapDef> {};
+struct MapDefRef : reflect::TypedCompiledDataLink<MapDef> {};

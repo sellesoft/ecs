@@ -9,8 +9,8 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/Unicode.h"
 #include "iro/memory/Allocator.h"
 
+@@lpp.import "asset/Asset.lh"
 @@lpp.import "core/OffsetPtr.lh"
-@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "graphics/TextureParams.lh"
 
 struct AssetMgr;

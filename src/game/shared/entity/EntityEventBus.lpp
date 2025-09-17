@@ -8,7 +8,7 @@ $ local dumpValue = require "iro.util".dumpValue
 
 #include "iro/time/Time.h"
 
-@log.ger(cl.entsysmgr, Debug)
+@log.import
 
 $$$
 

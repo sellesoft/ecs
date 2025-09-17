@@ -5,13 +5,12 @@ $ require "common"
 @@lpp.import "game/shared/Net.events.lh"
 
 #include "iro/Common.h"
-#include "iro/Logger.h"
 #include "iro/memory/Allocator.h"
 
 using namespace iro;
 using namespace net;
 
-@log.ger(cl.NetMgr, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
@@ -31,7 +30,7 @@ static void handleMessageEvent(void* client_ptr, MessageNetEvent& event)
     io::StaticBuffer<512> string_buffer;
     string_buffer.len = event.message_length;
     mem::copy(string_buffer.buffer, event.message, event.message_length);
-    @log.info("Message Received: \"", string_buffer, "\"\n");
+    @log.info(net, "Message Received: \"", string_buffer, "\"\n");
   }
 }
 
@@ -67,12 +66,12 @@ void NetMgr::deinit()
  */
 b8 NetMgr::connectToServer(Address address)
 {
-  @log.trace("connecting to a server\n");
+  @log.trace(net, "connecting to a server\n");
   if (address.type == AddressType::Invalid)
-    return @log.error("invalid address\n");
+    return @log.error(net, "invalid address\n");
 
   if (!this->connection.init(address, this))
-    return @log.error("failed to initialize connection\n");
+    return @log.error(net, "failed to initialize connection\n");
 
   this->connection.state = Connection::State::Connecting;
   this->last_challenge_time = TimePoint::monotonic();
@@ -104,13 +103,13 @@ void NetMgr::receiveMessages()
     connection.receive(Source::Server, fragment);
     if (connection.incoming_message_pending_fragments)
       return;
-    @log.trace("received packet from [offline]\n");
+    @log.trace(net, "received packet from [offline]\n");
 
     Message message;
     message.init(connection.incoming_message_data,
                  connection.incoming_message_size);
     if (!this->parseEventsFromMessage(message, this))
-      @log.error("failed to parse network message\n");
+      @log.error(net, "failed to parse network message\n");
   }
   else
   {
@@ -128,13 +127,13 @@ void NetMgr::receiveMessages()
       connection.receive(Source::Server, fragment);
       if (connection.incoming_message_pending_fragments)
         continue;
-      @log.trace("received packet from ", connection.address, "\n");
+      @log.trace(net, "received packet from ", connection.address, "\n");
 
       Message message;
       message.init(connection.incoming_message_data,
                   connection.incoming_message_size);
       if (!this->parseEventsFromMessage(message, this))
-        @log.error("failed to parse network message\n");
+        @log.error(net, "failed to parse network message\n");
     }
   }
 }
@@ -168,7 +167,7 @@ void NetMgr::sendMessages()
     }
     else
     {
-      @log.error("message overflow when packing events\n");
+      @log.error(net, "message overflow when packing events\n");
     }
   }
   else if (connection.state == Connection::State::Challenging)
@@ -178,7 +177,7 @@ void NetMgr::sendMessages()
     if (time_since_challenge.toMilliseconds() > 1000)
     {
       //TODO(delle) drop connection if time since challenge is too long
-      @log.info("CHALLENGE TIMED OUT [", connection.address, "]\n");
+      @log.info(net, "CHALLENGE TIMED OUT [", connection.address, "]\n");
       return;
     }
 
@@ -200,10 +199,10 @@ void NetMgr::sendMessages()
     }
     else
     {
-      @log.error("message overflow when packing events\n");
+      @log.error(net, "message overflow when packing events\n");
     }
 
-    @log.info("CHALLENGING [", connection.address, "]\n");
+    @log.info(net, "CHALLENGING [", connection.address, "]\n");
     this->last_challenge_time = TimePoint::monotonic();
   }
   else
@@ -224,9 +223,9 @@ void NetMgr::sendMessages()
       //TODO(delle) password
 
       if (!connection.send(Source::Client, message, true))
-        @log.error("failed to send challenge message\n");
+        @log.error(net, "failed to send challenge message\n");
 
-      @log.info("CONNECTING [", connection.address, "]\n");
+      @log.info(net, "CONNECTING [", connection.address, "]\n");
       this->last_challenge_time = TimePoint::monotonic();
     }
   }

@@ -12,10 +12,12 @@ $ require "common"
 
 @@lpp.import "Profiling.lh"
 
-#include "iro/Logger.h"
 #include "Color.h"
 
-@log.ger(gfx, Info)
+@log.import
+
+$ local function log_err(...) return log.error("gfx", ...) end
+$ local function log_trace(...) return log.trace("gfx", ...) end
 
 namespace gfx
 {
@@ -39,7 +41,7 @@ b8 Renderer::init(InitParams& params)
   };
 
   if (!vk->init(vk_params))
-    return ERROR("failed to initialize Vulkan\n");
+    return @log_err("failed to initialize Vulkan\n");
 
   return true;
 }
@@ -76,7 +78,7 @@ static VkClearValue colorToVkClearValue(Color color)
 b8 Renderer::beginFrame()
 {
   if (vk->state.command_buffer != VK_NULL_HANDLE)
-    return ERROR("attempt to begin a frame while one is already active\n");
+    return @log_err("attempt to begin a frame while one is already active\n");
 
   VirtualFrame* vframe = vk->getCurrentVirtualFrame();
 
@@ -105,7 +107,7 @@ b8 Renderer::beginFrame()
   vkResetCommandBuffer(vk->state.command_buffer, 0);
 
   if (!vk->beginCommandBuffer(vk->state.command_buffer))
-    return ERROR("failed to begin command buffer\n");
+    return @log_err("failed to begin command buffer\n");
 
   return true;
 }
@@ -116,7 +118,7 @@ void Renderer::endFrame()
 {
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    ERROR("attempt to end the frame before it was begun\n");
+    @log_err("attempt to end the frame before it was begun\n");
     return;
   }
 
@@ -147,7 +149,7 @@ b8 Renderer::getSwapchainRenderTarget(RenderTarget* out)
   
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    ERROR("attempt to get swapchain render target outside of a frame\n");
+    @log_err("attempt to get swapchain render target outside of a frame\n");
     return false;
   }
 
@@ -168,7 +170,7 @@ static b8 beginRenderPassVk(
     Color       clear_color)
 {
   if (vk->state.command_buffer == VK_NULL_HANDLE)
-    return ERROR("attempt to begin a render pass before beginning a command "
+    return @log_err("attempt to begin a render pass before beginning a command "
                  "buffer\n");
 
   VkRect2D render_rect = 
@@ -185,7 +187,7 @@ static b8 beginRenderPassVk(
     },
   };
 
-  TRACE("beginning render pass at ", render_area_pos, " with size ", 
+  @log_trace("beginning render pass at ", render_area_pos, " with size ", 
         render_area_size, '\n');
 
   // NOTE(sushi) the image transition occurs inside this function, however
@@ -209,10 +211,10 @@ b8 Renderer::beginRenderPass(
     Color clear_color)
 {
   if (isnil(target.image))
-    return ERROR("attempt to begin a render pass with a nil target\n");
+    return @log_err("attempt to begin a render pass with a nil target\n");
 
   if (isnil(target.view))
-    return ERROR("attempt to begin a render pass with a nil target\n view");
+    return @log_err("attempt to begin a render pass with a nil target\n view");
 
   // TODO(sushi) this kind of blows and is another reason why I want to 
   //             rework how we handle this as mentioned in the todo above 
@@ -238,11 +240,11 @@ void Renderer::endRenderPass()
 {
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    ERROR("attempt to end a render pass outside a render pass instance\n");
+    @log_err("attempt to end a render pass outside a render pass instance\n");
     return;
   }
 
-  TRACE("ending render pass\n");
+  @log_trace("ending render pass\n");
 
   vk->cmdEndRendering(vk->state.command_buffer);
 
@@ -253,7 +255,7 @@ void Renderer::endRenderPass()
  */
 b8 Renderer::submitQueue()
 {
-  TRACE("submitting queue\n");
+  @log_trace("submitting queue\n");
 
   VirtualFrame* vframe = vk->getCurrentVirtualFrame();
 
@@ -277,7 +279,7 @@ b8 Renderer::submitQueue()
         1, 
         &submit_info,
         vframe->command_buffer_fence))
-    return ERROR("failed to submit command buffer\n");
+    return @log_err("failed to submit command buffer\n");
 
   return true;
 }
@@ -286,12 +288,12 @@ b8 Renderer::submitQueue()
  */
 b8 Renderer::present()
 {
-  TRACE("presenting frame\n");
+  @log_trace("presenting frame\n");
 
   if (!vk->queuePresent(
         vk->swapchain_buffers[next_image].submit_semaphore,
         next_image))
-    return ERROR("failed to present frame\n");
+    return @log_err("failed to present frame\n");
 
   vk->advanceVirtualFrame();
 
@@ -302,7 +304,7 @@ b8 Renderer::present()
  */
 void Renderer::setScissor(vec2i pos, vec2u size)
 {
-  TRACE("setting scissor to ", pos, ' ', size, "\n");
+  @log_trace("setting scissor to ", pos, ' ', size, "\n");
 
   VkRect2D scissor = 
   {
@@ -325,7 +327,7 @@ void Renderer::setScissor(vec2i pos, vec2u size)
  */
 void Renderer::setViewport(vec2f pos, vec2f size)
 {
-  TRACE("setting viewport to ", pos, ' ', size, '\n');
+  @log_trace("setting viewport to ", pos, ' ', size, '\n');
 
   VkViewport viewport = 
   {
@@ -346,7 +348,7 @@ void Renderer::bindPipeline(Pipeline pipeline)
 {
   if (isnil(pipeline))
   {
-    ERROR("attempt to bind nil gfx::Pipeline\n");
+    @log_err("attempt to bind nil gfx::Pipeline\n");
     return;
   }
 
@@ -358,7 +360,7 @@ void Renderer::bindPipeline(Pipeline pipeline)
 
   vk->state.bound_pipeline = dpipeline;
 
-  TRACE("binding ", pipeline, '\n');
+  @log_trace("binding ", pipeline, '\n');
 
   vkCmdBindPipeline(
     vk->state.command_buffer, 
@@ -372,18 +374,18 @@ void Renderer::bindDescriptorSet(u32 set_idx, DescriptorSet set)
 {
   if (isnil(set))
   {
-    ERROR("attempt to bind nil gfx::DescriptorSet\n");
+    @log_err("attempt to bind nil gfx::DescriptorSet\n");
     return;
   }
 
   if (vk->state.bound_pipeline == nullptr)
   {
-    ERROR("attempt to bind a gfx::DescriptorSet before binding a pipeline\n");
+    @log_err("attempt to bind a gfx::DescriptorSet before binding a pipeline\n");
     assert(false);
     return;
   }
 
-  TRACE("binding ", set, " to index ", set_idx, '\n');
+  @log_trace("binding ", set, " to index ", set_idx, '\n');
 
   vkCmdBindDescriptorSets(
     vk->state.command_buffer,
@@ -402,7 +404,7 @@ void Renderer::bindVertexBuffer(Buffer buffer)
 {
   if (isnil(buffer))
   {
-    ERROR("attempt to bind a nil gfx::Buffer as a vertex buffer\n");
+    @log_err("attempt to bind a nil gfx::Buffer as a vertex buffer\n");
     return;
   }
 
@@ -421,7 +423,7 @@ void Renderer::bindIndexBuffer(Buffer buffer)
 {
   if (isnil(buffer))
   {
-    ERROR("attempt to bind a nil gfx::Buffer as an index buffer\n");
+    @log_err("attempt to bind a nil gfx::Buffer as an index buffer\n");
     return;
   }
 
@@ -438,7 +440,7 @@ void Renderer::bindUniformBuffer(Buffer buffer)
 {
   if (isnil(buffer))
   {
-    ERROR("attempt to bind a nil gfx::Buffer as a uniform buffer\n");
+    @log_err("attempt to bind a nil gfx::Buffer as a uniform buffer\n");
     return;
   }
 
@@ -463,19 +465,19 @@ void Renderer::pushConstant(
 {
   if (data == nullptr)
   {
-    ERROR("data pointer passed to pushConstant is null\n");
+    @log_err("data pointer passed to pushConstant is null\n");
     return;
   }
 
   if (size == 0)
   {
-    ERROR("size passed to pushConstant is 0\n");
+    @log_err("size passed to pushConstant is 0\n");
     return;
   }
 
   if (vk->state.bound_pipeline == nullptr)
   {
-    ERROR("attempt to push a constant before binding a pipeline\n");
+    @log_err("attempt to push a constant before binding a pipeline\n");
   }
   
   vkCmdPushConstants(
@@ -506,7 +508,7 @@ void Renderer::prepareImageForSampling(Image image)
 {
   if (isnil(image))
   {
-    ERROR("passed a nil gfx::Image to prepare for sampling\n");
+    @log_err("passed a nil gfx::Image to prepare for sampling\n");
     return;
   }
  

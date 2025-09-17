@@ -2,7 +2,7 @@ $ require "common"
 
 @@lpp.import "game/client/graphics/Visualizer.sys.lh"
 
-@log.ger(cl.sys.visualizer, Info)
+@log.import
 
 namespace cl
 {
@@ -22,17 +22,17 @@ void VisualizerSys::onAppearanceChange(
 
   for (auto& visual : comp.visuals)
   {
-    DEBUG("vis ", visual.key, "\n");
+    @log.debug(game, "vis ", visual.key, "\n");
 
     if (StringHash* appearance_val = appearance.data.find(visual.key))
     {
-      DEBUG("  found\n");
+      @log.debug(game, "  found\n");
       if (StringHash* new_state = visual.elem.find(appearance_val->val))
       {
         u64 idx = sprite->states->map.findIndex(new_state->val);
         if (idx != sprite->states->map.len)
         {
-            DEBUG("  new state ", idx, "\n");
+            @log.debug(game, "  new state ", idx, "\n");
             sprite->state = idx;
         }
       }

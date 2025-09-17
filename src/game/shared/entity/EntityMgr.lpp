@@ -28,25 +28,21 @@ $     end
 $   end
 $ end
 
-@log.ger(entmgr, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
 b8 EntityMgr::init()
 {
-  INFO("initializing\n");
-  SCOPED_INDENT;
-
   if (!ent_pool.init())
-    return ERROR("failed to init entity pool\n");
+    return @log.error(game, "failed to init entity pool\n");
 
   if (!cmpmgr.init())
-    return ERROR("failed to init component mgr\n");
+    return @log.error(game, "failed to init component mgr\n");
 
   if (!eventbus.init(this))
-    return ERROR("failed to init entity event bus\n");
+    return @log.error(game, "failed to init entity event bus\n");
 
-  INFO("done!\n");
   return true;
 }
 
@@ -70,7 +66,8 @@ EntityId EntityMgr::createEntity(String name)
   EntityId id = {};
   ent_pool.formId(ent, &id.value, &id.salt);
 
-  DEBUG("created entity ", name, " (", id.value, ":", id.salt, ")\n");
+  @log.debug(game, 
+    "created entity ", name, " (", id.value, ":", id.salt, ")\n");
 
   return id;
 }
@@ -107,7 +104,7 @@ void EntityMgr::destroyEntity(EntityId id)
   if (ent == nullptr)
     return;
 
-  DEBUG(
+  @log.debug(game, 
     "destroying entity ", ent->name,
     " (", id.value, ":", id.salt, ")\n");
 
@@ -153,7 +150,8 @@ b8 EntityMgr::addComp(Entity* ent, EntityId id, $(decl.type.name)* cmp) const
   cmp->owner = id;
   ent->components.insert(cmp);
 
-  DEBUG("added component $(decl.type.name) to entity ", id.value, "\n");
+  @log.debug(game, 
+    "added component $(decl.type.name) to entity ", id.value, "\n");
 
   eventbus.raise(id, ComponentAdd{});
 

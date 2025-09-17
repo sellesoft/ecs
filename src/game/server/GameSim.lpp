@@ -7,9 +7,8 @@ $ require "common"
 @@lpp.import "game/shared/map/Map.sys.lh"
 
 #include "iro/Common.h"
-#include "iro/Logger.h"
 
-@log.ger(sv.gamesim, Info)
+@log.import
 
 namespace sv
 {
@@ -22,7 +21,8 @@ b8 GameSim::init(const InitParams& params)
     return false;
 
   if (!this->entsysmgr.init({this->entmgr}))
-    return @log.error("failed to initialize the entity system manager\n");
+    return @log.error(game, 
+      "failed to initialize the entity system manager\n");
 
   // MapSys::LoadParams map_params =
   // {
@@ -52,7 +52,8 @@ b8 GameSim::update()
     return false;
 
   if (!this->entsysmgr.update())
-    return @log.error("failed to update the entity system manager\n");
+    return @log.error(game, 
+      "failed to update the entity system manager\n");
 
   return true;
 }

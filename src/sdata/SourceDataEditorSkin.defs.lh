@@ -1,7 +1,7 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "ui/Skin.defs.lh"
 
 /* ============================================================================
@@ -72,4 +72,4 @@ struct SourceDataEditorSkinDef
 };
 
 struct SourceDataEditorSkinDefRef : 
-  TypedCompiledDataLink<SourceDataEditorSkinDef> {};
+  reflect::TypedCompiledDataLink<SourceDataEditorSkinDef> {};

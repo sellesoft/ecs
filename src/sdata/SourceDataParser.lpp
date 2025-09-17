@@ -3,10 +3,7 @@ $ local cmn = require "common"
 @@lpp.import "sdata/SourceDataParser.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
 
-#include "iro/Logger.h"
-#include "iro/Platform.h"
-
-@cmn.defFileLogger(srcdata.parse, Info)
+@log.import
 
 /* ============================================================================
  */
@@ -83,7 +80,7 @@ struct Parser
     this->in_name = in_name;
     
     if (!scanner.init(in))
-      return ERROR("failed to init scanner\n");
+      return @log.error(sdata, "failed to init scanner\n");
 
     return true;
   }
@@ -254,7 +251,8 @@ SourceData* parsePossiblyTypedAuxData(
 
   if (notnil(result->name))
   {
-    ERROR("parsePossiblyTypedAuxData input resulted in named source data\n");
+    @log.error(sdata, 
+      "parsePossiblyTypedAuxData input resulted in named source data\n");
     return nullptr;
   }
 
@@ -273,7 +271,7 @@ void Parser::ScopedStage::onEnter(const char* funcname)
       min<u64>(10, 
         parser.scanner.cache.len - parser.scanner.cache_offset));
 
-  log("> ", color::green(funcname), ": '", 
+  log("> ", funcname, ": '", 
       io::SanitizeControlCharacters(preview), "' (",
       parser.scanner.line, ':', parser.scanner.column, ")\n");
 }
@@ -282,7 +280,7 @@ void Parser::ScopedStage::onEnter(const char* funcname)
  */
 void Parser::ScopedStage::onLeave()
 {
-  log("< ", color::blue(funcname), '\n');
+  log("< ", funcname, '\n');
 }
 
 /* ----------------------------------------------------------------------------
@@ -291,8 +289,8 @@ template<typename... T>
 void Parser::ScopedStage::log(T... args)
 {
   for (u32 i = 0; i < parser.stage_depth; ++i)
-    DEBUG(" ");
-  DEBUG(args...);
+    @log.debug(sdata, " ");
+  @log.debug(sdata, args...);
 }
 
 #define PARSER_STAGE \
@@ -767,5 +765,6 @@ $ end
 template<typename... Args>
 b8 Parser::errorAt(Token tok, Args... args)
 {
-  return ERROR(in_name,":",tok.line,":",tok.column,": ", args...);
+  return @log.error(
+    sdata, in_name,":",tok.line,":",tok.column,": ", args...);
 }

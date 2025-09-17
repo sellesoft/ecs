@@ -14,11 +14,10 @@ $ local cmn = require "common"
 @@lpp.import "game/shared/entity/Entity.defs.lh"
 @@lpp.import "game/shared/entity/EntityLoader.lh"
 
-#include "iro/Logger.h"
 #include "math/util.h"
 #include "iro/Platform.h"
 
-@cmn.defFileLogger(game.map, Info)
+@log.import
 
 b8 debug_tile = false;
 vec2i debug_tile_pos;
@@ -52,7 +51,7 @@ struct MapLoader
   b8 loadMap(const MapDef& def)
   {
     if (!map->layers.init())
-      return ERROR("failed to initialize map layers array\n");
+      return @log.error(game, "failed to initialize map layers array\n");
 
     map->layers.resize(def.layers.len);
 
@@ -80,14 +79,16 @@ struct MapLoader
   b8 loadLayer(Layer* layer, u32 idx, const MapLayerDef& def)
   {
     if (!layer->tiles.init())
-      return ERROR("failed to initialize layer tiles array (", idx, ")\n");
+      return @log.error(game, 
+        "failed to initialize layer tiles array (", idx, ")\n");
 
     layer->pos = def.pos;
     layer->size = def.size;
     layer->tiles.resize(def.size.x * def.size.y);
 
     if (layer->tiles.len() != def.tiles.len)
-      return ERROR("expected ", layer->tiles.len(), " tiles in layer ",
+      return @log.error(game, 
+        "expected ", layer->tiles.len(), " tiles in layer ",
                    idx, " but got ", def.tiles.len, "\n");
 
     for (u32 i = 0; i < def.tiles.len; ++i)
@@ -180,8 +181,9 @@ Layer* MapSys::getLayerByIndex(u32 index)
 {
   if (index > layers.len())
   {
-    ERROR("attempt to get a Layer by out-of-bounds index (", index, " > ",
-          layers.len(), ")\n");
+    @log.error(game,
+      "attempt to get a Layer by out-of-bounds index (", index, " > ",
+      layers.len(), ")\n");
     return nullptr;
   }
 

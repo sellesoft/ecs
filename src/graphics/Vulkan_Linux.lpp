@@ -22,7 +22,7 @@ $ if IRO_LINUX then
 #undef False
 #undef Status
 
-@log.ger(vulkan.linux, Info)
+@log.import
 
 namespace gfx
 {
@@ -46,7 +46,7 @@ b8 Vulkan::initSurface(Window& window)
         &allocator_callbacks, 
         &surface))
   {
-    return ERROR("failed to initialize xlib surface\n");
+    return @log.error(vk, "failed to initialize xlib surface\n");
   }
 
   return true;

@@ -1,12 +1,7 @@
 $ require "common"
 
 @@lpp.import "game/shared/interaction/Openable.sys.lh"
-
-// \@\@lpp.import "game/shared/Sprite.comp.lh"
-
 @@lpp.import "game/shared/Appearance.comp.lh"
-
-@log.ger(sys.openable, Info)
 
 #include "iro/Platform.h"
 

@@ -1,11 +1,5 @@
 $ local cmn = require "common"
 
-#include "iro/Logger.h"
-
-using namespace iro;
-
-@cmn.defFileLogger(movement, Info)
-
 @@lpp.import "game/shared/Movement.sys.lh"
 @@lpp.import "game/shared/Movement.comp.lh"
 @@lpp.import "game/shared/Transform.comp.lh"

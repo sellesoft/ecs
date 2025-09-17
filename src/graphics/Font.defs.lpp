@@ -6,7 +6,7 @@ $ require "common"
 @@lpp.import "build/Rule.lh"
 @@lpp.import "build/Result.lh"
 @@lpp.import "build/BuildSystem.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
 
@@ -74,7 +74,6 @@ static void fontBuild(const build::RuleParams_Build& params)
   
   CompileFontParams compile_params = 
   {
-    
     .input_path = data_target->formFullPath(&data_path_buffer),
     .output_path = params.target->formFullPath(&target_path_buffer),
     .texture_output_path = 

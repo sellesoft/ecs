@@ -4,21 +4,20 @@ $ require "common"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
 #include "iro/Platform.h"
-#include "iro/Logger.h"
 
 #include <shaderc/shaderc.h>
 
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "graphics/Renderer.lh"
 @@lpp.import "graphics/CompiledShader.lh"
 @@lpp.import "graphics/Shader.defs.lh"
 @@lpp.import "build/Result.lh"
 
+@log.import
+
 namespace gfx
 {
-
-@defFileLogger(gfx.shader, Debug)
 
 typedef io::StaticBuffer<512> PathBuffer;
 
@@ -30,7 +29,7 @@ b8 buildError(build::Result* result, Args... args)
   if (result != nullptr)
     result->pushError(args...);
   else
-    ERROR(args..., '\n');
+    @log.error(gfx, args..., '\n');
 
   return false;
 }
@@ -87,7 +86,7 @@ b8 compileShader(const CompileShaderParams& params)
       "shader '", in, "'");
   defer { compiled_data_allocator.deinit(); };
 
-  auto* compiled_def = CompiledData::load(
+  auto* compiled_def = reflect::CompiledData::load(
     in, 
     &compiled_data_allocator,
     params.result);

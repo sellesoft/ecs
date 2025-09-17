@@ -15,6 +15,29 @@ log.import = function()
   ]]
 end
 
+--- IDE defs.
+---@param cat string
+---@param ... any
+log.trace = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.debug = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.info = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.notice = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.warn = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.error = function(cat, ...) end
+---@param cat string
+---@param ... any
+log.fatal = function(cat, ...) end
+
 local function genverb(verb)
   log[verb:lower()] = function(cat, first, ...)
     if not first then

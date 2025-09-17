@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("pretty", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
@@ -34,10 +33,6 @@ local astctx = require "reflect.AstContext".fromString(tostring(imported))
 local function lookup(name)
   return astctx:lookupTypeDecl(name)
 end
-
--- for name,decl in pairs(astctx.decls_by_qualified_name) do
---   clog:info(name, ' ', decl, '\n')
--- end
 
 $$$
 @@imported:get
@@ -198,7 +193,7 @@ $ -- * ------------------------------------------------------------------------
    */
   $(declareDeclPrinterFromName "iro::utf8::String")
   {
-    io::formatv(out, color::green, '"', val, '"', color::reset);
+    io::formatv(out, '"', val, '"');
   }
 
 $ -- * ------------------------------------------------------------------------
@@ -236,7 +231,7 @@ $ local function callTypePrinter(type, valaccess)
 $   if type:is(ast.Pointer) then
     if ($(valaccess) == nullptr)
     {
-      io::formatv(out, color::red("nullptr"_str));
+      io::formatv(out, "nullptr"_str);
     }
     else
     {
@@ -294,7 +289,7 @@ $     local subtype = type.subtype
       for (s32 i = 0; i < $(type.len); ++i)
       {
         indent();
-        io::formatv(out, '[', color::magenta(i), "]: ");
+        io::formatv(out, '[', i, "]: ");
         @scopedIndent
 $     callTypePrinter(subtype, valaccess.."[i]")
         if (i != $(type.len) - 1)
@@ -358,7 +353,7 @@ $ end
 $ for field in decl:eachField() do
 $   if field.name ~= nil and field.name ~= "" then
     indent();
-    io::formatv(out, color::yellow("$(field.name): "_str));
+    io::formatv(out, "$(field.name): "_str);
 $   callTypePrinter(field.type, "val."..field.name)
 $   if not field.is_last then
     io::format(out, "\n");
@@ -387,7 +382,7 @@ $ end
     {
 $ for val,name in ipairs(val_to_name) do
   case $(val-1):
-    io::formatv(out, color::blue("$(name)"), " ($(val-1))");
+    io::formatv(out, "$(name)", " ($(val-1))");
     break;
 $ end
     }
@@ -418,7 +413,7 @@ $         reflect_types.Array and "len" or "len()"
     for (s32 i = 0; i < val.$(len_access); ++i)
     {
       indent();
-      io::formatv(out, '[', color::magenta(i), "]:");
+      io::formatv(out, '[', i, "]:");
       @scopedIndent
       if (i >= val.$(len_access))
         break; // NOTE(sushi) extra check incase we are printing something 
@@ -454,7 +449,7 @@ $ for elem in subtype.decl.elems:each() do
     {
       if (!first)
         io::formatv(out, " | ");
-      io::formatv(out, color::blue("$(elem.name)"));
+      io::formatv(out, "$(elem.name)");
       first = false;
     }
 $ end
@@ -481,7 +476,7 @@ $   local subtype = decl.args[1]
     for (s32 i = 0; i < val.len; ++i)
     {
       indent();
-      io::formatv(out, color::magenta(val.slots[i].key), ":");
+      io::formatv(out, val.slots[i].key, ":");
       @scopedIndent
 $     callTypePrinter(subtype, "val.slots[i].elem")
       if (val.len - 1 != i)
@@ -515,7 +510,7 @@ $   for elem in enum.elems:each() do
       //   io::format(out, '\n');
       // first = false;
 
-      io::formatv(out, color::blue("$(elem.name)"), ' ');
+      io::formatv(out, "$(elem.name)", ' ');
     }
 $   end
   }
@@ -625,11 +620,11 @@ $ local function putRefPrinter(decl)
   $(declareDeclPrinter(decl))
   {
     if (val.isValid())
-      io::formatv(out, color::green("loaded "_str));
+      io::formatv(out, "loaded "_str);
     else
-      io::formatv(out, color::red("not-loaded "_str));
+      io::formatv(out, "not-loaded "_str);
 
-    io::formatv(out, color::green, '"', val.name, '"', color::reset);
+    io::formatv(out, '"', val.name, '"');
   }
 $   decl.user.break_before_field = false
 $ end
@@ -722,10 +717,6 @@ void prettyPrint(
     const void* val,
     const PrettyPrintOpts& opts)
 {
-  b8 was_color_allowed = iro::io::g_allow_color;
-  if (opts.disable_color)
-    iro::io::g_allow_color = false;
-
   Printer printer(out, opts);
 
   switch (type.val)
@@ -738,8 +729,6 @@ $ end
   }
 
   io::format(out, '\n');
-
-  iro::io::g_allow_color = was_color_allowed;
 }
 
 /* ----------------------------------------------------------------------------
@@ -749,7 +738,7 @@ void prettyPrint(
     const void* val,
     const PrettyPrintOpts& opts)
 {
-  prettyPrint(&fs::stdout, type, val, PrettyPrintOpts());
+  prettyPrint(fs::stdout(), type, val, PrettyPrintOpts());
 }
 
 }

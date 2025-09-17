@@ -12,9 +12,7 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "asset/Ref.lh"
-
-@@lpp.import "reflect/RTR.lh"
+@@lpp.import "reflect/rtr.lh"
 
 using namespace iro;
 

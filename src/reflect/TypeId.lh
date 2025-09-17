@@ -1,7 +1,6 @@
-/* ============================================================================
+/* 
  *  Typesafe wrapper around a typename hash for use at runtime.
  *  A val of 0 is not valid.
- *
  */
 
 $ require "common"

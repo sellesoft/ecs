@@ -5,7 +5,6 @@ $ local cmn = require "common"
 #include "iro/Unicode.h"
 
 @@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "sdata/SourceDataFileReg.lh"
 @@lpp.import "event/BroadcastEventBus.lh"
 @@lpp.import "editor/Editor.lh"
 

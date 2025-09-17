@@ -1,5 +1,7 @@
 $ require "common"
 
+#include "math.h"
+
 @log.import
 
 int main()

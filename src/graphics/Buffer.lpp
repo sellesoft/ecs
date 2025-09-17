@@ -6,9 +6,7 @@ $ local helpers = require "graphics.Helpers"
 @@lpp.import "graphics/Buffer.lh"
 @@lpp.import "graphics/Geo.lh"
 
-#include "iro/Logger.h"
-
-@defFileLogger(gfx.buffer, Info)
+@log.import
 
 namespace gfx
 {
@@ -21,11 +19,9 @@ Buffer Buffer::create(Vulkan& vk, const CreateParams& params)
 
 $ local cerr = helpers.defCreateErr("gfx::Buffer", "name")
 
-  DEBUG("creating a gfx::Buffer of size ", params.size, " named ", name, '\n');
-
   if (params.size == 0)
   {
-    @cerr("cannot create gfx::Buffer of size 0")
+    @cerr("cannot create gfx::Buffer of size 0");
     return nil;
   }
 
@@ -104,7 +100,7 @@ $ end
   case MappingBehavior::Never:
     if (params.data == nullptr)
     {
-      WARN(
+      @log.warn(gfx,
         "request to allocate a gfx::Buffer with mapping behavior Never. This "
         "type of request is mainly useful for intermediate compute shader "
         "memory, but compute shaders are not set up yet.\n");
@@ -206,7 +202,7 @@ void Buffer::destroy(Vulkan& vk)
   if (isnil(*this))
     return;
 
-  DEBUG("destroying ", *this, "\n");
+  @log.debug(gfx, "destroying ", *this, "\n");
 
   auto* internal_buffer = (DeviceBuffer*)handle;
 
@@ -228,13 +224,11 @@ void* Buffer::map(Vulkan& vk)
 {
   if (isnil(*this))
   {
-    ERROR("attempt to map a nil gfx::Buffer\n");
+    @log.error(gfx, "attempt to map a nil gfx::Buffer\n");
     return nullptr;
   }
 
   auto* internal_buffer = (DeviceBuffer*)handle;
-
-  TRACE("mapping ", *this, "\n");
 
   if (!vk.mapVkBuffer(
       &mapped_data, 
@@ -250,13 +244,7 @@ void* Buffer::map(Vulkan& vk)
 b8 Buffer::flush(Vulkan& vk, u64 offset, u64 size)
 {
   if (isnil(*this))
-    return ERROR("attempt to flush a nil gfx::Buffer\n");
-
-  if (size == FLUSH_WHOLE_BUFFER)
-    TRACE("flushing whole buffer of ", *this, "\n");
-  else
-    TRACE("flushing ", size, " bytes of " , *this, " at offset ", offset, 
-          "\n");
+    return @log.error(gfx, "attempt to flush a nil gfx::Buffer\n");
 
   auto* internal_buffer = (DeviceBuffer*)handle;
 
@@ -277,17 +265,14 @@ b8 Buffer::flush(Vulkan& vk, u64 offset, u64 size)
 b8 Buffer::copyAndFlush(Vulkan& vk, void* data, u64 size)
 {
   if (isnil(*this))
-    return ERROR("attempt to copy and flush a nil gfx::Buffer\n");
-
-  TRACE("copying and flushing ", *this, "\n");
+    return @log.error(gfx, "attempt to copy and flush a nil gfx::Buffer\n");
 
   if (mapped_data == nullptr)
-    return ERROR("attempt to copy and flush unmapped ", *this, "\n");
+    return @log.error(gfx, "attempt to copy and flush unmapped ", *this, "\n");
 
   auto* internal_buffer = (DeviceBuffer*)handle;
   DeviceHeapAllocation* ptr = internal_buffer->ptr;
 
-  DEBUG("copying ", size, " data\n");
   mem::copy(mapped_data, data, size);
 
   VkDeviceSize dev_size = size;
@@ -298,8 +283,6 @@ b8 Buffer::copyAndFlush(Vulkan& vk, void* data, u64 size)
   else 
     dev_size = alignUp(size, vk.getHeap(ptr)->alignment);
 
-  DEBUG("dsize: ", dev_size, '\n');
-
   return vk.flushMappedVkBuffer(dev_offset, dev_size, ptr);
 }
 
@@ -309,16 +292,15 @@ void Buffer::unmap(Vulkan& vk)
 {
   if (isnil(*this))
   {
-    ERROR("attempt to unmap a nil gfx::Buffer\n");
+    @log.error(gfx, "attempt to unmap a nil gfx::Buffer\n");
     return;
   }
 
   auto* internal_buffer = (DeviceBuffer*)handle;
 
-  TRACE("unmapping ", *this, '\n');
-
   if (!vk.unmapVkBuffer(internal_buffer->ptr))
-    ERROR("attempt to unmap ", *this, " but it was already unmapped\n"); 
+    @log.error(gfx, 
+      "attempt to unmap ", *this, " but it was already unmapped\n"); 
 }
 
 }

@@ -7,9 +7,6 @@ $ require "common"
 @@lpp.import "input/InputMgr.lh"
 
 #include "iro/Common.h"
-#include "iro/Logger.h"
-
-@log.ger(cl.console, Info)
 
 namespace cl
 {

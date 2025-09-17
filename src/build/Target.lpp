@@ -4,7 +4,9 @@ $ require "common"
 
 #include "iro/fs/fs.h"
 
-@log.ger(build.target, Info)
+@log.import
+
+$ local function logerr(...) return log.error("build", ...) end
 
 namespace build
 {
@@ -21,16 +23,16 @@ b8 Target::init(String name, String type, String mount, TargetKind kind)
   id = combineHash(name.hash(), type.hash());
 
   if (!dependents.init())
-    return ERROR("failed to initialize dependents set\n");
+    return @logerr("failed to initialize dependents set\n");
 
   if (!prerequisites.init())
-    return ERROR("failed to initialize prerequisites set\n");
+    return @logerr("failed to initialize prerequisites set\n");
 
   if (!linked_targets.init())
-    return ERROR("failed to initialize linked targets set\n");
+    return @logerr("failed to initialize linked targets set\n");
 
   if (!secondary_targets.init())
-    return ERROR("failed to initialize secondary targets set\n");
+    return @logerr("failed to initialize secondary targets set\n");
 
   rule = nullptr;
   primary_target = nullptr;

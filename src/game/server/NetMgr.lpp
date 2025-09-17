@@ -6,13 +6,12 @@ $ require "common"
 @@lpp.import "game/shared/Net.events.lh"
 
 #include "iro/Common.h"
-#include "iro/Logger.h"
 #include "iro/memory/Allocator.h"
 
 using namespace iro;
 using namespace net;
 
-@log.ger(sv.NetMgr, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
@@ -23,7 +22,7 @@ static void handleChallengeEvent(void* server_ptr, ChallengeNetEvent& event)
   if (event.challenge_value == session->challenge_value)
   {
     session->connection.state = Connection::State::Connected;
-    @log.info("CONNECTED [", session->connection.address, "]\n");
+    @log.info(net, "CONNECTED [", session->connection.address, "]\n");
   }
 }
 
@@ -33,7 +32,7 @@ static void handleMessageEvent(void* server_ptr, MessageNetEvent& event)
 {
   if (event.message_length > 0 && event.message_length < 513)
   {
-    @log.info("Message Received: \"",
+    @log.info(net, "Message Received: \"",
               String::from(event.message, event.message_length), "\"\n");
   }
 }
@@ -56,9 +55,9 @@ static void handleConnectionlessPacket(
   {
     String string = "server_full"_str;
     if (!netmgr->sendOnlinePacket(address, string.ptr, string.len))
-      @log.error("Failed to send server full message\n");
+      @log.error(net, "Failed to send server full message\n");
 
-    @log.info("Rejecting connection from ", address,
+    @log.info(net, "Rejecting connection from ", address,
               " because the server is full\n");
     return;
   }
@@ -66,14 +65,14 @@ static void handleConnectionlessPacket(
   sv::NetMgr::Session* session = netmgr->sessions.push();
   if (!session)
   {
-    @log.error("Failed to create a session\n");
+    @log.error(net, "Failed to create a session\n");
     return;
   }
 
   session->connection.init(address, netmgr);
   session->connection.state = Connection::State::Challenging;
   session->challenge_value = (u32)TimePoint::monotonic().ns;
-  @log.info("CHALLENGED [", address, "]\n");
+  @log.info(net, "CHALLENGED [", address, "]\n");
 }
 
 namespace sv
@@ -91,7 +90,7 @@ b8 NetMgr::init(
 
   this->max_sessions = max_sessions;
   if (!this->sessions.init(max_sessions, allocator))
-    return @log.error("failed to init the server sessions array\n");
+    return @log.error(net, "failed to init the server sessions array\n");
 
   this->server = server;
 
@@ -99,7 +98,7 @@ b8 NetMgr::init(
   {
     if (!this->bind(net::SERVER_PORT))
     {
-      @log.error("failed to bind server port\n");
+      @log.error(net, "failed to bind server port\n");
       return false;
     }
   }
@@ -176,7 +175,7 @@ void NetMgr::receiveMessages()
                 session.connection.incoming_message_size);
 
     if (!this->parseEventsFromMessage(message, &session))
-      @log.error("failed to parse network message\n");
+      @log.error(net, "failed to parse network message\n");
   }
 }
 
@@ -205,7 +204,8 @@ void NetMgr::sendMessages()
       if (time_since_challenge.toMilliseconds() > 1000)
       {
         //TODO(delle) drop connection if time since challenge is too long
-        @log.info("CHALLENGE TIMED OUT [", session.connection.address, "]\n");
+        @log.info(net, 
+          "CHALLENGE TIMED OUT [", session.connection.address, "]\n");
         continue;
       }
 
@@ -227,7 +227,7 @@ void NetMgr::sendMessages()
     }
     else
     {
-      @log.error("Message overflow when packing events\n");
+      @log.error(net, "Message overflow when packing events\n");
     }
   }
 }

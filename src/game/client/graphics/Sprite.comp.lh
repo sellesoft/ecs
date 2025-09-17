@@ -8,7 +8,7 @@ $ local metadata = require "reflect.Metadata"
 @@lpp.import "game/shared/component/Component.lh"
 @@lpp.import "graphics/Texture.resource.lh"
 @@lpp.import "reflect/types/StringMap.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 #include "Color.h"
 #include "math/vec.h"
@@ -41,7 +41,7 @@ struct SpriteStatesDef
 };
 
 @metadata.links(sprite_states.data)
-struct SpriteStatesLink : TypedCompiledDataLink<SpriteStatesDef> {};
+struct SpriteStatesLink : reflect::TypedCompiledDataLink<SpriteStatesDef> {};
 
 namespace cl
 {

@@ -10,7 +10,7 @@ $ local categories = def._get_categories().list
 
 using namespace iro;
 
-namespace log
+namespace logging
 {
 
 $ for cat in categories:each() do

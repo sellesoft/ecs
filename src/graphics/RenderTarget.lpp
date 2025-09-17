@@ -7,7 +7,7 @@ $ require "common"
 
 #include "iro/io/IO.h"
 
-@log.ger(gfx.rendertarget, Info)
+@log.import
 
 namespace gfx
 {

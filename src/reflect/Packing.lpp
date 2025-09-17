@@ -8,7 +8,6 @@
 
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("packing", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
@@ -79,9 +78,10 @@ end
 $$$
 @@imported:get
 
-@log.ger(packing, Debug)
+@log.import
 
-@@lpp.import "asset/Packing.lh"
+@@lpp.import "reflect/Packing.lh"
+
 @@lpp.import "asset/AssetMgr.lh"
 @@lpp.import "sdata/SourceData.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
@@ -94,13 +94,16 @@ $$$
 
 using namespace iro;
 
+namespace reflect
+{
+
 template<typename... Args>
 b8 buildError(build::Result* result, Args... args)
 {
   if (result != nullptr)
     result->pushError(args...);
   else
-    ERROR(args..., '\n');
+    @log.error(reflect, args..., '\n');
   return false;
 }
 
@@ -614,8 +617,8 @@ $   end
       $(found_fields_typename)* found_fields)
   {
 $  if decl.base then
-$    clog:warn("decl ", decl, " has a base decl but packing inherited data ",
-$              "is not currently supported!\n")
+$    --clog:warn("decl ", decl, " has a base decl but packing inherited data ",
+$    --          "is not currently supported!\n")
 $  end
 
     // NOTE(sushi) this currently does not support dealing with base decls 
@@ -859,7 +862,7 @@ $     putStringMapPacker(decl)
 $   elseif name == "reflect::TypedStringMap" then
 $     putTypedStringMapPacker(decl)
 $   else
-$     clog:warn("unhandled template spec ", name, '\n')
+$     -- clog:warn("unhandled template spec ", name, '\n')
 $   end
 $ end
 
@@ -905,7 +908,7 @@ $   end
 $   
 $   decl.user.packer_placed = true
 $ 
-$   clog:trace("put packer: ", decl, '\n')
+$   -- clog:trace("put packer: ", decl, '\n')
 $ 
 $   if decl:is(ast.TagDecl) then
 $     if decl:is(ast.Record) then
@@ -993,4 +996,6 @@ $ end
   }
 
   return true;
+}
+
 }

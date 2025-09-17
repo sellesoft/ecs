@@ -1,19 +1,14 @@
 $ require "common"
 
 @@lpp.import "game/shared/interaction/Interaction.sys.lh"
-
 @@lpp.import "game/shared/interaction/Interactable.comp.lh"
 @@lpp.import "game/shared/interaction/Interaction.events.lh"
 
 @@lpp.import "game/shared/Transform.comp.lh"
-
 @@lpp.import "game/shared/map/Map.sys.lh"
-
 @@lpp.import "game/shared/input/Input.events.lh"
 
 #include "input/Keys.h"
-
-@log.ger(sh.sys.interact, Info)
 
 #include "iro/Platform.h"
 

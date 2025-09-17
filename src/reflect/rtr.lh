@@ -6,7 +6,7 @@
 $ require "common"
 
 #include "iro/Unicode.h"
-#include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 
 @@lpp.import "reflect/TypeId.lh"
 
@@ -79,7 +79,7 @@ void prettyPrint(io::IO* out, const T& val, const PrettyPrintOpts& opts = {})
 
 template<typename T>
 void prettyPrint(const T& val, const PrettyPrintOpts& opts = {})
-{ prettyPrint(&fs::stdout, val, opts); }
+{ prettyPrint(fs::stdout(), val, opts); }
 
 template<typename T>
 void prettyPrint(const T* val, const PrettyPrintOpts& opts = {})

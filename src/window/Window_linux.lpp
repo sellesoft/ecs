@@ -7,7 +7,6 @@ $ if IRO_LINUX then
 @@lpp.import "window/Window.events.lh"
 @@lpp.import "Engine.lh"
 
-#include "iro/Logger.h"
 #include "math/util.h"
 #include "input/Keys.h"
 
@@ -15,8 +14,9 @@ $ if IRO_LINUX then
 @@lpp.import "window/Window_linux.lh"
 @@lpp.import "input/InputMgr.lh"
 
-static Logger logger = 
-  Logger::create("ecs.window"_str, Logger::Verbosity::Info);
+@@log.import
+
+$ local function log_err(...) return log.error("window", ...) end
 
 X11Stuff x11;
 
@@ -34,7 +34,7 @@ b8 Window::initializeBackend()
 {
   Display* display = x11.display = XOpenDisplay(0);
   if (!display)
-    return ERROR("failed to open X11 display\n");
+    return @log_err("failed to open X11 display\n");
 
   int screen = x11.screen;
 
@@ -152,7 +152,7 @@ b8 Window::init(Engine& eng, String title, InputMgr& inputmgr)
   int res = XSelectInput(display, window, window_event_masks);
   
   if (res == BadWindow)
-    return ERROR("XSelectInput failed with BadWindow\n");
+    return @log_err("XSelectInput failed with BadWindow\n");
 
   context = XCreateGC(display, window, 0, 0);
   XSetBackground(display, (GC)context, black);
@@ -178,7 +178,7 @@ b8 Window::init(Engine& eng, String title, InputMgr& inputmgr)
   };
   
   if (0 == XSetWMProtocols(display, window, atoms, 1))
-    return ERROR("failed to set WM protocols\n");
+    return @log_err("failed to set WM protocols\n");
 
   XMapRaised(display, window);
 
@@ -201,7 +201,7 @@ Window::UpdateResult Window::update(InputMgr& input)
 
   if (handle == nullptr)
   {
-    ERROR("attempt to update a Window with a null handle\n");
+    @log_err("attempt to update a Window with a null handle\n");
     result.error = true;
     return result;
   }
@@ -299,8 +299,8 @@ $ map = nil
         case Button4: input.onAddScroll(1.f); break;
         case Button5: input.onAddScroll(-1.f); break;
         default:
-            WARN("unhandled button given by XButtonEvent: ", bev.button, 
-                 "\n");
+            @log.warn(window, 
+              "unhandled button given by XButtonEvent: ", bev.button, "\n");
           break;
         }
       }

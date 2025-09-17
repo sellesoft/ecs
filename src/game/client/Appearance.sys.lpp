@@ -3,8 +3,6 @@ $ require "common"
 @@lpp.import "game/client/Appearance.sys.lh"
 @@lpp.import "game/client/graphics/Sprite.comp.lh"
 
-@log.ger(cl.aprnce, Debug)
-
 namespace cl
 {
 

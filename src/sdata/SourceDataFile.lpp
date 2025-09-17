@@ -3,23 +3,22 @@ $ local cmn = require "common"
 @@lpp.import "sdata/SourceDataFile.lh"
 @@lpp.import "sdata/SourceDataParser.lh"
 
-#include "iro/Logger.h"
 #include "iro/fs/File.h"
 
-@log.ger(srcdata.file, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
 b8 SourceDataFile::init()
 {
   if (!string_cache.init())
-    return ERROR("failed to init string cache\n");
+    return @log.error(sdata, "failed to init string cache\n");
 
   if (!data_pool.init())
-    return ERROR("failed to init data pool\n");
+    return @log.error(sdata, "failed to init data pool\n");
 
   if (!aux_data_list.init())
-    return ERROR("failed to init aux data list\n");
+    return @log.error(sdata, "failed to init aux data list\n");
 
   return true;
 }
@@ -52,17 +51,20 @@ b8 SourceDataFile::from(SourceDataFile* sfile, String path)
         "SourceDataFile::from given an already initialized sfile");
   
   if (!sfile->init())
-    return ERROR("failed to initialize source data file for opening "
-                 "from path '", path, "'\n");
+    return @log.error(sdata, 
+      "failed to initialize source data file for opening "
+      "from path '", path, "'\n");
   auto failsafe = deferWithCancel { sfile->deinit(); };
 
   File file = File::openForRead(path);
   if (isnil(file))
-    return ERROR("failed to open source data file at path '", path, "'\n");
+    return @log.error(sdata, 
+      "failed to open source data file at path '", path, "'\n");
   defer { file.close(); };
   
   if (!parseSourceDataFile(sfile, &file, path))
-    return ERROR("failed to parse source data file at path '", path, "'\n");
+    return @log.error(sdata, 
+      "failed to parse source data file at path '", path, "'\n");
 
   failsafe.cancel();
   return true;
@@ -86,7 +88,7 @@ void SourceDataFile::dump(io::IO* out)
  */
 void SourceDataFile::dump()
 {
-  dump(&fs::stdout);
+  dump(fs::stdout());
 }
 
 /* ----------------------------------------------------------------------------

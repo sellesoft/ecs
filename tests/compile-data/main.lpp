@@ -6,8 +6,8 @@ $ local cmn = require "common"
 
 @@lpp.import "Test.defs.lh"
 @@lpp.import "reflect/RTR.lh"
-@@lpp.import "asset/Packing.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/Packing.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
 
 #include "math/Rect.h"
@@ -33,7 +33,7 @@ b8 test()
 
   INFO("got:\n");
 
-  rtr::prettyPrint(&fs::stdout, "SourceData"_typeid, sfile.returned_data);
+  rtr::prettyPrint(fs::stdout(), "SourceData"_typeid, sfile.returned_data);
 
   INFO("packing source data\n");
 

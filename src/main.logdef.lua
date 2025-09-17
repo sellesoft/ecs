@@ -5,3 +5,9 @@ logdef.category("main",
 {
   verbosity = "Info"
 })
+
+-- TODO(sushi) put elsewhere.
+logdef.category("engine",
+{
+  verbosity = "Info",
+})

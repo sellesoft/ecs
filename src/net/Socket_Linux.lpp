@@ -11,7 +11,11 @@ $ require "common"
 #include "unistd.h"
 #include "sys/ioctl.h"
 
-@log.ger(net.socket, Debug)
+@log.import
+
+$ local function log_dbg(...) return log.debug("net", ...) end
+$ local function log_err(...) return log.error("net", ...) end
+
 
 namespace net
 {
@@ -40,15 +44,15 @@ b8 openSocket()
   assert(not isSocketOpen());
   assert(not isSocketBound());
 
-  DEBUG("opening ipv6 socket\n");
+  @log_dbg("opening ipv6 socket\n");
 
   // Create the socket.
   s_ipv6_socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 
   if (s_ipv6_socket == -1)
-    return ERROR("failed to open ipv6 socket: ", strerror(errno), '\n');
+    return @log_err("failed to open ipv6 socket: ", strerror(errno), '\n');
 
-  DEBUG("opened ipv6 socket (", s_ipv6_socket, ")\n");
+  @log_dbg("opened ipv6 socket (", s_ipv6_socket, ")\n");
 
   auto failsafe_close_socket = deferWithCancel
   {
@@ -59,10 +63,10 @@ b8 openSocket()
   {
     int old_flags = fcntl(s_ipv6_socket, F_GETFL, 0);
     if (-1 == fcntl(s_ipv6_socket, F_SETFL, old_flags | O_NONBLOCK))
-      return ERROR("failed to set ipv6 socket to non-blocking: ", 
+      return @log_err("failed to set ipv6 socket to non-blocking: ", 
                    strerror(errno), '\n');
   }
-  DEBUG("set ipv6 socket to non-blocking\n");
+  @log_dbg("set ipv6 socket to non-blocking\n");
 
   // Set socket options.
   {
@@ -75,10 +79,10 @@ b8 openSocket()
           SOL_SOCKET, 
           SO_BROADCAST, 
           &optval, sizeof(optval)))
-      return ERROR("failed to set ipv6 socket to broadcast capable: ",
+      return @log_err("failed to set ipv6 socket to broadcast capable: ",
                    strerror(errno), '\n');
 
-    DEBUG("enabled broadcast capability\n");
+    @log_dbg("enabled broadcast capability\n");
 
     // Disable ipv6-only mode to allow ipv4 connections.
     optval = 0;
@@ -87,13 +91,13 @@ b8 openSocket()
           IPPROTO_IPV6, 
           IPV6_V6ONLY, 
           &optval, sizeof(optval)))
-      return ERROR("failed to set ipv6 socket to disable ipv6-only mode: ",
+      return @log_err("failed to set ipv6 socket to disable ipv6-only mode: ",
                    strerror(errno), '\n');
 
-    DEBUG("disabled ipv6-only mode\n");
+    @log_dbg("disabled ipv6-only mode\n");
   }
 
-  DEBUG("finished setting socket options\n");
+  @log_dbg("finished setting socket options\n");
 
   failsafe_close_socket.cancel();
   return true;
@@ -105,7 +109,7 @@ void closeSocket()
 {
   assert(isSocketOpen());
 
-  DEBUG("closing ipv6 socket\n");
+  @log_dbg("closing ipv6 socket\n");
 
   close(s_ipv6_socket);
 }
@@ -117,7 +121,7 @@ b8 bindSocket(u16 port)
   assert(isSocketOpen());
   assert(not isSocketBound());
 
-  DEBUG("binding ipv6 socket to port ", port, '\n');
+  @log_dbg("binding ipv6 socket to port ", port, '\n');
 
   sockaddr_in6 ipv6_socket_address;
   memset(&ipv6_socket_address, 0, sizeof(ipv6_socket_address));
@@ -131,10 +135,10 @@ b8 bindSocket(u16 port)
     sizeof(ipv6_socket_address));
 
   if (!s_ipv6_socket_bound)
-    return ERROR("failed to bind ipv6 socket to port ", port, ": ",
+    return @log_err("failed to bind ipv6 socket to port ", port, ": ",
                  strerror(errno), '\n');
 
-  DEBUG("bound ipv6 socket to port ", port, '\n');
+  @log_dbg("bound ipv6 socket to port ", port, '\n');
 
   return true;
 }
@@ -174,10 +178,10 @@ b8 sendPacket(const Address& address, void* data, u64 size)
     if (EWOULDBLOCK == errno)
       return false;
     else
-      return ERROR("failed to send packet: ", strerror(errno), "\n");
+      return @log_err("failed to send packet: ", strerror(errno), "\n");
   }
 
-  DEBUG("sent ", bytes_sent, " bytes to: ", address, "\n");
+  @log_dbg("sent ", bytes_sent, " bytes to: ", address, "\n");
   assert(size == (u16)bytes_sent);
   return true;
 }
@@ -206,7 +210,7 @@ b8 receivePacket(
   if (-1 == bytes_received)
   {
     if (errno != EWOULDBLOCK)
-      ERROR("encountered error in attempt to recieve a packet: ", 
+      @log_err("encountered error in attempt to recieve a packet: ", 
             strerror(errno), '\n');
 
     return false;
@@ -215,7 +219,7 @@ b8 receivePacket(
   *out_bytes_received = (s32)bytes_received;
 
   u8 ipv6[16];
-  mem::copy(ipv6, &from.sin6_addr, 16);
+  iro::mem::copy(ipv6, &from.sin6_addr, 16);
   *out_address = Address(ipv6, ntohs(from.sin6_port));
 
   return true;

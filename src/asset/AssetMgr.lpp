@@ -5,10 +5,8 @@ $ local cmn = require "common"
 #include "iro/memory/Memory.h"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
-#include "iro/Platform.h"
-#include "iro/Logger.h"
 
-@log.ger(assetmgr, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
@@ -18,10 +16,10 @@ b8 AssetMgr::init(mem::Allocator* allocator, String data_mount)
   this->data_mount = data_mount;
 
   if (!map.init(allocator))
-    return ERROR("failed to init asset map\n");
+    return @log.error(asset, "failed to init asset map\n");
 
   if (!pool.init(allocator))
-    return ERROR("failed to init asset pool\n");
+    return @log.error(asset, "failed to init asset pool\n");
 
   return true;
 }
@@ -38,11 +36,11 @@ void AssetMgr::deinit()
 $ if false then
   if (!map.isEmpty())
   {
-    ERROR("AssetMgr::deinit called but Assets still exist!\n",
+    @log.error(asset, "AssetMgr::deinit called but Assets still exist!\n",
           "  Currently allocated resources are: \n");
     for (Asset& asset : map)
     {
-      ERROR("    ", asset.name, "\n");
+      @log.error(asset, "    ", asset.name, "\n");
     }
 
     assert(!"AssetMgr::deinit called while Assets are still active!");
@@ -97,29 +95,29 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
   u64 name_hash = path.hash();
   if (Asset* existing = map.find(name_hash))
   {
-    @log.debug("asset '", path, "' already loaded\n");
+    @log.debug(asset, "asset '", path, "' already loaded\n");
     return existing;
   }
 
-  @log.debug("loading asset '", path, "' from disk\n");
+  @log.debug(asset, "loading asset '", path, "' from disk\n");
 
   if (!path::exists(path))
   {
-    @log.error("no asset exists at path '", path, "'\n");
+    @log.error(asset, "no asset exists at path '", path, "'\n");
     return nullptr;
   }
 
   auto file = File::from(path, OpenFlag::Read);
   if (isnil(file))
   {
-    @log.error("failed to open asset file at '", path, "'\n");
+    @log.error(asset, "failed to open asset file at '", path, "'\n");
     return nullptr;
   }
 
   Asset* asset = allocateAsset(path);
   if (asset == nullptr)
   {
-    @log.error("failed to allocate asset '", path, "'\n");
+    @log.error(asset, "failed to allocate asset '", path, "'\n");
     return nullptr;
   }
 
@@ -148,7 +146,7 @@ Asset* AssetMgr::reloadAsset(String name, String type)
   Asset* asset = map.find(name_hash);
   if (asset == nullptr)
   {
-    ERROR("attempt to reload asset ", name, '.', type, " but it is not "
+    @log.error(asset, "attempt to reload asset ", name, '.', type, " but it is not "
           "known to the AssetMgr\n");
     return nullptr;
   }
@@ -156,7 +154,7 @@ Asset* AssetMgr::reloadAsset(String name, String type)
   auto file = File::from(path, OpenFlag::Read);
   if (isnil(file))
   {
-    ERROR("failed to open asset file at '", path, "'\n");
+    @log.error(asset, "failed to open asset file at '", path, "'\n");
     return nullptr;
   }
 

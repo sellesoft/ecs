@@ -6,8 +6,6 @@ $ require "common"
 
 @@lpp.import "ui/UI.lh"
 
-@log.ger(editor.list, Info)
-
 namespace cl
 {
 

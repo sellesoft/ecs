@@ -1,9 +1,6 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "asset/Ref.lh"
-@@lpp.import "asset/CompiledDataInterfaces.lh"
-
 #include "iro/Unicode.h"
 
 using namespace iro;

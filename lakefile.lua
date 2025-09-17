@@ -97,6 +97,7 @@ local lpp_params =
   require_dirs = List { "src" },
   cpath_dirs = List { "lib" },
   import_dirs = List { "src" },
+  gen_meta = true,
 }
 
 ---@type lake.obj.Exe.LinkParams
@@ -232,9 +233,6 @@ end
 
 -- buildTest "asset-building"
 
-
-do return end
-
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
   local o_output = cpp_output..".o"
@@ -250,6 +248,7 @@ for cfile in lake.utils.glob("src/**/*.cpp"):each() do
 end
 
 objs:pushList(iro_objs)
+objs:pushList(loggen_objs)
 
 o.Exe "_build/ecs" :link(objs, link_params)
 

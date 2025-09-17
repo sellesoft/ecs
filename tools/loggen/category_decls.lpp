@@ -20,9 +20,8 @@ $ local categories = def._get_categories().list
 
 #include "iro/fs/fs.h"
 
-namespace log
+namespace logging
 {
-
 
 // Even with all this lpp stuff, we still write out a macro call instead of 
 // just writing the expression directly. The main reason is that it avoids 
@@ -30,8 +29,9 @@ namespace log
 // However, this also results in cleaner and easier to look at code, both
 // where it is output and in logging/log.lua.
 #define __ECS_LOG_MACRO(cat, verb, ...) \
-  (::log::Verbosity::verb >= ::log::cat_##cat.verbosity && \
-  (::log::through_cat_##cat(::log::Verbosity::verb, __VA_ARGS__), true))
+  (::logging::Verbosity::verb >= ::logging::cat_##cat.verbosity && \
+  (::logging::through_cat_##cat(::logging::Verbosity::verb, __VA_ARGS__), \
+   true))
 
 $ for cat in categories:each() do
 

@@ -1,13 +1,9 @@
 $ require "common"
 
-#include "iro/Logger.h"
-
 @@lpp.import "game/shared/power/Power.sys.lh"
 @@lpp.import "game/shared/Transform.comp.lh"
 
 using namespace iro;
-
-@log.ger(powersys, Debug)
 
 $ if false then
 /* ----------------------------------------------------------------------------

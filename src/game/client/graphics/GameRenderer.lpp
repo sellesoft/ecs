@@ -1,7 +1,6 @@
 $ require "common"
 
 @@lpp.import "game/client/graphics/GameRenderer.lh"
-
 @@lpp.import "game/client/graphics/Sprite.comp.lh"
 
 @@lpp.import "Engine.lh"
@@ -11,16 +10,15 @@ $ require "common"
 @@lpp.import "graphics/Geo.lh"
 
 @@lpp.import "game/client/GameMgr.lh"
-@@lpp.import "game/shared/Transform.comp.lh"
 
+@@lpp.import "game/shared/Transform.comp.lh"
 @@lpp.import "game/shared/map/Map.defs.lh"
 @@lpp.import "game/shared/map/Map.sys.lh"
 @@lpp.import "game/shared/Eye.sys.lh"
 
-#include "iro/Logger.h"
 #include "iro/time/Time.h"
 
-@log.ger(game.render, Info)
+@log.import
 
 namespace cl
 {
@@ -49,7 +47,7 @@ b8 GameRenderer::init(InitParams& params)
       .debug_name = "game.renderer.scene"_str,
     });
   if (isnil(scene_uniform_buffer))
-    return ERROR("failed to init scene uniform buffer\n");
+    return @log.error(game, "failed to init scene uniform buffer\n");
 
   quads_vertex_buffer = gfx::Buffer::create(
     *renderer.vk,
@@ -63,7 +61,7 @@ b8 GameRenderer::init(InitParams& params)
     });
 
   if (isnil(quads_vertex_buffer))
-    return ERROR("failed to init the quads vertex buffer\n");
+    return @log.error(game, "failed to init the quads vertex buffer\n");
   
   gfx::Index quad_indices[MAX_QUADS * 6];
   for (int i = 0, j = 0; i < 6*MAX_QUADS; j++, i += 6)
@@ -88,7 +86,7 @@ b8 GameRenderer::init(InitParams& params)
     });
 
   if (isnil(quads_index_buffer))
-    return ERROR("failed to init the quads index buffer\n");
+    return @log.error(game, "failed to init the quads index buffer\n");
 
   //init quads batches
   batches[0].texture = null_texture.getHandle();
@@ -225,7 +223,6 @@ b8 GameRenderer::render(const RenderParams& params)
   // Alternatively, we could use instancing.
   // Alternatively, we could build a sprite sheet so we don't need
   // to change the texture (this is probably the better option).
-  TRACE("render.sys update\n");
 
   gfx::Renderer& renderer = params.renderer;
 
@@ -266,8 +263,6 @@ b8 GameRenderer::render(const RenderParams& params)
   ///////////////////////////////////////////////
   // 1. Draw Background
   {
-    TRACE("render.sys draw background\n");
-
     // renderer.bindFramebuffer(stars_framebuffer);
     // renderer.bindPipeline(stars_pipeline);
     // renderer.bindUniformBuffer(scene_uniform_buffer);
@@ -285,7 +280,6 @@ b8 GameRenderer::render(const RenderParams& params)
   ///////////////////////////////////////////////
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
-  TRACE("render.sys draw map tiles\n");
 
   renderer.bindPipeline(quad_pipeline);
   renderer.bindUniformBuffer(scene_uniform_buffer);
@@ -322,7 +316,6 @@ b8 GameRenderer::render(const RenderParams& params)
 
   ///////////////////////////////////////////////
   // 3. Draw Sprite Components
-  TRACE("render.sys draw sprite components\n");
 
   if (params.entmgr && params.map)
   {
@@ -335,7 +328,8 @@ b8 GameRenderer::render(const RenderParams& params)
       Entity* owner = entmgr.getEntity(sprite.owner);
       if (owner == nullptr)
       {
-        ERROR("sprite component for entity ", sprite.owner.value,
+        @log.error(game, 
+          "sprite component for entity ", sprite.owner.value, 
           " has no owner\n");
         continue;
       }

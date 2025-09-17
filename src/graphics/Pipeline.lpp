@@ -6,7 +6,7 @@ $ local helpers = require "graphics.Helpers"
 
 @@lpp.import "graphics/Pipeline.defs.lh"
 
-@log.ger(gfx.pipeline, Info)
+@log.import
 
 namespace gfx 
 {
@@ -17,7 +17,7 @@ Pipeline Pipeline::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
-  DEBUG("creating gfx::Pipeline '", name, "'\n");
+  @log.debug(gfx, "creating gfx::Pipeline '", name, "'\n");
 
 $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
 

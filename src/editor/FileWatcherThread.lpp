@@ -2,13 +2,13 @@ $ require "common"
 
 @@lpp.import "editor/FileWatcherThread.lh"
 
-@@lpp.import "reflect/RTR.lh"
+@@lpp.import "reflect/rtr.lh"
 
 #include "iro/os/FileWatcher.h"
 
-using namespace iro;
+@log.import
 
-@log.ger(file-watcher, Info)
+using namespace iro;
 
 namespace editor
 {
@@ -164,8 +164,9 @@ static void eventProcessor(
 
     if (!found_event)
     {
-      WARN("failed to find previous Renamed event upon encountering MoveTo "
-           "with path '", event.path, "'\n");
+      @log.warn(editor, 
+        "failed to find previous Renamed event upon encountering MoveTo "
+        "with path '", event.path, "'\n");
     }
   }
 }

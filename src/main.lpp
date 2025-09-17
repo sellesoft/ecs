@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 
-#include "iro/Logger.h"
 #include "iro/Platform.h"
 #include "iro/time/Time.h"
 #include "iro/fs/fs.h"
@@ -21,8 +20,7 @@ $ end
 #include "dlfcn.h"
 #endif
 
-static Logger logger =
-  Logger::create("ecs"_str, Logger::Verbosity::Trace);
+@log.import
 
 @@lpp.import "Profiling.lh"
 
@@ -85,23 +83,6 @@ void doReload(hr::Reloader* r)
  */
 int main(int argc, const char** args)
 {
-  iro::log.init();
-  defer { iro::log.deinit(); };
-
-  Logger logger;
-  logger.init("ecs_main"_str, Logger::Verbosity::Trace);
-
-  {
-    using enum Log::Dest::Flag;
-    Log::Dest::Flags flags =
-        AllowColor
-      | PadVerbosity
-      | ShowVerbosity
-      | PrefixNewlines;
-
-    iro::log.newDestination("stdout"_str, &fs::stdout, flags);
-  }
-
 $ if ECS_WAIT_FOR_TRACY_CONNECTION then
   while (!TracyIsConnected)
     platform::sleep(TimeSpan::fromMilliseconds(1));
@@ -136,7 +117,7 @@ $ end
 
   Engine engine = { .launch_args = launch_args };
   if (!engine.init())
-    return FATAL("failed to initialize Engine\n");
+    return @log.fatal(main, "failed to initialize Engine\n");
 
   auto program_start_time = TimePoint::now();
 

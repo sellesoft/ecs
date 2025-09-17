@@ -4,7 +4,7 @@ $ local cmn = require "common"
 @@lpp.import "sdata/SourceDataFile.lh"
 
 #include "iro/io/IO.h"
-#include "iro/fs/File.h"
+#include "iro/fs/fs.h"
 
 using namespace iro;
 
@@ -97,8 +97,8 @@ void SourceData::dump(io::IO* out, u32 depth) const
  */
 void SourceData::dump(u32 depth) const
 {
-  dump(&fs::stdout, depth);
-  io::format(&fs::stdout, '\n');
+  dump(fs::stdout(), depth);
+  io::format(fs::stdout(), '\n');
 }
 
 /* ----------------------------------------------------------------------------

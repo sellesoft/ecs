@@ -23,7 +23,7 @@ $ require "common"
 
 #include "iro/memory/LinkedHeap.h"
 
-@log.ger(client, Debug)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
@@ -52,8 +52,8 @@ $ local function init(act, name)
   {
     auto start = TimePoint::monotonic();
     if (!$(act))
-      return FATAL("failed to initialize $(name)\n");
-    INFO("finished initializing ", color::cyan("$(name)"), " in ",
+      return @log.error(game, "failed to initialize $(name)\n");
+    @log.info(game, "finished initializing ", color::cyan("$(name)"), " in ",
          WithUnits(TimePoint::monotonic() - start), "\n");
   }
 $ end
@@ -225,9 +225,9 @@ b8 Client::wantHotReload()
  */
 b8 Client::connectToServer(net::Address address)
 {
-  @log.trace("connecting to a server\n");
+  @log.trace(game, "connecting to a server\n");
   if (address.type == net::AddressType::Invalid)
-    return @log.error("invalid address\n");
+    return @log.error(game, "invalid address\n");
 
   assert(!"reimplement client connection to server");
 

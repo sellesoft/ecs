@@ -3,7 +3,6 @@
  */
 $ require "common"
 
-@@lpp.import "asset/CompiledData.lh"
 @@lpp.import "Engine.lh"
 @@lpp.import "game/server/GameSim.lh"
 @@lpp.import "game/server/NetMgr.lh"
@@ -11,18 +10,18 @@ $ require "common"
 @@lpp.import "game/server/ServerAllocator.lh"
 @@lpp.import "game/shared/entity/EntityId.lh"
 @@lpp.import "game/shared/Console.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/Array.h"
 #include "iro/containers/StackArray.h"
-#include "iro/Logger.h"
 #include "iro/time/Time.h"
 #include "iro/concurrent/Thread.h"
 #include "iro/io/IO.h"
 
 #include <atomic>
 
-@log.ger(server, Debug)
+@log.import
 
 using namespace iro;
 
@@ -33,7 +32,7 @@ struct MapDef;
 b8 Server::init(const InitParams& params)
 {
   // assert(thread::isMainThread());
-  @log.info("creating server...\n");
+  @log.info(game, "creating server...\n");
 
   using namespace sv;
   

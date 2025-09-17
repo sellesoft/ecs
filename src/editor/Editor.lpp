@@ -3,7 +3,6 @@ $ require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
-
 #include "iro/concurrent/Atomic.h"
 #include "iro/concurrent/ConditionVar.h"
 #include "iro/concurrent/Mutex.h"
@@ -18,19 +17,17 @@ $ require "common"
 @@lpp.import "graphics/Shader.defs.lh"
 @@lpp.import "graphics/Font.defs.lh"
 
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 @@lpp.import "build/BuildSystem.lh"
 
-@@lpp.import "reflect/RTR.lh"
-@@lpp.import "asset/Linker.lh"
+@@lpp.import "reflect/rtr.lh"
+@@lpp.import "reflect/Linker.lh"
 
-@log.ger(editor, Info)
+@log.import
 
-@logging.import
-
-$ local lerr = log.editor.error
-$ local linfo = log.editor.info
+$ local function logerr(...) return log.error("editor", ...) end
+$ local function loginfo(...) return log.info("editor", ...) end
 
 namespace editor
 {
@@ -177,17 +174,16 @@ struct BuildThread
 b8 Editor::init(const InitParams& params)
 {
   if (!asset_mgr.init(&mem::stl_allocator, "_data"_str))
-    return ERROR("failed to initialize AssetMgr\n");
-    return @log_err "failed to initialize AssetMgr"
+    return @logerr("failed to initialize AssetMgr\n");
 
   if (!input.init())
-    return ERROR("failed to initialize InputMgr\n");
+    return @logerr("failed to initialize InputMgr\n");
 
   if (!Window::initializeBackend())
-    return ERROR("failed to initialize Window backend\n");
+    return @logerr("failed to initialize Window backend\n");
 
   if (!window.init(params.engine, "ecs editor"_str, input))
-    return ERROR("failed to initialize Window\n");
+    return @logerr("failed to initialize Window\n");
     
   gfx::Renderer::InitParams renderer_params = 
   {
@@ -196,23 +192,23 @@ b8 Editor::init(const InitParams& params)
   };
 
   if (!renderer.init(renderer_params))
-    return ERROR("failed to initialize Renderer\n");
+    return @logerr("failed to initialize Renderer\n");
 
   if (!resource_mgr.init(renderer.vk))
-    return ERROR("failed to initialize ResourceMgr\n");
+    return @logerr("failed to initialize ResourceMgr\n");
 
   build::Rule build_rules[] = 
   {
     gfx::getTextureBuildRule(),
     gfx::getShaderBuildRule(),
     gfx::getFontBuildRule(),
-    CompiledData::getBuildRule(),
+    reflect::CompiledData::getBuildRule(),
   };
 
   build::PathBuffer cwd_buffer;
   cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
   if (cwd_buffer.len == 0)
-    return ERROR("failed to get current working directory\n");
+    return @logerr("failed to get current working directory\n");
   String cwd = String(cwd_buffer);
 
   build::PathBuffer compiled_dir_buffer;
@@ -230,17 +226,17 @@ b8 Editor::init(const InitParams& params)
   };
 
   if (!build_system.init(build_system_params))
-    return ERROR("failed to initialize build system\n");
+    return @logerr("failed to initialize build system\n");
 
   build_system.loadAssetList("src/editor/Editor.asset_list"_str);
   build_system.loadAssetList("src/ui/UI.asset_list"_str);
 
   if (!build_system.build())
-    return ERROR("failed to build required Editor assets\n");
+    return @logerr("failed to build required Editor assets\n");
 
   l_skin.name = "assets/skins/Editor"_str;
 
-  linkData(
+  reflect::linkData(
     "EditorSkinDefLink"_typeid, 
     &l_skin, 
     resource_mgr, 
@@ -248,7 +244,7 @@ b8 Editor::init(const InitParams& params)
 
   l_white_texture.name = "assets/textures/white"_str;
 
-  linkData(
+  reflect::linkData(
     "gfx::TextureLink"_typeid,
     &l_white_texture,
     resource_mgr,
@@ -264,13 +260,13 @@ b8 Editor::init(const InitParams& params)
   };
 
   if (!ui.init(ui_params))
-    return ERROR("failed to init UI\n");
+    return @logerr("failed to init UI\n");
 
   build_thread = mem::stl_allocator.construct<BuildThread>();
   build_thread->init(&build_system);
 
   if (!file_watcher.init())
-    return ERROR("failed to initialize file watcher\n");
+    return @logerr("failed to initialize file watcher\n");
 
   fs::PathBuffer assets_path;
   io::formatv(&assets_path, cwd, "/assets");
@@ -375,7 +371,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   {
     gfx::RenderTarget swapchain_target;
     if (!renderer.getSwapchainRenderTarget(&swapchain_target))
-      ERROR("failed to get swapchain render target\n");
+      @logerr("failed to get swapchain render target\n");
 
     if (renderer.beginRenderPass(
           {0,0}, 
@@ -390,15 +386,15 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     renderer.endFrame();
 
     if (!renderer.submitQueue())
-      ERROR("failed to submit queue\n");
+      @logerr("failed to submit queue\n");
 
     if (!renderer.present())
-      ERROR("failed to present frame\n");
+      @logerr("failed to present frame\n");
   }
 
   if (input.real_state.wasKeyPressed(Key::B))
   {
-    INFO("---------------------------------------------------\n",
+    @loginfo("---------------------------------------------------\n",
          "  build requested by keybind...\n");
 
     if (build_thread->isIdle())
@@ -413,17 +409,17 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
       for (build::Target& built : build_thread->built_targets)
       {
-        INFO("reloading ", built, "...\n");
+        @loginfo("reloading ", built, "...\n");
         if (Asset* asset = asset_mgr.tryReloadAsset(built.name, built.type))
         {
           if (built.kind == build::TargetKind::CompiledData)
           {
-            auto* compiled = (CompiledData*)asset->data;
+            auto* compiled = (reflect::CompiledData*)asset->data;
             compiled->fixPointers();
 
-            INFO("relinking ", built, "...\n");
+            @loginfo("relinking ", built, "...\n");
             
-            linkData(
+            reflect::linkData(
               compiled->type,
               compiled->data.ptr.get(),
               resource_mgr,

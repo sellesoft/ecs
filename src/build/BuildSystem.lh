@@ -27,7 +27,7 @@ $ require "common"
 #include "iro/containers/Array.h"
 #include "iro/containers/LinkedPool.h"
 
-struct CompiledData;
+namespace reflect { struct CompiledData; }
 
 namespace build
 {
@@ -150,13 +150,13 @@ struct BuildSystem
   // TODO(sushi) this should be removed soon, I'm just using it again cause
   //             I'm lazy. Since this uses the BuildSystem's compiled data
   //             allocator, it is very not thread-safe.
-  CompiledData* packAndCompileSourceDataAsset(
+  reflect::CompiledData* packAndCompileSourceDataAsset(
     String source_path, 
     String compiled_path);
 
   // Again, another helper because I'm lazy. Needs to be removed once we 
   // get to multi-threading.
-  CompiledData* loadAsCompiledData(Target* target);
+  reflect::CompiledData* loadAsCompiledData(Target* target);
 
   // Functions for trashing files at a path or Targets.
   void trashPath(String path, String trash_name, String reason);

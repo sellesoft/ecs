@@ -17,6 +17,10 @@ namespace iro::io
 struct IO;
 }
 
+namespace reflect
+{
+
+
 /* ============================================================================
  *  The result of packing some data. This contains the raw bytes of the 
  *  packed data as well as a buffer containing any other data that needs 
@@ -72,3 +76,5 @@ struct PackParams
 
 // Packs some SourceData based on what its type value is.
 b8 packSourceDataFromType(const SourceData& data, PackParams& ctx);
+
+}

@@ -6,7 +6,6 @@ $ local cmn = require "common"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
 #include "iro/Platform.h"
-#include "iro/Logger.h"
 #include "iro/Scanner.h"
 
 #include "math/util.h"
@@ -14,12 +13,12 @@ $ local cmn = require "common"
 @@lpp.import "graphics/CompiledFont.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/TextureParams.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "build/Result.lh"
 
 #include "iro/memory/Bump.h"
 
-@log.ger(font, Debug)
+@log.import
 
 typedef io::StaticBuffer<512> PathBuffer;
 
@@ -34,7 +33,7 @@ b8 buildError(build::Result* result, Args... args)
   if (result != nullptr)
     result->pushError(args...);
   else
-    ERROR(args..., '\n');
+    @log.error(gfx, args..., '\n');
 
   return false;
 }
@@ -524,7 +523,7 @@ b8 compileFont(const CompileFontParams& params)
   defer { compiled_data_allocator.deinit(); };
 
   auto* compiled_def = 
-    CompiledData::load(input_path, &compiled_data_allocator, result);
+    reflect::CompiledData::load(input_path, &compiled_data_allocator, result);
   if (compiled_def == nullptr)
     return buildError(result, 
       "failed to load compiled data from '", input_path, "'");

@@ -14,8 +14,6 @@ $$$
 
 using namespace iro;
 
-@log.ger(cmp, Info)
-
 @@lpp.import "game/shared/component/Component.lh"
 
 #include "iro/containers/LinkedPool.h"

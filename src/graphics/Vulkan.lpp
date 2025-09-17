@@ -9,7 +9,11 @@ $ local cmn = require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 
-@log.ger(vulkan, Notice)
+@log.import
+
+$ local function log_err(...) return log.error("vk", ...) end
+$ local function log_dbg(...) return log.debug("vk", ...) end
+$ local function log_trace(...) return log.trace("vk", ...) end
 
 namespace gfx
 {
@@ -307,16 +311,16 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(
   switch (severity)
   {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-    TRACE(data->pMessage, '\n');
+    @log_trace(data->pMessage, '\n');
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-    INFO(data->pMessage, '\n');
+    @log.info(vk, data->pMessage, '\n');
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-    WARN(data->pMessage, '\n');
+    @log.warn(vk, data->pMessage, '\n');
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-    ERROR(data->pMessage, '\n');
+    @log_err(data->pMessage, '\n');
     assert(false);
     break;
   }
@@ -337,14 +341,14 @@ static b8 handleVkCallResult(
   if (result == VK_SUCCESS)
   {
 $ if print_success then
-    TRACE(funcname, " succeeded\n");
+    @log_trace(funcname, " succeeded\n");
 $ end
   }
   else
   {
     if (info.is_error)
     {
-      ERROR(
+      @log_err(
         funcname, " returned ", info.name, ": ", info.desc, "\n",
         args..., "\n");
 
@@ -392,14 +396,6 @@ $ end
  */
 static void printDeviceHeapAllocation(DeviceHeapAllocation* ptr)
 {
-  @log.debug "<<-END
-         memory_type: $(ptr->memory_type)
-         block_index: $(ptr->block_index)
-              offset: $(ptr->offset)
-                size: $(ptr->size)
-      aligned_offset: $(ptr->aligned_offset)
-        aligned_size: $(ptr->aligned_size)
-    END";
 }
 
 /* ----------------------------------------------------------------------------
@@ -535,7 +531,7 @@ b8 Vulkan::initInstance(
     mem::Allocator* allocator,
     mem::LenientBump& temp_allocator)
 {
-  DEBUG("creating vulkan allocator\n");
+  @log_dbg("creating vulkan allocator\n");
 
   auto alloc_func = [](void* user_data, size_t size,
     size_t alignment, VkSystemAllocationScope scope) -> void*
@@ -545,7 +541,7 @@ b8 Vulkan::initInstance(
     void* result = allocator->allocate(aligned_size);
     if (result == nullptr)
     {
-      ERROR("failed to alloc memory for vulkan\n");
+      @log_err("failed to alloc memory for vulkan\n");
       return nullptr;
     }
     assert((size_t)result % alignment == 0); //invalid alignment
@@ -560,7 +556,7 @@ b8 Vulkan::initInstance(
     void* result = allocator->reallocate(ptr, aligned_size);
     if (result == nullptr)
     {
-      ERROR("failed to realloc memory for vulkan\n");
+      @log_err("failed to realloc memory for vulkan\n");
       return nullptr;
     }
     assert((size_t)result % alignment == 0); //invalid alignment
@@ -584,7 +580,7 @@ b8 Vulkan::initInstance(
   //ri.allocator.pfnInternalAllocation = ;
   //ri.allocator.pfnInternalFree = ;
 
-  DEBUG("creating vulkan instance\n");
+  @log_dbg("creating vulkan instance\n");
 
 $ if validation then
 
@@ -597,7 +593,7 @@ $ if validation then
   auto layer_properties =
     temp_allocator.allocateType<VkLayerProperties>(layer_count);
   if (layer_properties == nullptr)
-    return FATAL("failed to alloc memory for vulkan layer properties\n");
+    return @log_err("failed to alloc memory for vulkan layer properties\n");
 
   @vkc(vkEnumerateInstanceLayerProperties(
       &layer_count, 
@@ -617,7 +613,7 @@ $ if validation then
     }
 
     if (!layer_found)
-      return FATAL(
+      return @log_err(
         "a required vulkan validation layer '", c_validation_layers[i], 
         "' was requested but not available on the device\n");
   }
@@ -671,7 +667,7 @@ $ end -- if validation
 
 $ if validation then
   {
-    DEBUG("creating vulkan debug messenger and utils\n");
+    @log_dbg("creating vulkan debug messenger and utils\n");
 
     VkDebugUtilsMessengerCreateInfoEXT create_info =
     {
@@ -688,7 +684,7 @@ $ if validation then
         "vkCreateDebugUtilsMessengerEXT");
 
     if (vkCreateDebugUtilsMessengerEXT == nullptr)
-      return FATAL(
+      return @log_err(
         "failed to retrieve proc vkCreateDebugUtilsMessengerEXT\n");
 
     @vkc(vkCreateDebugUtilsMessengerEXT(
@@ -732,7 +728,7 @@ $ if validation then
         "vkDestroyDebugUtilsMessengerEXT");
 
     if (vkDestroyDebugUtilsMessengerEXT == nullptr)
-      ERROR("failed to retrieve proc vkDestroyDebugUtilsMessengerEXT\n");
+      @log_err("failed to retrieve proc vkDestroyDebugUtilsMessengerEXT\n");
 
     vkDestroyDebugUtilsMessengerEXT(
       instance, debug_messenger, &allocator_callbacks);
@@ -770,7 +766,7 @@ b8 Vulkan::initPhysicalDevice(
     mem::Allocator* allocator,
     mem::LenientBump& temp_allocator)
 {
-  DEBUG("creating the vulkan physical device\n");
+  @log_dbg("creating the vulkan physical device\n");
 
   u32 device_count = 0;
 
@@ -779,7 +775,7 @@ b8 Vulkan::initPhysicalDevice(
   auto devices =
     temp_allocator.allocateType<VkPhysicalDevice>(device_count);
   if (devices == nullptr)
-    return FATAL("failed to alloc memory for vulkan physical devices\n");
+    return @log_err("failed to alloc memory for vulkan physical devices\n");
 
   @vkc(vkEnumeratePhysicalDevices(instance, &device_count, devices))
 
@@ -800,15 +796,6 @@ b8 Vulkan::initPhysicalDevice(
     auto& props = dprops.properties;
     auto& props2 = dprops12;
 
-    @log.debug "<<-END
-      device $(i):
-          name: $(props.deviceName)
-          type: $(getVkPhysicalDeviceTypeString(props.deviceType))
-        driver: $(props2.driverName)
-      END";
-
-    SCOPED_INDENT;
-
     u32 family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(
       devices[i], &family_count, nullptr);
@@ -817,20 +804,19 @@ b8 Vulkan::initPhysicalDevice(
     auto families =
       temp_allocator.allocateType<VkQueueFamilyProperties>(family_count);
     if (families == nullptr)
-      return FATAL("failed to alloc memory for vulkan queue families\n");
+      return @log_err("failed to alloc memory for vulkan queue families\n");
 
     vkGetPhysicalDeviceQueueFamilyProperties(
       devices[i], &family_count, families);
 
-    DEBUG("device has ", family_count, " queue families:\n");
+    @log_dbg("device has ", family_count, " queue families:\n");
 
     b8 found_graphics_family = false;
     b8 found_present_family = false;
     for (u32 j = 0; j < family_count; j++)
     {
-      DEBUG("family ", j, ":\n");   
-      SCOPED_INDENT;
-      DEBUG("queue count: ", families[j].queueCount, '\n');
+      @log_dbg("family ", j, ":\n");   
+      @log_dbg("queue count: ", families[j].queueCount, '\n');
 
       b8 has_graphics_queue = families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT;
       b8 has_compute_queue = families[j].queueFlags & VK_QUEUE_COMPUTE_BIT;
@@ -852,7 +838,8 @@ b8 Vulkan::initPhysicalDevice(
       }
 
 $ local function printsupport(name)
-      DEBUG("$(name): ", $(name)? "true" : "false", '\n');
+      @log_dbg("printsupport does not work yet\n");
+      //\@log_dbg("$(name): ", $(name)? "true" : "false", '\n');
 $ end
       @printsupport(has_graphics_queue)
       @printsupport(has_compute_queue)
@@ -869,21 +856,19 @@ $ end
     @vkc(vkEnumerateDeviceExtensionProperties(
       devices[i], nullptr, &device_extension_count, nullptr))
     
-    DEBUG("supports ", device_extension_count, " extensions\n");
-    SCOPED_INDENT;
+    @log_dbg("supports ", device_extension_count, " extensions\n");
 
-    DEBUG("checking support for required extensions:\n");
+    @log_dbg("checking support for required extensions:\n");
     {
-      SCOPED_INDENT;
       for (const char* req_ext : c_required_device_extensions)
-        DEBUG("   ", req_ext, '\n');
+        @log_dbg("   ", req_ext, '\n');
     }
 
     auto device_extensions =
       temp_allocator.allocateType<VkExtensionProperties>(
         device_extension_count);
     if (device_extensions == nullptr)
-      return ERROR(
+      return @log_err(
         "failed to alloc memory for vulkan physical device extensions\n");
 
     @vkc(vkEnumerateDeviceExtensionProperties(
@@ -898,7 +883,7 @@ $ end
                     c_required_device_extensions[k]))
         {
           extensions_supported++;
-          DEBUG("found support for ", device_extensions[j].extensionName, 
+          @log_dbg("found support for ", device_extensions[j].extensionName, 
                 " (", device_extensions[j].specVersion, ")\n");
           break;
         }
@@ -918,9 +903,9 @@ $ end
     @vkc(vkGetPhysicalDeviceSurfacePresentModesKHR(
       devices[i], surface, &present_mode_count, nullptr))
 
-    DEBUG("supports ", format_count, " format", (format_count != 1)? "s" : "",
+    @log_dbg("supports ", format_count, " format", (format_count != 1)? "s" : "",
           "\n");
-    DEBUG("supports ", present_mode_count, " present mode", 
+    @log_dbg("supports ", present_mode_count, " present mode", 
           (present_mode_count != 1)? "s" : "", '\n');
 
     if (format_count == 0 || present_mode_count == 0)
@@ -931,7 +916,7 @@ $ end
   }
 
   if (physical_device == VK_NULL_HANDLE)
-    return ERROR("failed to find a suitable vulkan physical device\n");
+    return @log_err("failed to find a suitable vulkan physical device\n");
 
   vkGetPhysicalDeviceProperties(
     physical_device, &physical_device_properties);
@@ -982,7 +967,7 @@ void Vulkan::deinitSurface()
  */
 b8 Vulkan::initLogicalDevice()
 {
-  DEBUG("creating vulkan logical device\n");
+  @log_dbg("creating vulkan logical device\n");
 
   f32 queue_priority = 1.0f;
   u32 queue_create_info_count = 1;
@@ -1070,7 +1055,7 @@ void Vulkan::deinitLogicalDevice()
  */
 b8 Vulkan::initCommandPool()
 {
-  DEBUG("creating vulkan command pool\n");
+  @log_dbg("creating vulkan command pool\n");
 
   VkCommandPoolCreateInfo create_info =
   {
@@ -1098,7 +1083,7 @@ void Vulkan::deinitCommandPool()
  */
 b8 Vulkan::initVirtualFrames()
 {
-  DEBUG("creating virtual frames\n");
+  @log_dbg("creating virtual frames\n");
 
   io::StaticBuffer<128> name;
   for (s32 vframe_idx = 0; vframe_idx < max_vframes; ++vframe_idx)
@@ -1148,7 +1133,7 @@ void Vulkan::deinitVirtualFrames()
  */
 b8 Vulkan::initDescriptorPools()
 {
-  DEBUG("creating vulkan descriptor pools\n");
+  @log_dbg("creating vulkan descriptor pools\n");
   VkDescriptorPoolCreateInfo create_info =
   {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -1176,9 +1161,9 @@ void Vulkan::deinitDescriptorPools()
  */
 b8 Vulkan::initSwapchain()
 {
-  DEBUG("creating vulkan swapchain\n");
+  @log_dbg("creating vulkan swapchain\n");
 
-  DEBUG("window size: ", window->size, '\n');
+  @log_dbg("window size: ", window->size, '\n');
 
   vec2u viewport_size = vec2u(window->size);
 
@@ -1207,7 +1192,7 @@ b8 Vulkan::initSwapchain()
   auto formats =
     temp_allocator.allocateType<VkSurfaceFormatKHR>(format_count);
   if (formats == nullptr)
-    return ERROR("failed to alloc memory for vulkan surface formats\n");
+    return @log_err("failed to alloc memory for vulkan surface formats\n");
 
   @vkc(vkGetPhysicalDeviceSurfaceFormatsKHR(
     physical_device,
@@ -1239,7 +1224,7 @@ b8 Vulkan::initSwapchain()
   auto present_modes =
     temp_allocator.allocateType<VkPresentModeKHR>(present_mode_count);
   if (present_modes == nullptr)
-    return FATAL("failed to alloc memory for vulkan surface present modes\n");
+    return @log_err("failed to alloc memory for vulkan surface present modes\n");
 
   @vkc(vkGetPhysicalDeviceSurfacePresentModesKHR(
     physical_device,
@@ -1311,7 +1296,7 @@ b8 Vulkan::initSwapchain()
               (u32)viewport_size.y));
   }
 
-  DEBUG("surface extent: ", surface_extent.width, ' ', surface_extent.height, '\n');
+  @log_dbg("surface extent: ", surface_extent.width, ' ', surface_extent.height, '\n');
 
   u32 queue_family_indices[2] =
   {
@@ -1366,7 +1351,7 @@ b8 Vulkan::initSwapchain()
     &swapchain_image_count,
     nullptr))
   
-  DEBUG("swapchain image count: ", swapchain_image_count, '\n');
+  @log_dbg("swapchain image count: ", swapchain_image_count, '\n');
 
   if (isnil(swapchain_buffers))
     swapchain_buffers = Array<SwapchainBuffer>::create(swapchain_image_count);
@@ -1396,13 +1381,13 @@ b8 Vulkan::initSwapchain()
           surface_format.format,
           {},
           swapchain_name.asStr()))
-      return ERROR("failed to create swapchain ", i, " image view\n");
+      return @log_err("failed to create swapchain ", i, " image view\n");
 
     if (!createVkSemaphore(&scb->submit_semaphore, String(swapchain_name)))
-      return ERROR("failed to create swapchain ", i, " submit semaphore\n");
+      return @log_err("failed to create swapchain ", i, " submit semaphore\n");
   }
 
-  DEBUG("swapchain created with size ", viewport_size, '\n');
+  @log_dbg("swapchain created with size ", viewport_size, '\n');
     
   return true;
 }
@@ -1429,7 +1414,7 @@ b8 Vulkan::recreateSwapchain()
   deinitSwapchain();
 
   if (!initSwapchain())
-    return ERROR("failed to recreate Vulkan swapchain");
+    return @log_err("failed to recreate Vulkan swapchain");
 
   return true;
 }
@@ -1438,7 +1423,7 @@ b8 Vulkan::recreateSwapchain()
  */
 b8 Vulkan::initPipelineCache()
 {
-  DEBUG("creating the vulkan pipeline cache\n");
+  @log_dbg("creating the vulkan pipeline cache\n");
 
   using namespace fs;
   if (path::exists("data/"_str) && 
@@ -1680,7 +1665,7 @@ DeviceHeapAllocation* Vulkan::allocateAndBindVkBufferMemory(
   DeviceHeapAllocation* ptr = allocate(memtype, memreq);
   if (ptr == nullptr)
   {
-    ERROR("failed to allocate memory for VkBuffer\n");
+    @log_err("failed to allocate memory for VkBuffer\n");
     return nullptr;
   }
 
@@ -1716,7 +1701,7 @@ DeviceHeapAllocation* Vulkan::allocateAndBindVkImageMemory(
   DeviceHeapAllocation* ptr = allocate(memtype, memreq);
   if (ptr == nullptr)
   {
-    ERROR("failed to allocate memory for VkImage\n");
+    @log_err("failed to allocate memory for VkImage\n");
     return nullptr;
   }
 
@@ -2415,7 +2400,7 @@ b8 Vulkan::queuePresent(VkSemaphore wait_semaphore, u32 image_index)
 
   if (matchAny(result, VK_ERROR_OUT_OF_DATE_KHR, VK_SUBOPTIMAL_KHR))
   {
-    DEBUG("recreating swapchain due to out-of-date or suboptimal result "
+    @log_dbg("recreating swapchain due to out-of-date or suboptimal result "
           "from vkQueuePresentKHR\n");
 
     recreateSwapchain();
@@ -2625,7 +2610,7 @@ b8 Vulkan::createStagingBuffer(
         required_size,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         "staging"_str))
-    return ERROR("failed to create staging buffer\n");
+    return @log_err("failed to create staging buffer\n");
 
   auto failsafe_destroy_buffer = deferWithCancel
   {
@@ -2639,7 +2624,7 @@ b8 Vulkan::createStagingBuffer(
       | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   if (staging_ptr == nullptr)
-    return ERROR("failed to allocate or bind staging buffer memory\n");
+    return @log_err("failed to allocate or bind staging buffer memory\n");
 
   failsafe_destroy_buffer.cancel();
 
@@ -2674,7 +2659,7 @@ b8 Vulkan::stageVkBufferMemory(
         &staging_data,
         staging_ptr->aligned_offset,
         staging_ptr))
-    return ERROR("failed to map staging buffer\n");
+    return @log_err("failed to map staging buffer\n");
 
   mem::copy(staging_data, data, size);
 
@@ -2682,7 +2667,7 @@ b8 Vulkan::stageVkBufferMemory(
 
   VkCommandBuffer command_buffer;
   if (!beginSingleUseCommandBuffer(&command_buffer))
-    return ERROR("failed to begin command buffer for staging buffer\n");
+    return @log_err("failed to begin command buffer for staging buffer\n");
 
   VkBufferCopy copy_region = 
   {
@@ -2692,7 +2677,7 @@ b8 Vulkan::stageVkBufferMemory(
   vkCmdCopyBuffer(command_buffer, staging_buffer, buffer, 1, &copy_region);
 
   if (!endSingleUseCommandBuffer(command_buffer))
-    return ERROR("failed to end command buffer for staging buffer\n");
+    return @log_err("failed to end command buffer for staging buffer\n");
 
   return true;
 }
@@ -2724,7 +2709,7 @@ b8 Vulkan::stageVkImageMemory(
         &staging_data,
         staging_ptr->aligned_offset,
         staging_ptr))
-    return ERROR("failed to map staging buffer\n");
+    return @log_err("failed to map staging buffer\n");
 
   mem::copy(staging_data, data, size);
 
@@ -2732,7 +2717,7 @@ b8 Vulkan::stageVkImageMemory(
 
   VkCommandBuffer command_buffer;
   if (!beginSingleUseCommandBuffer(&command_buffer))
-    return ERROR("failed to begin command buffer for staging buffer\n");
+    return @log_err("failed to begin command buffer for staging buffer\n");
 
   cmdImageMemoryBarrier(
     command_buffer,
@@ -2773,7 +2758,7 @@ b8 Vulkan::stageVkImageMemory(
     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
   if (!endSingleUseCommandBuffer(command_buffer))
-    return ERROR("failed to end command buffer for staging buffer\n");
+    return @log_err("failed to end command buffer for staging buffer\n");
  
   return true;
 }

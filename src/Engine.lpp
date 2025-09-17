@@ -2,12 +2,11 @@ $ local cmn = require "common"
 
 @@lpp.import "Engine.lh"
 
-#include "iro/Logger.h"
 #include "iro/time/Time.h"
 using namespace iro;
 
-@@lpp.import "asset/Packing.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/Packing.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
 @@lpp.import "sdata/SourceDataParser.lh"
 @@lpp.import "event/BroadcastEventBus.lh"
@@ -15,24 +14,24 @@ using namespace iro;
 @@lpp.import "game/client/Client.lh"
 @@lpp.import "game/server/Server.lh"
 
-@log.ger(engine, Info)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
 b8 Engine::init()
 {
-  INFO("initializing engine...\n");
+  @log.info(engine, "initializing engine...\n");
   TimePoint start_time = TimePoint::monotonic();
   frame_start_time = TimeSpan::fromSeconds(start_time.s).toSeconds()
     + TimeSpan::fromNanoseconds(start_time.ns).toSeconds();
 
 $ local initSystem = function(act, name)
     {
-      INFO("initializing $(name)\n");
+      @log.info(engine, "initializing $(name)\n");
       auto start = TimePoint::monotonic();
       if (!$(act))
-        return FATAL("failed to initialize $(name)\n");
-      INFO("finished initializing $(name) in ",
+        return @log.error(engine, "failed to initialize $(name)\n");
+      @log.info(engine, "finished initializing $(name) in ",
            WithUnits(TimePoint::monotonic() - start), "\n");
     }
 $ end
@@ -49,7 +48,7 @@ $ end
 
   init_time = TimePoint::now();
 
-  INFO("done initializing in ",
+  @log.info(engine, "done initializing in ",
     WithUnits(TimePoint::monotonic() - start_time), "\n");
 
   return true;

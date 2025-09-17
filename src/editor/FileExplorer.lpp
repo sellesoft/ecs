@@ -7,7 +7,7 @@ $ require "common"
 #include "iro/fs/fs.h"
 #include "iro/fs/Dir.h"
 
-@log.ger(editor.file-explorer, Info)
+@log.import
 
 namespace editor
 {
@@ -18,13 +18,15 @@ void FileExplorer::changeDir(String path)
 {
   if (!fs::path::exists(path))
   {
-    WARN("attempt to set FileExplorer to non-existant dir '", path, "'\n");
+    @log.warn(editor, 
+      "attempt to set FileExplorer to non-existant dir '", path, "'\n");
     return;
   }
 
   if (!fs::path::isDirectory(path))
   {
-    WARN("FileExplorer::changeDir: '", path, "' is not a directory\n");
+    @log.warn(editor, 
+      "FileExplorer::changeDir: '", path, "' is not a directory\n");
     return;
   }
 
@@ -34,7 +36,7 @@ void FileExplorer::changeDir(String path)
   fs::Dir hcd = fs::Dir::open(cd);
   if (isnil(hcd))
   {
-    ERROR("FileExplorer::changeDir: "
+    @log.error(editor, "FileExplorer::changeDir: "
           "failed to open dir '", cd, "' for entry caching\n");
     return;
   }
@@ -49,8 +51,9 @@ void FileExplorer::changeDir(String path)
 
     if (entry_name.len == -1)
     {
-      ERROR("FileExplorer::changeDir encountered an error while "
-            "caching dir entries\n");
+      @log.error(editor, 
+        "FileExplorer::changeDir encountered an error while "
+        "caching dir entries\n");
       return;
     }
 

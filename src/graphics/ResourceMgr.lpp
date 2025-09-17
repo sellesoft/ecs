@@ -4,12 +4,10 @@ $ require "common"
 @@lpp.import "graphics/Vulkan.lh"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 
-#include "iro/Logger.h"
+@log.import 
 
 namespace gfx
 {
-
-@log.ger(gfx.rsrcmgr, Debug)
 
 /* ----------------------------------------------------------------------------
  */
@@ -360,7 +358,7 @@ void ResourceMgr::notifyAssetChanged(String name, String type)
     {
       if (contained.name == name && contained.type == type)
       {
-        INFO("reloading ", texture.name, " because it contains ", 
+        @log.info(gfx, "reloading ", texture.name, " because it contains ", 
              name, '.', type, '\n');
         loadTextureResource(&texture.resource);
       }
@@ -373,7 +371,7 @@ void ResourceMgr::notifyAssetChanged(String name, String type)
     {
       if (contained.name == name && contained.type == type)
       {
-        INFO("reloading ", shader.name, " because it contains ", 
+        @log.info(gfx, "reloading ", shader.name, " because it contains ", 
              name, '.', type, '\n');
         loadShaderResource(&shader.resource);
       }
@@ -386,7 +384,7 @@ void ResourceMgr::notifyAssetChanged(String name, String type)
     {
       if (contained.name == name && contained.type == type)
       {
-        INFO("reloading ", font.name, " because it contains ", 
+        @log.info(gfx, "reloading ", font.name, " because it contains ", 
              name, '.', type, '\n');
         loadFontResource(&font.resource);
       }
@@ -399,7 +397,7 @@ void ResourceMgr::notifyAssetChanged(String name, String type)
     {
       if (contained.name == name && contained.type == type)
       {
-        INFO("reloading ", pipeline.name, " because it contains ", 
+        @log.info(gfx, "reloading ", pipeline.name, " because it contains ", 
              name, '.', type, '\n');
         loadPipelineResource(&pipeline.resource);
       }

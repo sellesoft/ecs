@@ -8,7 +8,7 @@ $ local dumpValue = require "iro.util".dumpValue
 
 #include "iro/time/Time.h"
 
-@log.ger(sv.entsysmgr, Debug)
+@log.import
 
 $$$
 
@@ -85,7 +85,7 @@ $ end)
  */
 b8 EntitySysMgr::init(const InitParams& params)
 {
-  INFO("initializing entity systems...\n");
+  @log.info(game, "initializing entity systems...\n");
   auto init_start = TimePoint::now();
 
   if (!SharedEntitySysMgr::init(params))
@@ -95,7 +95,7 @@ b8 EntitySysMgr::init(const InitParams& params)
   systems = mem::stl_allocator.allocateType<EntitySystems>();
   mem::zero(systems, sizeof(EntitySystems));
 
-  INFO("allocated ", color::green(io::ByteUnits(sizeof(EntitySystems))),
+  @log.info(game, "allocated ", io::ByteUnits(sizeof(EntitySystems)),
        " for server entity systems\n");
 
   auto on_fail_deallocate_systems = deferWithCancel
@@ -139,11 +139,11 @@ $ systems:each(function(sys)
   sys_init_start = TimePoint::now();
   if (!systems->$(sys.name).init())
     return false;
-  INFO("initialized ", color::cyan("$(sys.typename)"_str), " in ",
+  @log.info(game, "initialized ", "$(sys.typename)"_str, " in ",
        WithUnits(TimePoint::now() - sys_init_start), "\n");
 $ end)
 
-  INFO("initialized all server entity systems in ",
+  @log.info(game, "initialized all server entity systems in ",
        WithUnits(TimePoint::now() - init_start), "!\n");
 
   on_fail_deallocate_systems.cancel();

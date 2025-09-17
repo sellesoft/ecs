@@ -4,10 +4,6 @@ $ require "common"
 @@lpp.import "game/shared/Transform.comp.lh"
 @@lpp.import "game/shared/map/Map.sys.lh"
 
-#include "iro/Logger.h"
-
-@defFileLogger(eye, Info)
-
 /* ----------------------------------------------------------------------------
  */
 b8 EyeSys::update()
@@ -26,12 +22,6 @@ b8 EyeSys::update()
 void EyeSys::getViewMat(mat3x2* view) const
 {
   *view = this->view.getViewMat();
-  //
-  // *view = 
-  //   mat3x2::createInverseTransform(
-  //     pos,
-  //     rotation,
-  //     {zoom,zoom});
 }
 
 /* ----------------------------------------------------------------------------
@@ -39,14 +29,6 @@ void EyeSys::getViewMat(mat3x2* view) const
 vec2f EyeSys::screenToWorld(vec2f sp) const
 {
   return view.viewportPointToWorld(sp, viewport_size);
-
-  // vec2f ss = viewport_size;
-  // vec2f wp = sp - ss / 2.f;
-  // wp.x /= pixels_per_meter;
-  // wp.y /= -f32(pixels_per_meter);
-  //
-  // auto tm = mat3x2::createTransform(pos, rotation, {zoom,zoom});
-  // return tm.transformVec(wp);
 }
 
 /* ----------------------------------------------------------------------------
@@ -54,15 +36,4 @@ vec2f EyeSys::screenToWorld(vec2f sp) const
 vec2f EyeSys::worldToScreen(vec2f wp) const
 {
   return view.worldPointToViewport(wp, viewport_size);
-
-  // vec2f ss = viewport_size;
-  // auto tm = mat3x2::createInverseTransform(pos, rotation, {zoom, zoom});
-  // vec2f sp = tm.transformVec(wp);
-  //
-  // sp.x *=  pixels_per_meter;
-  // sp.y *= -f32(pixels_per_meter);
-  //
-  // sp += ss / 2.f;
-  //
-  // return sp;
 }

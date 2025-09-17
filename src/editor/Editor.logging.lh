@@ -1,9 +1,0 @@
-$ require "common"
-
-@@[l] lpp.import "core/logging.lh"
-
-$$$
-l.newCategory "editor"
-  .verbosity "Info"
-  .dests { "stdout", "console" }
-$$$

@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("compiledata", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue
@@ -31,20 +30,23 @@ end
 $$$
 @@imported:get
 
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
+@@lpp.import "reflect/Packing.lh"
 @@lpp.import "reflect/TypeId.lh"
 @@lpp.import "build/Target.lh"
 @@lpp.import "build/Rule.lh"
 @@lpp.import "build/Result.lh"
 @@lpp.import "build/BuildSystem.lh"
 @@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "asset/Packing.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
 #include "iro/memory/BinaryDataBuilder.h"
 
-@log.ger(compiledata, Info)
+@log.import
+
+namespace reflect
+{
 
 /* ============================================================================
  */
@@ -89,7 +91,7 @@ b8 buildError(build::Result* result, Args... args)
   if (result != nullptr)
     result->pushError(args...);
   else
-    ERROR(args..., '\n');
+    @log.error(reflect, args..., '\n');
   return false;
 }
 
@@ -386,7 +388,7 @@ $   end
     // type.
     u64 start_offset = buffer->currentOffset();
 
-    TRACE("compile $(decl.type.name)\n");
+    @log.trace(reflect, "compile $(decl.type.name)\n");
 
 $ local is_ref = decl:findMetadata "ref"
 
@@ -483,7 +485,7 @@ $   putTypeCompiler(subtype)
    */
   $(declareDeclCompiler(decl))
   {
-    TRACE("compile array $(decl.type.name)\n");
+    @log.trace(reflect, "compile array $(decl.type.name)\n");
 
     // Record the pointer to the array's contents to be compiled after 
     // we finish compiling this data.
@@ -589,7 +591,7 @@ $     putTypedStringMapCompiler(decl)
 $   elseif name == "iro::Flags" then
 $     putFlagsCompiler(decl)
 $   else
-$     clog:warn("unhandled template spec (compiler): ", decl, "\n")
+$     io.write("warn: unhandled template spec (compiler): ", decl, "\n")
 $   end
 $ end
 
@@ -610,8 +612,8 @@ $     putTemplateSpecCompiler(decl)
 $   elseif decl:is(ast.Struct) then
 $     putStructCompiler(decl)
 $   else
-$     clog:warn("******* unhandled record type *********\n", ast.dump(decl),
-$               "\n")
+$     io.write("warn: ******* unhandled record type *********\n", 
+$              ast.dump(decl), "\n")
 $   end
 $ end
 
@@ -636,8 +638,6 @@ $   if decl.user.compiler_placed then
 $     return
 $   end
 $  
-$   clog:trace("put compiler: ", decl, '\n')
-$ 
 $   if decl:is(ast.TagDecl) then
 $     if decl:is(ast.Record) then
 $       putRecordCompiler(decl)
@@ -654,7 +654,7 @@ $   type = type:desugar()
 $   if type:is(ast.TagType) then
 $     putDeclCompiler(type.decl)
 $   elseif not type:is(ast.Builtin) and not type:is(ast.Pointer) then
-$     clog:debug("unhandled type: ", type, '\n')
+$     io.write("warn: unhandled type: ", type, '\n')
 $   end
 $ end
 
@@ -1021,7 +1021,8 @@ $     end
 $   end
 $ end
   default:
-    ERROR("CompiledData::fixPointers not implemented for type ",
+    @log.error(reflect, 
+          "CompiledData::fixPointers not implemented for type ",
           rtr::typenameFromTypeId(type), '\n');
     assert(!"unhandled type in CompiledData::fixPointers");
   }
@@ -1156,4 +1157,6 @@ build::Rule CompiledData::getBuildRule()
       .build = compiledDataBuild,
     }
   };
+}
+
 }

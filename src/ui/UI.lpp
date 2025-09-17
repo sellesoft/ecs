@@ -7,21 +7,18 @@ $ local cmn = require "common"
 @@lpp.import "math/util.h"
 @@lpp.import "ui/TextEdit.lh"
 @@lpp.import "Profiling.lh"
-@@lpp.import "asset/Linker.lh"
+@@lpp.import "reflect/Linker.lh"
 
-#include "iro/Logger.h"
 #include "iro/containers/SmallArray.h"
 
 #include "ctype.h"
 
-$ require "Log"
-
 using namespace iro;
+
+@log.import
 
 namespace ui
 {
-
-@log.ger(ui, Info)
 
 static const CombinedItemId c_root_id = {"_ui_root_"_fid.val};
 
@@ -34,11 +31,11 @@ b8 UI::init(InitParams& params)
   gfx::Renderer& renderer = params.renderer;
 
   if (!frame_allocator.init())
-    return ERROR("failed to initialize UI frame allocator\n");
+    return @log.error(ui, "failed to initialize UI frame allocator\n");
 
   l_pipeline.name = "assets/shaders/UI"_str;
 
-  linkData(
+  reflect::linkData(
     "gfx::PipelineLink"_typeid,
     &l_pipeline,
     params.resource_mgr,
@@ -67,10 +64,10 @@ b8 UI::init(InitParams& params)
     });
 
   if (isnil(index_buffer))
-    return ERROR("failed to initialize ui index buffer\n");
+    return @log.error(ui, "failed to initialize ui index buffer\n");
 
   if (!persistent_state_mgr.init(&mem::stl_allocator))
-    return ERROR("failed to initialize persistent state manager\n");
+    return @log.error(ui, "failed to initialize persistent state manager\n");
 
   return true;
 }
@@ -91,7 +88,7 @@ b8 PersistentStateMgr::init(mem::Allocator* allocator)
   heap_ptr = allocator->allocate(c_HeapSize);
 
   if (!heap.init(heap_ptr, c_HeapSize))
-    return ERROR("failed to initialize persistent state heap\n");
+    return @log.error(ui, "failed to initialize persistent state heap\n");
 
   mem::zero(states, c_MaxStates * sizeof(PersistentState));
   num_states = 0;
@@ -140,7 +137,7 @@ PersistentStateMgr::GetResult PersistentStateMgr::registerOrGetState(
   // Check that we have room for another state.
   if (free_state == nullptr)
   {
-    ERROR("maximum amount of persistent states reached\n");
+    @log.error(ui, "maximum amount of persistent states reached\n");
     return {nullptr};
   }
 
@@ -148,7 +145,7 @@ PersistentStateMgr::GetResult PersistentStateMgr::registerOrGetState(
   free_state->ptr = heap.allocate(size);
   free_state->size = size;
 
-  DEBUG("registered persistent state ", id.val, " at ", free_state->ptr, "\n");
+  @log.debug(ui, "registered persistent state ", id.val, " at ", free_state->ptr, "\n");
 
   return {free_state, true};
 }
@@ -160,7 +157,7 @@ void UI::beginFrame(const FrameParams& params)
   assert(!in_frame && 
     "attempt to begin UI frame while one is already in progress");
 
-  DEBUG("UI::beginFrame\n");
+  @log.debug(ui, "UI::beginFrame\n");
 
   in_frame = true;
 
@@ -222,7 +219,7 @@ void UI::pushConstantFromTransform(mat3x2 transform, gfx::Renderer& renderer)
  */
 void UI::endFrame(InputState* consumed_input)
 {
-  DEBUG("UI::endFrame\n");
+  @log.debug(ui, "UI::endFrame\n");
 
   assert(id_stack.isEmpty());
   assert(popup_stack.isEmpty());
@@ -238,7 +235,7 @@ void UI::endFrame(InputState* consumed_input)
 
   vec2f hovered_cursor_offset = {};
 
-  TRACE("evaluating input\n");
+  @log.trace(ui, "evaluating input\n");
   for (Layer* layer = top_layer; layer; layer = layer->prev)
   {
     for (Panel* panel = layer->panels; panel; panel = panel->next)
@@ -261,11 +258,11 @@ void UI::endFrame(InputState* consumed_input)
 
             // drawDebugBorder(screen_fbounds, {255,0,0,255});
 
-            TRACE("testing item ", io::Hex(item->id.val), "\n");
+            @log.trace(ui, "testing item ", io::Hex(item->id.val), "\n");
 
             if (screen_fbounds.containsPoint(frame_input.getCursorPos()))
             {
-              TRACE("hovered ", io::Hex(item->id.val), "\n");
+              @log.trace(ui, "hovered ", io::Hex(item->id.val), "\n");
               next_focus_state.hovered = *item;
               hovered_cursor_offset = 
                 frame_input.getCursorPos() - screen_fbounds.pos();
@@ -348,7 +345,7 @@ void UI::endFrame(InputState* consumed_input)
 void UI::render(gfx::Renderer& renderer, Rect viewport)
 {
   // Bind UI's gfx objects.
-  TRACE("binding ui gfx objects\n");
+  @log.trace(ui, "binding ui gfx objects\n");
   renderer.bindPipeline(l_pipeline.getHandle());
   renderer.bindVertexBuffer(vertex_buffer);
   renderer.bindIndexBuffer(index_buffer);
@@ -357,12 +354,12 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
   frame_viewport = viewport;
 
   // Map the draw info buffers.
-  TRACE("mapping ui draw info buffers\n");
+  @log.trace(ui, "mapping ui draw info buffers\n");
   vertex_buffer.map(*renderer.vk);
   index_buffer.map(*renderer.vk);
 
   // Execute each layer's Cmds.
-  TRACE("executing layer draw commands\n");
+  @log.trace(ui, "executing layer draw commands\n");
   u32 layer_idx = 0;
   Group* active_render_group = nullptr;
   io::StaticBuffer<255> debug_layer_name;
@@ -409,7 +406,7 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
 
   if (debug_cmds != nullptr)
   {
-    TRACE("executing debug draw commands\n");
+    @log.trace(ui, "executing debug draw commands\n");
 
     mat3x2 screen_transform = mat3x2::createTransform(vec2f(0,0), 0.f);
 
@@ -434,15 +431,15 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
   // INFO("ui frame used ", color::green(io::ByteUnits(mem_usage)), " bytes \n");
 
   // Clean up the frame's memory.
-  TRACE("clearing ui frame allocator\n");
+  @log.trace(ui, "clearing ui frame allocator\n");
   frame_allocator.clear();
 
   // Flush and unmap the buffers.
-  TRACE("flushing ui draw buffers\n");
+  @log.trace(ui, "flushing ui draw buffers\n");
   vertex_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
   index_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
 
-  TRACE("unmapping ui draw buffers\n");
+  @log.trace(ui, "unmapping ui draw buffers\n");
   vertex_buffer.unmap(*renderer.vk);
   index_buffer.unmap(*renderer.vk);
 
@@ -461,7 +458,7 @@ void UI::pushId(CombinedItemId id)
   }
   else
   {
-    WARN("too many ids pushed\n");
+    @log.warn(ui, "too many ids pushed\n");
   }
 }
 
@@ -508,7 +505,7 @@ void UI::pushLayer(
     LayerFlags flags, 
     GroupScissor scissoring)
 {
-  DEBUG("UI::pushLayer\n");
+  @log.debug(ui, "UI::pushLayer\n");
 
   assert(notnil(id));
 
@@ -534,7 +531,7 @@ void UI::pushLayer(
  */
 void UI::popLayer()
 {
-  DEBUG("UI::popLayer\n");
+  @log.debug(ui, "UI::popLayer\n");
 
   assert(current_layer->prev != nullptr);
 
@@ -605,7 +602,7 @@ void UI::beginPanel(
     Panel* prev, 
     GroupScissor scissoring)
 {
-  DEBUG("UI::beginPanel(", id.val, ") ");
+  @log.debug(ui, "UI::beginPanel(", id.val, ") ");
 
   assert(notnil(id));
   
@@ -648,7 +645,7 @@ void UI::beginPanel(
   next_panel->item.bounds = 
     Rect::from(next_group->transform.getTranslation(), bounds.size());
 
-  DEBUG(current_layer->current_panel, " -> ", next_panel, "\n");
+  @log.debug(ui, current_layer->current_panel, " -> ", next_panel, "\n");
 
   // Link the new Panel in the current Layer.
   next_panel->parent = prev;
@@ -683,7 +680,7 @@ void UI::beginPanel(ItemId id, Rect bounds)
  */
 void UI::endPanel()
 {
-  DEBUG("UI::endPanel ");
+  @log.debug(ui, "UI::endPanel ");
 
   Panel* current_panel = current_layer->current_panel;
 
@@ -697,7 +694,7 @@ void UI::endPanel()
 
   current_layer->current_panel = current_panel->parent;
 
-  DEBUG(current_panel, " -> ", current_layer->current_panel, "\n");
+  @log.debug(ui, current_panel, " -> ", current_layer->current_panel, "\n");
 }
 
 /* ----------------------------------------------------------------------------
@@ -773,7 +770,7 @@ void UI::pushGroupRenderState(Group* group)
     break;
   }
 
-  TRACE(
+  @log.trace(ui, 
     "pushing group (", group, ") render state (t: ", 
     transform_cmd->transform->getTranslation(), ", s: ", scissor_cmd->bounds, 
     ")\n");
@@ -801,7 +798,7 @@ void UI::openPopup(CombinedItemId id)
 {
   if (open_popups.isFull())
   {
-    ERROR("max popups open\n");
+    @log.error(ui, "max popups open\n");
     return;
   }
 
@@ -849,7 +846,7 @@ b8 UI::beginPopup(CombinedItemId id, Rect bounds, PopupFlags flags)
   {
     if (placed_popup->id == id)
     {
-      WARN("attempt to begin a popup twice\n");
+      @log.warn(ui, "attempt to begin a popup twice\n");
       return false;
     }
   } 
@@ -871,7 +868,7 @@ b8 UI::beginPopup(CombinedItemId id, Rect bounds, PopupFlags flags)
 
   if (!popup_stack.push(popup))
   {
-    WARN("too many popups begun\n");
+    @log.warn(ui, "too many popups begun\n");
     return false;
   }
 
@@ -973,7 +970,7 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
   // TODO(sushi) add a null font so that this isn't fatal.
   assert(skin.font.isValid());
 
-  TRACE("UI::putText\n");
+  @log.trace(ui, "UI::putText\n");
 
   const gfx::CompiledFont& font = skin.font->compiled_font.get();
 
@@ -1095,7 +1092,7 @@ b8 UI::putTextField(
 {
   assert(state != nullptr);
 
-  TRACE("UI::putTextField\n");
+  @log.trace(ui, "UI::putTextField\n");
 
   FocusFlags focus = putFocusableBounds(id, bounds);
 
@@ -1223,7 +1220,7 @@ $ end
     // TODO(sushi) text box
     if (codepoint == '\n')
     {
-      WARN("newline encountered in a UI text field buffer! these are not ",
+      @log.warn(ui, "newline encountered in a UI text field buffer! these are not ",
            "handled in this widget\n");
     }
   
@@ -1477,7 +1474,7 @@ void UI::endScrollGroup(const ScrollBarSkin& skin)
  */
 void TransformCmd::execute(UI& ui, gfx::Renderer& renderer)
 {
-  TRACE("execute transform ", transform->getTranslation(), "\n");
+  @log.trace(ui, "execute transform ", transform->getTranslation(), "\n");
 
   ui.pushConstantFromTransform(*transform, renderer);
 }
@@ -1486,7 +1483,7 @@ void TransformCmd::execute(UI& ui, gfx::Renderer& renderer)
  */
 void ScissorCmd::execute(UI& ui, gfx::Renderer& renderer)
 {
-  TRACE("execute scissor ", bounds.pos(), " ", bounds.size(), "\n");
+  @log.trace(ui, "execute scissor ", bounds.pos(), " ", bounds.size(), "\n");
 
   renderer.setScissor(vec2i(bounds.pos()), vec2u(bounds.size()));
 }
@@ -1532,7 +1529,7 @@ void UI::putQuad(Rect bounds, Color color)
  */
 void QuadDrawCmd::execute(UI& ui, gfx::Renderer& renderer)
 {
-  TRACE("execute draw quad ", bounds.pos(), " ", bounds.size(), 
+  @log.trace(ui, "execute draw quad ", bounds.pos(), " ", bounds.size(), 
         " ", color, "\n");
 
 
@@ -1558,7 +1555,7 @@ void QuadDrawCmd::execute(UI& ui, gfx::Renderer& renderer)
       { uv.x, uv.w },
       color);
 
-  TRACE("draw: ", ui.draw_counts.y, " ", drawn.y, " ", ui.draw_counts.x, "\n");
+  @log.trace(ui, "draw: ", ui.draw_counts.y, " ", drawn.y, " ", ui.draw_counts.x, "\n");
 
   // TODO(sushi) batch these draw cmds.
   renderer.draw(
@@ -1595,7 +1592,7 @@ void LineDrawCmd::execute(UI& ui, gfx::Renderer& renderer)
  */
 FocusFlags UI::putFocusableBounds(CombinedItemId id, Rect bounds)
 {
-  TRACE("UI::putFocusableBounds(", id.val, ")\n");
+  @log.trace(ui, "UI::putFocusableBounds(", id.val, ")\n");
 
   Panel* current_panel = current_layer->current_panel;
 

@@ -6,7 +6,7 @@ $ require "common"
 @@lpp.import "build/Rule.lh"
 @@lpp.import "build/Result.lh"
 @@lpp.import "build/BuildSystem.lh"
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
 

@@ -16,7 +16,6 @@ $ require "common"
 @@lpp.import "net/Message.lh"
 
 #include "iro/Common.h"
-#include "iro/Logger.h"
 #include "iro/memory/Memory.h"
 
 #include <bit>
@@ -24,7 +23,7 @@ $ require "common"
 
 using namespace iro;
 
-@log.ger(net.message, Info)
+@log.import
 
 namespace net
 {
@@ -33,10 +32,10 @@ namespace net
  */
 void Message::init(u8* data, u16 size)
 {
-  @log.trace("initializing message with ", size, " bytes\n");
+  @log.trace(net, "initializing message with ", size, " bytes\n");
   if (size > MAX_SIZE)
   {
-    @log.error("attempted to initialize a message with more bytes than"
+    @log.error(net, "attempted to initialize a message with more bytes than"
                       " the max size (", Message::MAX_SIZE, ")");
     return;
   }
@@ -54,13 +53,13 @@ void Message::writeBits(u64 value)
   static_assert(BITS > 0 && BITS <= 64);
   if constexpr (BITS != 64)
     assert(value < ((1ULL << BITS) - 1ULL));
-  @log.trace("writing bits to message\n"
+  @log.trace(net, "writing bits to message\n"
              "offset: ", this->size, ", value: ", value,
              ", bits: ", BITS, "\n");
 
   if ((Message::MAX_SIZE - this->size) / 8 < BITS)
   {
-    @log.warn("message overflow\n");
+    @log.warn(net, "message overflow\n");
     this->cursor = MAX_U32;
     return;
   }
@@ -199,12 +198,12 @@ template<u64 BITS>
 u64 Message::readBits()
 {
   static_assert(BITS > 0 && BITS <= 64);
-  @log.trace("reading bits to message\n");
+  @log.trace(net, "reading bits to message\n");
 
   u32 byte_cursor = this->cursor / 8;
   if ((((u32)this->size * 8) - this->cursor) < BITS)
   {
-    @log.warn("message overflow\n");
+    @log.warn(net, "message overflow\n");
     this->cursor = this->size * 8;
     return 0;
   }
@@ -237,7 +236,7 @@ u64 Message::readBits()
   {
     static_assert(!"arbitrary bit size reading not setup yet");
   }
-  @log.trace("offset: ", this->cursor, ", value: ", value,
+  @log.trace(net, "offset: ", this->cursor, ", value: ", value,
              ", bits: ", BITS, "\n");
 
   return value;

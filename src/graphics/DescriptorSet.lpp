@@ -7,7 +7,7 @@ $ local helpers = require "graphics.Helpers"
 
 #include "iro/containers/SmallArray.h"
 
-@log.ger(gfx.dset, Info)
+@log.import
 
 namespace gfx
 {
@@ -21,7 +21,7 @@ DescriptorSet DescriptorSet::create(
 {
   String name = resolved(debug_name, "unnamed"_str);
   
-  DEBUG("creating gfx::DescriptorSet '", name, "'\n");
+  @log.debug(gfx, "creating gfx::DescriptorSet '", name, "'\n");
 
 $ local cerr = helpers.defCreateErr("gfx::DescriptorSet", "name")
 
@@ -51,7 +51,7 @@ void DescriptorSet::destroy(Vulkan& vk)
   if (isnil(*this))
     return;
 
-  DEBUG("destroying ", *this, '\n');
+  @log.debug(gfx, "destroying ", *this, '\n');
 
   vk.deallocateVkDescriptorSet((VkDescriptorSet)handle);
   handle = nullptr;
@@ -67,7 +67,7 @@ void DescriptorSet::update(
 {
   if (isnil(*this))
   {
-    ERROR("attempt to update a nil gfx::DescriptorSetLayout\n");
+    @log.error(gfx, "attempt to update a nil gfx::DescriptorSetLayout\n");
     return;
   }
 
@@ -77,13 +77,13 @@ void DescriptorSet::update(
   {
     if (isnil(image.sampler))
     {
-      ERROR("image descriptor contains nil gfx::Sampler\n");
+      @log.error(gfx, "image descriptor contains nil gfx::Sampler\n");
       return;
     }
 
     if (isnil(image.view))
     {
-      ERROR("image descriptor contains nil gfx::ImageView\n");
+      @log.error(gfx, "image descriptor contains nil gfx::ImageView\n");
       return;
     }
 
@@ -112,7 +112,7 @@ void DescriptorSet::update(
 {
   if (isnil(*this))
   {
-    ERROR("attempt to update a nil DescriptorSetLayout\n");
+    @log.error(gfx, "attempt to update a nil DescriptorSetLayout\n");
     return;
   }
 
@@ -122,7 +122,7 @@ void DescriptorSet::update(
   {
     if (isnil(write.buffer))
     {
-      ERROR("buffer write contains nil gfx::Buffer\n");
+      @log.error(gfx, "buffer write contains nil gfx::Buffer\n");
       return;
     }
 

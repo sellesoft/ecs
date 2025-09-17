@@ -9,12 +9,11 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
 $$$
 @@imported:get
 
-#include "iro/Logger.h"
 #include "iro/containers/LinkedPool.h"
 
 using namespace iro;
 
-@log.ger(cmpmgr, Info)
+@log.import
 
 @@lpp.import "game/shared/component/ComponentMgr.lh"
 
@@ -45,7 +44,8 @@ $ end)
   {
 $ eachComp(function(comp)
     if (!$(comp.name)_pool.init())
-      return ERROR("failed to init $(comp.typename) component pool\n");
+      return @log.error(game, 
+        "failed to init $(comp.typename) component pool\n");
 $ end)
     return true;
   }

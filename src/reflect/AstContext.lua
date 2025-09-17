@@ -23,8 +23,9 @@ local IroType = require "iro.Type"
 local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
-local log = require "iro.Logger" ("astctx", Verbosity.Info)
 local glob = require "iro.fs.glob"
+
+local debug_print = false
 
 ---@class reflect.AstContext : iro.Type
 ---
@@ -167,12 +168,21 @@ Converter.recordProcessed = function(self, cdecl, obj)
 end
 
 Converter.write = function(self, ...)
-  for i = 1,self.depth do
-    log:debug " "
-  end
+  if debug_print then
+    for i = 1,self.depth do
+      io.write " "
+    end
 
-  log:debug(...)
-  log:debug "\n"
+    local function recur(a, ...)
+      if a then
+        io.write(tostring(a))
+        recur(...)
+      end
+    end
+    recur(...)
+
+    io.write "\n"
+  end
 end
 
 ---@class convwrap : reflect.Converter
@@ -413,7 +423,7 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     else
       local specialized = self.ctx:lookupDecl(decl.qname)
       if not specialized then
-        log:error("---- template not defined ", decl.qname, '\n')
+        io.write("error: ---- template not defined ", decl.qname, '\n')
       end
 
       -- In the case that this is a template spec, set what declaration
@@ -604,7 +614,8 @@ convfunc.collectBaseAndDerived = function(self, cdecl, record)
   local base = baseiter:next()
   while base do
     if record.base then
-      log:warn("record '", record.name, "' has multiple bases, but ecs does ",
+      io.write("warn: record '", record.name, 
+               "' has multiple bases, but ecs does ",
                "not support multiple inheritance in its reflection system")
       break
     end
@@ -659,7 +670,7 @@ convfunc.processTemplateSpec = function(self, cdecl, ctype)
       spec.args:push(arg:getIntegral())
     else
       spec.has_unhandled_arg_kind = true
-      log:warn("unhandled template arg kind in ", spec.name, "\n")
+      io.write("warn: unhandled template arg kind in ", spec.name, "\n")
     end
 
     arg = args:next()

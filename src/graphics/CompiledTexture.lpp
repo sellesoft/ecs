@@ -4,10 +4,9 @@ $ local cmn = require "common"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
 #include "iro/Platform.h"
-#include "iro/Logger.h"
 #include "iro/memory/Bump.h"
 
-@@lpp.import "asset/CompiledData.lh"
+@@lpp.import "reflect/CompiledData.lh"
 @@lpp.import "graphics/CompiledTexture.lh"
 @@lpp.import "graphics/DescriptorSetLayout.lh"
 @@lpp.import "graphics/DescriptorSet.lh"
@@ -19,10 +18,14 @@ $ local cmn = require "common"
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
 
+@log.import
+
+$ local function log_err(...)
+  $(log.error("gfx", ...))
+$ end
+
 namespace gfx
 {
-
-@defFileLogger(ecs.texture, Debug)
 
 // TODO(sushi) put somewhere common.
 typedef io::StaticBuffer<512> PathBuffer;
@@ -35,7 +38,7 @@ b8 buildError(build::Result* result, Args... args)
   if (result != nullptr)
     result->pushError(args...);
   else
-    ERROR(args..., '\n');
+    @log_err(args..., '\n');
 
   return false;
 }
@@ -165,7 +168,7 @@ b8 compileTexture(const CompileTextureParams& params)
       "failed to initialize temp compiled_data_allocator");
   defer { compiled_data_allocator.deinit(); };
   
-  auto* compiled_def = CompiledData::load(
+  auto* compiled_def = reflect::CompiledData::load(
     data_path, 
     &compiled_data_allocator,
     params.result);

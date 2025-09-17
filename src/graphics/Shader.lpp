@@ -4,7 +4,7 @@ $ local helpers = require "graphics.Helpers"
 @@lpp.import "graphics/Shader.lh"
 @@lpp.import "graphics/Vulkan.lh"
 
-@log.ger(gfx.shader, Info)
+@log.import
 
 namespace gfx
 {
@@ -15,7 +15,7 @@ Shader Shader::create(Vulkan& vk, const CreateParams& params)
 {
   String name = resolved(params.debug_name, "unnamed"_str);
 
-  DEBUG("creating shader '", name, "'\n");
+  @log.debug(gfx, "creating shader '", name, "'\n");
 
 $ local cerr = helpers.defCreateErr("gfx::Shader", "name")
 

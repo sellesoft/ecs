@@ -6,8 +6,6 @@ $ require "common"
 @@lpp.import "ui/UI.lh"
 @@lpp.import "editor/Skin.defs.lh"
 
-@log.ger(menu-bar, Info)
-
 namespace editor
 {
 
@@ -28,7 +26,6 @@ void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
  */
 void MenuBar::onFileModified(FileModifiedEvent& e)
 {
-  INFO("MenuBar::onFileModified: ", e.path, "\n");
 }
 
 }

@@ -8,7 +8,7 @@ $ require "common"
 @@lpp.import "game/client/input/Input.sys.lh"
 @@lpp.import "game/shared/Eye.sys.lh"
 
-@log.ger(sh.sys.spawner, Debug)
+@log.import
 
 /* ----------------------------------------------------------------------------
  */
@@ -26,17 +26,17 @@ void SpawnerSys::onMapLoad(MapPostLoad&)
 
     if (isnil(entid))
     {
-      @log.error("failed to spawn entity\n");
+      @log.error(game, "failed to spawn entity\n");
       continue;
     }
 
-    @log.info("spawned ", entid.value, " (", getEntity(entid)->name, ") at ",
-              spawner_transform->pos, ":", spawner_transform->placement_layer,
-              "\n");
+    @log.info(game, 
+      "spawned ", entid.value, " (", getEntity(entid)->name, ") at ",
+      spawner_transform->pos, ":", spawner_transform->placement_layer, "\n");
     
     if (spawner.attach)
     {
-      INFO("attaching mind and eye to ", entid.value, "\n");
+      @log.info(game, "attaching mind and eye to ", entid.value, "\n");
       input->attach(entid);
       eye->attach(entid);
     }

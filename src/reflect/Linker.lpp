@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("linker", Verbosity.Debug)
 
 $$$ 
 local astctx, imported = require "reflect.AstContext" .fromGlobs
@@ -132,7 +131,10 @@ $$$
 @@lpp.import "graphics/ResourceMgr.lh"
 @@lpp.import "asset/AssetMgr.lh"
 
-@log.ger(linker, Debug)
+@log.import
+
+namespace reflect
+{
 
 /* ============================================================================
  */
@@ -196,7 +198,8 @@ $ -- * ------------------------------------------------------------------------
 $ local function maybeCallFieldLinker(field, record)
 $   if not field.metadata.has_links then return end
     if (!$(getTypeLinkerName(field.type))(&data->$(field.name)))
-      return ERROR("failed to link field $(field.name) of $(record.qname)\n");
+      return @log.error(reflect, 
+        "failed to link field $(field.name) of $(record.qname)\n");
 $ end
 
 $ local function putStructLinker(decl)
@@ -221,7 +224,8 @@ $   local subtype = decl.args[1]
     for (auto& elem : *data)
     {
       if (!$(getTypeLinkerName(subtype))(&elem))
-        return ERROR("failed to link element ", elem_idx, " of array\n");
+        return @log.error(reflect, 
+          "failed to link element ", elem_idx, " of array\n");
 
       elem_idx += 1;
     }
@@ -247,17 +251,19 @@ $ local function putCompiledDataLinker(decl)
     // Compiled data.
 $   local link_type = decl.metadata.links
 $   if not link_type then
-$      clog:warn("compiled asset link type ", decl.qname, " does not specify ",
-$                "what asset type it links\n")
-    WARN("cannot link $(decl.type.name) because it does not specify what "
-         "asset type it links\n");
+$      --clog:warn("compiled asset link type ", decl.qname, " does not specify ",
+$      --          "what asset type it links\n")
+    @log.warn(reflect, 
+      "cannot link $(decl.type.name) because it does not specify what "
+      "asset type it links\n");
 $   else
     // Load the CompiledData as an Asset.
     data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
 
     if (data->asset == nullptr)
-      return ERROR("failed to link compiled data '", data->name, "' of type "
-                   "$(link_type)\n");
+      return @log.error(reflect, 
+        "failed to link compiled data '", data->name, "' of type "
+        "$(link_type)\n");
 
     // Get the CompiledData.
     CompiledData* compiled = &data->get();
@@ -269,7 +275,8 @@ $   else
     for (CompiledData::Ref& ref : compiled->refs.getSlice())
     {
       if (!linkByTypeId(ref.type, ref.ptr.get()))
-        return ERROR("failed to link embedded link in compiled data\n");
+        return @log.error(reflect, 
+          "failed to link embedded link in compiled data\n");
     }
 $   end
     return true;
@@ -284,10 +291,11 @@ $ local function putAssetLinker(decl)
     // Generic asset.
 $   local link_type = decl.metadata.links
 $   if not link_type then
-$     clog:warn("asset link type ", decl.qname, " does not specify what ",
-$               "asset type it links\n")
-    WARN("unable to link asset type $(decl.qname) because it did not specify "
-         "metadata.links\n");
+$     -- clog:warn("asset link type ", decl.qname, " does not specify what ",
+$     --          "asset type it links\n")
+    @log.warn(reflect, 
+      "unable to link asset type $(decl.qname) because it did not specify "
+      "metadata.links\n");
 $   else
     
     if (isnil(data->name))
@@ -296,7 +304,7 @@ $   else
     data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
 
     if (data->asset == nullptr)
-      return ERROR(
+      return @log.error(reflect, 
         "failed to link asset '", data->name, "' of type $(link_type)\n");
 $   end
 
@@ -346,11 +354,11 @@ $ end
     
     // Link any internals the Resource may have.
     if (!$(getTypeLinkerName(resource_type))(r))
-      return ERROR("failed to link resource $(rname)\n");
+      return @log.error(reflect, "failed to link resource $(rname)\n");
 
     // Ask the resource manager to load the resource.
     if (!resource_mgr.load$(rname)(r))
-      return ERROR("failed to load resource $(rname)\n");
+      return @log.error(reflect, "failed to load resource $(rname)\n");
 
     return true;
   }
@@ -406,4 +414,6 @@ b8 linkData(
   Linker linker = { .asset_mgr = asset_mgr, .resource_mgr = resource_mgr };
 
   return linker.linkByTypeId(type, data);
+}
+
 }

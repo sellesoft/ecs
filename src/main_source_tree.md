@@ -1,6 +1,8 @@
 ---
 up: "[[root_source_tree]]"
 instance-of: directory
+tags:
+  - directory
 ---
 # Main source tree.
 
@@ -12,7 +14,7 @@ instance-of: directory
 * `asset/`
   The `Asset` type, and the `AssetMgr` which manages them.
 
-* `build/`
+* [[build_system|build/]]
   ecs' asset build system.
 
 * `core/`

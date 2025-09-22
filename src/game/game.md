@@ -1,8 +1,9 @@
 ---
 instance-of: directory
+tags: game
 ---
 
-This directory contains all code related to the game running in the engine. It is separated into three directories, `client`, `server`, and `shared`. Client and server may both use code from `shared/`, but must never use code from each other.
+This directory contains all code related to the game running in the engine. It is separated into three directories, [[client]], [[server]], and `shared`. Client and server may both use code from `shared/`, but must never use code from each other.
 
 ecs is, as the name implies, inspired by the entity-component-system architecture popular in game development. The style of ecs used, however, is largely inspired by that of [Space Station 14](https://github.com/space-wizards/space-station-14). 
 

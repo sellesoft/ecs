@@ -1,6 +1,8 @@
 ---
 up: "[[reflection]]"
 instance-of: directory
+tags:
+  - directory
 ---
 
 Here in `tools/` are various independent *tools* that perform work outside of the main ecs executable. 

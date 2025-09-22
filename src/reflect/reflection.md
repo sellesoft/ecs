@@ -1,5 +1,7 @@
 ---
 instance-of: directory
+tags:
+  - reflection
 ---
 ecs makes very heavy use of reflection to generate code. The majority of this reflection is attained via [[lppclang]], a plugin for [[lpp]] that provides a lua interface to clang. This directory, `reflect/`, contains utilities and types directly related to reflection.
 

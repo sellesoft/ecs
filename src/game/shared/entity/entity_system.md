@@ -1,5 +1,7 @@
 ---
 subclass-of: system
+tags:
+  - game
 ---
 
 An **entity system** is a system which manages updating [[component|components]], either in an `update()` method, by handling events raised on [[entity|entities]] with a certain type of component, or both. 

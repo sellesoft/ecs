@@ -87,6 +87,8 @@ local cpp_params =
   noexceptions = true,
   nortti = true,
 
+  time_trace = cwd.."/banal/times.json",
+
   asan = asan,
   tsan = tsan,
 }

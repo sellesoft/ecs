@@ -1,6 +1,8 @@
 ---
 aliases: SourceData
 instance-of: datatype
+tags:
+  - asset
 ---
 
 **Source data** is ecs' custom data format. It is primarily used for defining asset data that will be [[packing|packed]] into [[compiled_data|CompiledData]]. However it can be used standalone as well for stuff like config files.

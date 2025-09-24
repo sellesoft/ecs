@@ -11,10 +11,14 @@
             "id": "ca3cd98b2f98cc16",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "src/game/client/notes/game_sim.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "game_sim"
             }
           }
         ]
@@ -156,29 +160,45 @@
   },
   "left-ribbon": {
     "hiddenItems": {
-      "templater-obsidian:Templater": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "templater-obsidian:Templater": false,
+      "p4-integration:Sample Plugin": false
     }
   },
   "active": "ca3cd98b2f98cc16",
   "lastOpenFiles": [
-    "src/game/game.md",
+    "include/iro/print.h",
+    "include/iro/io/format.h",
+    "include/iro/io/format.cpp",
+    "include/iro/io/Stream.h",
+    "include/iro/io/StaticBuffer.h",
+    "include/iro/io/SmallBuffer.h",
+    "include/iro/io/Memory.h",
+    "include/iro/io/Memory.cpp",
+    "include/iro/io/ByteStreams.h",
+    "include/iro/io",
+    "include/iro/StringFuncs.h",
+    "src/game/client/client.md",
+    "src/build/notes/build_system.md",
+    "src/editor/editor.md",
+    "src/notes/engine.md",
+    "ecs.md",
     "src/game/client/notes/game_renderer.md",
-    "src/game/client/notes/game_mgr.md",
-    "Untitled 1.canvas",
+    "eye.md",
     "src/game/server/notes/game_sim.md",
-    "server.md",
+    "src/game/client/notes/game_mgr.md",
     "src/game/client/notes/game_sim.md",
-    "src/game/server/notes",
     "src/game/client/notes/map.md",
+    "src/game/game.md",
+    "Untitled 1.canvas",
+    "server.md",
     "src/game/client/Untitled.md",
-    "src/game/client/notes",
     "entity_system_manager.md",
     "src/graphics/notes/renderer.md",
     "src/graphics/notes/pipeline.md",
@@ -190,16 +210,6 @@
     "tools/tools.md",
     "src/graphics/notes/shader.md",
     "src/reflect/compiled_data.md",
-    "src/reflect/packing.md",
-    "root_source_tree.md",
-    "ecs.md",
-    "Untitled.canvas",
-    "editor.md",
-    "tools/loggen/loggen.md",
-    "src/reflect/reflection.md",
-    "src/game/shared/entity/entity_system.md",
-    "src/graphics/notes",
-    "src/asset/notes",
-    "src/build/notes"
+    "Untitled.canvas"
   ]
 }

@@ -3,7 +3,6 @@ aliases:
   - build system
   - BuildSystem
 tags:
-  - asset
   - build
 ---
 

@@ -1,0 +1,11 @@
+{
+	"id": "p4-integration",
+	"name": "Perforce Integration",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "",
+	"author": "sushi",
+	"authorUrl": "https://obsidian.md",
+	"fundingUrl": "",
+	"isDesktopOnly": true
+}

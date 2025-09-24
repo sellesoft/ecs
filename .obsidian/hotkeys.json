@@ -1,0 +1,20 @@
+{
+  "p4-integration:p4-checkout": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "C"
+    }
+  ],
+  "p4-integration:p4-add": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "A"
+    }
+  ]
+}

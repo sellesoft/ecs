@@ -14,8 +14,9 @@ $ require "common"
 
 #include "vulkan/vulkan.h"
 
-#include "iro/io/IO.h"
-#include "iro/io/Format.h"
+#include "iro/io/Stream.h"
+#include "iro/io/format.h"
+#include "iro/io/StaticBuffer.h"
 #include "iro/containers/Array.h"
 #include "iro/containers/FixedPool.h"
 #include "iro/containers/StackArray.h"
@@ -24,15 +25,15 @@ $ require "common"
 
 #include "math/vec.h"
 
-@@lpp.import "graphics/TextureParams.lh"
-@@lpp.import "graphics/ShaderParams.lh"
+@lpp.import "graphics/TextureParams.lh"
+@lpp.import "graphics/ShaderParams.lh"
 
 // TODO(sushi) THIS SUCKS as it increases the compile times of EVERYTHING 
 //             using this header by a LOT. We REALLY need to wrap Tracy
 //             GOD DAMNIT! We have to import this here though because 
 //             Tracy needs us to track an object to profile GPU stuff 
 //             what NONSENSE is THAT ?!!?
-@@lpp.import "Profiling.lh"
+@lpp.import "Profiling.lh"
 // #include "external/tracy/tracy/TracyVulkan.hpp"
 
 using namespace iro;
@@ -663,7 +664,7 @@ struct Vulkan
       .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
       .objectType = type,
       .objectHandle = (u64)handle,
-      .pObjectName = (const char*)name.buffer,
+      .pObjectName = (const char*)name.arr,
     };
 
     assert(

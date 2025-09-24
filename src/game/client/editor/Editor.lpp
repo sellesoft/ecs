@@ -20,13 +20,13 @@ local Tools = Editor:findNestedEnum "Tool"
 local TileKindDef = astctx:lookupTypeDecl "TileKindDef"
 $$$
 
-@@lpp.import "game/client/Client.lh"
-@@lpp.import "game/client/editor/MenuBar.lh"
-@@lpp.import "game/shared/Eye.sys.lh"
-@@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "game/client/Client.lh"
+@lpp.import "game/client/editor/MenuBar.lh"
+@lpp.import "game/shared/Eye.sys.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
 
-@@lpp.import "sdata/SourceDataFileReg.lh"
-@@lpp.import "Profiling.lh"
+@lpp.import "sdata/SourceDataFileReg.lh"
+@lpp.import "Profiling.lh"
 
 #include "math/util.h"
 #include "iro/fs/Glob.h"

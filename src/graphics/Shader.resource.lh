@@ -4,9 +4,9 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "graphics/CompiledShader.lh"
-@@lpp.import "graphics/Shader.lh"
-@@lpp.import "graphics/ResourceLink.lh"
+@lpp.import "graphics/CompiledShader.lh"
+@lpp.import "graphics/Shader.lh"
+@lpp.import "graphics/ResourceLink.lh"
 
 namespace gfx
 {

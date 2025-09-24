@@ -1,10 +1,10 @@
 $ require "common"
 $ local helpers = require "graphics.Helpers"
 
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Vulkan.lh"
 
-@@lpp.import "graphics/Buffer.lh"
-@@lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/Buffer.lh"
+@lpp.import "graphics/Geo.lh"
 
 @log.import
 

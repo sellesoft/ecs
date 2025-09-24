@@ -30,18 +30,18 @@ local importer = require "reflect.Importer"
 $$$
 @importer:get
 
-@@lpp.import "game/shared/entity/EntityLoader.lh"
+@lpp.import "game/shared/entity/EntityLoader.lh"
 
-@@lpp.import "asset/Packing.lh"
-@@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "asset/Packing.lh"
+@lpp.import "asset/AssetMgr.lh"
+@lpp.import "sdata/SourceDataFile.lh"
 
-@@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/Renderer.lh"
 
-@@lpp.import "game/shared/entity/EntityMgr.lh"
-@@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
 
-@@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"

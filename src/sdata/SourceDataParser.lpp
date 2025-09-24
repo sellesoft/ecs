@@ -1,7 +1,9 @@
 $ local cmn = require "common"
 
-@@lpp.import "sdata/SourceDataParser.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
+#include "iro/io/SmallBuffer.h"
+
+@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "sdata/SourceDataFile.lh"
 
 @log.import
 
@@ -74,7 +76,7 @@ struct Parser
   String          in_name = nil;
   Scanner         scanner = {};
 
-  b8 init(SourceDataFile* file, io::IO* in, String in_name)
+  b8 init(SourceDataFile* file, io::RStream* in, String in_name)
   {
     this->file = file;
     this->in_name = in_name;
@@ -175,7 +177,7 @@ struct Parser
 
 /* ----------------------------------------------------------------------------
  */
-b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name)
+b8 parseSourceDataFile(SourceDataFile* file, io::RStream* io, String name)
 {
   Parser parser;
 
@@ -193,7 +195,7 @@ b8 parseSourceDataFile(SourceDataFile* file, io::IO* io, String name)
  */
 SourceData* parsePossiblyTypedSourceData(
     SourceDataFile* file, 
-    io::IO* io,
+    io::RStream* io,
     String name)
 {
   Parser parser;
@@ -214,7 +216,7 @@ SourceData* parsePossiblyTypedSourceData(
  */
 SourceData* parsePossiblyTypedOrDerivedSourceData(
     SourceDataFile* file,
-    io::IO* io,
+    io::RStream* io,
     String name)
 {
   Parser parser;
@@ -235,7 +237,7 @@ SourceData* parsePossiblyTypedOrDerivedSourceData(
  */
 SourceData* parsePossiblyTypedAuxData(
     SourceDataFile* file,
-    io::IO* io,
+    io::RStream* io,
     String input_name,
     String aux_name)
 {

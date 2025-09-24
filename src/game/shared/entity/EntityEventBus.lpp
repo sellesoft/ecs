@@ -4,7 +4,7 @@ $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue
 
-@@lpp.import "game/client/entity/EntitySysMgr.lh"
+@lpp.import "game/client/entity/EntitySysMgr.lh"
 
 #include "iro/time/Time.h"
 
@@ -17,7 +17,7 @@ local AstContext = require "reflect.AstContext"
 local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
-    imported:put((lpp.import(path)) or "")
+    imported:put((lpp.import(path):get()) or "")
   end)
 end
 
@@ -34,15 +34,15 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+@imported:get
 
-@@lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
 
 $ local TComponent = astctx:lookupTypeDecl "Component"
 
 #include "iro/containers/LinkedPool.h"
 
-@@lpp.import "game/shared/entity/EntityEventBus.lh"
+@lpp.import "game/shared/entity/EntityEventBus.lh"
 
 $ local comps = cmn.List {} 
 $ local events = cmn.List {}

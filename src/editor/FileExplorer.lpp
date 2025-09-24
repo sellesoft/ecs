@@ -1,8 +1,8 @@
 $ require "common"
 
-@@lpp.import "editor/FileExplorer.lh"
-@@lpp.import "editor/Skin.defs.lh"
-@@lpp.import "ui/UI.lh"
+@lpp.import "editor/FileExplorer.lh"
+@lpp.import "editor/Skin.defs.lh"
+@lpp.import "ui/UI.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/Dir.h"
@@ -78,7 +78,7 @@ void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   f32 y = 0.f;
 
-  for (const DirEntry& ent : entries)
+  for (DirEntry& ent : entries)
   {
     ui.putText({0.f, y, ui.getWidth(), 20.f}, String(ent.name), skin.text);
     y += 20.f;

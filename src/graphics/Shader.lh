@@ -7,9 +7,9 @@ $ require "common"
 #include "iro/containers/Slice.h"
 #include "iro/Common.h"
 #include "iro/Unicode.h"
-#include "iro/io/Format.h"
+#include "iro/io/format.h"
 
-@@lpp.import "graphics/ShaderParams.lh"
+@lpp.import "graphics/ShaderParams.lh"
 
 using namespace iro;
 
@@ -47,7 +47,7 @@ struct Shader
 
 namespace iro::io
 {
-static s64 format(io::IO* io, const gfx::Shader& shader)
+static s64 format(WStream* io, const gfx::Shader& shader)
 {
   return formatv(io, "gfx::Shader("_str, shader.handle, ')');
 }

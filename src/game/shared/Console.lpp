@@ -1,8 +1,8 @@
 $ require "common"
 
-@@lpp.import "Engine.lh"
-@@lpp.import "game/shared/Console.lh"
-@@lpp.import "game/shared/Console.events.lh"
+@lpp.import "Engine.lh"
+@lpp.import "game/shared/Console.lh"
+@lpp.import "game/shared/Console.events.lh"
 
 #include "iro/Common.h"
 #include "iro/concurrent/Thread.h"

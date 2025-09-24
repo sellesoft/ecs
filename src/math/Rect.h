@@ -5,7 +5,7 @@
 #define _ecs_rect_h
 
 #include "math/vec.h"
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 
 /* ============================================================================
  */
@@ -97,12 +97,10 @@ struct Rect
 
 namespace iro::io
 {
-
-static s64 format(IO* io, const Rect& rect)
+static s64 format(WStream* io, const Rect& rect)
 {
   return io::formatv(io, '(', rect.pos(), ',', rect.size(), ')');
 }
-
 }
 
 #endif

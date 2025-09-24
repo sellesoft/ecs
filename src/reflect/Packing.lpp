@@ -18,7 +18,10 @@ local AstContext = require "reflect.AstContext"
 local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
-    imported:put((lpp.import(path)) or "")
+    local result = lpp.import(path)
+    if result then
+      imported:put(result:get())
+    end
   end)
 end
 
@@ -76,19 +79,19 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+@imported:get
 
 @log.import
 
-@@lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/Packing.lh"
 
-@@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "sdata/SourceData.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataParser.lh"
-@@lpp.import "build/Result.lh"
+@lpp.import "asset/AssetMgr.lh"
+@lpp.import "sdata/SourceData.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "build/Result.lh"
 
-@@lpp.import "reflect/types/Array.lh"
+@lpp.import "reflect/types/Array.lh"
 
 #include "iro/containers/BitArray.h"
 
@@ -567,7 +570,7 @@ $         local default_aux_name = decl.type.name.."::"..field.name
           //             to avoid needing to maintain two things that do 
           //             that. This should be fine for now.
 
-          auto view = io::StringView::from("$(field.metadata.default)"_str);
+          auto view = io::RBytes::from("$(field.metadata.default)"_str);
 
           default_data = 
             parsePossiblyTypedAuxData(

@@ -1,7 +1,7 @@
 $ require "common"
 
-@@lpp.import "game/shared/NetMgr.lh"
-@@lpp.import "net/Address.lh"
+@lpp.import "game/shared/NetMgr.lh"
+@lpp.import "net/Address.lh"
 
 #include "iro/Common.h"
 #include "iro/time/Time.h"

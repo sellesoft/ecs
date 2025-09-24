@@ -22,7 +22,7 @@
 
 $ require "common"
 
-#include "iro/io/IO.h"
+#include "iro/io/SmallBuffer.h"
 
 namespace build
 {

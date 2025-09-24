@@ -1,7 +1,7 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "graphics/ShaderParams.lh"
+@lpp.import "graphics/ShaderParams.lh"
 
 #include "iro/Unicode.h"
 

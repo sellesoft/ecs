@@ -1,6 +1,6 @@
 $ require "common"
 
-@@lpp.import "graphics/View.lh"
+@lpp.import "graphics/View.lh"
 
 namespace gfx
 {

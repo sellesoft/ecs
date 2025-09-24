@@ -4,8 +4,8 @@
 
 $ require "common"
 
-@@lpp.import "graphics/View.lh"
-@@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "graphics/View.lh"
+@lpp.import "graphics/RenderTarget.lh"
 
 struct Tile;
 struct Layer;

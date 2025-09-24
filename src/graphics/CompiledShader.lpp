@@ -1,25 +1,23 @@
 $ require "common"
 
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
-#include "iro/Platform.h"
+#include "iro/io/Memory.h"
 
 #include <shaderc/shaderc.h>
 
-@@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "graphics/Renderer.lh"
-@@lpp.import "graphics/CompiledShader.lh"
-@@lpp.import "graphics/Shader.defs.lh"
-@@lpp.import "build/Result.lh"
+@lpp.import "asset/AssetMgr.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/CompiledShader.lh"
+@lpp.import "graphics/Shader.defs.lh"
+@lpp.import "build/Result.lh"
 
 @log.import
 
 namespace gfx
 {
-
-typedef io::StaticBuffer<512> PathBuffer;
 
 /* ----------------------------------------------------------------------------
  */
@@ -102,10 +100,10 @@ b8 compileShader(const CompileShaderParams& params)
       "shader def for shader '", in, "' does not specify a source path");
 
   io::Memory source_buffer;
-  if (!source_buffer.open())
+  if (!source_buffer.init())
     return buildError(params.result, 
       "failed to init memory buffer for reading shader");
-  defer { source_buffer.close(); };
+  defer { source_buffer.deinit(); };
 
   if (!File::openAndRead(&source_buffer, def->source))
     return buildError(params.result, 
@@ -154,8 +152,8 @@ $ end -- if ECS_DEBUG
     (u8*)&data + sizeof(CompiledShader),
     spv_binary_length);
 
-  data_file.write({(u8*)&data, sizeof(CompiledShader)});
-  data_file.write({spv_binary_bytes, spv_binary_length});
+  data_file.write((u8*)&data, sizeof(CompiledShader));
+  data_file.write(spv_binary_bytes, spv_binary_length);
 
   failsafe_delete_datafile.cancel();
   return true;

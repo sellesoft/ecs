@@ -1,12 +1,12 @@
 $ require "common"
 
-@@lpp.import "game/shared/spawner/Spawner.sys.lh"
-@@lpp.import "game/shared/spawner/Spawner.comp.lh"
+@lpp.import "game/shared/spawner/Spawner.sys.lh"
+@lpp.import "game/shared/spawner/Spawner.comp.lh"
 
-@@lpp.import "game/shared/Transform.comp.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
-@@lpp.import "game/client/input/Input.sys.lh"
-@@lpp.import "game/shared/Eye.sys.lh"
+@lpp.import "game/client/input/Input.sys.lh"
+@lpp.import "game/shared/Eye.sys.lh"
 
 @log.import
 

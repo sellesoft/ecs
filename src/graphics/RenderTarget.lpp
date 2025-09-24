@@ -1,11 +1,11 @@
 $ require "common"
 
-@@lpp.import "graphics/RenderTarget.lh"
-@@lpp.import "graphics/Descriptor.lh"
-@@lpp.import "graphics/DescriptorSetLayout.lh"
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "graphics/Descriptor.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/Vulkan.lh"
 
-#include "iro/io/IO.h"
+#include "iro/io/StaticBuffer.h"
 
 @log.import
 
@@ -34,7 +34,7 @@ RenderTarget RenderTarget::create(
     .format = forced_format,
     // .format = params.format,
     .size = params.size,
-    .debug_name = target_name.asStr(),
+    .debug_name = String(target_name),
   };
 
   Image image = Image::create(vk, image_params);
@@ -47,7 +47,7 @@ RenderTarget RenderTarget::create(
     .image = image,
     .format = forced_format,
     // .format = params.format,
-    .debug_name = target_name.asStr(),
+    .debug_name = String(target_name),
   };
 
   ImageView view = ImageView::create(vk, view_params);

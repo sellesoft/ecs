@@ -1,10 +1,9 @@
 $ require "common"
 
-@@lpp.import "game/server/ServerAllocator.lh"
+@lpp.import "game/server/ServerAllocator.lh"
 
 #include "iro/Common.h"
 #include "iro/memory/Memory.h"
-#include "iro/Platform.h"
 
 @log.import
 

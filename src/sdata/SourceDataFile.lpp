@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataParser.lh"
 
 #include "iro/fs/File.h"
 
@@ -72,7 +72,7 @@ b8 SourceDataFile::from(SourceDataFile* sfile, String path)
 
 /* ----------------------------------------------------------------------------
  */
-void SourceDataFile::dump(io::IO* out)
+void SourceDataFile::dump(io::WStream* out)
 {
   for (SourceData& aux : aux_data_list)
     aux.dump(out);

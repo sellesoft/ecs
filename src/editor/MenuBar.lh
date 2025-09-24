@@ -6,8 +6,8 @@ $ require "common"
 
 #include "iro/Common.h"
 
-@@lpp.import "event/BroadcastEventBus.lh"
-@@lpp.import "editor/Editor.events.lh"
+@lpp.import "event/BroadcastEventBus.lh"
+@lpp.import "editor/Editor.events.lh"
 
 namespace ui { struct UI; }
 namespace gfx { struct Renderer; }

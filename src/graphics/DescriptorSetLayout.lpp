@@ -1,9 +1,9 @@
 $ require "common"
 $ local helpers = require "graphics.Helpers"
 
-@@lpp.import "graphics/DescriptorSetLayout.lh"
-@@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Renderer.lh"
 
 #include "iro/containers/SmallArray.h"
 

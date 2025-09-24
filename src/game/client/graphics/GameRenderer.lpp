@@ -1,20 +1,20 @@
 $ require "common"
 
-@@lpp.import "game/client/graphics/GameRenderer.lh"
-@@lpp.import "game/client/graphics/Sprite.comp.lh"
+@lpp.import "game/client/graphics/GameRenderer.lh"
+@lpp.import "game/client/graphics/Sprite.comp.lh"
 
-@@lpp.import "Engine.lh"
+@lpp.import "Engine.lh"
 
-@@lpp.import "graphics/CompiledShader.lh"
-@@lpp.import "graphics/Renderer.lh"
-@@lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/CompiledShader.lh"
+@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/Geo.lh"
 
-@@lpp.import "game/client/GameMgr.lh"
+@lpp.import "game/client/GameMgr.lh"
 
-@@lpp.import "game/shared/Transform.comp.lh"
-@@lpp.import "game/shared/map/Map.defs.lh"
-@@lpp.import "game/shared/map/Map.sys.lh"
-@@lpp.import "game/shared/Eye.sys.lh"
+@lpp.import "game/shared/Transform.comp.lh"
+@lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "game/shared/Eye.sys.lh"
 
 #include "iro/time/Time.h"
 

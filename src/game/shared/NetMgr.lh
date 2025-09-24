@@ -1,7 +1,7 @@
 $ require "common"
 
-@@lpp.import "net/Address.lh"
-@@lpp.import "net/Message.lh"
+@lpp.import "net/Address.lh"
+@lpp.import "net/Message.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/StackArray.h"

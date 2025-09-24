@@ -6,8 +6,8 @@ $ require "common"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
-#include "iro/io/IO.h"
-#include "iro/io/Format.h"
+#include "iro/io/Stream.h"
+#include "iro/io/format.h"
 
 /* ============================================================================
  */
@@ -32,7 +32,7 @@ struct EntComp
 
 namespace iro::io
 {
-static s64 format(io::IO* io, EntityId& id)
+static s64 format(WStream* io, EntityId& id)
 {
   return formatv(io, id.value, ':', id.salt);
 }

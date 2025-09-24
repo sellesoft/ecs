@@ -9,9 +9,9 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "graphics/Pipeline.defs.lh"
-@@lpp.import "graphics/Pipeline.lh"
-@@lpp.import "graphics/ResourceLink.lh"
+@lpp.import "graphics/Pipeline.defs.lh"
+@lpp.import "graphics/Pipeline.lh"
+@lpp.import "graphics/ResourceLink.lh"
 
 namespace gfx
 {

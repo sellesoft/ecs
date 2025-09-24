@@ -4,13 +4,13 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "graphics/TextureHandle.lh"
-@@lpp.import "graphics/Image.lh"
-@@lpp.import "graphics/ImageView.lh"
-@@lpp.import "graphics/Sampler.lh"
-@@lpp.import "graphics/DescriptorSet.lh"
-@@lpp.import "graphics/ResourceLink.lh"
+@lpp.import "graphics/CompiledTexture.lh"
+@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/Image.lh"
+@lpp.import "graphics/ImageView.lh"
+@lpp.import "graphics/Sampler.lh"
+@lpp.import "graphics/DescriptorSet.lh"
+@lpp.import "graphics/ResourceLink.lh"
 
 namespace gfx
 {

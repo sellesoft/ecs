@@ -1,9 +1,9 @@
 $ require "common"
 
-@@lpp.import "game/server/NetMgr.lh"
-@@lpp.import "game/shared/NetMgr.lh"
-@@lpp.import "game/server/Server.lh"
-@@lpp.import "game/shared/Net.events.lh"
+@lpp.import "game/server/NetMgr.lh"
+@lpp.import "game/shared/NetMgr.lh"
+@lpp.import "game/server/Server.lh"
+@lpp.import "game/shared/Net.events.lh"
 
 #include "iro/Common.h"
 #include "iro/memory/Allocator.h"

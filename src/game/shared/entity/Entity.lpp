@@ -1,6 +1,6 @@
 $ local cmn = require "common"
 
-@@lpp.import "game/shared/entity/Entity.lh"
+@lpp.import "game/shared/entity/Entity.lh"
 
 #include "iro/memory/Allocator.h"
 

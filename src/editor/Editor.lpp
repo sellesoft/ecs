@@ -7,22 +7,22 @@ $ require "common"
 #include "iro/concurrent/ConditionVar.h"
 #include "iro/concurrent/Mutex.h"
 
-@@lpp.import "editor/Editor.lh"
-@@lpp.import "editor/Editor.events.lh"
+@lpp.import "editor/Editor.lh"
+@lpp.import "editor/Editor.events.lh"
 
-@@lpp.import "Engine.lh"
+@lpp.import "Engine.lh"
 
-@@lpp.import "graphics/RenderTarget.lh"
-@@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "graphics/Shader.defs.lh"
-@@lpp.import "graphics/Font.defs.lh"
+@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "graphics/Texture.defs.lh"
+@lpp.import "graphics/Shader.defs.lh"
+@lpp.import "graphics/Font.defs.lh"
 
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/CompiledData.lh"
 
-@@lpp.import "build/BuildSystem.lh"
+@lpp.import "build/BuildSystem.lh"
 
-@@lpp.import "reflect/rtr.lh"
-@@lpp.import "reflect/Linker.lh"
+@lpp.import "reflect/rtr.lh"
+@lpp.import "reflect/Linker.lh"
 
 @log.import
 
@@ -205,16 +205,16 @@ b8 Editor::init(const InitParams& params)
     reflect::CompiledData::getBuildRule(),
   };
 
-  build::PathBuffer cwd_buffer;
+  fs::PathBuffer cwd_buffer;
   cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
   if (cwd_buffer.len == 0)
     return @logerr("failed to get current working directory\n");
   String cwd = String(cwd_buffer);
 
-  build::PathBuffer compiled_dir_buffer;
+  fs::PathBuffer compiled_dir_buffer;
   io::formatv(&compiled_dir_buffer, cwd, "/_data"_str);
 
-  build::PathBuffer trash_dir_buffer;
+  fs::PathBuffer trash_dir_buffer;
   io::formatv(&trash_dir_buffer, cwd, "/_trash"_str);
 
   build::BuildSystem::InitParams build_system_params = 

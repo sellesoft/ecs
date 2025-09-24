@@ -1,9 +1,9 @@
 $ require "common"
 $ if IRO_LINUX then
 
-@@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "window/Window_linux.lh"
-@@lpp.import "window/Window.lh"
+@lpp.import "graphics/Vulkan.lh"
+@lpp.import "window/Window_linux.lh"
+@lpp.import "window/Window.lh"
 
 // so stupid
 #define Window X11Window

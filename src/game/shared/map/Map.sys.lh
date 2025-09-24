@@ -5,8 +5,8 @@ $ local cmn = require "common"
 #include "iro/Unicode.h"
 #include "math/vec.h"
 
-@@lpp.import "game/shared/map/Map.defs.lh"
-@@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
 
 using namespace iro;
 

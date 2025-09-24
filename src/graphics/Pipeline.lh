@@ -7,8 +7,8 @@ $ require "common"
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "graphics/Shader.lh"
-@@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/Shader.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
 
 using namespace iro;
 
@@ -61,7 +61,7 @@ struct Pipeline
 
 namespace iro::io
 {
-static s64 format(io::IO* io, gfx::Pipeline& pipeline)
+static s64 format(io::WStream* io, gfx::Pipeline& pipeline)
 {
   return formatv(io, "gfx::Pipeline("_str, pipeline.handle, ')');
 }

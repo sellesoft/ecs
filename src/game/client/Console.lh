@@ -1,8 +1,8 @@
 $ require "common"
 
-@@lpp.import "game/client/ConsoleSkin.defs.lh"
-@@lpp.import "game/shared/Console.lh"
-@@lpp.import "ui/UI.lh"
+@lpp.import "game/client/ConsoleSkin.defs.lh"
+@lpp.import "game/shared/Console.lh"
+@lpp.import "ui/UI.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/StackArray.h"

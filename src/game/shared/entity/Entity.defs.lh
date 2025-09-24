@@ -1,12 +1,12 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/CompiledData.lh"
 
-@@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
-@@lpp.import "reflect/types/Array.lh"
-@@lpp.import "reflect/types/TypedStringMap.lh"
+@lpp.import "reflect/types/Array.lh"
+@lpp.import "reflect/types/TypedStringMap.lh"
 
 /* ============================================================================
  */

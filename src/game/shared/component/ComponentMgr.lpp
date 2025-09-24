@@ -7,7 +7,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/game/**/*.comp.lh"
 }
 $$$
-@@imported:get
+@imported:get
 
 #include "iro/containers/LinkedPool.h"
 
@@ -15,7 +15,7 @@ using namespace iro;
 
 @log.import
 
-@@lpp.import "game/shared/component/ComponentMgr.lh"
+@lpp.import "game/shared/component/ComponentMgr.lh"
 
 $ local TComponent = astctx:lookupTypeDecl "Component"
 $ local function eachComp(f)

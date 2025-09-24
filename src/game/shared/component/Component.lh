@@ -11,7 +11,7 @@ $ local m = require "reflect.Metadata"
 
 using namespace iro;
 
-@@lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
 
 /* ============================================================================
  */

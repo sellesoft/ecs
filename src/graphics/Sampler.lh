@@ -4,9 +4,9 @@
 
 $ require "common"
 
-@@lpp.import "graphics/TextureParams.lh"
+@lpp.import "graphics/TextureParams.lh"
 
-#include "iro/io/Format.h"
+#include "iro/io/format.h"
 
 namespace gfx
 {
@@ -37,7 +37,7 @@ struct Sampler
 
 namespace iro::io
 {
-static s64 format(io::IO* io, const gfx::Sampler& sampler)
+static s64 format(WStream* io, const gfx::Sampler& sampler)
 {
   return formatv(io, "gfx::Sampler(", sampler.handle, ')');
 }

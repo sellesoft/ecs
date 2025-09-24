@@ -11,7 +11,7 @@ $ local cmn = require "common"
 
 using namespace iro;
 
-@@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 /* ============================================================================
  */

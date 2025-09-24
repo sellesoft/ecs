@@ -10,7 +10,7 @@
 // TODO(sushi) not a fan of including the os api into anything that uses 
 //             Color but this is needed for byte swapping.
 #include "iro/os/os.h"
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "math/vec.h"
 
 struct Color;
@@ -78,7 +78,7 @@ static Color operator*(f32 lhs, const Color& rhs)
 
 namespace iro::io
 {
-static s64 format(IO* io, const Color& c)
+static s64 format(WStream* io, const Color& c)
 {
   return formatv(io, "(",c.r,",",c.g,",",c.b,",",c.a,")");
 }

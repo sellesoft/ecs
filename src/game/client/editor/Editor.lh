@@ -15,11 +15,11 @@ $ require "common"
 #include "iro/time/Time.h"
 #include "iro/io/IO.h"
 
-@@lpp.import "game/client/editor/GameView.lh"
-@@lpp.import "game/client/editor/EntityList.lh"
+@lpp.import "game/client/editor/GameView.lh"
+@lpp.import "game/client/editor/EntityList.lh"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "game/client/editor/Skin.defs.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "game/client/editor/Skin.defs.lh"
 
 struct Client;
 

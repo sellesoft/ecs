@@ -1,6 +1,6 @@
 $ require "common"
 
-@@lpp.import "game/shared/Appearance.sys.lh"
+@lpp.import "game/shared/Appearance.sys.lh"
 
 /* ----------------------------------------------------------------------------
  */

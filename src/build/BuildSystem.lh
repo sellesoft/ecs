@@ -20,9 +20,9 @@
 
 $ require "common"
 
-@@lpp.import "build/Rule.lh"
-@@lpp.import "build/Target.lh"
-@@lpp.import "build/Result.lh"
+@lpp.import "build/Rule.lh"
+@lpp.import "build/Target.lh"
+@lpp.import "build/Result.lh"
 
 #include "iro/containers/Array.h"
 #include "iro/containers/LinkedPool.h"

@@ -147,7 +147,7 @@ AstContext.fromGlobs = function(patterns)
       local result = lpp.import(path)
 
       if result then
-        imported:put(result)
+        imported:put(result:get())
       end
     end)
   end
@@ -189,7 +189,7 @@ end
 local convfunc = setmetatable({}, 
 {
   __newindex = function(_, k, f)
-    lpp.stacktrace_func_rename[f] = k
+    lpp.stack_func_rename[f] = k
     Converter[k] = function(self, ...)
       self:write(k, ":")
       self.depth = self.depth + 1
@@ -199,7 +199,7 @@ local convfunc = setmetatable({},
       end
       return inpassing(f(self, ...))
     end
-    lpp.stacktrace_func_filter[Converter[k]] = true
+    lpp.stack_func_filter[Converter[k]] = true
   end
 })
 

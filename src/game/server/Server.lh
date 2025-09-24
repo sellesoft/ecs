@@ -5,12 +5,12 @@
 $ require "common"
 
 #include "iro/Common.h"
-#include "iro/io/IO.h"
+#include "iro/io/StaticBuffer.h"
 #include "iro/time/Time.h"
 
-@@lpp.import "game/server/NetMgr.lh"
-@@lpp.import "game/server/GameSim.lh"
-@@lpp.import "game/server/ServerAllocator.lh"
+@lpp.import "game/server/NetMgr.lh"
+@lpp.import "game/server/GameSim.lh"
+@lpp.import "game/server/ServerAllocator.lh"
 
 struct Engine;
 

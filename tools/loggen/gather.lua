@@ -18,7 +18,7 @@ glob "src/**/*.logdef.lua" :each(function(path)
   -- containing a double extension, so we'd have to adjust package.path, and 
   -- ehhhh.. this works fine for now.
   local fullpath = fs.path.canonicalize(path)
-  lpp.addDependency(fullpath)
+  lpp.dependencies[fullpath] = true
 
   dofile(path)
 end)

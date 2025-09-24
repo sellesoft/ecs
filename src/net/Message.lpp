@@ -13,7 +13,7 @@
  */
 $ require "common"
 
-@@lpp.import "net/Message.lh"
+@lpp.import "net/Message.lh"
 
 #include "iro/Common.h"
 #include "iro/memory/Memory.h"

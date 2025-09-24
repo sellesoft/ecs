@@ -28,15 +28,15 @@ local importer = require "reflect.Importer"
 $$$
 @importer:get
 
-@@lpp.import "sdata/SourceDataEditor.lh"
+@lpp.import "sdata/SourceDataEditor.lh"
 
-@@lpp.import "Engine.lh"
+@lpp.import "Engine.lh"
 
-@@lpp.import "sdata/SourceData.lh"
-@@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "sdata/SourceData.lh"
+@lpp.import "sdata/SourceDataParser.lh"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "graphics/Geo.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "graphics/Geo.lh"
 
 using namespace ui;
 

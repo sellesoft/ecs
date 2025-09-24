@@ -8,10 +8,10 @@ $ require "common"
 #include "iro/containers/Array.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "graphics/Texture.resource.lh"
-@@lpp.import "graphics/Shader.resource.lh"
-@@lpp.import "graphics/Font.resource.lh"
-@@lpp.import "graphics/Pipeline.resource.lh"
+@lpp.import "graphics/Texture.resource.lh"
+@lpp.import "graphics/Shader.resource.lh"
+@lpp.import "graphics/Font.resource.lh"
+@lpp.import "graphics/Pipeline.resource.lh"
 
 using namespace iro;
 

@@ -70,7 +70,7 @@
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "graphics/DescriptorSet.lh"
+@lpp.import "graphics/DescriptorSet.lh"
 
 using namespace iro;
 
@@ -172,7 +172,7 @@ struct Buffer
 
 namespace iro::io
 {
-static s64 format(io::IO* out, gfx::Buffer& buffer)
+static s64 format(io::WStream* out, gfx::Buffer& buffer)
 {
     return formatv(out, "gfx::Buffer("_str, buffer.handle, ')');
 }

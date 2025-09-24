@@ -1,10 +1,10 @@
 $ require "common"
 
-@@lpp.import "Engine.lh"
-@@lpp.import "game/server/GameSim.lh"
-@@lpp.import "game/shared/entity/EntitySysMgr.lh"
-@@lpp.import "game/shared/map/Map.defs.lh"
-@@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "Engine.lh"
+@lpp.import "game/server/GameSim.lh"
+@lpp.import "game/shared/entity/EntitySysMgr.lh"
+@lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
 
 #include "iro/Common.h"
 

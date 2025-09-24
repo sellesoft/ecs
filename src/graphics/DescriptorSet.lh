@@ -3,7 +3,7 @@
 
 $ require "common"
 
-#include "iro/io/Format.h"
+#include "iro/io/format.h"
 
 using namespace iro;
 
@@ -47,7 +47,7 @@ struct DescriptorSet
 
 namespace iro::io
 {
-static s64 format(io::IO* io, const gfx::DescriptorSet& set)
+static s64 format(WStream* io, const gfx::DescriptorSet& set)
 {
   return formatv(io, "gfx::DescriptorSet(", set.handle, ')');
 }

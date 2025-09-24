@@ -1,18 +1,18 @@
 $ local cmn = require "common"
 
-@@lpp.import "Engine.lh"
+@lpp.import "Engine.lh"
 
 #include "iro/time/Time.h"
 using namespace iro;
 
-@@lpp.import "reflect/Packing.lh"
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataParser.lh"
-@@lpp.import "event/BroadcastEventBus.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "event/BroadcastEventBus.lh"
 
-@@lpp.import "game/client/Client.lh"
-@@lpp.import "game/server/Server.lh"
+@lpp.import "game/client/Client.lh"
+@lpp.import "game/server/Server.lh"
 
 @log.import
 

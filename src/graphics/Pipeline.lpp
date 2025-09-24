@@ -1,10 +1,10 @@
 $ require "common"
 $ local helpers = require "graphics.Helpers"
 
-@@lpp.import "graphics/Pipeline.lh"
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Pipeline.lh"
+@lpp.import "graphics/Vulkan.lh"
 
-@@lpp.import "graphics/Pipeline.defs.lh"
+@lpp.import "graphics/Pipeline.defs.lh"
 
 @log.import
 
@@ -38,9 +38,9 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
   {
     if (pc.size > vk.physical_device_properties.limits.maxPushConstantsSize)
     {
-      @cerr("requested push constant size is greater than the selected "
+      @cerr("requested push constant size is greater than the selected ",
             "device's maximum (", pc.size, " > ", 
-            vk.physical_device_properties.limits.maxPushConstantsSize, ')');
+            vk.physical_device_properties.limits.maxPushConstantsSize, ")");
       return nil;
     }
 

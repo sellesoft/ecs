@@ -8,7 +8,7 @@ $ require "common"
 #include "iro/Unicode.h"
 #include "iro/fs/fs.h"
 
-@@lpp.import "reflect/TypeId.lh"
+@lpp.import "reflect/TypeId.lh"
 
 using namespace iro;
 
@@ -53,7 +53,7 @@ struct PrettyPrintOpts
 };
 
 void prettyPrint(
-  io::IO* out, 
+  io::WStream* out, 
   TypeId type, 
   const void* val,
   const PrettyPrintOpts& opts = {});
@@ -74,7 +74,10 @@ void prettyPrint(
 //             so I'm not worried about setting it up for that. ANYTHING else
 //             though should not be handling templated types this way.
 template<typename T>
-void prettyPrint(io::IO* out, const T& val, const PrettyPrintOpts& opts = {})
+void prettyPrint(
+    io::WStream* out, 
+    const T& val, 
+    const PrettyPrintOpts& opts = {})
 { prettyPrint(out, getTypeId<T>(), &val, opts); }
 
 template<typename T>

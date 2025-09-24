@@ -1,8 +1,8 @@
 $ local cmn = require "common"
 
-@@lpp.import "game/shared/Movement.sys.lh"
-@@lpp.import "game/shared/Movement.comp.lh"
-@@lpp.import "game/shared/Transform.comp.lh"
+@lpp.import "game/shared/Movement.sys.lh"
+@lpp.import "game/shared/Movement.comp.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
 /* ----------------------------------------------------------------------------
  */

@@ -126,10 +126,10 @@ link_decls = used_link_decls
 -- end
 
 $$$
-@@imported:get
+@imported:get
 
-@@lpp.import "graphics/ResourceMgr.lh"
-@@lpp.import "asset/AssetMgr.lh"
+@lpp.import "graphics/ResourceMgr.lh"
+@lpp.import "asset/AssetMgr.lh"
 
 @log.import
 

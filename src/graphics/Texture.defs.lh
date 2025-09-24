@@ -5,7 +5,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "graphics/TextureParams.lh"
+@lpp.import "graphics/TextureParams.lh"
 
 #include "iro/Unicode.h"
 

@@ -4,10 +4,10 @@ $ require "common"
 #include "math/vec.h"
 #include "math/mat.h"
 
-@@lpp.import "game/shared/entity/EntityId.lh"
-@@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
 
-@@lpp.import "graphics/View.lh"
+@lpp.import "graphics/View.lh"
 
 struct MapSys;
 

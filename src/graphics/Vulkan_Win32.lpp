@@ -1,10 +1,10 @@
 $ require "common"
 $ if IRO_WIN32 then
 
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Vulkan.lh"
 
 #include "vulkan/vulkan_win32.h"
-@@lpp.import "window/Window_win32.lh"
+@lpp.import "window/Window_win32.lh"
 
 namespace gfx
 {

@@ -11,7 +11,10 @@ local AstContext = require "reflect.AstContext"
 local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
-    imported:put((lpp.import(path)) or "")
+    local result = lpp.import(path)
+    if result then
+      imported:put(result:get())
+    end
   end)
 end
 
@@ -28,16 +31,16 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+@imported:get
 
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "reflect/Packing.lh"
-@@lpp.import "reflect/TypeId.lh"
-@@lpp.import "build/Target.lh"
-@@lpp.import "build/Rule.lh"
-@@lpp.import "build/Result.lh"
-@@lpp.import "build/BuildSystem.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/TypeId.lh"
+@lpp.import "build/Target.lh"
+@lpp.import "build/Rule.lh"
+@lpp.import "build/Result.lh"
+@lpp.import "build/BuildSystem.lh"
+@lpp.import "sdata/SourceDataFile.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
@@ -1058,8 +1061,8 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
 
   assert(source_target != nullptr);
 
-  build::PathBuffer source_path_buffer;
-  build::PathBuffer target_path_buffer;
+  fs::PathBuffer source_path_buffer;
+  fs::PathBuffer target_path_buffer;
 
   String source_path = source_target->formFullPath(&source_path_buffer);
   String target_path = params.target->formFullPath(&target_path_buffer);

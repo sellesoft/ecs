@@ -11,10 +11,10 @@ $ require "common"
 #include "iro/Unicode.h"
 #include "iro/Flags.h"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "ui/widgets/Text.lh"
-@@lpp.import "ui/widgets/Button.lh"
-@@lpp.import "ui/widgets/ComboBox.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "ui/widgets/Text.lh"
+@lpp.import "ui/widgets/Button.lh"
+@lpp.import "ui/widgets/ComboBox.lh"
 
 namespace cl
 {

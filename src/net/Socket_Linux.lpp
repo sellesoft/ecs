@@ -1,7 +1,7 @@
 $ require "common"
 
-@@lpp.import "net/Socket.lh"
-@@lpp.import "net/Address.lh"
+@lpp.import "net/Socket.lh"
+@lpp.import "net/Address.lh"
 
 #include <sys/socket.h>
 #include <netinet/in.h>

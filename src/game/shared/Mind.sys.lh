@@ -2,8 +2,8 @@ $ local cmn = require "common"
 
 #include "iro/Common.h"
 
-@@lpp.import "game/shared/entity/EntityId.lh"
-@@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
 
 struct InputSys;
 

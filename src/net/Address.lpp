@@ -20,13 +20,13 @@ $ else -- if IRO_WIN32
 #include <netinet/in.h>
 $ end -- if not IRO_WIN32
 
-@@lpp.import "net/Address.lh"
+@lpp.import "net/Address.lh"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 #include "iro/memory/Memory.h"
-#include "iro/io/IO.h"
-#include "iro/io/Format.h"
+#include "iro/io/Stream.h"
+#include "iro/io/format.h"
 #include <cstdlib>
 #include <cstdio>
 
@@ -414,7 +414,7 @@ b8 Address::isIPv4() const
     && this->ipv4._ffff == 0xffff;
 }
 
-s64 format(iro::io::IO* io, Address address)
+s64 format(iro::io::WStream* io, Address address)
 {
   if (address.type == AddressType::Offline)
   {

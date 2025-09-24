@@ -17,13 +17,13 @@ $ require "common"
 #include "math/mat.h"
 #include "Color.h"
 
-@@lpp.import "graphics/TextureHandle.lh"
-@@lpp.import "graphics/Texture.resource.lh"
-@@lpp.import "graphics/Buffer.lh"
-@@lpp.import "graphics/Pipeline.lh"
-@@lpp.import "graphics/Pipeline.resource.lh"
-@@lpp.import "graphics/RenderTarget.lh"
-@@lpp.import "graphics/Texture.defs.lh"
+@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/Texture.resource.lh"
+@lpp.import "graphics/Buffer.lh"
+@lpp.import "graphics/Pipeline.lh"
+@lpp.import "graphics/Pipeline.resource.lh"
+@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "graphics/Texture.defs.lh"
 
 namespace gfx
 {

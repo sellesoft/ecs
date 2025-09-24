@@ -16,7 +16,7 @@ $ local categories = def._get_categories().list
 #ifndef __loggen_category_decls_h
 #define __loggen_category_decls_h
 
-@@lpp.import "core/logging/core.lh"
+@lpp.import "core/logging/core.lh"
 
 #include "iro/fs/fs.h"
 

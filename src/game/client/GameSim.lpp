@@ -1,9 +1,9 @@
 $ require "common"
 
-@@lpp.import "game/client/GameSim.lh"
+@lpp.import "game/client/GameSim.lh"
 
-@@lpp.import "Engine.lh"
-@@lpp.import "Profiling.lh"
+@lpp.import "Engine.lh"
+@lpp.import "Profiling.lh"
 
 namespace cl
 {

@@ -6,7 +6,7 @@
 #include "iro/Unicode.h"
 #include "iro/containers/Array.h"
 #include "iro/containers/AVL.h"
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 
 // TODO(sushi) this sucks.
 #include "math/vec.h"
@@ -194,5 +194,5 @@ struct SourceData
   /* --------------------------------------------------------------------------
    */
   void dump(u32 depth = 0) const;
-  void dump(io::IO* out, u32 depth = 0) const;
+  void dump(io::WStream* out, u32 depth = 0) const;
 };

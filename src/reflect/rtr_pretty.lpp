@@ -18,7 +18,11 @@ local function importpattern(pattern)
        not path:find "server" and
        not path:find "Window_linux"
     then
-      imported:put((lpp.import(path)) or "")
+      local result = lpp.import(path)
+
+      if result then
+        imported:put((result:get()) or "")
+      end
     end
   end)
 end
@@ -35,7 +39,7 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+@imported:get
 
 $ local reflect_types = require "reflect.types.get" (astctx)
 
@@ -44,7 +48,7 @@ namespace rtr
 
 struct Printer
 {
-  io::IO* out;
+  io::WStream* out;
 
   // The current nesting depth, incremented when printing structs and 
   // such.
@@ -53,7 +57,7 @@ struct Printer
   const PrettyPrintOpts& opts;
 
   Printer(
-    io::IO* out,
+    io::WStream* out,
     const PrettyPrintOpts& opts) 
     : out(out),
       opts(opts) {}
@@ -712,7 +716,7 @@ $ putDeclListPrinters(astctx.translation_unit.decls)
 /* ----------------------------------------------------------------------------
  */
 void prettyPrint(
-    io::IO* out, 
+    io::WStream* out, 
     rtr::TypeId type, 
     const void* val,
     const PrettyPrintOpts& opts)

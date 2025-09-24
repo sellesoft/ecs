@@ -4,8 +4,8 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/input/Input.sys.lh"
-@@lpp.import "input/InputState.lh"
+@lpp.import "game/shared/input/Input.sys.lh"
+@lpp.import "input/InputState.lh"
 
 #include "iro/Flags.h"
 

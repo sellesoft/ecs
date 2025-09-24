@@ -1,7 +1,7 @@
 $ require "common"
 
-@@lpp.import "game/shared/power/Power.sys.lh"
-@@lpp.import "game/shared/Transform.comp.lh"
+@lpp.import "game/shared/power/Power.sys.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
 using namespace iro;
 

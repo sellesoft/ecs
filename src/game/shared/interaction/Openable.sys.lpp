@@ -1,9 +1,7 @@
 $ require "common"
 
-@@lpp.import "game/shared/interaction/Openable.sys.lh"
-@@lpp.import "game/shared/Appearance.comp.lh"
-
-#include "iro/Platform.h"
+@lpp.import "game/shared/interaction/Openable.sys.lh"
+@lpp.import "game/shared/Appearance.comp.lh"
 
 /* ----------------------------------------------------------------------------
  */

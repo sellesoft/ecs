@@ -5,7 +5,7 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/entity/EntitySysMgr.lh"
+@lpp.import "game/shared/entity/EntitySysMgr.lh"
 
 namespace sv
 {

@@ -1,8 +1,8 @@
 $ require "common"
 
-@@lpp.import "game/client/NetMgr.lh"
-@@lpp.import "game/shared/NetMgr.lh"
-@@lpp.import "game/shared/Net.events.lh"
+@lpp.import "game/client/NetMgr.lh"
+@lpp.import "game/shared/NetMgr.lh"
+@lpp.import "game/shared/Net.events.lh"
 
 #include "iro/Common.h"
 #include "iro/memory/Allocator.h"
@@ -29,8 +29,8 @@ static void handleMessageEvent(void* client_ptr, MessageNetEvent& event)
   {
     io::StaticBuffer<512> string_buffer;
     string_buffer.len = event.message_length;
-    mem::copy(string_buffer.buffer, event.message, event.message_length);
-    @log.info(net, "Message Received: \"", string_buffer, "\"\n");
+    mem::copy(string_buffer.arr, event.message, event.message_length);
+    @log.info(net, "Message Received: \"", String(string_buffer), "\"\n");
   }
 }
 

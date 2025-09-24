@@ -25,13 +25,15 @@
 
 $ require "common"
 
-@@lpp.import "build/Build.defs.lh"
+@lpp.import "build/Build.defs.lh"
 
 #include "iro/Unicode.h"
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "iro/time/Time.h"
 #include "iro/containers/AVL.h"
 #include "iro/memory/Bump.h"
+#include "iro/Flags.h"
+#include "iro/fs/fs.h"
 
 namespace build
 {
@@ -41,10 +43,6 @@ using namespace iro;
 struct Rule;
 struct Target;
 typedef AVL<Target> TargetSet;
-
-// I would like to put this somewhere more general (as I have for, like, 
-// months now), but I still don't know where.
-typedef io::StaticBuffer<512> PathBuffer;
 
 /* ============================================================================
  */
@@ -230,27 +228,27 @@ struct Target
   }
 
   // Helper for forming the full path to this Target.
-  String formFullPath(PathBuffer* out) const
+  String formFullPath(fs::PathBuffer* out) const
   {
     io::formatv(out, mount, '/', name, '.', type);
     return String(*out);
   }
 
   // Helper for forming the path to this target.
-  String formPath(PathBuffer* out) const
+  String formPath(fs::PathBuffer* out) const
   {
     io::formatv(out, name, '.', type);
     return String(*out);
   }
 
-  String formMetaPath(PathBuffer* out) const
+  String formMetaPath(fs::PathBuffer* out) const
   {
     io::formatv(out, name, '.', type, ".meta"_str);
     return String(*out);
   }
 
   // Helper for forming the full path to this Target's meta file.
-  String formFullMetaPath(PathBuffer* out) const
+  String formFullMetaPath(fs::PathBuffer* out) const
   {
     io::formatv(out, mount, '/', name, '.', type, ".meta"_str);
     return String(*out);
@@ -261,7 +259,7 @@ struct Target
   // that the directory exists before trying to build it.
   // This is defined in the lpp, because it uses fs.h, which I'd rather not 
   // include here.
-  String formFullDirPath(PathBuffer* out) const;
+  String formFullDirPath(fs::PathBuffer* out) const;
 };
 
 // TODO(sushi) remove in favor of the BuildSystem passing a 
@@ -284,7 +282,7 @@ struct ScopedTargetSet : TargetSet
 
 namespace iro::io
 {
-static s64 format(IO* io, const build::Target& target)
+static s64 format(WStream* io, const build::Target& target)
 {
   return io::formatv(io, target.name, '.', target.type);
 }

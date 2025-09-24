@@ -1,12 +1,12 @@
 $ require "common"
 
-@@lpp.import "graphics/Font.defs.lh"
-@@lpp.import "graphics/Font.resource.lh"
-@@lpp.import "build/Target.lh"
-@@lpp.import "build/Rule.lh"
-@@lpp.import "build/Result.lh"
-@@lpp.import "build/BuildSystem.lh"
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "graphics/Font.defs.lh"
+@lpp.import "graphics/Font.resource.lh"
+@lpp.import "build/Target.lh"
+@lpp.import "build/Rule.lh"
+@lpp.import "build/Result.lh"
+@lpp.import "build/BuildSystem.lh"
+@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
 
@@ -68,9 +68,9 @@ static void fontBuild(const build::RuleParams_Build& params)
     "font.texture.compiled"_str,
     build::TargetKind::CompiledAsset);
 
-  build::PathBuffer data_path_buffer;
-  build::PathBuffer target_path_buffer;
-  build::PathBuffer target_texture_path_buffer;
+  fs::PathBuffer data_path_buffer;
+  fs::PathBuffer target_path_buffer;
+  fs::PathBuffer target_texture_path_buffer;
   
   CompileFontParams compile_params = 
   {

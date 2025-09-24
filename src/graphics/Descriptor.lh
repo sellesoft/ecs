@@ -6,9 +6,9 @@
 
 $ require "common"
 
-@@lpp.import "graphics/Buffer.lh"
-@@lpp.import "graphics/Sampler.lh"
-@@lpp.import "graphics/ImageView.lh"
+@lpp.import "graphics/Buffer.lh"
+@lpp.import "graphics/Sampler.lh"
+@lpp.import "graphics/ImageView.lh"
 
 namespace gfx
 {

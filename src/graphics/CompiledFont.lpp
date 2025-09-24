@@ -2,19 +2,19 @@ $ local cmn = require "common"
 
 #include "math.h"
 
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
-#include "iro/Platform.h"
 #include "iro/Scanner.h"
+#include "iro/memory/BinaryDataBuilder.h"
 
 #include "math/util.h"
 
-@@lpp.import "graphics/CompiledFont.lh"
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "graphics/TextureParams.lh"
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "build/Result.lh"
+@lpp.import "graphics/CompiledFont.lh"
+@lpp.import "graphics/CompiledTexture.lh"
+@lpp.import "graphics/TextureParams.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "build/Result.lh"
 
 #include "iro/memory/Bump.h"
 
@@ -107,8 +107,8 @@ void CompiledFont::getPackedChar(
  */
 static b8 compileFontBDF(
     const FontDef& def,
-    io::Memory* data_buffer,
-    io::Memory* pixels_buffer,
+    mem::BinaryDataBuilder* data_buffer,
+    mem::BinaryDataBuilder* pixels_buffer,
     vec2i* out_texture_size,
     ImageFormat* out_format,
     build::Result* result)
@@ -156,7 +156,7 @@ static b8 compileFontBDF(
 
     if (0 == scanner.scanNumber(&buf))
       return err("expected a number");
-    *x = atoi((char*)buf.buffer);
+    *x = atoi((char*)buf.arr);
     return true;
   };
 
@@ -171,7 +171,8 @@ static b8 compileFontBDF(
     sizeof(PackRange) * def.ranges.len + 
     sizeof(PackedChar) * num_codepoints;
 
-  auto* data = (CompiledFont*)data_buffer->allocateBytes(data_size);
+  data_buffer->writeZeroed(data_size);
+  auto* data = (CompiledFont*)data_buffer->data.ptr;
   data->kind = FontKind::BDF;
 
   auto* ranges = (PackRange*)(data + 1);
@@ -310,8 +311,8 @@ static b8 compileFontBDF(
         data->size_x = texture_size.x;
         data->size_y = texture_size.y;
 
-        pixels = pixels_buffer->allocateBytes(
-          u64(texture_size.x) * texture_size.y);
+        pixels_buffer->writeZeroed(u64(texture_size.x) * texture_size.y);
+        pixels = pixels_buffer->data.ptr;
 
         // Set the font height of each range (not sure if this is actually 
         // used ever).
@@ -538,16 +539,16 @@ b8 compileFont(const CompileFontParams& params)
   if (isnil(ext))
     return buildError(result, 
       "def asset path '", def->asset_path, "' has no extension");
+  
+  mem::BinaryDataBuilder font_data_buffer;
+  if (!font_data_buffer.init(512))
+    return buildError(result, "failed to initialize font_data_buffer");
+  defer { font_data_buffer.deinit(); };
 
-  io::Memory font_data_buffer;
-  if (!font_data_buffer.open())
-    return buildError(result, "failed to open font_data_buffer");
-  defer { font_data_buffer.close(); };
-
-  io::Memory font_pixels_buffer;
-  if (!font_pixels_buffer.open())
-    return buildError(result, "failed to open font_pixels_buffer");
-  defer { font_pixels_buffer.close(); };
+  mem::BinaryDataBuilder font_pixels_buffer;
+  if (!font_pixels_buffer.init(512))
+    return buildError(result, "failed to initialize font_pixels_buffer");
+  defer { font_pixels_buffer.deinit(); };
 
   vec2i texture_size;
   ImageFormat texture_format;
@@ -569,10 +570,10 @@ b8 compileFont(const CompileFontParams& params)
     return buildError(result, "unsupported font asset type '", ext, "'");
   }
 
-  out_file.write(font_data_buffer.asBytes());
+  out_file.write(font_data_buffer.data);
 
   if (!compileTextureFromMemory(
-        font_pixels_buffer.ptr,
+        font_pixels_buffer.data.ptr,
         &texture_out_file,
         texture_size.x,
         texture_size.y,

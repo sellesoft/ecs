@@ -1,13 +1,14 @@
 $ local cmn = require "common"
 
-@@lpp.import "graphics/Vulkan.lh"
-@@lpp.import "graphics/Geo.lh"
-@@lpp.import "window/Window.lh"
-@@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Geo.lh"
+@lpp.import "window/Window.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
 
 #include "string.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
+#include "iro/io/Memory.h"
 
 @log.import
 
@@ -1106,7 +1107,7 @@ b8 Vulkan::initVirtualFrames()
 
     io::StaticBuffer<255> semaphore_name;
 
-    io::formatv(&semaphore_name, name, " acquire image");
+    io::formatv(&semaphore_name, String(name), " acquire image");
     if (!createVkSemaphore(
           &vframe->acquire_semaphore,
           String(semaphore_name)))
@@ -1380,7 +1381,7 @@ b8 Vulkan::initSwapchain()
           scb->image,
           surface_format.format,
           {},
-          swapchain_name.asStr()))
+          String(swapchain_name)))
       return @log_err("failed to create swapchain ", i, " image view\n");
 
     if (!createVkSemaphore(&scb->submit_semaphore, String(swapchain_name)))
@@ -1435,8 +1436,8 @@ b8 Vulkan::initPipelineCache()
       defer { file.close(); };
 
       io::Memory buffer;
-      buffer.open();
-      defer { buffer.close(); };
+      buffer.init();
+      defer { buffer.deinit(); };
 
       Stat stat;
       if (fs::stat("data/pipelines.cache"_str, &stat))

@@ -12,7 +12,7 @@ $ require "common"
 
 using namespace iro;
 
-@@lpp.import "sdata/SourceData.lh"
+@lpp.import "sdata/SourceData.lh"
 
 /* ============================================================================
  */
@@ -33,7 +33,7 @@ struct SourceDataFile
   static b8 from(SourceDataFile* sfile, String path);
 
   // Dumps this entire file to the provided stream.
-  void dump(io::IO* out);
+  void dump(io::WStream* out);
 
   // Dumps this entire file to stdout.
   void dump();

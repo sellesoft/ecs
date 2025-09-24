@@ -12,9 +12,9 @@ $ require "common"
 #include "math/vec.h"
 #include "math/Rect.h"
 
-@@lpp.import "graphics/DescriptorSetLayout.lh"
-@@lpp.import "graphics/ResourceMgr.lh"
-@@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/ResourceMgr.lh"
+@lpp.import "graphics/TextureHandle.lh"
 
 using namespace iro;
 

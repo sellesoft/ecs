@@ -1,6 +1,6 @@
 $ local cmn = require "common"
 
-@@lpp.import "asset/AssetMgr.lh"
+@lpp.import "asset/AssetMgr.lh"
 
 #include "iro/memory/Memory.h"
 #include "iro/fs/File.h"

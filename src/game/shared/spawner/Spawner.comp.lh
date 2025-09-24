@@ -5,8 +5,8 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "game/shared/component/Component.lh"
-@@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
 
 struct Spawner : Component
 {

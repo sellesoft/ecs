@@ -4,7 +4,7 @@ $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue
 
-@@lpp.import "game/server/entity/EntitySysMgr.lh"
+@lpp.import "game/server/entity/EntitySysMgr.lh"
 
 #include "iro/time/Time.h"
 
@@ -12,19 +12,11 @@ $ local dumpValue = require "iro.util".dumpValue
 
 $$$
 
-local AstContext = require "reflect.AstContext"
-
-local imported = require "string.buffer" .new()
-local function importpattern(pattern)
-  glob(pattern):each(function(path)
-    imported:put((lpp.import(path)) or "")
-  end)
-end
-
-importpattern "src/game/server/**/*.sys.lh"
-importpattern "src/game/shared/**/*.sys.lh"
-
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
+local astctx, imported = require "reflect.AstContext".fromGlobs
+{
+  "src/game/server/**/*.sys.lh",
+  "src/game/shared/**/*.sys.lh"
+}
 
 -- io.write(ast.dump(astctx.translation_unit), '\n')
 
@@ -34,7 +26,7 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+$(imported)
 
 namespace sv
 {

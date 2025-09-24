@@ -1,11 +1,11 @@
 $ require "common"
 
-@@lpp.import "build/BuildSystem.lh"
+@lpp.import "build/BuildSystem.lh"
 
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "reflect/rtr.lh"
-@@lpp.import "reflect/Packing.lh"
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "reflect/rtr.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
@@ -265,7 +265,7 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
 
       // Ensure that the directory containing the Target exists, as we do not 
       // expect the tools used to build them to do this themselves.
-      PathBuffer target_dir_buffer;
+      fs::PathBuffer target_dir_buffer;
       fs::mkdir(next_target->formFullDirPath(&target_dir_buffer), true);
       
       // Finally, ask the rule to build this Target.
@@ -610,7 +610,7 @@ b8 BuildSystem::queueTargets()
         {
           // If we don't have a Rule to build this Target, and it doesn't 
           // exist, then the build system doesn't know what to do.
-          PathBuffer non_existant_target;
+          fs::PathBuffer non_existant_target;
           @logerr("no rule provided for non-existant build target '",
                 target.formPath(&non_existant_target), "'\n");
           return false;
@@ -731,7 +731,7 @@ void BuildSystem::writeTargetMetaFile(Target* target)
   {
     SourceData* info = list->addObject(mfile, nil, "build::TargetInfo"_str);
 
-    PathBuffer path_buffer;
+    fs::PathBuffer path_buffer;
     info->addStringValue(mfile, "name"_str, target->name);
     info->addStringValue(mfile, "type"_str, target->type);
     info->addStringValue(
@@ -747,7 +747,7 @@ void BuildSystem::writeTargetMetaFile(Target* target)
   for (Target& secondary : target->secondary_targets)
     addTargetInfo(&secondary, secondary_outputs);
 
-  PathBuffer meta_path;
+  fs::PathBuffer meta_path;
   mfile.dumpToDisk(target->formFullMetaPath(&meta_path));
 }
 
@@ -755,7 +755,7 @@ void BuildSystem::writeTargetMetaFile(Target* target)
  */
 void BuildSystem::loadTargetMetaFile(Target* target)
 {
-  PathBuffer meta_path_buffer;
+  fs::PathBuffer meta_path_buffer;
   String meta_path = target->formFullMetaPath(&meta_path_buffer);
 
   if (!fs::path::exists(meta_path))
@@ -865,7 +865,7 @@ reflect::CompiledData* BuildSystem::loadAsCompiledData(Target* target)
 {
   assert(target && target->kind == TargetKind::CompiledData);
 
-  PathBuffer path;
+  fs::PathBuffer path;
   reflect::CompiledData* compiled = reflect::CompiledData::load(
     target->formFullPath(&path), 
     &compiled_data_allocator,
@@ -887,11 +887,11 @@ void BuildSystem::trashPath(String path, String trash_name, String reason)
   {
     @log.notice(build, "trashing '", path, "'\n  reason: ", reason, "\n");
 
-    PathBuffer dest_path;
+    fs::PathBuffer dest_path;
     io::formatv(&dest_path, trash_mount, '/', trash_name);
 
     // Ensure dest dir exists.
-    PathBuffer dest_dir;
+    fs::PathBuffer dest_dir;
     io::formatv(&dest_dir, fs::path::removeBasename(String(dest_path)));
     fs::mkdir(String(dest_dir), true);
 
@@ -909,10 +909,10 @@ void BuildSystem::trashTarget(Target* target, String reason)
     assert(!"build system attempted to trash a Target that is not compiled");
   }
 
-  PathBuffer target_path;
-  PathBuffer target_trash_path;
-  PathBuffer target_meta_path;
-  PathBuffer target_meta_trash_path;
+  fs::PathBuffer target_path;
+  fs::PathBuffer target_trash_path;
+  fs::PathBuffer target_meta_path;
+  fs::PathBuffer target_meta_trash_path;
 
   trashPath(
     target->formFullPath(&target_path), 

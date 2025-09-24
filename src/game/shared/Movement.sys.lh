@@ -2,9 +2,9 @@ $ require "common"
 
 #include "iro/Common.h"
 
-@@lpp.import "game/shared/entity/EntitySys.lh"
-@@lpp.import "game/shared/input/Input.events.lh"
-@@lpp.import "game/shared/Movement.comp.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/input/Input.events.lh"
+@lpp.import "game/shared/Movement.comp.lh"
 
 struct GameMgr;
 

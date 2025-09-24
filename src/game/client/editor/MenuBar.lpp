@@ -2,7 +2,7 @@ $ if false then
 
 $ require "common"
 
-@@lpp.import "game/client/editor/MenuBar.lh"
+@lpp.import "game/client/editor/MenuBar.lh"
 
 namespace ui
 {

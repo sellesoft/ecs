@@ -7,8 +7,8 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/entity/EntityId.lh"
-@@lpp.import "game/shared/entity/Entity.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "game/shared/entity/Entity.lh"
 
 /* ============================================================================
  */

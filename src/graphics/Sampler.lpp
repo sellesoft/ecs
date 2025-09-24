@@ -1,8 +1,8 @@
 $ require "common"
 $ local helpers = require "graphics.Helpers"
 
-@@lpp.import "graphics/Sampler.lh"
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Sampler.lh"
+@lpp.import "graphics/Vulkan.lh"
 
 @log.import
 

@@ -74,6 +74,8 @@ local lib_dirs = List
 ---@type lake.obj.Cpp.CompileParams
 local cpp_params = 
 {
+  std="c++23",
+
   defines = 
   {
     ECS_DEBUG = 1,
@@ -87,8 +89,6 @@ local cpp_params =
   noexceptions = true,
   nortti = true,
 
-  time_trace = cwd.."/banal/times.json",
-
   asan = asan,
   tsan = tsan,
 }
@@ -100,6 +100,14 @@ local lpp_params =
   cpath_dirs = List { "lib" },
   import_dirs = List { "src" },
   gen_meta = true,
+
+  cmd_callback = function(cmd, file)
+    if file:find "server/NetMgr.lpp" then
+      local f = io.open("cmd.txt", "w+")
+      f:write("lldb -- ", table.concat(cmd, ' '))
+      f:close()
+    end
+  end
 }
 
 ---@type lake.obj.Exe.LinkParams

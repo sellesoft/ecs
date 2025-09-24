@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 
-#include "iro/Platform.h"
 #include "iro/time/Time.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
@@ -22,7 +21,7 @@ $ end
 
 @log.import
 
-@@lpp.import "Profiling.lh"
+@lpp.import "Profiling.lh"
 
 /* ----------------------------------------------------------------------------
  */

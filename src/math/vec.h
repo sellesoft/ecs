@@ -9,7 +9,7 @@
 #define _ecs_vec_h
 
 #include "iro/Common.h"
-#include "iro/io/Format.h"
+#include "iro/io/format.h"
 
 // Not a fan of doing this, but whatever.
 #include "cmath"
@@ -236,7 +236,7 @@ namespace iro::io
 {
 
 template<typename T>
-s64 format(io::IO* io, const vec2<T>& v)
+s64 format(WStream* io, const vec2<T>& v)
 {
   return io::formatv(io, '(', v.x, ',', v.y, ')');
 }
@@ -464,7 +464,7 @@ namespace iro::io
 {
 
 template<typename T>
-s64 format(io::IO* io, const vec4<T>& v)
+s64 format(WStream* io, const vec4<T>& v)
 {
   return io::formatv(io, '(', v.x, ',', v.y, ',', v.z, ',', v.w, ')');
 }

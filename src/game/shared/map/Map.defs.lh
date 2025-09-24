@@ -8,12 +8,12 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/containers/EnumArray.h"
 #include "math/vec.h"
 
-@@lpp.import "reflect/types/Array.lh"
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/types/Array.lh"
+@lpp.import "reflect/CompiledData.lh"
 
-@@lpp.import "graphics/Texture.resource.lh"
+@lpp.import "graphics/Texture.resource.lh"
 
-@@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
 
 using namespace iro;
 

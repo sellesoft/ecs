@@ -17,7 +17,7 @@
 
 $ local cmn = require "common"
 
-@@lpp.import "asset/Asset.lh"
+@lpp.import "asset/Asset.lh"
 
 using namespace iro;
 

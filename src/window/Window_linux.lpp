@@ -4,17 +4,17 @@ $ local List = require "iro.List"
 
 $ if IRO_LINUX then
 
-@@lpp.import "window/Window.events.lh"
-@@lpp.import "Engine.lh"
+@lpp.import "window/Window.events.lh"
+@lpp.import "Engine.lh"
 
 #include "math/util.h"
 #include "input/Keys.h"
 
-@@lpp.import "window/Window.lh"
-@@lpp.import "window/Window_linux.lh"
-@@lpp.import "input/InputMgr.lh"
+@lpp.import "window/Window.lh"
+@lpp.import "window/Window_linux.lh"
+@lpp.import "input/InputMgr.lh"
 
-@@log.import
+@log.import
 
 $ local function log_err(...) return log.error("window", ...) end
 

@@ -17,18 +17,10 @@ $ local glob = require "iro.fs.glob"
 
 $$$
 
-local AstContext = require "reflect.AstContext"
-
-local imported = require "string.buffer" .new()
-local function importpattern(pattern)
-  glob(pattern):each(function(path)
-    imported:put((lpp.import(path)) or "")
-  end)
-end
-
-importpattern "src/**/*.events.lh"
-
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
+local astctx, imported = require "reflect.AstContext".fromGlobs
+{
+  "src/**/*.events.lh"
+}
 
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
@@ -36,10 +28,10 @@ local function lookup(name)
 end
 
 $$$
-@@imported:get
+$(imported)
 
-@@lpp.import "net/Socket.lh"
-@@lpp.import "game/shared/NetMgr.lh"
+@lpp.import "net/Socket.lh"
+@lpp.import "game/shared/NetMgr.lh"
 
 #include "iro/Common.h"
 #include "iro/memory/Allocator.h"

@@ -1,9 +1,9 @@
 $ local cmn = require "common"
 
-@@lpp.import "sdata/SourceData.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceData.lh"
+@lpp.import "sdata/SourceDataFile.lh"
 
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "iro/fs/fs.h"
 
 using namespace iro;
@@ -37,7 +37,7 @@ SourceData* SourceData::deepCopy(SourceDataFile* sfile)
 
 /* ----------------------------------------------------------------------------
  */
-void SourceData::dump(io::IO* out, u32 depth) const
+void SourceData::dump(io::WStream* out, u32 depth) const
 {
   auto indent = [&]()
   {
@@ -191,7 +191,7 @@ void SourceData::setNumberValue(f32 value, SourceDataFile& file)
   io::format(&buffer, value);
 
   val.kind = Value::Kind::String;
-  val.str = buffer.asStr().allocateCopy(&file.string_cache);
+  val.str = String(buffer).allocateCopy(&file.string_cache);
 }
 
 /* ----------------------------------------------------------------------------

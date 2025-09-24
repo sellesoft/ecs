@@ -8,13 +8,13 @@ $ require "common"
 #include "iro/Common.h"
 #include "iro/containers/LinkedPool.h"
 
-@@lpp.import "game/IndexedPool.lh"
+@lpp.import "game/IndexedPool.lh"
 
-@@lpp.import "game/shared/entity/Entity.lh"
-@@lpp.import "game/shared/entity/EntityEventBus.lh"
+@lpp.import "game/shared/entity/Entity.lh"
+@lpp.import "game/shared/entity/EntityEventBus.lh"
 
-@@lpp.import "game/shared/component/Component.lh"
-@@lpp.import "game/shared/component/ComponentMgr.lh"
+@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/ComponentMgr.lh"
 
 #include "math/vec.h"
 

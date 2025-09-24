@@ -1,7 +1,7 @@
 $ require "common"
 
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
 #include "iro/memory/Bump.h"
 

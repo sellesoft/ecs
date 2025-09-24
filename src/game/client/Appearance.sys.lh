@@ -5,11 +5,11 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/Appearance.sys.lh"
+@lpp.import "game/shared/Appearance.sys.lh"
 
-@@lpp.import "game/shared/entity/EntitySys.lh"
-@@lpp.import "game/client/Appearance.events.lh"
-@@lpp.import "game/shared/Appearance.comp.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/client/Appearance.events.lh"
+@lpp.import "game/shared/Appearance.comp.lh"
 
 #include "iro/containers/Array.h"
 

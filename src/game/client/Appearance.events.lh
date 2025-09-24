@@ -5,8 +5,8 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@@lpp.import "game/shared/Appearance.comp.lh"
-@@lpp.import "game/client/graphics/Sprite.comp.lh"
+@lpp.import "game/shared/Appearance.comp.lh"
+@lpp.import "game/client/graphics/Sprite.comp.lh"
 
 namespace cl
 {

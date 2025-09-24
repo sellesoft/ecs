@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 
-@@lpp.import "graphics/Geo.lh"
-@@lpp.import "graphics/CompiledFont.lh"
+@lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/CompiledFont.lh"
 
 namespace gfx
 {

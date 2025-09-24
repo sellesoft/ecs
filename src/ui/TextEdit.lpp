@@ -1,6 +1,6 @@
 $ require "common"
 
-@@lpp.import "ui/TextEdit.lh"
+@lpp.import "ui/TextEdit.lh"
 
 #include "iro/Unicode.h"
 

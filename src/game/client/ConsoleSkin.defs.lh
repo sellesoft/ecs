@@ -1,8 +1,8 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "ui/Skin.defs.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "ui/Skin.defs.lh"
 
 /* ============================================================================
  */

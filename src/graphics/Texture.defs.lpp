@@ -1,12 +1,12 @@
 $ require "common"
 
-@@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "build/Target.lh"
-@@lpp.import "build/Rule.lh"
-@@lpp.import "build/Result.lh"
-@@lpp.import "build/BuildSystem.lh"
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "graphics/Texture.defs.lh"
+@lpp.import "graphics/CompiledTexture.lh"
+@lpp.import "build/Target.lh"
+@lpp.import "build/Rule.lh"
+@lpp.import "build/Result.lh"
+@lpp.import "build/BuildSystem.lh"
+@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
 
@@ -76,8 +76,8 @@ static void textureBuild(const RuleParams_Build& params)
     "texture.data"_str,
     build::TargetKind::CompiledData);
 
-  build::PathBuffer data_path_buffer;
-  build::PathBuffer target_path_buffer;
+  fs::PathBuffer data_path_buffer;
+  fs::PathBuffer target_path_buffer;
 
   CompileTextureParams compile_params = 
   {

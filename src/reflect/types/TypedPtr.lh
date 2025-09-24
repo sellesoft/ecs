@@ -7,7 +7,7 @@ $ require "common"
 
 #include "iro/Unicode.h"
 
-@@lpp.import "reflect/TypeId.lh"
+@lpp.import "reflect/TypeId.lh"
 
 using namespace iro;
 

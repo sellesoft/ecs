@@ -1,8 +1,8 @@
 $ require "common"
 
-@@lpp.import "editor/FileWatcherThread.lh"
+@lpp.import "editor/FileWatcherThread.lh"
 
-@@lpp.import "reflect/rtr.lh"
+@lpp.import "reflect/rtr.lh"
 
 #include "iro/os/FileWatcher.h"
 

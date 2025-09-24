@@ -4,10 +4,10 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
 
-@@lpp.import "game/shared/power/Power.comp.lh"
-@@lpp.import "game/shared/component/Component.events.lh"
+@lpp.import "game/shared/power/Power.comp.lh"
+@lpp.import "game/shared/component/Component.events.lh"
 
 /* ============================================================================
  */

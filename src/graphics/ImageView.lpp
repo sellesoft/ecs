@@ -1,8 +1,8 @@
 $ require "common"
 $ local helpers = require "graphics.Helpers"
 
-@@lpp.import "graphics/ImageView.lh"
-@@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/ImageView.lh"
+@lpp.import "graphics/Vulkan.lh"
 
 #include "iro/containers/StackArray.h"
 

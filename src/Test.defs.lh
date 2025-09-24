@@ -2,8 +2,8 @@
 #include "iro/Unicode.h"
 #include "Color.h"
 
-@@lpp.import "reflect/types/Array.lh"
-@@lpp.import "reflect/types/TypedStringMap.lh"
+@lpp.import "reflect/types/Array.lh"
+@lpp.import "reflect/types/TypedStringMap.lh"
 $ local m = require "reflect.Metadata"
 
 $ do return end

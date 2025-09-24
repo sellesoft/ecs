@@ -21,7 +21,7 @@
 
 $ require "common"
 
-@@lpp.import "graphics/DescriptorSet.lh"
+@lpp.import "graphics/DescriptorSet.lh"
 
 namespace gfx
 {

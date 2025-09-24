@@ -4,17 +4,17 @@
 
 $ local cmn = require "common"
 
-@@lpp.import "ui/Skin.defs.lh"
-@@lpp.import "ui/TextEdit.lh"
+@lpp.import "ui/Skin.defs.lh"
+@lpp.import "ui/TextEdit.lh"
 
-@@lpp.import "graphics/Buffer.lh"
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "graphics/Pipeline.lh"
-@@lpp.import "graphics/Shader.lh"
-@@lpp.import "graphics/TextureHandle.lh"
-@@lpp.import "graphics/Pipeline.resource.lh"
+@lpp.import "graphics/Buffer.lh"
+@lpp.import "graphics/CompiledTexture.lh"
+@lpp.import "graphics/Pipeline.lh"
+@lpp.import "graphics/Shader.lh"
+@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/Pipeline.resource.lh"
 
-@@lpp.import "input/InputState.lh"
+@lpp.import "input/InputState.lh"
 
 #include "iro/containers/StackArray.h"
 #include "iro/containers/EnumArray.h"

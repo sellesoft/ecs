@@ -1,6 +1,6 @@
 $ require "common"
 
-@@lpp.import "game/client/graphics/Visualizer.sys.lh"
+@lpp.import "game/client/graphics/Visualizer.sys.lh"
 
 @log.import
 

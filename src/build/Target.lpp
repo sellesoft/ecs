@@ -1,6 +1,6 @@
 $ require "common"
 
-@@lpp.import "build/Target.lh"
+@lpp.import "build/Target.lh"
 
 #include "iro/fs/fs.h"
 
@@ -68,7 +68,7 @@ void Target::deinit()
  */
 void Target::cacheExistance()
 {
-  PathBuffer path_buffer;
+  fs::PathBuffer path_buffer;
   String path = formFullPath(&path_buffer);
 
   if (fs::path::exists(path))
@@ -85,7 +85,7 @@ void Target::cacheExistance()
 
 /* ----------------------------------------------------------------------------
  */
-String Target::formFullDirPath(PathBuffer* out) const
+String Target::formFullDirPath(fs::PathBuffer* out) const
 {
   io::formatv(out, mount, '/', fs::path::removeBasename(name));
   return String(*out);

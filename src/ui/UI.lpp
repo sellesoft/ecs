@@ -1,13 +1,13 @@
 $ local cmn = require "common"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "graphics/CompiledShader.lh"
-@@lpp.import "graphics/Renderer.lh"
-@@lpp.import "graphics/Geo.lh"
-@@lpp.import "math/util.h"
-@@lpp.import "ui/TextEdit.lh"
-@@lpp.import "Profiling.lh"
-@@lpp.import "reflect/Linker.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "graphics/CompiledShader.lh"
+@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/Geo.lh"
+@lpp.import "math/util.h"
+@lpp.import "ui/TextEdit.lh"
+@lpp.import "Profiling.lh"
+@lpp.import "reflect/Linker.lh"
 
 #include "iro/containers/SmallArray.h"
 
@@ -367,7 +367,7 @@ void UI::render(gfx::Renderer& renderer, Rect viewport)
   {
     debug_layer_name.clear();
     io::formatv(&debug_layer_name, "layer ", layer_idx);
-    renderer.debugBeginLabel(0x3d405bff, debug_layer_name.asStr());
+    renderer.debugBeginLabel(0x3d405bff, String(debug_layer_name));
 
     for (Cmd* cmd = layer->cmd_list.first;
          cmd; cmd = cmd->next)

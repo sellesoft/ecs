@@ -7,15 +7,15 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh"
 }
 $$$
-@@imported:get
+@imported:get
 
-@@lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
 
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataParser.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataParser.lh"
 
-@@lpp.import "game/shared/entity/EntityLoader.lh"
-@@lpp.import "game/shared/component/Component.events.lh"
+@lpp.import "game/shared/entity/EntityLoader.lh"
+@lpp.import "game/shared/component/Component.events.lh"
 
 #include "iro/fs/File.h"
 

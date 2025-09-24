@@ -8,7 +8,7 @@
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 
-namespace iro::io { struct IO; }
+namespace iro::io { struct WStream; }
 
 namespace net
 {
@@ -53,6 +53,6 @@ struct Address
   b8 isIPv4() const;
 };
 
-s64 format(iro::io::IO* io, Address address);
+s64 format(iro::io::WStream* io, Address address);
 
 }

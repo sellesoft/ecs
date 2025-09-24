@@ -1,10 +1,10 @@
 $ require "common"
 
-@@lpp.import "game/client/editor/EntityList.lh"
-@@lpp.import "game/client/editor/Editor.lh"
-@@lpp.import "game/client/Client.lh"
+@lpp.import "game/client/editor/EntityList.lh"
+@lpp.import "game/client/editor/Editor.lh"
+@lpp.import "game/client/Client.lh"
 
-@@lpp.import "ui/UI.lh"
+@lpp.import "ui/UI.lh"
 
 namespace cl
 {

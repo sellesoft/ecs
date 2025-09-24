@@ -3,7 +3,7 @@ $ local cmn = require "common"
 #include "iro/containers/SmallArray.h"
 #include "iro/memory/Bump.h"
 
-@@lpp.import "reflect/TypeId.lh"
+@lpp.import "reflect/TypeId.lh"
 
 struct SourceData;;
 

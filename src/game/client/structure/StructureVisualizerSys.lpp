@@ -1,12 +1,12 @@
 $ require "common"
 
-@@lpp.import "game/shared/structure/Structure.comp.lh"
-@@lpp.import "game/client/structure/StructureVisualizer.sys.lh"
+@lpp.import "game/shared/structure/Structure.comp.lh"
+@lpp.import "game/client/structure/StructureVisualizer.sys.lh"
 
-@@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
 
-@@lpp.import "game/shared/Transform.comp.lh"
-@@lpp.import "game/client/graphics/Sprite.comp.lh"
+@lpp.import "game/shared/Transform.comp.lh"
+@lpp.import "game/client/graphics/Sprite.comp.lh"
 
 @log.import
 

@@ -33,7 +33,7 @@ $ require "common"
 //             something else passed into getPrereqs later, as mentioned 
 //             below, so we don't need to import this. I mean, we don't have 
 //             to in general, but, whatever.
-@@lpp.import "build/Target.lh"
+@lpp.import "build/Target.lh"
 
 namespace build
 {

@@ -4,9 +4,9 @@ $ local cmn = require "common"
 #include "iro/containers/AVL.h"
 #include "iro/Unicode.h"
 
-@@lpp.import "asset/AssetMgr.lh"
-@@lpp.import "event/BroadcastEventBus.lh"
-@@lpp.import "editor/Editor.lh"
+@lpp.import "asset/AssetMgr.lh"
+@lpp.import "event/BroadcastEventBus.lh"
+@lpp.import "editor/Editor.lh"
 
 namespace ui
 {

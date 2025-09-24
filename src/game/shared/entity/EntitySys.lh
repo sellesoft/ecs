@@ -8,8 +8,8 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/entity/EntityMgr.lh"
-@@lpp.import "game/shared/entity/EntityEventBus.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/EntityEventBus.lh"
 
 /* ============================================================================
  */

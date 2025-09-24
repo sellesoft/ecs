@@ -4,7 +4,7 @@
 
 $ require "common"
 
-@@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/entity/EntitySys.lh"
 
 /* ============================================================================
  */

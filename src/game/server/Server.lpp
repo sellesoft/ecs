@@ -3,21 +3,21 @@
  */
 $ require "common"
 
-@@lpp.import "Engine.lh"
-@@lpp.import "game/server/GameSim.lh"
-@@lpp.import "game/server/NetMgr.lh"
-@@lpp.import "game/server/Server.lh"
-@@lpp.import "game/server/ServerAllocator.lh"
-@@lpp.import "game/shared/entity/EntityId.lh"
-@@lpp.import "game/shared/Console.lh"
-@@lpp.import "reflect/CompiledData.lh"
+@lpp.import "Engine.lh"
+@lpp.import "game/server/GameSim.lh"
+@lpp.import "game/server/NetMgr.lh"
+@lpp.import "game/server/Server.lh"
+@lpp.import "game/server/ServerAllocator.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "game/shared/Console.lh"
+@lpp.import "reflect/CompiledData.lh"
 
 #include "iro/Common.h"
 #include "iro/containers/Array.h"
 #include "iro/containers/StackArray.h"
 #include "iro/time/Time.h"
 #include "iro/concurrent/Thread.h"
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 
 #include <atomic>
 

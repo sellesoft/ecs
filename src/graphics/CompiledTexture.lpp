@@ -1,17 +1,17 @@
 $ local cmn = require "common"
 
-#include "iro/io/IO.h"
+#include "iro/io/Stream.h"
 #include "iro/fs/File.h"
 #include "iro/fs/fs.h"
-#include "iro/Platform.h"
 #include "iro/memory/Bump.h"
+#include "iro/io/Memory.h"
 
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "graphics/CompiledTexture.lh"
-@@lpp.import "graphics/DescriptorSetLayout.lh"
-@@lpp.import "graphics/DescriptorSet.lh"
-@@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "build/Result.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "graphics/CompiledTexture.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/DescriptorSet.lh"
+@lpp.import "graphics/Texture.defs.lh"
+@lpp.import "build/Result.lh"
 
 #include "cassert"
 
@@ -89,8 +89,8 @@ b8 compileTextureFromMemory(
       "failed to open file for writing compiled texture at '",
       output_path, "'");
 
-  data_file.write({(u8*)&data, sizeof(CompiledTexture)});
-  data_file.write({(u8*)pixels, pixels_size});
+  data_file.write((u8*)&data, sizeof(CompiledTexture));
+  data_file.write((u8*)pixels, pixels_size);
 
   data_file.close();
 
@@ -133,8 +133,8 @@ b8 compileTextureFromMemory(
   }
   u64 pixels_size = pixel_stride * data.width * data.height;
 
-  file->write({(u8*)&data, sizeof(CompiledTexture)});
-  file->write({(u8*)pixels, pixels_size});
+  file->write((u8*)&data, sizeof(CompiledTexture));
+  file->write((u8*)pixels, pixels_size);
 
   return true;
 }
@@ -184,10 +184,10 @@ b8 compileTexture(const CompileTextureParams& params)
     return buildError(result, "texture def '", data_path, "' has no name\n");
 
   io::Memory buffer;
-  if (!buffer.open())
+  if (!buffer.init())
     return buildError(result, 
       "failed to initialize buffer for reading texture file");
-  defer { buffer.close(); };
+  defer { buffer.deinit(); };
   
   if (!File::openAndRead(&buffer, def->name))
     return buildError(result, "failed to open/read texture ", def->name);

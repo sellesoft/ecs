@@ -1,10 +1,10 @@
 $ require "common"
 
-@@lpp.import "editor/MenuBar.lh"
-@@lpp.import "editor/Editor.lh"
+@lpp.import "editor/MenuBar.lh"
+@lpp.import "editor/Editor.lh"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "editor/Skin.defs.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "editor/Skin.defs.lh"
 
 namespace editor
 {

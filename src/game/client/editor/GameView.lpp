@@ -14,15 +14,15 @@ local astctx = require "reflect.AstContext" .fromString(tostring(imported))
 $$$
 @imported:get
 
-@@lpp.import "game/client/editor/GameView.lh"
+@lpp.import "game/client/editor/GameView.lh"
 
-@@lpp.import "game/shared/Eye.sys.lh"
-@@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "game/shared/Eye.sys.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
 
-@@lpp.import "ui/UI.lh"
-@@lpp.import "game/client/Client.lh"
+@lpp.import "ui/UI.lh"
+@lpp.import "game/client/Client.lh"
 
-@@lpp.import "Profiling.lh"
+@lpp.import "Profiling.lh"
 
 #include "math/util.h"
 

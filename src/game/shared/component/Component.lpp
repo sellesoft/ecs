@@ -10,11 +10,11 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh",
 }
 $$$
-@@imported:get
+@imported:get
 
 using namespace iro;
 
-@@lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 #include "iro/containers/LinkedPool.h"
 

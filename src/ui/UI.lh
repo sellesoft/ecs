@@ -26,8 +26,9 @@ $ local cmn = require "common"
 
 namespace gfx
 {
+struct Vulkan;
 struct Buffer;
-struct Renderer;
+struct RenderPass;
 struct ResourceMgr;
 }
 
@@ -114,7 +115,7 @@ struct Cmd
   // The Group that was active when this Cmd was pushed.
   Group* group;
 
-  virtual void execute(UI& ui, gfx::Renderer& renderer) = 0;
+  virtual void execute(UI& ui, gfx::RenderPass& renderer) = 0;
 };
 
 /* ============================================================================
@@ -123,7 +124,7 @@ struct TransformCmd : Cmd
 {
   mat3x2* transform;
 
-  void execute(UI& ui, gfx::Renderer& renderer) override;
+  void execute(UI& ui, gfx::RenderPass& renderer) override;
 };
 
 /* ============================================================================
@@ -132,7 +133,7 @@ struct ScissorCmd : Cmd
 {
   Rect bounds = {};
 
-  void execute(UI& ui, gfx::Renderer& renderer) override;
+  void execute(UI& ui, gfx::RenderPass& renderer) override;
 };
 
 /* ============================================================================
@@ -144,7 +145,7 @@ struct QuadDrawCmd : Cmd
   Rect bounds;
   vec4f uv;
 
-  void execute(UI& ui, gfx::Renderer& renderer) override;
+  void execute(UI& ui, gfx::RenderPass& renderer) override;
 };
 
 /* ============================================================================
@@ -155,7 +156,7 @@ struct BorderDrawCmd : Cmd
   Rect offsets;
   Color color;
 
-  void execute(UI& ui, gfx::Renderer& renderer) override;
+  void execute(UI& ui, gfx::RenderPass& renderer) override;
 };
 
 /* ============================================================================
@@ -166,7 +167,7 @@ struct LineDrawCmd : Cmd
   vec2f end;
   Color color;
 
-  void execute(UI& ui, gfx::Renderer& renderer) override;
+  void execute(UI& ui, gfx::RenderPass& renderer) override;
 };
 
 /* ============================================================================
@@ -357,7 +358,7 @@ struct UI
  
   struct InitParams
   {
-    gfx::Renderer& renderer;
+    gfx::Vulkan& vk;
     gfx::ResourceMgr& resource_mgr;
     AssetMgr& asset_mgr;
     Rect viewport;
@@ -365,7 +366,7 @@ struct UI
   };
 
   b8   init(InitParams& params);
-  void deinit(gfx::Renderer& renderer);
+  void deinit(gfx::Vulkan& renderer);
 
   struct FrameParams
   {
@@ -385,7 +386,7 @@ struct UI
   // NOTE(sushi) UI state is not cleared in endFrame but here, for now.
   //             I need to clean that up later but i want to be done with 
   //             renderer rework !
-  void render(gfx::Renderer& renderer, Rect viewport);
+  void render(gfx::RenderPass& pass, Rect viewport);
 
   Rect getBounds() const 
   { 
@@ -651,7 +652,7 @@ struct UI
     return registerOrGetPersistentState(getCombinedId(id), out_state);
   }
 
-  void pushConstantFromTransform(mat3x2 transform, gfx::Renderer& renderer);
+  void pushConstantFromTransform(mat3x2 transform, gfx::RenderPass& pass);
 
   // Combines the given ids.
   CombinedItemId combineIds(ItemId a, ItemId b) const;

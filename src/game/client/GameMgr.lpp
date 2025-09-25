@@ -40,7 +40,7 @@ b8 GameMgr::init(InitParams& params)
 
   GameRenderer::InitParams render_params = 
   {
-    .renderer = params.renderer,
+    .vk = params.vk,
     .assetmgr = params.assetmgr,
   };
   if (!game_renderer.init(render_params))
@@ -51,10 +51,10 @@ b8 GameMgr::init(InitParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-void GameMgr::deinit(gfx::Renderer& renderer)
+void GameMgr::deinit(gfx::Vulkan& vk)
 {
   entsysmgr.deinit();
-  game_renderer.deinit(renderer);
+  game_renderer.deinit(vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -80,7 +80,7 @@ b8 GameMgr::render(const RenderParams& params)
 
     .target = params.target,
     .viewport = sim->viewport,
-    .renderer = params.renderer,
+    .vk = params.vk,
     .view = 
       params.view == nullptr
       ? entsysmgr.get<EyeSys>().view.getViewMat()

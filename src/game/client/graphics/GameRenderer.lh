@@ -25,9 +25,10 @@ $ require "common"
 @lpp.import "graphics/RenderTarget.lh"
 @lpp.import "graphics/Texture.defs.lh"
 
-namespace gfx
-{
-  struct Renderer;
+namespace gfx 
+{ 
+struct Vulkan; 
+struct RenderPass;
 }
 
 struct AssetMgr;
@@ -65,12 +66,12 @@ struct GameRenderer
 
   struct InitParams
   {
-    gfx::Renderer& renderer;
+    gfx::Vulkan& vk;
     AssetMgr& assetmgr;
   };
 
   b8 init(InitParams& params);
-  void deinit(gfx::Renderer& renderer);
+  void deinit(gfx::Vulkan& vk);
 
   struct RenderParams
   {
@@ -79,14 +80,24 @@ struct GameRenderer
 
     Rect   viewport;
     mat3x2 view;
-    gfx::Renderer& renderer;
+
+    // TODO(sushi) see if it would be better to just start a RenderPass outside
+    //             of this call and have it passed in here to simplify what 
+    //             this does internally.
+    //             Maybe not, because we do buffer stuff during a render, 
+    //             which needs Vulkan directly. Hm. I guess RenderPass has 
+    //             a pointer to Vulkan, but using that feels weird.
+    //             The Buffer stuff sucks majorly though and needs to be 
+    //             redone anyways, so we'll deal with this until then.
+    gfx::Vulkan& vk;
     gfx::RenderTarget& target;
   };
 
   b8 render(const RenderParams& params);
 
   void drawQuad(
-    gfx::Renderer& renderer,
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
     vec2f pos,
     gfx::TextureHandle texture,
     vec4f uv,

@@ -22,7 +22,7 @@ namespace gfx
 $ local print_success = false
 $ local print_non_error_success_as_warning = false
 $ local release_validation = false
-$ local disable_validation = true
+$ local disable_validation = false
 $ local validation = 
 $   (ECS_DEBUG or release_validation) and 
 $   not disable_validation
@@ -233,7 +233,7 @@ local strings =
     "An operation on a swapchain created with ".. 
     "VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as it ".. 
     "did not have exclusive full-screen access. This may occur due to "..
-    "implementation-dependent reasons, outside of the application’s control.",
+    "implementation-dependent reasons, outside of the application's control.",
   VK_ERROR_VALIDATION_FAILED_EXT = 
     "A command failed because invalid usage was detected by the "..
     "implementation or a validation-layer.",
@@ -1497,7 +1497,7 @@ u32 Vulkan::determineMemoryType(
 
 /* ----------------------------------------------------------------------------
  */
-b8 Vulkan::acquireNextImageIndex(u32* out)
+b8 Vulkan::acquireNextImageIndex()
 {
   VkResult result = 
     vkAcquireNextImageKHR(
@@ -1506,7 +1506,7 @@ b8 Vulkan::acquireNextImageIndex(u32* out)
       MAX_U64,
       getCurrentVirtualFrame()->acquire_semaphore,
       VK_NULL_HANDLE,
-      out);
+      &next_swapchain_image);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || 
       result == VK_SUBOPTIMAL_KHR)
@@ -3036,4 +3036,4 @@ $ end
   return (VkShaderStageFlagBits)bits;
 }
 
-}
+} // namespace gfx

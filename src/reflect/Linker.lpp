@@ -10,10 +10,8 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
 }
 
 local ResourceLink = astctx:lookupTypeDecl "gfx::ResourceLink"
-local CompiledDataLink = astctx:lookupDecl "CompiledDataLink"
+local CompiledDataLink = astctx:lookupDecl "reflect::CompiledDataLink"
 local AssetLink = astctx:lookupDecl "AssetLink"
-
-ast.dumpout(astctx:lookupDecl "EditorSkinDefLink")
 
 local link_decls = cmn.List {}
 local link_decls_found = {}

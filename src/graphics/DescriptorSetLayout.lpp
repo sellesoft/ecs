@@ -3,7 +3,7 @@ $ local helpers = require "graphics.Helpers"
 
 @lpp.import "graphics/DescriptorSetLayout.lh"
 @lpp.import "graphics/Vulkan.lh"
-@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/RenderPass.lh"
 
 #include "iro/containers/SmallArray.h"
 

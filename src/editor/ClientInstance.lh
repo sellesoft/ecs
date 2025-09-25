@@ -1,0 +1,23 @@
+/*
+ *  An instance of a game client owned by the Editor. 
+ *  
+ *  The idea is that the Editor will be able to create multiple of these
+ *  to easily simulate multiple Clients being connected to a Server.
+ */
+
+$ require "common"
+
+@lpp.import "editor/Doc.lh"
+@lpp.import "game/client/Client.lh"
+
+namespace editor
+{
+
+/* ============================================================================
+ */
+struct ClientInstance : Doc
+{
+  Client client;
+};
+
+}

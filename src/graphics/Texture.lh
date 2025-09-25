@@ -1,0 +1,30 @@
+/*
+ */
+
+$ require "common"
+
+@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/Image.lh"
+@lpp.import "graphics/ImageView.lh"
+@lpp.import "graphics/Sampler.lh"
+@lpp.import "graphics/DescriptorSet.lh"
+
+namespace gfx
+{
+
+/* ============================================================================
+ */
+struct Texture
+{
+  Image         image;
+  ImageView     view;
+  Sampler       sampler;
+  DescriptorSet descriptor_set;
+
+  TextureHandle getHandle() const
+  {
+    return { descriptor_set };
+  }
+};
+
+}

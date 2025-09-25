@@ -1,0 +1,97 @@
+/*
+ *  Interface for managing Vulkan without actually including all of the 
+ *  Vulkan stuff. This should be done better later, but for now I just want 
+ *  to pull ownership of Vulkan out of gfx::Renderer.
+ */
+
+$ require "common"
+
+#include "iro/memory/Bump.h"
+#include "Color.h"
+
+struct Window;
+
+namespace gfx
+{
+struct Vulkan;
+struct RenderTarget;
+struct RenderPass;
+struct Texture;
+struct Image;
+};
+
+namespace gfx::vk
+{
+
+/* ----------------------------------------------------------------------------
+ *  Allocates and initializes a Vulkan instance.
+ */
+struct CreateParams
+{
+  iro::mem::Allocator* allocator;
+  Window& window;
+};
+
+Vulkan* create(const CreateParams& params);
+
+/* ----------------------------------------------------------------------------
+ *  Destroys and deallocates a Vulkan instance.
+ */
+void destroy(Vulkan* vk, iro::mem::Allocator* allocator);
+
+/* ----------------------------------------------------------------------------
+ *  Should be called when the Window's size changes so that Vulkan may 
+ *  recreate its swapchain.
+ */
+void onWindowResized(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 beginFrame(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+void endFrame(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 submitQueue(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 present(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+void waitForDeviceIdle(Vulkan* vk);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 getSwapchainRenderTarget(Vulkan* vk, RenderTarget* out);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 getTextureRenderTarget(Vulkan* vk, Texture& texture, RenderTarget* out);
+
+/* ----------------------------------------------------------------------------
+ * NOTE(sushi) a hacky way to get an image into a state where it can be 
+ *             sampled by a shader, for use when wanting to display a 
+ *             RenderTarget image. Needs to be done better later.
+ */
+void prepareImageForSampling(Vulkan* vk, Image image);
+
+/* ----------------------------------------------------------------------------
+ */
+b8 beginRenderPass(
+    Vulkan* vk, 
+    RenderPass* pass,
+    RenderTarget& target, 
+    vec2i render_area_pos,
+    vec2u render_area_size,
+    Color clear_color);
+
+/* ----------------------------------------------------------------------------
+ */
+void endRenderPass(Vulkan* vk);
+
+}

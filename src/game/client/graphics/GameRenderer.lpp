@@ -6,7 +6,7 @@ $ require "common"
 @lpp.import "Engine.lh"
 
 @lpp.import "graphics/CompiledShader.lh"
-@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/RenderPass.lh"
 @lpp.import "graphics/Geo.lh"
 
 @lpp.import "game/client/GameMgr.lh"
@@ -27,7 +27,7 @@ namespace cl
  */
 b8 GameRenderer::init(InitParams& params)
 {
-  gfx::Renderer& renderer = params.renderer;
+  gfx::Vulkan& vk = params.vk;
   AssetMgr& assetmgr = params.assetmgr;
 
   assert(false);
@@ -36,8 +36,7 @@ b8 GameRenderer::init(InitParams& params)
   //   return ERROR("failed to load null texture");
 
   //init scene uniform buffer
-  scene_uniform_buffer = gfx::Buffer::create(
-    *renderer.vk,
+  scene_uniform_buffer = gfx::Buffer::create(vk,
     {
       .data = nullptr,
       .size = sizeof(Scene),
@@ -49,8 +48,7 @@ b8 GameRenderer::init(InitParams& params)
   if (isnil(scene_uniform_buffer))
     return @log.error(game, "failed to init scene uniform buffer\n");
 
-  quads_vertex_buffer = gfx::Buffer::create(
-    *renderer.vk,
+  quads_vertex_buffer = gfx::Buffer::create(vk,
     {
       .data       = nullptr,
       .size       = MAX_QUADS * 4 * sizeof(gfx::Vertex),
@@ -74,8 +72,7 @@ b8 GameRenderer::init(InitParams& params)
     quad_indices[i+5] = 4*j + 3;
   }
 
-  quads_index_buffer = gfx::Buffer::create(
-    *renderer.vk,
+  quads_index_buffer = gfx::Buffer::create(vk,
     {
       .data = quad_indices,
       .size = MAX_QUADS * 6 * sizeof(gfx::Index),
@@ -107,30 +104,30 @@ b8 GameRenderer::init(InitParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-void GameRenderer::deinit(gfx::Renderer& renderer)
+void GameRenderer::deinit(gfx::Vulkan& vk)
 {
-  scene_uniform_buffer.destroy(*renderer.vk);
-  quads_vertex_buffer.destroy(*renderer.vk);
-  quads_index_buffer.destroy(*renderer.vk);
-  quad_pipeline.destroy(*renderer.vk);
+  scene_uniform_buffer.destroy(vk);
+  quads_vertex_buffer.destroy(vk);
+  quads_index_buffer.destroy(vk);
+  quad_pipeline.destroy(vk);
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void drawBatches(GameRenderer& sys, gfx::Renderer& renderer)
+static void drawBatches(GameRenderer& sys, gfx::RenderPass& pass)
 {
   assert(sys.batch_count <= GameRenderer::MAX_BATCHES);
   assert(sys.quad_count <= GameRenderer::MAX_QUADS);
 
-  renderer.bindVertexBuffer(sys.quads_vertex_buffer);
-  renderer.bindIndexBuffer(sys.quads_index_buffer);
+  pass.bindVertexBuffer(sys.quads_vertex_buffer);
+  pass.bindIndexBuffer(sys.quads_index_buffer);
 
   u32 index_offset = 0;
   for (u32 i = 0; i < sys.batch_count; i++)
   {
     assert(notnil(sys.batches[i].texture));
-    renderer.bindTexture(sys.batches[i].texture);
-    renderer.draw(index_offset, 6*sys.batches[i].quad_count, 0);
+    pass.bindTexture(sys.batches[i].texture);
+    pass.draw(index_offset, 6*sys.batches[i].quad_count, 0);
     index_offset += 6*sys.batches[i].quad_count;
   }
   assert(index_offset == 6*sys.quad_count);
@@ -143,13 +140,13 @@ static void drawBatches(GameRenderer& sys, gfx::Renderer& renderer)
 
 /* ----------------------------------------------------------------------------
  */
-IRO_FORCE_INLINE
 void GameRenderer::drawQuad(
-  gfx::Renderer& renderer,
-  vec2f pos,
-  gfx::TextureHandle texture,
-  vec4f uv,
-  Color color)
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
+    vec2f pos,
+    gfx::TextureHandle texture,
+    vec4f uv,
+    Color color)
 {
   if (texture != batches[batch_count-1].texture)
   {
@@ -158,10 +155,10 @@ void GameRenderer::drawQuad(
       if (batch_count >= GameRenderer::MAX_BATCHES)
       {
         // TODO(delle) investigate if this stalls
-        quads_vertex_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-        quads_vertex_buffer.unmap(*renderer.vk);
-        drawBatches(*this, renderer);
-        quads_vertex_buffer.map(*renderer.vk);
+        quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+        quads_vertex_buffer.unmap(vk);
+        drawBatches(*this, pass);
+        quads_vertex_buffer.map(vk);
       }
       else
       {
@@ -207,10 +204,10 @@ void GameRenderer::drawQuad(
   if (quad_count >= GameRenderer::MAX_QUADS)
   {
     // TODO(delle) investigate if this stalls
-    quads_vertex_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-    quads_vertex_buffer.unmap(*renderer.vk);
-    drawBatches(*this, renderer);
-    quads_vertex_buffer.map(*renderer.vk);
+    quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+    quads_vertex_buffer.unmap(vk);
+    drawBatches(*this, pass);
+    quads_vertex_buffer.map(vk);
   }
 }
 
@@ -224,7 +221,7 @@ b8 GameRenderer::render(const RenderParams& params)
   // Alternatively, we could build a sprite sheet so we don't need
   // to change the texture (this is probably the better option).
 
-  gfx::Renderer& renderer = params.renderer;
+  gfx::Vulkan& vk = params.vk;
 
   assert(notnil(params.target));
 
@@ -244,20 +241,22 @@ b8 GameRenderer::render(const RenderParams& params)
     scene.resolution_and_time[1] = (f32)params.viewport.h;
     scene.resolution_and_time[2] = time;
 
-    scene_uniform_buffer.map(*renderer.vk);
-    scene_uniform_buffer.copyAndFlush(*renderer.vk, &scene, sizeof(scene));
-    scene_uniform_buffer.unmap(*renderer.vk);
+    scene_uniform_buffer.map(vk);
+    scene_uniform_buffer.copyAndFlush(vk, &scene, sizeof(scene));
+    scene_uniform_buffer.unmap(vk);
   }
 
-  if (!renderer.beginRenderPass(
+  gfx::RenderPass pass;
+  if (!gfx::vk::beginRenderPass(&vk,
+        &pass,
+        params.target,
         vec2i(params.viewport.pos()),
         vec2u(params.viewport.size()),
-        params.target,
         0x000000ff))
     return false;
 
-  renderer.setViewport(params.viewport.pos(), params.viewport.size());
-  renderer.setScissor(
+  pass.setViewport(params.viewport.pos(), params.viewport.size());
+  pass.setScissor(
     vec2i(params.viewport.pos()), vec2u(params.viewport.size()));
 
   ///////////////////////////////////////////////
@@ -281,9 +280,9 @@ b8 GameRenderer::render(const RenderParams& params)
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
 
-  renderer.bindPipeline(quad_pipeline);
-  renderer.bindUniformBuffer(scene_uniform_buffer);
-  quads_vertex_buffer.map(*renderer.vk);
+  pass.bindPipeline(quad_pipeline);
+  pass.bindUniformBuffer(scene_uniform_buffer);
+  quads_vertex_buffer.map(vk);
 
   if (params.map)
   {
@@ -307,7 +306,7 @@ b8 GameRenderer::render(const RenderParams& params)
           : null_texture.getHandle();
 
         vec2f pos = map.getTilePos(layer, tile);
-        drawQuad(renderer, pos, texture, {0.f,0.f,1.f,1.f}, tint);
+        drawQuad(vk, pass, pos, texture, {0.f,0.f,1.f,1.f}, tint);
       }
 
       layer_idx++;
@@ -372,19 +371,19 @@ b8 GameRenderer::render(const RenderParams& params)
         pos.x += layer.pos.x;
         pos.y += layer.pos.y;
 
-        drawQuad(renderer, pos, texture, uv, color);
+        drawQuad(vk, pass, pos, texture, uv, color);
       }
     }
   }
 
-  quads_vertex_buffer.flush(*renderer.vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-  quads_vertex_buffer.unmap(*renderer.vk);
+  quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  quads_vertex_buffer.unmap(vk);
   if (batch_count > 0)
   {
-    drawBatches(*this, renderer);
+    drawBatches(*this, pass);
   }
 
-  renderer.endRenderPass();
+  gfx::vk::endRenderPass(&vk);
 
   return true;
 }

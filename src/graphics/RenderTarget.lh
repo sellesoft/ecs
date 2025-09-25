@@ -21,26 +21,6 @@ struct RenderTarget
   Image image;
   ImageView view;
 
-  // A set and sampler that can be used to bind this render target to a 
-  // shader for drawing.
-  // TODO(sushi) do this some better way later.
-  DescriptorSet set;
-  Sampler sampler;
-
-  struct CreateParams
-  {
-    // The format to render to.
-    ImageFormat format;
-
-    // The size of the image rendered.
-    vec2u size;
-
-    String debug_name;
-  };
-
-  static RenderTarget create(Vulkan& vk, const CreateParams& params);
-  void destroy(Vulkan& vk);
-
   DefineNilTrait(RenderTarget, {nil}, isnil(x.image))
 };
 

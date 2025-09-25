@@ -18,7 +18,7 @@ b8 GameSim::init(InitParams& params)
   GameMgr::InitParams gamemgr_params = 
   {
     .sim = this,
-    .renderer = params.renderer,
+    .vk = params.vk,
     .assetmgr = params.assetmgr,
   };
   if (!gamemgr.init(gamemgr_params))
@@ -31,10 +31,10 @@ b8 GameSim::init(InitParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-void GameSim::deinit(gfx::Renderer& renderer)
+void GameSim::deinit(gfx::Vulkan& vk)
 {
   SharedGameSim::deinit();
-  gamemgr.deinit(renderer);
+  gamemgr.deinit(vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -58,7 +58,7 @@ b8 GameSim::render(const RenderParams& params)
 {
   GameMgr::RenderParams render_params = 
   {
-    .renderer = params.renderer,
+    .vk = params.vk,
     .target = params.target,
     .view = params.view,
   };

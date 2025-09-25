@@ -1,0 +1,269 @@
+$ require "common"
+
+@lpp.import "graphics/RenderPass.lh"
+
+@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/Pipeline.lh"
+@lpp.import "graphics/RenderTarget.lh"
+
+@lpp.import "Profiling.lh"
+
+#include "Color.h"
+
+@log.import
+
+$ local function log_err(...) return log.error("gfx", ...) end
+$ local function log_trace(...) return log.trace("gfx", ...) end
+
+namespace gfx
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::setScissor(vec2i pos, vec2u size)
+{
+  @log_trace("setting scissor to ", pos, ' ', size, "\n");
+
+  VkRect2D scissor = 
+  {
+    .offset = 
+    {
+      .x = pos.x,
+      .y = pos.y,
+    },
+    .extent = 
+    {
+      .width = size.x,
+      .height = size.y,
+    }
+  };
+
+  vkCmdSetScissor(vk->state.command_buffer, 0, 1, &scissor);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::setViewport(vec2f pos, vec2f size)
+{
+  @log_trace("setting viewport to ", pos, ' ', size, '\n');
+
+  VkViewport viewport = 
+  {
+    .x = pos.x,
+    .y = pos.y,
+    .width = size.x,
+    .height = size.y,
+    .minDepth = 0.f,
+    .maxDepth = 1.f,
+  };
+
+  vkCmdSetViewport(vk->state.command_buffer, 0, 1, &viewport);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::bindPipeline(Pipeline pipeline)
+{
+  if (isnil(pipeline))
+  {
+    @log_err("attempt to bind nil gfx::Pipeline\n");
+    return;
+  }
+
+  auto* dpipeline = (DevicePipeline*)pipeline.handle;
+
+  if (dpipeline == vk->state.bound_pipeline)
+    // Already bound.
+    return;
+
+  vk->state.bound_pipeline = dpipeline;
+
+  @log_trace("binding ", pipeline, '\n');
+
+  vkCmdBindPipeline(
+    vk->state.command_buffer, 
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    dpipeline->pipeline);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::bindDescriptorSet(u32 set_idx, DescriptorSet set)
+{
+  if (isnil(set))
+  {
+    @log_err("attempt to bind nil gfx::DescriptorSet\n");
+    return;
+  }
+
+  if (vk->state.bound_pipeline == nullptr)
+  {
+    @log_err("attempt to bind a gfx::DescriptorSet before binding a pipeline\n");
+    assert(false);
+    return;
+  }
+
+  @log_trace("binding ", set, " to index ", set_idx, '\n');
+
+  vkCmdBindDescriptorSets(
+    vk->state.command_buffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    vk->state.bound_pipeline->layout,
+    set_idx,
+    1,
+    &(VkDescriptorSet&)set.handle,
+    0,
+    nullptr);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::bindVertexBuffer(Buffer buffer)
+{
+  if (isnil(buffer))
+  {
+    @log_err("attempt to bind a nil gfx::Buffer as a vertex buffer\n");
+    return;
+  }
+
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(
+    vk->state.command_buffer,
+    0,
+    1,
+    &(VkBuffer&)((DeviceBuffer*)buffer.handle)->handle,
+    &offset);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::bindIndexBuffer(Buffer buffer)
+{
+  if (isnil(buffer))
+  {
+    @log_err("attempt to bind a nil gfx::Buffer as an index buffer\n");
+    return;
+  }
+
+  vkCmdBindIndexBuffer(
+    vk->state.command_buffer,
+    (VkBuffer)((DeviceBuffer*)buffer.handle)->handle,
+    0,
+    VK_INDEX_TYPE_UINT32);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::bindUniformBuffer(Buffer buffer)
+{
+  if (isnil(buffer))
+  {
+    @log_err("attempt to bind a nil gfx::Buffer as a uniform buffer\n");
+    return;
+  }
+
+  vkCmdBindDescriptorSets(
+    vk->state.command_buffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    vk->state.bound_pipeline->layout,
+    0,
+    1,
+    &((DeviceBuffer*)buffer.handle)->set,
+    0,
+    nullptr);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::pushConstant(
+    void* data, 
+    u32 size, 
+    u32 offset,
+    ShaderStage stage)
+{
+  if (data == nullptr)
+  {
+    @log_err("data pointer passed to pushConstant is null\n");
+    return;
+  }
+
+  if (size == 0)
+  {
+    @log_err("size passed to pushConstant is 0\n");
+    return;
+  }
+
+  if (vk->state.bound_pipeline == nullptr)
+  {
+    @log_err("attempt to push a constant before binding a pipeline\n");
+  }
+  
+  vkCmdPushConstants(
+    vk->state.command_buffer,
+    vk->state.bound_pipeline->layout,
+    shaderStageToVulkan(stage),
+    offset,
+    size,
+    data);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::draw(u32 index_start, u32 index_count, u32 vertex_start)
+{
+  vkCmdDrawIndexed(
+    vk->state.command_buffer,
+    index_count,
+    1,
+    index_start,
+    vertex_start,
+    0);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::debugBeginLabel(Color color, String label)
+{
+  if (vk->func_vkCmdBeginDebugUtilsLabelEXT != nullptr)
+  {
+    vec4f fcol = color.asVec4Norm();
+    
+    VkDebugUtilsLabelEXT info = 
+    {
+      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+      .pLabelName = (char*)label.ptr,
+      .color = { fcol.x, fcol.y, fcol.z, fcol.w },
+    };
+    vk->func_vkCmdBeginDebugUtilsLabelEXT(vk->state.command_buffer, &info);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::debugEndLabel() 
+{
+  if (vk->func_vkCmdEndDebugUtilsLabelEXT != nullptr)
+  {
+    vk->func_vkCmdEndDebugUtilsLabelEXT(vk->state.command_buffer);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void RenderPass::debugInsertLabel(Color color, String label)
+{
+  if (vk->func_vkCmdInsertDebugUtilsLabelEXT != nullptr)
+  {
+    vec4f fcol = color.asVec4Norm();
+    
+    VkDebugUtilsLabelEXT info = 
+    {
+      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+      .pLabelName = (char*)label.ptr,
+      .color = { fcol.x, fcol.y, fcol.z, fcol.w },
+    };
+    vk->func_vkCmdInsertDebugUtilsLabelEXT(vk->state.command_buffer, &info);
+  }
+}
+
+}

@@ -17,7 +17,6 @@ $ require "common"
 @lpp.import "game/client/editor/Editor.lh"
 @lpp.import "game/client/GameSim.lh"
 @lpp.import "game/client/NetMgr.lh"
-@lpp.import "graphics/Renderer.lh"
 @lpp.import "input/InputMgr.lh"
 @lpp.import "ui/TextEdit.lh"
 @lpp.import "ui/UI.lh"
@@ -32,21 +31,10 @@ struct AssetLoader;
  */
 struct Client
 {
-  Engine* engine;
-
-  cl::Console console;
-  InputMgr input;
   cl::NetMgr netmgr;
-  Window window;
-  gfx::Renderer renderer;
-  ui::UI ui;
   cl::GameSim sim;
 
-  gfx::TextureHandle white_texture;
-
-  b8 editor_active = false;
-
-  b8 init(Engine* engine);
+  b8 init();
   void deinit();
 
   struct UpdateResult

@@ -9,7 +9,7 @@ $ require "common"
 
 @lpp.import "asset/AssetMgr.lh"
 @lpp.import "reflect/CompiledData.lh"
-@lpp.import "graphics/Renderer.lh"
+@lpp.import "graphics/RenderPass.lh"
 @lpp.import "graphics/CompiledShader.lh"
 @lpp.import "graphics/Shader.defs.lh"
 @lpp.import "build/Result.lh"

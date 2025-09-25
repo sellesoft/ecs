@@ -5,11 +5,7 @@ $ require "common"
 $ local metadata = require "reflect.Metadata"
 
 @lpp.import "graphics/CompiledTexture.lh"
-@lpp.import "graphics/TextureHandle.lh"
-@lpp.import "graphics/Image.lh"
-@lpp.import "graphics/ImageView.lh"
-@lpp.import "graphics/Sampler.lh"
-@lpp.import "graphics/DescriptorSet.lh"
+@lpp.import "graphics/Texture.lh"
 @lpp.import "graphics/ResourceLink.lh"
 
 namespace gfx
@@ -22,11 +18,7 @@ struct TextureResource
   // A link the compiled data asset of this Texture.
   CompiledTextureLink compiled_texture;
 
-  // The graphics objects loaded for this Texture.
-  Image         image;
-  ImageView     view;
-  Sampler       sampler;
-  DescriptorSet descriptor_set;
+  Texture texture;
 };
 
 @metadata.links(texture.data;texture.compiled)
@@ -34,7 +26,7 @@ struct TextureLink : TypedResourceLink<TextureResource>
 {
   gfx::TextureHandle getHandle() const
   {
-    return { get().descriptor_set };
+    return get().texture.getHandle();
   }
 };
 

@@ -36,7 +36,6 @@ $$$
 @lpp.import "asset/AssetMgr.lh"
 @lpp.import "sdata/SourceDataFile.lh"
 
-@lpp.import "graphics/Renderer.lh"
 
 @lpp.import "game/shared/entity/EntityMgr.lh"
 @lpp.import "game/shared/entity/Entity.defs.lh"

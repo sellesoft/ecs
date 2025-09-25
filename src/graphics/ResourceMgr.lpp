@@ -90,22 +90,22 @@ PipelineResource* ResourceMgr::getOrCreatePipelineResource(String name)
 
 /* ----------------------------------------------------------------------------
  */
-b8 ResourceMgr::loadTextureResource(TextureResource* texture)
+b8 ResourceMgr::loadTextureResource(TextureResource* resource)
 {
-  auto* r = Resource<TextureResource>::fromResource(texture);
+  auto* r = Resource<TextureResource>::fromResource(resource);
 
   if (r->is_loaded)
   {
     r->contained_assets.clear();
-    unloadTextureResource(texture);
+    unloadTextureResource(resource);
   }
 
   r->contained_assets.push(
-    {texture->compiled_texture.name, "texture.compiled"_str});
+    {resource->compiled_texture.name, "texture.compiled"_str});
 
-  const CompiledTexture& compiled = texture->compiled_texture.get();
+  const CompiledTexture& compiled = resource->compiled_texture.get();
   
-  texture->image = Image::create(*vk,
+  resource->texture.image = Image::create(*vk,
   {
     .usage = ImageUsage::Sampled,
     .format = compiled.format,
@@ -114,17 +114,17 @@ b8 ResourceMgr::loadTextureResource(TextureResource* texture)
     .debug_name = r->name,
   });
 
-  if (isnil(texture->image))
+  if (isnil(resource->texture.image))
     return false;
 
-  texture->view = ImageView::create(*vk,
+  resource->texture.view = ImageView::create(*vk,
   {
-    .image = texture->image,
+    .image = resource->texture.image,
     .format = compiled.format,
     .debug_name = r->name,
   });
 
-  if (isnil(texture->view))
+  if (isnil(resource->texture.view))
     return false;
 
   // TODO(sushi) need a way to make these parameterized again. I removed 
@@ -132,31 +132,31 @@ b8 ResourceMgr::loadTextureResource(TextureResource* texture)
   //             sense to compile that in, but realizing now we don't have 
   //             the TextureDef here. Not sure how to get at that nicely 
   //             with all this stuff being so automated....
-  texture->sampler = Sampler::create(*vk,
+  resource->texture.sampler = Sampler::create(*vk,
   {
     .filter = ImageFilter::Nearest,
     .address_mode = ImageAddressMode::ClampToBlack,
     .debug_name = r->name,
   });
 
-  if (isnil(texture->sampler))
+  if (isnil(resource->texture.sampler))
     return false;
 
-  texture->descriptor_set = DescriptorSet::create(
+  resource->texture.descriptor_set = DescriptorSet::create(
     *vk,
     DescriptorSetLayout{vk->default_sampler_set_layout},
     r->name);
 
-  if (isnil(texture->descriptor_set))
+  if (isnil(resource->texture.descriptor_set))
     return false;
 
   ImageDescriptor descriptor = 
   {
-    .view = texture->view,
-    .sampler = texture->sampler,
+    .view = resource->texture.view,
+    .sampler = resource->texture.sampler,
   };
 
-  texture->descriptor_set.update(
+  resource->texture.descriptor_set.update(
     *vk,
     0,
     0,
@@ -168,12 +168,12 @@ b8 ResourceMgr::loadTextureResource(TextureResource* texture)
 
 /* ----------------------------------------------------------------------------
  */
-void ResourceMgr::unloadTextureResource(TextureResource* texture)
+void ResourceMgr::unloadTextureResource(TextureResource* resource)
 {
-  texture->image.destroy(*vk);
-  texture->view.destroy(*vk);
-  texture->sampler.destroy(*vk);
-  texture->descriptor_set.destroy(*vk);
+  resource->texture.image.destroy(*vk);
+  resource->texture.view.destroy(*vk);
+  resource->texture.sampler.destroy(*vk);
+  resource->texture.descriptor_set.destroy(*vk);
 }
 
 /* ----------------------------------------------------------------------------

@@ -1,0 +1,323 @@
+$ require "common"
+
+@lpp.import "graphics/vk.lh"
+@lpp.import "graphics/Vulkan.lh"
+@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "graphics/RenderPass.lh"
+@lpp.import "graphics/Texture.lh"
+
+@log.import
+
+$ local function log_err(...) return log.error("vk", ...) end
+$ local function log_dbg(...) return log.debug("vk", ...) end
+$ local function log_trace(...) return log.trace("vk", ...) end
+
+namespace gfx::vk
+{
+
+/* ----------------------------------------------------------------------------
+ */
+Vulkan* create(const CreateParams& params)
+{
+  auto* vk = params.allocator->allocateType<Vulkan>();
+  mem::zero(vk, sizeof(Vulkan));
+
+  mem::LenientBump init_allocator;
+  init_allocator.init();
+  defer { init_allocator.deinit(); };
+
+  Vulkan::InitParams vk_params = 
+  {
+    .allocator = params.allocator,
+    .temp_allocator = init_allocator,
+    .window = params.window,
+  };
+
+  if (!vk->init(vk_params))
+  {
+    params.allocator->free(vk);
+    return nullptr;
+  }
+
+  return vk;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void destroy(Vulkan* vk, mem::Allocator* allocator)
+{
+  vk->deinit(allocator);
+  allocator->free(vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void onWindowResized(Vulkan* vk)
+{
+  vk->recreateSwapchain();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 beginFrame(Vulkan* vk)
+{
+  if (vk->state.command_buffer != VK_NULL_HANDLE)
+    return @log_err("attempt to begin a frame while one is already active\n");
+
+  VirtualFrame* vframe = vk->getCurrentVirtualFrame();
+
+  // Ensure that the previous call to submitQueue() has finished.
+  {
+    vkWaitForFences(
+      vk->device, 
+      1, 
+      &vframe->command_buffer_fence,
+      VK_TRUE,
+      MAX_U64);
+  }
+
+  // If this returns false, its due to the swapchain being out of date.
+  // We simply want to avoid rendering when this happens and it is not an
+  // error.
+  if (!vk->acquireNextImageIndex())
+    return false;
+
+  // Its on us to reset the fence signal.
+  vkResetFences(vk->device, 1, &vframe->command_buffer_fence);
+
+  vk->state.command_buffer = vframe->command_buffer;
+
+  // Ensure the command buffer is in the initial state.
+  vkResetCommandBuffer(vk->state.command_buffer, 0);
+
+  if (!vk->beginCommandBuffer(vk->state.command_buffer))
+    return @log_err("failed to begin command buffer\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void endFrame(Vulkan* vk)
+{
+  if (vk->state.command_buffer == VK_NULL_HANDLE)
+  {
+    @log_err("attempt to end the frame before it was begun\n");
+    return;
+  }
+
+  // Prepare the current swapchain image for presentation.
+  // This is currently assuming that the swapchain image had a render pass
+  // performed on it via beginRenderPassOverSwapchainImage(), but it probably
+  // shouldn't. Idk how we should detect that.
+  vk->cmdImageMemoryBarrier(
+    vk->state.command_buffer,
+    vk->swapchain_buffers[vk->next_swapchain_image].image,
+    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    VK_ACCESS_NONE,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
+  vk->endCommandBuffer(vk->state.command_buffer);
+
+  vk->state.command_buffer = VK_NULL_HANDLE;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 submitQueue(Vulkan* vk)
+{
+  @log_trace("submitting queue\n");
+
+  VirtualFrame* vframe = vk->getCurrentVirtualFrame();
+
+  VkPipelineStageFlags wait_stages = 
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+  VkSubmitInfo submit_info = 
+  {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = &vframe->acquire_semaphore,
+    .pWaitDstStageMask = &wait_stages,
+    .commandBufferCount = 1,
+    .pCommandBuffers = &vframe->command_buffer,
+    .signalSemaphoreCount = 1,
+    .pSignalSemaphores = 
+      &vk->swapchain_buffers[vk->next_swapchain_image].submit_semaphore,
+  };
+
+  if (VK_SUCCESS != vkQueueSubmit(
+        vk->graphics_queue, 
+        1, 
+        &submit_info,
+        vframe->command_buffer_fence))
+    return @log_err("failed to submit command buffer\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 present(Vulkan* vk)
+{
+  @log_trace("presenting frame\n");
+
+  if (!vk->queuePresent(
+        vk->swapchain_buffers[vk->next_swapchain_image].submit_semaphore,
+        vk->next_swapchain_image))
+    return @log_err("failed to present frame\n");
+
+  vk->advanceVirtualFrame();
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void waitForDeviceIdle(Vulkan* vk)
+{
+  vkDeviceWaitIdle(vk->device);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 getSwapchainRenderTarget(Vulkan* vk, RenderTarget* out)
+{
+  assert(out != nullptr);
+  
+  if (vk->state.command_buffer == VK_NULL_HANDLE)
+  {
+    @log_err("attempt to get swapchain render target outside of a frame\n");
+    return false;
+  }
+
+  out->image = {vk->swapchain_buffers[vk->next_swapchain_image].image};
+  out->view = {vk->swapchain_buffers[vk->next_swapchain_image].view};
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 getTextureRenderTarget(Vulkan* vk, Texture& texture, RenderTarget* out)
+{
+  assert(out != nullptr);
+  
+  out->image = texture.image;
+  out->view = texture.view;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void prepareImageForSampling(Vulkan* vk, Image image)
+{
+  if (isnil(image))
+  {
+    @log_err("passed a nil gfx::Image to prepare for sampling\n");
+    return;
+  }
+ 
+  vk->cmdImageMemoryBarrier(
+    vk->state.command_buffer,
+    ((DeviceImage*)image.handle)->handle,
+    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    VK_ACCESS_SHADER_READ_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static VkClearValue colorToVkClearValue(Color color)
+{
+  VkClearValue clear_value = {};
+  clear_value.color.uint32[0] = color.r;
+  clear_value.color.uint32[1] = color.g;
+  clear_value.color.uint32[2] = color.b;
+  clear_value.color.uint32[3] = color.a;
+  return clear_value;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 beginRenderPass(
+    Vulkan* vk, 
+    RenderPass* pass,
+    RenderTarget& target, 
+    vec2i render_area_pos,
+    vec2u render_area_size,
+    Color clear_color)
+{
+  assert(notnil(target));
+  assert(pass != nullptr);
+
+  if (vk->state.command_buffer == VK_NULL_HANDLE)
+    return @log_err(
+      "attempt to begin a render pass before beginning a command buffer\n");
+
+  if (isnil(target.image))
+    return @log_err("attempt to begin a render pass with a nil target\n");
+
+  if (isnil(target.view))
+    return @log_err("attempt to begin a render pass with a nil target\n view");
+
+  // TODO(sushi) this kind of blows and is another reason why I want to 
+  //             rework how we handle this as mentioned in the todo above 
+  //             getSwapchainRenderTarget().
+  // TODO(sushi) unfortunately I don't remember what my idea was for solving 
+  //             this as its been so long.
+  VkImage image = 
+    vk->isSwapchainImage(target.image.handle)
+    ? (VkImage)target.image.handle
+    : ((DeviceImage*)target.image.handle)->handle;
+
+  VkRect2D render_rect = 
+  {
+    .offset = 
+    {
+      .x = render_area_pos.x,
+      .y = render_area_pos.y,
+    },
+    .extent = 
+    {
+      .width = render_area_size.x,
+      .height = render_area_size.y,
+    },
+  };
+
+  vk->cmdBeginRendering(
+    vk->state.command_buffer,
+    render_rect,
+    image,
+    (VkImageView)target.view.handle,
+    colorToVkClearValue(clear_color));
+
+  pass->vk = vk;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void endRenderPass(Vulkan* vk)
+{
+  if (vk->state.command_buffer == VK_NULL_HANDLE)
+  {
+    @log_err("attempt to end a render pass outside a render pass instance\n");
+    return;
+  }
+
+  vk->cmdEndRendering(vk->state.command_buffer);
+
+  vk->state.bound_pipeline = nullptr;
+}
+
+}
+

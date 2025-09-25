@@ -1,0 +1,66 @@
+/*
+ *  For drawing things to the screen.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/containers/Array.h"
+#include "iro/containers/StackArray.h"
+#include "iro/Unicode.h"
+#include "math/mat.h"
+#include "math/vec.h"
+#include "math/Rect.h"
+
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/ResourceMgr.lh"
+@lpp.import "graphics/TextureHandle.lh"
+
+using namespace iro;
+
+struct Client;
+struct WindowResized;
+struct Window;
+struct PostReload;
+struct Color;
+
+namespace gfx
+{
+
+struct RenderTarget;
+struct Pipeline;
+struct Vulkan;
+
+/* ============================================================================
+ */
+struct RenderPass
+{
+  Vulkan* vk;
+
+  void setScissor(vec2i pos, vec2u size);
+  void setViewport(vec2f pos, vec2f size);
+  void bindPipeline(Pipeline pipeline);
+  void bindDescriptorSet(u32 set_idx, DescriptorSet set);
+  void bindVertexBuffer(Buffer buffer);
+  void bindIndexBuffer(Buffer buffer);
+  void bindUniformBuffer(Buffer buffer);
+
+  void bindTexture(TextureHandle texture)
+  {
+    bindDescriptorSet(1, texture.set);
+  }
+
+  void pushConstant(
+    void* data, 
+    u32 size, 
+    u32 offset,
+    ShaderStage stage);
+
+  void draw(u32 index_start, u32 index_count, u32 vertex_start);
+
+  void debugBeginLabel(Color color, utf8::String label);
+  void debugEndLabel();
+  void debugInsertLabel(Color color, utf8::String label);
+};
+
+}

@@ -28,7 +28,7 @@ struct GameSim : SharedGameSim
   {
     Rect viewport;
 
-    gfx::Renderer& renderer;
+    gfx::Vulkan& vk;
     AssetMgr& assetmgr;
   };
 
@@ -36,7 +36,7 @@ struct GameSim : SharedGameSim
   Rect viewport;
 
   b8 init(InitParams& params);
-  void deinit(gfx::Renderer& renderer);
+  void deinit(gfx::Vulkan& vk);
 
   struct UpdateParams : SharedGameSim::UpdateParams
   {
@@ -47,7 +47,7 @@ struct GameSim : SharedGameSim
 
   struct RenderParams
   {
-    gfx::Renderer& renderer;
+    gfx::Vulkan& vk;
     gfx::RenderTarget& target;
 
     // An optional view to render the game from which will overload the 

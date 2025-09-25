@@ -184,17 +184,18 @@ b8 Editor::init(const InitParams& params)
 
   if (!window.init(params.engine, "ecs editor"_str, input))
     return @logerr("failed to initialize Window\n");
-    
-  gfx::Renderer::InitParams renderer_params = 
+
+  gfx::vk::CreateParams vk_create_params = 
   {
+    .allocator = &mem::stl_allocator,
     .window = window,
-    .allocator = mem::stl_allocator,
   };
 
-  if (!renderer.init(renderer_params))
-    return @logerr("failed to initialize Renderer\n");
+  vk = gfx::vk::create(vk_create_params);
+  if (vk == nullptr)
+    return @logerr("failed to create Vulkan instance\n");
 
-  if (!resource_mgr.init(renderer.vk))
+  if (!resource_mgr.init(vk))
     return @logerr("failed to initialize ResourceMgr\n");
 
   build::Rule build_rules[] = 
@@ -252,7 +253,7 @@ b8 Editor::init(const InitParams& params)
 
   ui::UI::InitParams ui_params = 
   {
-    .renderer = renderer,
+    .vk = *vk,
     .resource_mgr = resource_mgr,
     .asset_mgr = asset_mgr,
     .viewport = Rect::from(0,0,window.size.x,window.size.y),
@@ -296,9 +297,10 @@ b8 Editor::init(const InitParams& params)
 void Editor::deinit()
 {
   // Wait until the device isn't doing anything to avoid errors.
-  renderer.waitForDeviceIdle();
+  gfx::vk::waitForDeviceIdle(vk);
 
-  renderer.deinit(&mem::stl_allocator);
+  gfx::vk::destroy(vk, &mem::stl_allocator);
+
   window.deinit();
   input.deinit();
 
@@ -310,6 +312,47 @@ void Editor::deinit()
 
   mem::stl_allocator.free(build_thread);
   mem::stl_allocator.free(watcher_thread);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Editor::render(this Editor& self)
+{
+  using namespace gfx;
+
+  // This failing does not necessarily indicate an error, it could be due to
+  // the swapchain being out of date. If it is an error, Vulkan will print
+  // something.
+  if (!vk::beginFrame(self.vk))
+    return false;
+
+  RenderTarget swapchain_target;
+  if (!vk::getSwapchainRenderTarget(self.vk, &swapchain_target))
+    return @logerr("failed to get swapchain render target\n");
+
+  RenderPass pass;
+  if (!gfx::vk::beginRenderPass(
+        self.vk,
+        &pass,
+        swapchain_target,
+        {0, 0},
+        vec2u(self.window.size),
+        0x000000ff))
+    return false;
+
+  self.ui.render(pass, Rect::from({0,0}, vec2f(self.window.size)));
+
+  vk::endRenderPass(self.vk);
+
+  vk::endFrame(self.vk);
+
+  if (!vk::submitQueue(self.vk))
+    return @logerr("failed to submit queue\n");
+
+  if (!vk::present(self.vk))
+    return @logerr("failed to present frame\n");
+
+  return true;
 }
 
 /* ----------------------------------------------------------------------------
@@ -339,7 +382,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   }
 
   if (window_result.size_changed)
-    renderer.onWindowResized(vec2u(window.size));
+    gfx::vk::onWindowResized(vk);
 
   InputState ui_input;
   input.cloneInputState(&ui_input);
@@ -355,42 +398,22 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     const EditorSkinDef& skin = *l_skin;
     menu_bar.placeUI(ui, skin);
 
-    ui.beginGroup(
-      {
-        0.f, skin.menu_bar.height, 
-        ui.getWidth(), ui.getHeight()-skin.menu_bar.height
-      });
-    {
-      file_explorer.placeUI(ui, skin);
-    }
-    ui.endGroup();
+    // NOTE(sushi) disabled for now as I'm going to focus on getting the 
+    //             game running again.
+    // ui.beginGroup(
+    //   {
+    //     0.f, skin.menu_bar.height, 
+    //     ui.getWidth(), ui.getHeight()-skin.menu_bar.height
+    //   });
+    // {
+    //   file_explorer.placeUI(ui, skin);
+    // }
+    // ui.endGroup();
   }
   ui.endFrame();
 
-  if (!window_result.size_changed && renderer.beginFrame())
-  {
-    gfx::RenderTarget swapchain_target;
-    if (!renderer.getSwapchainRenderTarget(&swapchain_target))
-      @logerr("failed to get swapchain render target\n");
-
-    if (renderer.beginRenderPass(
-          {0,0}, 
-          vec2u(window.size), 
-          swapchain_target,
-          0x000000ff))
-    {
-      ui.render(renderer, Rect::from({0,0}, vec2f(window.size)));
-      renderer.endRenderPass();
-    }
-
-    renderer.endFrame();
-
-    if (!renderer.submitQueue())
-      @logerr("failed to submit queue\n");
-
-    if (!renderer.present())
-      @logerr("failed to present frame\n");
-  }
+  if (!window_result.size_changed)
+    render();
 
   if (input.real_state.wasKeyPressed(Key::B))
   {
@@ -405,7 +428,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   {
     if (build_thread->consumeResult())
     {
-      renderer.waitForDeviceIdle();
+      gfx::vk::waitForDeviceIdle(vk);
 
       for (build::Target& built : build_thread->built_targets)
       {

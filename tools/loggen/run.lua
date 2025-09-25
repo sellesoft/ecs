@@ -33,7 +33,6 @@ return function(params)
   local logdefs = List {}
 
   for logdef in lake.utils.glob "src/**/*.logdef.lua" :each() do
-    print(logdef)
     logdefs:push(o.Lua(logdef))
   end
 
@@ -47,7 +46,6 @@ return function(params)
       :compile(build_dir.."/category_defs.lpp.cpp.o", params.cpp_params)
 
   for logdef in logdefs:each() do
-    print(logdef)
     cat_decls.task:dependsOn(logdef.task)
     cat_defs_o.task:dependsOn(logdef.task)
   end

@@ -3,7 +3,6 @@ $ local helpers = require "graphics.Helpers"
 
 @lpp.import "graphics/Image.lh"
 @lpp.import "graphics/Vulkan.lh"
-@lpp.import "graphics/Renderer.lh"
 
 @log.import
 

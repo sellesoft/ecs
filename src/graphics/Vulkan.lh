@@ -25,6 +25,7 @@ $ require "common"
 
 #include "math/vec.h"
 
+@lpp.import "graphics/vk.lh"
 @lpp.import "graphics/TextureParams.lh"
 @lpp.import "graphics/ShaderParams.lh"
 
@@ -601,9 +602,9 @@ struct Vulkan
     VkMemoryRequirements memory_requirements,
     VkMemoryPropertyFlags memory_property_flags);
 
-  // Note that this should (at the time of writing) only return false 
-  // if the swapchain is found to be out of date.
-  b8 acquireNextImageIndex(u32* out);
+  // At the moment, this only returns false if the swapchain is found to 
+  // be out of date.
+  b8 acquireNextImageIndex();
 
   b8 queuePresent(
     VkSemaphore wait_semaphore,
@@ -686,6 +687,8 @@ struct Vulkan
 
   RenderState state;
 
+  u32 next_swapchain_image;
+
   // NOTE(sushi) caching this because we need it to properly recreate the 
   //             swapchain when its resized (need its size, duh) but due
   //             to how the api is set up now, we would have to pass the 
@@ -693,6 +696,11 @@ struct Vulkan
   //             should be associating swapchains with Windows, but we don't
   //             support displaying multiple at the moment so don't have a
   //             reason to yet.
+  // NOTE(sushi) actually, once we do get to supporting multiple windows, we
+  //             DONT want to associate some gfx::SwapChain object with the 
+  //             Window type. We should have an internal representation of a 
+  //             Window here to avoid coupling Window with the graphics
+  //             subsystem.
   Window* window;
 
   // The default descriptor set layouts used for sampled textures and buffers.

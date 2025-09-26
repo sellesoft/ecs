@@ -31,7 +31,13 @@ namespace logging
 #define __ECS_LOG_MACRO(cat, verb, ...) \
   (::logging::Verbosity::verb >= ::logging::cat_##cat.verbosity && \
   (::logging::through_cat_##cat(::logging::Verbosity::verb, __VA_ARGS__), \
-   true))
+  true))
+
+#define __ECS_LOG_MACRO_TRUE(cat, verb, ...) \
+  (__ECS_LOG_MACRO(cat, verb, __VA_ARGS__), true)
+
+#define __ECS_LOG_MACRO_FALSE(cat, verb, ...) \
+  ((__ECS_LOG_MACRO(cat, verb, __VA_ARGS__)), false)
 
 $ for cat in categories:each() do
 

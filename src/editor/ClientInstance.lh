@@ -9,6 +9,13 @@ $ require "common"
 
 @lpp.import "editor/Doc.lh"
 @lpp.import "game/client/Client.lh"
+@lpp.import "graphics/Texture.lh"
+
+namespace gfx
+{
+struct Vulkan;
+struct RenderPass;
+}
 
 namespace editor
 {
@@ -17,7 +24,17 @@ namespace editor
  */
 struct ClientInstance : Doc
 {
+  using S = ClientInstance;
+
   Client client;
+
+  gfx::Texture client_render;
+
+  b8 init(this ClientInstance& self);
+  void deinit();
+
+  void update() override;
+  void render(gfx::Vulkan& vk) override;
 };
 
 }

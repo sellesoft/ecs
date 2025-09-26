@@ -9,7 +9,6 @@ $ local cmn = require "common"
 @lpp.import "sdata/SourceDataFile.lh"
 @lpp.import "sdata/SourceDataParser.lh"
 
-@lpp.import "game/client/GameSim.lh"
 @lpp.import "game/client/graphics/Sprite.comp.lh"
 
 @lpp.import "game/shared/Eye.sys.lh"
@@ -31,17 +30,18 @@ namespace cl
 
 /* ----------------------------------------------------------------------------
  */
-b8 GameMgr::init(InitParams& params)
+b8 GameMgr::init(const InitParams& params)
 {
-  sim = params.sim;
+  if (!entmgr.init())
+    return @log.error(game, "failed to initialize entmgr\n");
 
-  if (!entsysmgr.init({sim->entmgr}))
+  if (!entsysmgr.init({entmgr}))
     return @log.error(game, "failed to initialize entsysmgr\n");
 
   GameRenderer::InitParams render_params = 
   {
     .vk = params.vk,
-    .assetmgr = params.assetmgr,
+    .linker = params.linker,
   };
   if (!game_renderer.init(render_params))
     return @log.error(game, "failed to initialize rendersys\n");
@@ -53,6 +53,7 @@ b8 GameMgr::init(InitParams& params)
  */
 void GameMgr::deinit(gfx::Vulkan& vk)
 {
+  entmgr.deinit();
   entsysmgr.deinit();
   game_renderer.deinit(vk);
 }
@@ -76,10 +77,10 @@ b8 GameMgr::render(const RenderParams& params)
   GameRenderer::RenderParams render_params =
   {
     .map = &entsysmgr.get<MapSys>(),
-    .entmgr = &sim->entmgr,
+    .entmgr = &entmgr,
 
     .target = params.target,
-    .viewport = sim->viewport,
+    .viewport = viewport,
     .vk = params.vk,
     .view = 
       params.view == nullptr
@@ -97,6 +98,7 @@ b8 GameMgr::render(const RenderParams& params)
  */
 void GameMgr::setViewport(Rect viewport)
 {
+  this->viewport = viewport;
   entsysmgr.get<EyeSys>().viewport_size = viewport.size();
 }
 

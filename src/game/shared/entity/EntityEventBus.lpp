@@ -21,7 +21,7 @@ local function importpattern(pattern)
   end)
 end
 
-importpattern "src/game/**/*.comps.lh"
+importpattern "src/game/**/*.comp.lh"
 importpattern "src/game/**/*.events.lh"
 
 local astctx = require "reflect.AstContext".fromString(tostring(imported))

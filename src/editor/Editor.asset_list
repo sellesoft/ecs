@@ -2,8 +2,10 @@
 
 return build::AssetList
 {
-  // We need the Editor's skin.
   "assets/skins/Editor.skin.data",
   "assets/textures/white.texture.compiled",
+  "assets/textures/null.texture.compiled",
+  "assets/shaders/Quad.pipeline.data",
+  "assets/maps/Test.map.data",
   "assets/floors/tiles/LightGray.texture.compiled",
 }

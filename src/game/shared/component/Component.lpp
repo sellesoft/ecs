@@ -35,12 +35,4 @@ u64 getComponentKind<$(decl.qname)>()
 {
   return "$(decl.qname)"_hashed;
 }
-
-/* ----------------------------------------------------------------------------
- */
-template<>
-void Component::onCreate<$(decl.qname)>(Component* comp)
-{
-  comp->kind = getComponentKind<$(decl.qname)>();
-}
 $ end)

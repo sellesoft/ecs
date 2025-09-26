@@ -15,4 +15,28 @@ b8 linkData(
     gfx::ResourceMgr& resource_mgr, 
     AssetMgr& asset_mgr);
 
+// Helper type for passing what's needed to link data down into stuff like 
+// initialization functions.
+struct Linker
+{
+  gfx::ResourceMgr& resource_mgr;
+  AssetMgr& asset_mgr;
+
+  template<typename T>
+  b8 link(rtr::TypeId type, String name, T* data)
+  {
+    data->name = name;
+    return link(type, data);
+  }
+
+  b8 link(rtr::TypeId type, void* data)
+  {
+    return linkData(
+      type,
+      data,
+      resource_mgr,
+      asset_mgr);
+  }
+};
+
 }

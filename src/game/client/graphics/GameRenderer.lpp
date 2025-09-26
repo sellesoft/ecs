@@ -28,12 +28,11 @@ namespace cl
 b8 GameRenderer::init(InitParams& params)
 {
   gfx::Vulkan& vk = params.vk;
-  AssetMgr& assetmgr = params.assetmgr;
 
-  assert(false);
-
-  // if (!loader.load(&null_texture, "assets/textures/null"_str))
-  //   return ERROR("failed to load null texture");
+  params.linker.link(
+    "gfx::TextureLink"_typeid, 
+    "assets/textures/null"_str,
+    &null_texture);
 
   //init scene uniform buffer
   scene_uniform_buffer = gfx::Buffer::create(vk,
@@ -90,14 +89,10 @@ b8 GameRenderer::init(InitParams& params)
   batch_count = 1;
   quad_count = 0;
 
-  assert(false);
-  // Initialize the quad pipeline.
-  // if (!loader.load(&quad_pipeline_defref, "assets/shaders/Quad"_str))
-  //   return ERROR("failed to load quad pipeline def\n");
-
-  // quad_pipeline = gfx::Pipeline::create(*renderer.vk, *quad_pipeline_defref);
-  // if (isnil(quad_pipeline))
-  //   return ERROR("failed to initialize quad pipeline\n");
+  params.linker.link(
+    "gfx::PipelineLink"_typeid, 
+    "assets/shaders/Quad"_str, 
+    &quad_pipeline_link);
 
   return true;
 }
@@ -109,7 +104,6 @@ void GameRenderer::deinit(gfx::Vulkan& vk)
   scene_uniform_buffer.destroy(vk);
   quads_vertex_buffer.destroy(vk);
   quads_index_buffer.destroy(vk);
-  quad_pipeline.destroy(vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -280,7 +274,7 @@ b8 GameRenderer::render(const RenderParams& params)
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
 
-  pass.bindPipeline(quad_pipeline);
+  pass.bindPipeline(quad_pipeline_link.getHandle());
   pass.bindUniformBuffer(scene_uniform_buffer);
   quads_vertex_buffer.map(vk);
 

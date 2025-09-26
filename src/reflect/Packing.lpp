@@ -823,6 +823,26 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putTypedPtrPacker(decl)
+$   local subtype = decl.args[1]:desugar()
+$
+$   if subtype:is(ast.Builtin) then
+$     -- TODO(sushi) really need to display the thing this was used in.
+$     --             should set up some way to show the call stack on 
+$     error("TypePtr types must be structural, got "..tostring(subtype))
+$   end
+$
+  
+  $(packerFuncDecl(decl))
+  {
+    return error("fuck");
+  }
+
+$   putDummyDefaultsHandler(decl)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putRefPacker(decl)
 $   if not decl:findField "name" then
 $     error("record "..decl.name.." is marked with metadata 'ref', but it "..
@@ -864,6 +884,8 @@ $   elseif name == "reflect::StringMap" then
 $     putStringMapPacker(decl)
 $   elseif name == "reflect::TypedStringMap" then
 $     putTypedStringMapPacker(decl)
+$   elseif name == "reflect::TypedPtr" then
+$    putTypedPtrPacker(decl)
 $   else
 $     -- clog:warn("unhandled template spec ", name, '\n')
 $   end

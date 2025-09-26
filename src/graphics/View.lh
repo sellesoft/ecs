@@ -1,6 +1,8 @@
 /*
  *  Helper type for storing a 'view' over the 2D world and translating 
  *  points between it and the screen.
+ *
+ *  TODO(sushi) this isn't a graphics thing, should probably be on Eye.
  */ 
 
 #include "math/vec.h"

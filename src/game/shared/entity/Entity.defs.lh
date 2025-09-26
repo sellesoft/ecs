@@ -15,7 +15,7 @@ $ local metadata = require "reflect.Metadata"
 struct EntityDef
 {
   String name;
-  // reflect::Array<reflect::TypedStringMap<Component>> components;
+  // reflect::Array<reflect::TypedPtr<Component>> components;
 };
 
 @metadata.def_type(EntityDef)

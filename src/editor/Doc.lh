@@ -5,7 +5,11 @@ $ require "common"
 #include "iro/Common.h"
 
 namespace ui { struct UI; }
-namespace gfx { struct Renderer; }
+namespace gfx 
+{ 
+struct Vulkan;
+struct RenderPass; 
+}
 
 struct EditorSkinDef;
 
@@ -22,6 +26,9 @@ struct Doc
   // document.
   Editor* editor;
 
+  Doc() {}
+  virtual ~Doc() {}
+
   // Interface called by the Editor to display this document. 
 
   // Called just after this doc has been allocated.
@@ -37,7 +44,7 @@ struct Doc
   virtual void update()  { }
 
   // Called for when this doc needs to perform some kind of rendering.
-  virtual void render(gfx::Renderer& r)  { }
+  virtual void render(gfx::Vulkan& vk)  { }
 };
 
 }

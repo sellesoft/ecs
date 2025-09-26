@@ -7,6 +7,10 @@ local glob = require "iro.fs.glob"
 local fs = require "iro.fs"
 local lpp = require "lpp"
 
+-- TODO(sushi) this should only exist for tests. Not a great way to go about 
+--             this but dont want to spend time on this for now.
+dofile "tests/test.logdef.lua"
+
 glob "src/**/*.logdef.lua" :each(function(path)
   -- Add the file as a dependency manually, since we don't run the lua file 
   -- using 'require', which is the only way lpp automatically adds dependencies

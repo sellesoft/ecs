@@ -5,6 +5,40 @@ $ local glob = require "iro.fs.glob"
 
 #define private public
 
+@log.import
+
+$ if not ECS_GEN_PRETTY_PRINT then
+
+@lpp.import "reflect/rtr.lh"
+
+namespace rtr
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void prettyPrint(
+    io::WStream* out, 
+    rtr::TypeId type, 
+    const void* val,
+    const PrettyPrintOpts& opts)
+{
+  @log.warn(reflect, "rtr::prettyPrint was not enabled for this build!\n");
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void prettyPrint(
+    rtr::TypeId type, 
+    const void* val,
+    const PrettyPrintOpts& opts)
+{
+  @log.warn(reflect, "rtr::prettyPrint was not enabled for this build!\n");
+}
+
+}
+
+$ else
+
 $$$
 
 local AstContext = require "reflect.AstContext"
@@ -746,3 +780,5 @@ void prettyPrint(
 }
 
 }
+
+$ end

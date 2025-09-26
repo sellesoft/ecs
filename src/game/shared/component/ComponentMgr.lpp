@@ -16,6 +16,7 @@ using namespace iro;
 @log.import
 
 @lpp.import "game/shared/component/ComponentMgr.lh"
+@lpp.import "game/IndexedPool.lh"
 
 $ local TComponent = astctx:lookupTypeDecl "Component"
 $ local function eachComp(f)
@@ -77,7 +78,6 @@ $(comp.typename)* ComponentMgr::allocateComponent<$(comp.typename)>()
   auto* cmp = node->data;
   mem::zero(cmp, sizeof($(comp.typename)));
   cmp->node = node;
-  Component::onCreate<$(comp.typename)>(cmp);
   return cmp;
 }
 

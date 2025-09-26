@@ -12,16 +12,11 @@
 
 $ require "common"
 
-@lpp.import "sdata/SourceDataEditor.lh"
-@lpp.import "game/client/Console.lh"
-@lpp.import "game/client/editor/Editor.lh"
-@lpp.import "game/client/GameSim.lh"
+@lpp.import "game/client/GameMgr.lh"
 @lpp.import "game/client/NetMgr.lh"
-@lpp.import "input/InputMgr.lh"
-@lpp.import "ui/TextEdit.lh"
-@lpp.import "ui/UI.lh"
-@lpp.import "window/Window.lh"
-@lpp.import "graphics/RenderTarget.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
+
+@lpp.import "reflect/Linker.lh"
 
 #include "iro/time/Time.h"
 
@@ -32,29 +27,39 @@ struct AssetLoader;
 struct Client
 {
   cl::NetMgr netmgr;
-  cl::GameSim sim;
+  cl::GameMgr gamemgr;
 
-  b8 init();
+  struct InitParams
+  {
+    gfx::Vulkan& vk;
+    reflect::Linker& linker;
+  };
+
+  b8 init(const InitParams& params);
   void deinit();
+
+  struct UpdateParams
+  {
+    InputState& input;
+  };
 
   struct UpdateResult
   {
-    // The Client has been put in a situation where it needs deinitialized 
-    // and no more calls to update() should occur.
-    b8 should_deinit = false;
-
-    // The simulation was updated this frame.
-    b8 sim_updated = false;
-
-    // The Client rendered this frame.
-    b8 rendered = false;
   };
 
-  UpdateResult update();
+  UpdateResult update(const UpdateParams& params);
 
-  b8 compileRequiredAssets(AssetMgr& assetmgr);
+  struct RenderResult
+  {
+  };
 
-  b8 wantHotReload();
+  struct RenderParams
+  {
+    gfx::Vulkan& vk;
+    gfx::RenderTarget& target;
+  };    
+
+  RenderResult render(const RenderParams& params);
 
   b8 connectToServer(net::Address address);
 

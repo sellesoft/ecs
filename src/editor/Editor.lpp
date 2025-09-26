@@ -287,6 +287,9 @@ b8 Editor::init(const InitParams& params)
   file_explorer.onAllocated();
   file_explorer.changeDir(cwd);
 
+  client_instance.editor = this;
+  client_instance.init();
+
   start_time = TimePoint::monotonic();
 
   return true;
@@ -329,6 +332,8 @@ b8 Editor::render(this Editor& self)
   RenderTarget swapchain_target;
   if (!vk::getSwapchainRenderTarget(self.vk, &swapchain_target))
     return @logerr("failed to get swapchain render target\n");
+
+  self.client_instance.render(*self.vk);
 
   RenderPass pass;
   if (!gfx::vk::beginRenderPass(

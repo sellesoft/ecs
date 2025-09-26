@@ -11,6 +11,9 @@ $ require "common"
 
 using namespace iro;
 
+namespace reflect
+{
+
 /* ============================================================================
  */
 template<typename T>
@@ -22,3 +25,5 @@ struct TypedPtr
 
   T* ptr;
 };
+
+}

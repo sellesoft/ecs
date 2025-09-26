@@ -4,15 +4,15 @@
 
 $ local cmn = require "common"
 
-@@lpp.import "asset/Packing.lh"
-@@lpp.import "graphics/Texture.defs.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
-@@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "graphics/Texture.defs.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
-@log.ger(test-packing, Debug)
+@log.import
 
 b8 test()
 {
@@ -21,26 +21,24 @@ b8 test()
     return false;
   defer { testfile.deinit(); };
 
-  PackedData packed;
+  reflect::PackedData packed;
   if (!packed.init())
-    return ERROR("failed to initialize PackedData\n");
+    return @log.error(test, "failed to initialize PackedData\n");
   defer { packed.deinit(); };
 
-  PackParams pack_params = { &packed };
+  reflect::PackParams pack_params = { &packed };
 
-  if (!packSourceDataFromType(*testfile.returned_data, pack_params))
+  if (!reflect::packSourceDataFromType(*testfile.returned_data, pack_params))
     return false;
 
   auto* result = packed.getDataAs<SourceDataEditorSkinDef>();
 
-  INFO(result->vec2_data.min_comp_width, '\n');
+  @log.info(test, result->vec2_data.min_comp_width, '\n');
 
   return true;
 }
 
 int main()
 {
-  iro::initializeDefaultLogging();
-
   return test()? 0 : 1;
 }

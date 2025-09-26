@@ -1,10 +1,75 @@
 $ require "common"
 
+@lpp.import "editor/Editor.lh"
 @lpp.import "editor/ClientInstance.lh"
+
+@log.import
 
 namespace editor
 {
 
+/* ----------------------------------------------------------------------------
+ */
+b8 ClientInstance::init(this S& self)
+{
+  self.client_render = gfx::Texture::createForRenderTarget(*self.editor->vk,
+  {
+    .size = {100, 100},
+    .debug_name = "client instance texture"_str
+  });
+  if (isnil(self.client_render))
+    return @log.error(editor, 
+      "failed to initialize a client render texture\n");
+
+  reflect::Linker linker = 
+  { 
+    .resource_mgr = self.editor->resource_mgr,
+    .asset_mgr = self.editor->asset_mgr,
+  };
+
+  Client::InitParams client_params = 
+  {
+    .vk = *self.editor->vk,
+    .linker = linker,
+  };
+
+  if (!self.client.init(client_params))
+    return @log.error(editor, "failed to initialize a client instance\n");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::deinit()
+{
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::update() 
+{
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::render(gfx::Vulkan& vk) 
+{
+  gfx::RenderTarget target = 
+  { 
+    .image = client_render.image,
+    .view = client_render.view,
+  };
+
+  Client::RenderParams client_params = 
+  {
+    .vk = vk,
+    .target = target,
+  };
+
+  client.render(client_params);
+}
 
 
 }

@@ -38,7 +38,7 @@ log.error = function(cat, ...) end
 ---@param ... any
 log.fatal = function(cat, ...) end
 
-local function genverb(verb)
+local function genverb(verb, ret)
   log[verb:lower()] = function(cat, first, ...)
     if not first then
       error("log called without something to print")
@@ -46,7 +46,13 @@ local function genverb(verb)
 
     local buf = require "string.buffer" .new()
 
-    buf:put("__ECS_LOG_MACRO(", cat, ',', verb, ',')
+    if ret then
+      buf:put "__ECS_LOG_MACRO_TRUE"
+    else
+      buf:put "__ECS_LOG_MACRO_FALSE"
+    end
+
+    buf:put("(", cat, ',', verb, ',')
 
     local function recur(a, b, ...)
       buf:put(a)
@@ -64,11 +70,11 @@ local function genverb(verb)
   end
 end
 
-genverb "Trace"
-genverb "Debug"
-genverb "Info"
-genverb "Notice"
-genverb "Warn"
-genverb "Error"
-genverb "Fatal"
+genverb("Trace", true)
+genverb("Debug", true)
+genverb("Info", true)
+genverb("Notice", true)
+genverb("Warn", true)
+genverb("Error", false)
+genverb("Fatal", false)
 

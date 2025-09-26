@@ -12,19 +12,31 @@ $ require "common"
 namespace gfx
 {
 
+struct Vulkan;
+
 /* ============================================================================
  */
 struct Texture
 {
-  Image         image;
-  ImageView     view;
-  Sampler       sampler;
-  DescriptorSet descriptor_set;
+  Image         image = nil;
+  ImageView     view = nil;
+  Sampler       sampler = nil;
+  DescriptorSet descriptor_set = nil;
+
+  struct CreateParams
+  {
+    vec2u size;
+    String debug_name;
+  };
+
+  static Texture createForRenderTarget(Vulkan& vk, const CreateParams& params);
 
   TextureHandle getHandle() const
   {
     return { descriptor_set };
   }
+
+  DefineNilTrait(Texture, {}, isnil(x.image));
 };
 
 }

@@ -1214,6 +1214,7 @@ Builtin("s32", 4)
 Builtin("s64", 8)
 Builtin("f32", 4)
 Builtin("f64", 8)
+Builtin("void", 0)
 
 -- TODO(sushi) maybe make some kinda special decl type for iro's String.
 --             I'm not really sure how I'd like that to work yet.

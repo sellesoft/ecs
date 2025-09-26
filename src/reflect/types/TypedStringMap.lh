@@ -15,6 +15,13 @@
  *  filling out is in 'type'.
  *  Any of these types may be disabled for use in source data if it is marked
  *  with \@metadata.hidden.
+ *
+ *  NOTE(sushi) we do not use this for now, since its implementation wound up
+ *              being too complex. Instead for now we just define Components
+ *              as a TypedPtr<Component>, and we store the Component fully
+ *              in data. 
+ *              Maybe return to this if storing raw components winds up being
+ *              too much.
  */
 
 $ require "common"

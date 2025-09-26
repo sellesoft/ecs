@@ -13,6 +13,8 @@ $ local cmn = require "common"
 @lpp.import "game/client/entity/EntitySysMgr.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
 
+@lpp.import "reflect/Linker.lh"
+
 struct InputState;
 
 namespace gfx { struct View; }
@@ -20,28 +22,25 @@ namespace gfx { struct View; }
 namespace cl
 {
 
-struct GameSim;
-
 /* ============================================================================
  */
 struct GameMgr
 {
-  GameSim* sim;
-
+  EntityMgr entmgr;
   EntitySysMgr entsysmgr;
   GameRenderer game_renderer;
 
-  MapDefRef loaded_map;
+  MapDefLink loaded_map;
+
+  Rect viewport;
 
   struct InitParams
   {
-    GameSim* sim;
-
     gfx::Vulkan& vk;
-    AssetMgr& assetmgr;
+    reflect::Linker& linker;
   };
 
-  b8 init(InitParams& params);
+  b8 init(const InitParams& params);
   void deinit(gfx::Vulkan& vk);
 
   struct UpdateParams

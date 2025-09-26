@@ -8,6 +8,7 @@ $ require "common"
 @lpp.import "editor/MenuBar.lh"
 @lpp.import "editor/FileWatcherThread.lh"
 @lpp.import "editor/FileExplorer.lh"
+@lpp.import "editor/ClientInstance.lh"
 
 @lpp.import "ui/UI.lh"
 @lpp.import "input/InputMgr.lh"
@@ -64,6 +65,7 @@ struct Editor
   // UI elements.
   MenuBar menu_bar;
   FileExplorer file_explorer;
+  ClientInstance client_instance;
 
   struct InitParams
   {

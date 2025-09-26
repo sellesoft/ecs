@@ -614,9 +614,11 @@ convfunc.collectBaseAndDerived = function(self, cdecl, record)
   local base = baseiter:next()
   while base do
     if record.base then
+      -- TODO(sushi) this should be an error in the packing/compiling/linking
+      --             tools, this warning is mostly just annoying.
       io.write("warn: record '", record.name, 
                "' has multiple bases, but ecs does ",
-               "not support multiple inheritance in its reflection system")
+               "not support multiple inheritance in its reflection system\n")
       break
     end
 

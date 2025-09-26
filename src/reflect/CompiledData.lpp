@@ -594,7 +594,8 @@ $     putTypedStringMapCompiler(decl)
 $   elseif name == "iro::Flags" then
 $     putFlagsCompiler(decl)
 $   else
-$     io.write("warn: unhandled template spec (compiler): ", decl, "\n")
+$     io.write("warn: unhandled template spec (compiler): ", tostring(decl), 
+$              "\n")
 $   end
 $ end
 

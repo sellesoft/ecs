@@ -3,7 +3,7 @@
  */
 
 $ require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -15,11 +15,8 @@ using namespace iro;
 
 /* ============================================================================
  */
-@m.def
-@m.hidden
-// Mark Component as being a type that, when inherited, implies that the 
-// derived type is also a def.
-@m.inherit_def
+@metadata.def
+@metadata.hidden
 struct Component
 {
   u64 kind = 0;
@@ -33,9 +30,6 @@ struct Component
   static u64 getAVLKey(const Component& cmp) { return cmp.kind; }
 
   b8 is(u64 kind) const { return this->kind == kind; }
-  
-  template<typename T>
-  static void onCreate(Component* comp);
 
   DefineNilTrait(Component, {0}, x.kind == 0);
 };
@@ -44,3 +38,23 @@ struct Component
  */
 template<typename T>
 u64 getComponentKind();
+
+/* ----------------------------------------------------------------------------
+ */
+struct ComponentDef {};
+
+$ local m = {}
+
+$ m.def = function(name, def, data)
+
+@metadata.def
+struct $(name)Def : ComponentDef
+$(def);
+
+@metadata.component
+struct $(name)
+$(data);
+
+$ end
+
+$ return m

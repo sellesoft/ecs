@@ -12,9 +12,9 @@ namespace gfx
 struct Renderer;
 }
 
-namespace iro::io
+namespace build
 {
-struct IO;
+struct Result;
 }
 
 namespace reflect

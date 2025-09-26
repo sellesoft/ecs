@@ -19,8 +19,7 @@ struct SpawnerSys : EntitySys
 
   b8 init()
   {
-    assert(false);
-    // subscribeTo<MapPostLoad>(&SpawnerSys::onMapLoad);
+    subscribeTo<MapPostLoad>(&SpawnerSys::onMapLoad);
     return true;
   }
 

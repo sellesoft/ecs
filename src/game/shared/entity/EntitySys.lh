@@ -49,6 +49,12 @@ struct EntitySys
     entmgr->eventbus.subscribeTo<TEvent>(this, x.y);
   }
 
+  template<typename TComp, typename TSys>
+  void subscribeToInit(void (TSys::*cb)(EntComp<TComp>, typename TComp::Init&))
+  {
+    subscribeTo<TComp, typename TComp::Init, TSys>(cb);
+  }
+
   // Raises the event TEvent on the given entity.
   template<typename TEvent>
   IRO_FORCE_INLINE void raise(EntityId id, TEvent& event)

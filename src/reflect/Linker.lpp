@@ -281,9 +281,6 @@ $   else
     // Fix its pointers.
     compiled->fixPointers();
 
-    println("asset: ", data->asset);
-    rtr::prettyPrint(compiled->type, compiled->getRootAs<void>());
-
     // Link any embedded links.
     for (CompiledData::Ref& ref : compiled->refs.getSlice())
     {

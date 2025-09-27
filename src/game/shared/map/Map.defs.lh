@@ -34,7 +34,7 @@ struct TileKindLink : reflect::TypedCompiledDataLink<TileKindDef> {};
 struct MapTileDef
 {
   TileKindLink kind;
-  reflect::Array<EntityDefRef> entities;
+  reflect::Array<EntityDefLink> entities;
 
   TileKindDef& getKind() { return *kind; }
 };

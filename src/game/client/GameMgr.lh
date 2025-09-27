@@ -63,6 +63,11 @@ struct GameMgr
   b8 render(const RenderParams& params);
 
   void setViewport(Rect viewport);
+
+  void notifyAssetChanged(String name, String type, reflect::Linker& linker)
+  {
+    entmgr.notifyAssetChanged(name, type, linker);
+  }
 };
 
 }

@@ -330,10 +330,10 @@ b8 GameRenderer::render(const RenderParams& params)
       gfx::TextureHandle texture = null_texture.getHandle();
       vec4f uv = {0.f, 0.f, 1.f, 1.f};
       Color color = 0xff0000ff;
-      if (sprite.states.isValid())
+      if (sprite.def->states.isValid())
       {
         const SpriteTexture* stex =
-          sprite.states->map.getAtIndex(sprite.state);
+          sprite.def->states->map.getAtIndex(sprite.state);
 
         if (stex != nullptr && stex->texture.isValid())
         {

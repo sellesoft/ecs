@@ -60,9 +60,6 @@ namespace cl
   Color color;
 
   u32 state;
-
-  // The states this sprite may use.
-  SpriteStatesLink states;
 })
 
 }

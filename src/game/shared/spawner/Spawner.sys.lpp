@@ -12,6 +12,12 @@ $ require "common"
 
 /* ----------------------------------------------------------------------------
  */
+void SpawnerSys::onInit(EntComp<Spawner> ec, SpawnerInit& init)
+{
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void SpawnerSys::onMapLoad(MapPostLoad&)
 {
   for (auto& spawner : iterateComp<Spawner>())
@@ -20,7 +26,7 @@ void SpawnerSys::onMapLoad(MapPostLoad&)
 
     EntityId entid = 
       entmgr->spawnEntity(
-        *spawner.kind,
+        spawner.def->kind,
         spawner_transform->pos,
         spawner_transform->placement_layer);
 
@@ -34,7 +40,7 @@ void SpawnerSys::onMapLoad(MapPostLoad&)
       "spawned ", entid.value, " (", getEntity(entid)->name, ") at ",
       spawner_transform->pos, ":", spawner_transform->placement_layer, "\n");
     
-    if (spawner.attach)
+    if (spawner.def->attach)
     {
       @log.info(game, "attaching mind and eye to ", entid.value, "\n");
       input->attach(entid);

@@ -19,10 +19,7 @@ $ local metadata = require "reflect.Metadata"
   //             attach to each spawned entity.
   b8 attach;
 
-  EntityDefRef kind;
+  EntityDefLink kind;
 },
 {
-  b8 attach;
-
-  EntityDefRef kind;
 })

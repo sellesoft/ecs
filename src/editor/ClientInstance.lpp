@@ -2,6 +2,7 @@ $ require "common"
 
 @lpp.import "editor/Editor.lh"
 @lpp.import "editor/ClientInstance.lh"
+@lpp.import "graphics/vk.lh"
 
 @log.import
 
@@ -12,9 +13,11 @@ namespace editor
  */
 b8 ClientInstance::init(this S& self)
 {
+  vec2u winsize = vec2u(self.editor->window.size);
+
   self.client_render = gfx::Texture::createForRenderTarget(*self.editor->vk,
   {
-    .size = {100, 100},
+    .size = winsize,
     .debug_name = "client instance texture"_str
   });
   if (isnil(self.client_render))
@@ -36,6 +39,8 @@ b8 ClientInstance::init(this S& self)
   if (!self.client.init(client_params))
     return @log.error(editor, "failed to initialize a client instance\n");
 
+  self.client.setViewport(Rect::from({0,0}, vec2f(winsize)));
+
   return true;
 }
 
@@ -49,7 +54,35 @@ void ClientInstance::deinit()
  */
 void ClientInstance::update() 
 {
+  InputState input;
+  editor->input.cloneInputState(&input);
 
+  Client::UpdateParams params = 
+  {
+    .input = input,
+  };
+
+  client.update(params);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+{
+  ui.putQuad(ui.getBounds(), client_render.getHandle(), 0xffffffff);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::notifyAssetChanged(String name, String type)
+{
+  reflect::Linker linker = 
+  { 
+    .resource_mgr = editor->resource_mgr,
+    .asset_mgr = editor->asset_mgr,
+  };
+
+  client.notifyAssetChanged(name, type, linker);
 }
 
 /* ----------------------------------------------------------------------------
@@ -69,6 +102,8 @@ void ClientInstance::render(gfx::Vulkan& vk)
   };
 
   client.render(client_params);
+
+  gfx::vk::prepareImageForSampling(&vk, client_render.image);
 }
 
 

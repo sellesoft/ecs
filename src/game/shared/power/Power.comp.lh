@@ -4,11 +4,14 @@
 
 $ local metadata = require "reflect.Metadata"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp]lpp.import "game/shared/component/Component.lh"
 
 /* ============================================================================
  */
-struct Cable : Component
+@comp.def(Cable,
 {
-  
-};
+
+},
+{
+
+})

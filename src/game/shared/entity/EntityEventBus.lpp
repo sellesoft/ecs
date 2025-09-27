@@ -48,7 +48,8 @@ $ local comps = cmn.List {}
 $ local events = cmn.List {}
 
 $ for decl in astctx.type_decls:each() do
-$   if decl.metadata.event == "entity" then
+$   if decl.metadata.event == "entity" or decl.metadata.event == "comp-init" 
+$   then
 $     events:push(decl)
 $   elseif decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
 $     comps:push(decl)

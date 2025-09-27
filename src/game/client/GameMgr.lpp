@@ -55,7 +55,7 @@ b8 GameMgr::init(const InitParams& params)
   };
 
   if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
-    return false;
+    return @log.error(game, "failed to load map\n");
 
   return true;
 }

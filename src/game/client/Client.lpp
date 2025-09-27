@@ -38,7 +38,7 @@ b8 Client::init(const InitParams& params)
   if (!gamemgr.init(gamemgr_params))
     return @log.error(game, "failed to initialize game manager\n");
 
-  gamemgr.setViewport(Rect::from(0,0,100,100));
+  gamemgr.setViewport(Rect::from(0,0,1000,1000));
 
   return true;
 }

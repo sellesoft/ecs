@@ -3,7 +3,10 @@ return EntityDef
   name = "Player",
   components = 
   {
-    cl::SpriteDef {  },
+    AppearanceDef {},
+    cl::SpriteDef 
+    {  
+    },
     MovementDef { speed = 0.02, }
   }
 }

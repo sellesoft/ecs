@@ -23,7 +23,7 @@ b8 MovementSys::update()
       if (movement.held_dirs.test(Dir::Down))
         input.y -= 1.f;
 
-      transform->pos += movement.speed * input.normalized();
+      transform->pos += movement.def->speed * input.normalized();
     }
   }
 

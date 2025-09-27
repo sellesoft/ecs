@@ -25,7 +25,7 @@ void StructureVisualizerSys::onAppearanceChange(
   if (sprite == nullptr)
     return;
 
-  auto& sprite_states = *sprite->states;
+  auto& sprite_states = *sprite->def->states;
 
   Layer* layer = map->getLayerByIndex(transform->placement_layer);
   if (layer == nullptr)
@@ -63,7 +63,7 @@ void StructureVisualizerSys::onAppearanceChange(
       continue;
 
     // Only connect structures of the same kind.
-    if (ec.comp.kind != other_comp.kind)
+    if (ec.comp.def->kind != other_comp.def->kind)
       continue;
 
     auto* other_transform = tryComp<Transform>(other_comp.owner);

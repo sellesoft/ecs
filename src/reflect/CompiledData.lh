@@ -151,6 +151,7 @@ struct TypedCompiledDataLink : CompiledDataLink
 {
   // TODO(sushi) idk maybe just don't use operators at this point.
   T* operator -> () { return get().template getRootAs<T>(); }
+  const T* operator -> () const { return get().template getRootAs<T>(); }
   T& operator * () { return *get().template getRootAs<T>(); }
   const T& operator * () const { return *get().template getRootAs<T>(); }
 };

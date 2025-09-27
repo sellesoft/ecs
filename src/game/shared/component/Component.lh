@@ -12,6 +12,7 @@ $ local metadata = require "reflect.Metadata"
 using namespace iro;
 
 @lpp.import "game/shared/entity/EntityId.lh"
+@lpp.import "reflect/CompiledData.lh"
 
 /* ============================================================================
  */
@@ -51,9 +52,26 @@ $ m.def = function(name, def, data)
 struct $(name)Def : ComponentDef
 $(def);
 
+struct $(name)DefLink : reflect::TypedCompiledDataLink<$(name)Def> {};
+
+$ local datavars = data:match "%b{}" :sub(2,-2)
+
+@metadata.event(comp-init)
+struct $(name)Init
+{
+  const $(name)Def& def;
+};
+
 @metadata.component
 struct $(name) : Component
-$(data);
+{
+  using Def = $(name)Def;
+  using Init = $(name)Init;
+
+  const $(name)Def* def;
+
+  $(datavars)
+};
 
 $ end
 

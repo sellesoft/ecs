@@ -18,7 +18,6 @@ namespace cl
   reflect::StringMap<reflect::StringMap<StringHash>> visuals;
 },
 {
-  reflect::StringMap<reflect::StringMap<StringHash>> visuals;
 })
 
 }

@@ -28,7 +28,7 @@ struct MapLoader
 {
   struct QueuedEnt
   {
-    const EntityDefRef* ref;
+    const EntityDefLink* ref;
     vec2f pos;
     u32 layer;
   };
@@ -68,8 +68,8 @@ struct MapLoader
     // map properly.
     for (auto& qent : entities)
     {
-      if (isnil(entmgr->spawnEntity(**qent.ref, qent.pos, qent.layer)))
-        return false;
+      if (isnil(entmgr->spawnEntity(*qent.ref, qent.pos, qent.layer)))
+        return @log.error(game, "failed to spawn map entity\n");
     }
 
     return true;
@@ -106,7 +106,7 @@ struct MapLoader
   {
     tile->kind = def.kind;
 
-    for (const EntityDefRef& ent : def.entities)
+    for (const EntityDefLink& ent : def.entities)
     {
       entities.push(
       {

@@ -28,6 +28,7 @@ local function qstr(...)
       recur(...)
     end
   end
+  recur(...)
   return buf:get()
 end
 

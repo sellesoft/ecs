@@ -64,4 +64,14 @@ struct Client
   b8 connectToServer(net::Address address);
 
   void disconnectFromServer();
+
+  void setViewport(Rect viewport)
+  {
+    gamemgr.setViewport(viewport);
+  }
+
+  void notifyAssetChanged(String name, String type, reflect::Linker& linker)
+  {
+    gamemgr.notifyAssetChanged(name, type, linker);
+  }
 };

@@ -25,7 +25,13 @@ namespace gfx
 struct Renderer;
 }
 
+namespace reflect
+{
+struct Linker;
+}
+
 struct EntityDef;
+struct EntityDefLink;
 
 /* ============================================================================
  */
@@ -55,7 +61,9 @@ struct EntityMgr
     AssetMgr& assetmgr,
     gfx::Renderer& renderer);
 
-  EntityId spawnEntity(const EntityDef& def, vec2f pos, u32 layer);
+  EntityId spawnEntity(const EntityDefLink& def, vec2f pos, u32 layer);
+
+  void notifyAssetChanged(String name, String type, reflect::Linker& linker);
 
   void destroyEntity(EntityId id);
   void destroyAllEntities();
@@ -68,15 +76,45 @@ struct EntityMgr
 
     return ent_pool.getFromId(id.value, id.salt);
   }
+
+  EntityId getEntityId(Entity* ent) const
+  {
+    if (ent == nullptr)
+      return nil;
+    EntityId id;
+    ent_pool.formId(ent, &id.value, &id.salt);
+    return id;
+  }
   
   template<typename TComp>
   b8 addComp(Entity* ent, EntityId id, TComp* cmp) const;
 
   template<typename TComp>
-  b8 addComp(Entity* ent, TComp* cmp) const;
+  b8 addComp(Entity* ent, TComp* cmp) const
+  {
+    return addComp(ent, getEntityId(ent), cmp);
+  }
 
   template<typename TComp>
-  b8 addComp(EntityId id, TComp* cmp) const;
+  b8 addComp(EntityId id, TComp* cmp) const
+  {
+    return addComp(getEntity(id), id, cmp);
+  }
+
+  template<typename TComp>
+  void removeComp(EntityId id, Entity* ent) const;
+
+  template<typename TComp>
+  void removeComp(Entity* ent) const
+  {
+    return removeComp<TComp>(getEntityId(ent), ent);
+  }
+
+  template<typename TComp>
+  void removeComp(EntityId id) const
+  {
+    return removeComp<TComp>(id, getEntity(id));
+  }
 
   template<typename T>
   T* tryComp(EntityId id)

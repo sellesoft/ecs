@@ -78,6 +78,7 @@ $(comp.typename)* ComponentMgr::allocateComponent<$(comp.typename)>()
   auto* cmp = node->data;
   mem::zero(cmp, sizeof($(comp.typename)));
   cmp->node = node;
+  cmp->Component::kind = "$(comp.typename)"_hashed;
   return cmp;
 }
 

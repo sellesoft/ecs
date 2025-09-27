@@ -69,5 +69,4 @@ enum class ExtendableConnection
   StringHash kind;
 },
 { 
-  StringHash kind;
 })

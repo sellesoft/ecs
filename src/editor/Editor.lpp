@@ -389,6 +389,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (window_result.size_changed)
     gfx::vk::onWindowResized(vk);
 
+  client_instance.update();
+
   InputState ui_input;
   input.cloneInputState(&ui_input);
 
@@ -402,6 +404,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   {
     const EditorSkinDef& skin = *l_skin;
     menu_bar.placeUI(ui, skin);
+
+    client_instance.placeUI(ui, skin);
 
     // NOTE(sushi) disabled for now as I'm going to focus on getting the 
     //             game running again.
@@ -455,6 +459,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
           }
 
           resource_mgr.notifyAssetChanged(built.name, built.type);
+          client_instance.notifyAssetChanged(built.name, built.type);
         }
       }
     }

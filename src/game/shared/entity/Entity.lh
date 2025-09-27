@@ -22,6 +22,8 @@ struct Entity
   String name; // owned
   ComponentMap components;
 
+  u64 def_id;
+
   b8 init(String name);
   void deinit();
 

@@ -34,6 +34,7 @@ namespace cl
 $ -- * ------------------------------------------------------------------------
 
 $ local TEntitySys = astctx:lookupTypeDecl "EntitySys"
+$ assert(TEntitySys)
 $ local function isSys(decl)
 $   if decl:is(ast.Record) and decl:isDerivedFrom(TEntitySys) then
 $     return true
@@ -106,15 +107,15 @@ $ local function initStruct(decl)
 $   if decl.base then
 $     initStruct(decl.base)
 $   end
-$   for field in decl:eachFieldWithIndex() do
-$     local is_ptr = field.type:is(ast.PointerType)
-$     local is_ref = field.type:is(ast.ReferenceType)
+$   for field in decl:eachField() do
+$     local is_ptr = field.type:is(ast.Pointer)
+$     local is_ref = field.type:is(ast.Reference)
 $     if is_ref then
 $       error("entity systems cannot contain references! ("..sys.typename..
 $             "::"..field.name..")")
 $     end
 $     if is_ptr then
-$       local decl = field.type.subtype:getDecl()
+$       local decl = field.type.subtype:desugar().decl
 $       if decl and isSys(decl) then
 $         local refsys = "systems->"..systems_by_canonical_name[decl.name].name
   $(sysvar).$(field.name) = &$(refsys);

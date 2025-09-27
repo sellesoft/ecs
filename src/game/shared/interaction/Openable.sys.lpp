@@ -3,6 +3,8 @@ $ require "common"
 @lpp.import "game/shared/interaction/Openable.sys.lh"
 @lpp.import "game/shared/Appearance.comp.lh"
 
+@log.import
+
 /* ----------------------------------------------------------------------------
  */
 void SharedOpenableSys::onInteract(EntComp<Openable> ent, Interact&)

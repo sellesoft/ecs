@@ -40,6 +40,8 @@ String getMetadataValue(String name);
 
 String getMetadataValue(TypeId type, String name);
 
+u64 typeSizeFromTypeId(TypeId type);
+
 // Gets a string for some element of an enum.
 template<typename T>
 String getEnumElementName(T x);

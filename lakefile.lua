@@ -79,6 +79,7 @@ local cpp_params =
   defines = 
   {
     ECS_DEBUG = 1,
+    ECS_GEN_PRETTY_PRINT=1,
   },
 
   include_paths = include_dirs,

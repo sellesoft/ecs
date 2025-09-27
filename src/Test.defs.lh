@@ -35,6 +35,6 @@ struct Orange : Fruit
 @m.def
 struct Basket
 {
-  //reflect::TypedPtr<Fruit> fruit;
+  reflect::TypedPtr<Fruit> fruit;
 };
 

@@ -52,7 +52,7 @@ struct $(name)Def : ComponentDef
 $(def);
 
 @metadata.component
-struct $(name)
+struct $(name) : Component
 $(data);
 
 $ end

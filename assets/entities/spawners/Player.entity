@@ -3,7 +3,7 @@ return EntityDef
   name = "PlayerSpawner",
   components = 
   {
-    Spawner 
+    SpawnerDef 
     { 
       attach = true,
       kind = "assets/entities/Player",

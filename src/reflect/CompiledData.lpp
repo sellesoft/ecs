@@ -564,6 +564,46 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putTypedPtrCompiler(decl)
+$   local subtype = decl.args[1]
+$   local subdecl = subtype.decl
+$   
+$   for derived in subdecl:allDerived() do
+$     putDeclCompiler(derived)
+$   end
+
+  $(declareDeclCompiler(decl))
+  {
+    compiled_pointers->push(
+    {
+      .offset = buffer->currentOffset(),
+      .count = 1,
+      .size = rtr::typeSizeFromTypeId(data.type),
+      .type = data.type,
+    });
+
+    buffer->writeT(data);
+  }
+  
+  $(declareDeclFixPointers(decl))
+  {
+    data->ptr = OffsetPtr<void>::getPtrAsOffsetPtr(&data->ptr);
+
+    switch (data->type.val)
+    {
+$ for derived in subdecl:allDerived() do
+    case "$(derived.qname)"_typeid_val:
+      $(getDeclFixPointersName(derived))(($(derived.qname)*)data->ptr);
+      break;
+$ end
+    default:
+      assert(!"invalid type id in TypedPtr data");
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putFlagsCompiler(decl)
   /* --------------------------------------------------------------------------
    */
@@ -593,6 +633,8 @@ $   elseif name == "reflect::TypedStringMap" then
 $     putTypedStringMapCompiler(decl)
 $   elseif name == "iro::Flags" then
 $     putFlagsCompiler(decl)
+$   elseif name == "reflect::TypedPtr" then
+$     putTypedPtrCompiler(decl)
 $   else
 $     io.write("warn: unhandled template spec (compiler): ", tostring(decl), 
 $              "\n")
@@ -677,6 +719,7 @@ $ end
     {
 $ for decl in astctx.type_decls:each() do
 $   if decl.user.compiler_placed then
+$     ast.dumpout(decl)
 $     if decl.typedefs then
 $       -- If this decl has been typedef'd also handle those typenames as 
 $       -- well. Note that we have to use the type the typedef declares,

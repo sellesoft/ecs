@@ -3,12 +3,12 @@ return EntityDef
   name = "Locker",
   components = 
   {
-    Appearance {},
-    cl::Sprite 
+    AppearanceDef {},
+    cl::SpriteDef 
     { 
       states = "assets/entities/locker/Locker" 
     },
-    cl::Visualizer
+    cl::VisualizerDef
     {
       visuals = 
       {
@@ -22,7 +22,7 @@ return EntityDef
         }
       }
     },
-    Openable { open = false },
-    Interactable {},
+    OpenableDef { open = false },
+    InteractableDef {},
   }
 }

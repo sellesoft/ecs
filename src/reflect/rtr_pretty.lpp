@@ -5,9 +5,9 @@ $ local glob = require "iro.fs.glob"
 
 #define private public
 
-@log.import
-
 $ if not ECS_GEN_PRETTY_PRINT then
+
+@log.import
 
 @lpp.import "reflect/rtr.lh"
 
@@ -386,6 +386,7 @@ $ if decl.base then
     indent();
     io::formatv(out, "<$(decl.base.name)>:\n");
     $(getPrinterName(decl.base))(val);
+    io::format(out, '\n');
 $ end
 
 $ for field in decl:eachField() do
@@ -617,6 +618,38 @@ $ end
 
 $ -- * ------------------------------------------------------------------------
 
+$ local function putTypedPtrPrinter(decl)
+$   local subtype = decl.args[1]
+$   local subdecl = subtype.decl
+$   for derived in subdecl.derived:each() do
+$     putDeclPrinter(derived)
+$   end
+  $(declareDeclPrinter(decl))
+  {
+    if (isnil(val.type))
+      io::format(out, "invalid type");
+
+    switch (val.type.val)
+    {
+$ for derived in subdecl.derived:each() do
+    case "$(derived.qname)"_typeid_val:
+      {
+        @scopedIndent
+        indent();
+        io::formatv(out, "type: $(derived.qname)");
+        auto* ptr = val.getAs<$(derived.qname)>();
+$   callTypePrinter(derived.type, "*ptr")
+      }
+      break;
+$ end
+    default: 
+      io::format(out, "invalid type");
+    }
+  }
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putTemplateSpecPrinter(decl)
 $   for arg in decl.args:each() do
 $     if ast.Type:isTypeOf(arg) then
@@ -641,6 +674,8 @@ $   elseif name == "Atomic" then
 $     putAtomicPrinter(decl)
 $   elseif name == "EnumBitArray" then
 $     putEnumBitArrayPrinter(decl)
+$   elseif name == "TypedPtr" then
+$     putTypedPtrPrinter(decl)
 $   else
   $(declareDeclPrinter(decl))
   {

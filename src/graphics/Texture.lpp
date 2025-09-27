@@ -1,0 +1,68 @@
+$ require "common"
+
+@lpp.import "graphics/Texture.lh"
+@lpp.import "graphics/TextureParams.lh"
+@lpp.import "graphics/DescriptorSetLayout.lh"
+@lpp.import "graphics/Vulkan.lh"
+
+namespace gfx
+{
+
+/* ----------------------------------------------------------------------------
+ */
+Texture Texture::createForRenderTarget(
+    gfx::Vulkan& vk,
+    const CreateParams& params)
+{
+  Texture t = {};
+
+  t.image = Image::create(vk,
+  {
+    .usage = ImageUsage::ColorAttachment | ImageUsage::Sampled,
+    // TODO(sushi) currently we set pipeline formats to whatever the surface's
+    //             is, so we can't parameterize on that here. 
+    //             Fix this once pipelines are more parameterized.
+    .format = vk.getSurfaceImageFormat(),
+    .size = params.size,
+    .debug_name = params.debug_name,
+  });
+  if (isnil(t.image))
+    return nil;
+
+  t.view = ImageView::create(vk,
+  {
+    .image = t.image,
+    .format = vk.getSurfaceImageFormat(),
+    .debug_name = params.debug_name,
+  });
+  if (isnil(t.view))
+    return nil;
+
+  t.sampler = Sampler::create(vk,
+  {
+    .filter = ImageFilter::Nearest,
+    .address_mode = ImageAddressMode::ClampToBlack,
+    .debug_name = params.debug_name,
+  });
+  if (isnil(t.sampler))
+    return nil;
+
+  t.descriptor_set = DescriptorSet::create(
+    vk, 
+    DescriptorSetLayout{vk.default_sampler_set_layout},
+    params.debug_name);
+  if (isnil(t.descriptor_set))
+    return nil;
+
+  ImageDescriptor descriptor = 
+  {
+    .view = t.view,
+    .sampler = t.sampler,
+  };
+
+  t.descriptor_set.update(vk, 0, 0, makeSlice(&descriptor, 1));
+
+  return t;
+}
+
+}

@@ -1,6 +1,8 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
 
+#define private public
+
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
@@ -132,6 +134,25 @@ $ end)
   }
 
   return "** unknown typeid **"_str;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+u64 typeSizeFromTypeId(TypeId type)
+{
+  switch (type.val)
+  {
+$ local placed = {}
+$ eachDecl(function(decl)
+$   if not decl.is_complete then return end
+$   if not placed[decl.type.name] then
+  case "$(decl.type.name)"_typeid_val: return sizeof($(decl.type.name));
+$     placed[decl.type.name] = true
+$   end
+$ end)
+  }
+  assert(false);
+  return 0;
 }
 
 }

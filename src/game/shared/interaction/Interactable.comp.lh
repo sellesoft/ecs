@@ -4,8 +4,13 @@
 
 $ require "common"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp] lpp.import "game/shared/component/Component.lh"
 
-struct Interactable : Component
+@comp.def(Interactable,
 {
-};
+
+},
+{
+
+})
+

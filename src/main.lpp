@@ -23,6 +23,8 @@ $ end
 
 @lpp.import "Profiling.lh"
 
+#include "iro/containers/BitArray.h"
+
 /* ----------------------------------------------------------------------------
  */
 void doReload(hr::Reloader* r)
@@ -78,10 +80,16 @@ void doReload(hr::Reloader* r)
 #endif
 }
 
+struct Test
+{
+  BitArray<4096*4096> test;
+};
+
 /* ----------------------------------------------------------------------------
  */
 int main(int argc, const char** args)
 {
+
 $ if ECS_WAIT_FOR_TRACY_CONNECTION then
   while (!TracyIsConnected)
     platform::sleep(TimeSpan::fromMilliseconds(1));

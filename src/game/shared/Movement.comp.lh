@@ -1,7 +1,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp] lpp.import "game/shared/component/Component.lh"
 
 #include "math/vec.h"
 
@@ -9,10 +9,12 @@ $ local metadata = require "reflect.Metadata"
 enum class Dir { Left, Right, Up, Down, COUNT };
 typedef Flags<Dir> Dirs;
 
-struct Movement : Component
+@comp.def(Movement,
 {
-  @metadata.data_field
-  f32 speed = 0.1f;
-
+  f32 speed;
+},
+{
+  f32 speed;
   Dirs held_dirs;
-};
+})
+

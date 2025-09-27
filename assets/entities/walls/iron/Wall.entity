@@ -3,9 +3,9 @@ return EntityDef
   name = "Wall",
   components = 
   {
-    Appearance {},
-    ExtendableStructure { kind = "IronWall" },
-    cl::Sprite
+    AppearanceDef {},
+    ExtendableStructureDef { kind = "IronWall" },
+    cl::SpriteDef
     {
       states = "assets/entities/walls/iron/Wall"
     }

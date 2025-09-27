@@ -5,7 +5,7 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp] lpp.import "game/shared/component/Component.lh"
 
 @lpp.import "core/StringHash.lh"
 
@@ -63,8 +63,11 @@ enum class ExtendableConnection
  *              tables being properly connected automatically and will 
  *              likely change or be removed.
  */
-struct ExtendableStructure : Component 
+
+@comp.def(ExtendableStructure,
 { 
-  @m.data_field
   StringHash kind;
-};
+},
+{ 
+  StringHash kind;
+})

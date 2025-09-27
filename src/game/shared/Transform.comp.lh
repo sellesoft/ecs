@@ -1,14 +1,18 @@
 $ require "common"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp] lpp.import "game/shared/component/Component.lh"
 
 #include "math/vec.h"
 
-struct Transform : Component
+@comp.def(Transform,
+{
+  vec2f pos;
+  f32 rotation;
+},
 {
   vec2f pos = {};
   f32   rotation = 0.f;
 
   u32 placement_layer = 0;
-};
+})
 

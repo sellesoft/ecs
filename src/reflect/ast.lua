@@ -21,7 +21,14 @@ local dump = require "reflect.astdump"
 --- Little helper for forming a string using a luajit buffer. For the syntax 
 --- and also to avoid overusing lua's concat operator, since its bad!
 local function qstr(...)
-  return buffer.new():put(...):get()
+  local buf = buffer.new()
+  local function recur(x, ...)
+    if x then
+      buf:put(tostring(x))
+      recur(...)
+    end
+  end
+  return buf:get()
 end
 
 --- The ast module containing the types we support in our ast.
@@ -773,6 +780,24 @@ Record.allFields = function(self)
       end
     end
   end
+end
+
+--- Returns an iterator over all Records deriving from this one.
+---
+---@return function
+Record.allDerived = function(self)
+  -- Whatever.
+  local derived = List {}
+
+  local function recur(r)
+    for d in r.derived:each() do
+      recur(d)
+      derived:push(d)
+    end
+  end
+
+  recur(self)
+  return derived:each()
 end
 
 --- Returns an iterator over this Record's Field members along with an 

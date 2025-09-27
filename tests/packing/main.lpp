@@ -9,6 +9,8 @@ $ local cmn = require "common"
 @lpp.import "sdata/SourceDataFile.lh"
 @lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
+@lpp.import "Test.defs.lh"
+
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
@@ -31,9 +33,9 @@ b8 test()
   if (!reflect::packSourceDataFromType(*testfile.returned_data, pack_params))
     return false;
 
-  auto* result = packed.getDataAs<SourceDataEditorSkinDef>();
+  auto* result = packed.getDataAs<Basket>();
 
-  @log.info(test, result->vec2_data.min_comp_width, '\n');
+  @log.info(test, result->fruit.getAs<Banana>()->color, '\n');
 
   return true;
 }

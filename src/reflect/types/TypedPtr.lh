@@ -19,11 +19,21 @@ namespace reflect
 template<typename T>
 struct TypedPtr
 {
-  using TPtr = T;
-
+  // Note that the pointer MUST be first for CompiledData atm.
+  T* ptr;
   rtr::TypeId type;
 
-  T* ptr;
+  template<typename X>
+  X* getAs() 
+  {
+    return (X*)ptr;
+  }
+
+  template<typename X>
+  const X* getAs() const
+  {
+    return (X*)ptr;
+  }
 };
 
 }

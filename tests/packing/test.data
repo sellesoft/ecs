@@ -3,6 +3,6 @@ return Basket
 {
   fruit = Banana
   {
-    color = 0xff00ffff
+    color = 0xbb00aacc,
   }
 }

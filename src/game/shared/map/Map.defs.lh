@@ -59,4 +59,5 @@ struct MapDef
 };
 
 @metadata.source_types(map)
+@metadata.links(map.data)
 struct MapDefLink : reflect::TypedCompiledDataLink<MapDef> {};

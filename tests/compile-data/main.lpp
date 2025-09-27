@@ -4,19 +4,21 @@
 
 $ local cmn = require "common"
 
-@@lpp.import "Test.defs.lh"
-@@lpp.import "reflect/RTR.lh"
-@@lpp.import "reflect/Packing.lh"
-@@lpp.import "reflect/CompiledData.lh"
-@@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "Test.defs.lh"
+@lpp.import "reflect/rtr.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "game/shared/map/Map.defs.lh"
 
 #include "math/Rect.h"
 #include "iro/fs/File.h"
 
-@log.ger(test-compile-data, Debug)
+@log.import
 
-$ local source_data_file = "tests/compile-data/test.data"
-$ local expected_typename = "Basket"
+$ local source_data_file = "assets/maps/Test.map"
+$ local expected_typename = "MapDef"
 $ local output_path = "tests/compile-data/result.data"
 
 $ local source_data_file_str = '"'..source_data_file..'"_str'
@@ -25,59 +27,60 @@ $ local expected_typeid = '"'..expected_typename..'"_typeid'
 
 b8 test()
 {
-  INFO("loading source data from $(source_data_file)\n");
+  @log.info(test, "loading source data from $(source_data_file)\n");
 
   SourceDataFile sfile;
   if (!SourceDataFile::from(&sfile, $(source_data_file_str)))
-    return ERROR("failed to load SourceDataFile\n");
+    return @log.error(test, "failed to load SourceDataFile\n");
 
-  INFO("got:\n");
+  @log.info(test, "got:\n");
 
   rtr::prettyPrint(fs::stdout(), "SourceData"_typeid, sfile.returned_data);
 
-  INFO("packing source data\n");
+  @log.info(test, "packing source data\n");
 
-  PackedData packed;
+  reflect::PackedData packed;
   if (!packed.init())
-    return ERROR("failed to initialize PackedData\n");
+    return @log.error(test, "failed to initialize PackedData\n");
 
-  PackParams pack_params = { &packed };
-  if (!packSourceDataFromType(*sfile.returned_data, pack_params))
+  reflect::PackParams pack_params = { &packed };
+  if (!reflect::packSourceDataFromType(*sfile.returned_data, pack_params))
     return false;
 
   auto* packed_data = packed.getDataAs<$(expected_typename)>();
 
-  INFO("got:\n");
+  @log.info(test, "got:\n");
 
-  rtr::prettyPrint(&fs::stdout, $(expected_typeid), packed_data);
+  rtr::prettyPrint($(expected_typeid), packed_data);
 
-  CompiledData::CompileParams compile_params = 
+  reflect::CompiledData::CompileParams compile_params = 
   {
     .type = $(expected_typeid),
     .dataptr = packed_data,
     .output_path = $(output_path_str),
   };
 
-  if (!CompiledData::compile(compile_params))
-    return ERROR("failed to compile packed data\n");
+  if (!reflect::CompiledData::compile(compile_params))
+    return @log.error(test, "failed to compile packed data\n");
 
-  INFO("loading compiled data\n");
+  @log.info(test, "loading compiled data\n");
 
-  CompiledData* result = CompiledData::load(compile_params.output_path);
+  auto* result = reflect::CompiledData::load(
+    compile_params.output_path,
+    &mem::stl_allocator,
+    nullptr);
   result->fixPointers();
 
   auto* compiled_data = result->getRootAs<$(expected_typename)>();
 
-  INFO("got:\n");
+  @log.info(test, "got:\n");
 
-  rtr::prettyPrint(&fs::stdout, $(expected_typeid), compiled_data);
+  rtr::prettyPrint($(expected_typeid), compiled_data);
 
   return true;
 }
 
 int main()
 {
-  iro::initializeDefaultLogging();
-
   return test()? 0 : 1;
 }

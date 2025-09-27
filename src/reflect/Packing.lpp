@@ -282,6 +282,20 @@ $ putDummyDefaultsHandlerFromName "iro::utf8::String"
 
 $ -- * ------------------------------------------------------------------------
 
+  $(packerFuncName "StringHash")
+  {
+    if (!data.hasStringValue())
+      return error("expected a string value to pack StringHash");
+
+    out->val = data.val.str.hash();
+
+    return true;
+  }
+
+$ putDummyDefaultsHandlerFromName "StringHash"
+
+$ -- * ------------------------------------------------------------------------
+
 $ local function putVec2Packer(name)
   /* --------------------------------------------------------------------------
    */
@@ -831,11 +845,40 @@ $     -- TODO(sushi) really need to display the thing this was used in.
 $     --             should set up some way to show the call stack on 
 $     error("TypePtr types must be structural, got "..tostring(subtype))
 $   end
-$
+$   local subdecl = subtype.decl
+$   for derived in subdecl:allDerived() do
+$     putDeclPacker(derived)
+$   end
   
   $(packerFuncDecl(decl))
   {
-    return error("fuck");
+    if (isnil(data.type))
+      return error(
+        "TypePtr data must be typed as a derived struct of $(subtype.name)");
+
+    switch (data.type.hash())
+    {
+    case "$(subtype.name)"_hashed:
+      return error("TypedPtr data cannot have the base type $(subtype.name)");
+
+$ for derived in subdecl:allDerived() do
+    case "$(derived.qname)"_hashed:
+      out->ptr = packed->buffer.allocateType<$(derived.qname)>();
+      if (out->ptr == nullptr)
+        return error("failed to allocate data for TypedPtr<$(derived.qname)>");
+      out->type = "$(derived.qname)"_typeid;
+
+      if (!$(getPackerName(derived))(data, ($(derived.qname)*)out->ptr))
+        return error("failed to pack TypedPtr as $(derived.qname)");
+      break;
+$ end
+    
+    default:
+      return error(
+        "type '", data.type, "' is not a known subtype of $(subtype.name)");
+    }
+
+    return true;
   }
 
 $   putDummyDefaultsHandler(decl)

@@ -5,7 +5,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@lpp.import "game/shared/component/Component.lh"
+@[comp] lpp.import "game/shared/component/Component.lh"
 @lpp.import "graphics/Texture.resource.lh"
 @lpp.import "reflect/types/StringMap.lh"
 @lpp.import "reflect/CompiledData.lh"
@@ -35,6 +35,7 @@ struct SpriteTexture
 /* ============================================================================
  *  TODO(sushi) I believe this should be in shared/
  */
+@metadata.def
 struct SpriteStatesDef
 {
   reflect::StringMap<SpriteTexture> map;
@@ -48,17 +49,20 @@ namespace cl
 
 /* ============================================================================
  */
-struct Sprite : Component
+@comp.def(Sprite,
+{
+  SpriteStatesLink states;
+},
 {
   vec2f bbx;
 
-  @metadata.default "{r=255,g=255,b=255,a=255}"
+  $(metadata.default "{255,255,255,255}")
   Color color;
 
   u32 state;
 
   // The states this sprite may use.
   SpriteStatesLink states;
-};
+})
 
 }

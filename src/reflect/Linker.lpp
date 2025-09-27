@@ -1,6 +1,8 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
 
+#include "iro/print.h"
+
 $$$ 
 local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
@@ -142,6 +144,8 @@ struct Linker
   gfx::ResourceMgr& resource_mgr;
   AssetMgr& asset_mgr;
 
+  iro::Array<Asset*> loaded_compiled_data_assets;
+
 $ local putDeclLinker 
 $ local putTypeLinker
 
@@ -263,11 +267,22 @@ $   else
         "failed to link compiled data '", data->name, "' of type "
         "$(link_type)\n");
 
+    for (Asset* already_done : loaded_compiled_data_assets)
+    {
+      if (already_done == data->asset)
+        return true;
+    }
+
+    loaded_compiled_data_assets.push(data->asset);
+
     // Get the CompiledData.
     CompiledData* compiled = &data->get();
 
     // Fix its pointers.
     compiled->fixPointers();
+
+    println("asset: ", data->asset);
+    rtr::prettyPrint(compiled->type, compiled->getRootAs<void>());
 
     // Link any embedded links.
     for (CompiledData::Ref& ref : compiled->refs.getSlice())
@@ -410,6 +425,8 @@ b8 linkData(
     AssetMgr& asset_mgr)
 {
   Linker linker = { .asset_mgr = asset_mgr, .resource_mgr = resource_mgr };
+  linker.loaded_compiled_data_assets.init();
+  defer { linker.loaded_compiled_data_assets.destroy(); };
 
   return linker.linkByTypeId(type, data);
 }

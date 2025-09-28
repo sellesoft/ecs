@@ -8,7 +8,7 @@ print "hi"
 
 local cwd = fs.cwd()
 
-lake.setMaxJobs(8)
+lake.setMaxJobs(7)
 
 --- Directory where *all* build artifacts go. This allows a build of ecs or 
 --- any of the tools to be cleanly wiped completely by simply deleting this 
@@ -80,7 +80,7 @@ local cpp_params =
   defines = 
   {
     ECS_DEBUG = 1,
-    ECS_GEN_PRETTY_PRINT=1,
+    ECS_GEN_PRETTY_PRINT=0,
     ECS_HOT_RELOAD=1
   },
 

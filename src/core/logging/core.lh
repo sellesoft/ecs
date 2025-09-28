@@ -38,7 +38,7 @@ struct Category
 
   u64 line_len;
 
-  b8 need_prefix;
+  b8 need_prefix = true;
 };
 
 /* ============================================================================

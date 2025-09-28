@@ -1,0 +1,310 @@
+$ require "common"
+
+$$$
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/editor/**/*.lh"
+}
+$$$
+$(imported)
+
+@lpp.import "editor/docs/DocMgr.lh"
+
+#include "iro/print.h"
+
+$ local TDoc = astctx:lookupTypeDecl "editor::Doc"
+
+@log.import
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 DocMgr::init(Editor& editor)
+{
+  this->editor = &editor;
+
+  if (!docs.init())
+    return false;
+
+  if (!order.init())
+    return false;
+
+  MenuBarTab::Option opts[] = 
+  {
+$ for doc in TDoc:allDerived() do
+    { "$(doc.name)"_str, "Editor.DocMgr.open $(doc.name)"_str },
+$ end
+  };
+
+  editor.menu_bar.registerTab("open doc"_str, makeSlice(opts));
+
+  editor.cmd_bus.registerCommand<DocMgr>("Editor.DocMgr.open"_str, this,
+    [](DocMgr& self, event::CommandArgs args)
+    {
+      if (args.isEmpty())
+      {
+        @log.error(editor, "Editor.DocMgr.open requires one arg\n");
+        return;
+      }
+
+      self.open(args[0]);
+    });
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 DocMgr::open(String name)
+{
+  rtr::TypeId type;
+  Doc* doc = nullptr;
+
+  switch (name.hash())
+  {
+  default:
+    return @log.errorln(editor, "unknown doc type '", name, "'");
+
+$ for doc in TDoc:allDerived() do
+  case "$(doc.name)"_hashed:
+    type = "$(doc.qname)"_typeid;
+    doc = mem::stl_allocator.construct<$(doc.qname)>();
+    doc->title = "$(doc.name)"_str;
+    break;
+$ end
+  }
+  
+  doc->editor = editor;
+  doc->pos = { 50.f, 50.f };
+  doc->size = { 300.f, 300.f };
+
+  doc->onOpen();
+
+  order.insert(0, docs.len());
+  docs.push({.type = type, .doc = doc});
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Doc::EdgeFlags computeEdgeFlags(
+    vec2f local_cursor,
+    vec2f size,
+    f32 hit_size)
+{
+  Doc::EdgeFlags flags = {};
+  if (local_cursor.x < hit_size)
+    flags.set(Doc::Edge::Left);
+  if (local_cursor.y < hit_size)
+    flags.set(Doc::Edge::Top);
+  if (size.x - local_cursor.x < hit_size)
+    flags.set(Doc::Edge::Right);
+  if (size.y - local_cursor.y < hit_size)
+    flags.set(Doc::Edge::Bottom);
+  return flags;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void computeDisplayedPosAndSize(
+    vec2f* disp_pos,
+    vec2f* disp_size,
+    vec2f local_cursor,
+    vec2f drag_start,
+    Doc::EdgeFlags dragged_edges)
+{
+  vec2f diff = local_cursor - drag_start;
+
+  if (dragged_edges.test(Doc::Edge::Top))
+  {
+    disp_pos->y += diff.y;
+    disp_size->y -= diff.y;
+  }
+  else if (dragged_edges.test(Doc::Edge::Bottom))
+  {
+    disp_size->y += diff.y;
+  }
+
+  if (dragged_edges.test(Doc::Edge::Left))
+  {
+    disp_pos->x += diff.x;
+    disp_size->x -= diff.x;
+  }
+  else if (dragged_edges.test(Doc::Edge::Right))
+  {
+    disp_size->x += diff.x;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
+{
+  ui.pushId(ui.generateIdFromPointer(doc));
+  defer { ui.popId(); };
+
+  b8 clicked = false;
+
+  const f32 border_w = 1.f;
+  const f32 border_hit_size = 10.f;
+
+  const f32 header_h = 20.f;
+
+  // Offset to the actual start of the window inside of the hit bounds.
+  vec2f hit_offset = { border_hit_size, border_hit_size };
+
+  // The position and size we will display the window with. 
+  vec2f displayed_pos = doc->pos;
+  vec2f displayed_size = doc->size;
+
+  // Save the location of the cursor before we go into window space.
+  vec2f container_cursor = ui.getLocalCursorPos();
+
+  if (doc->control_state == Doc::ControlState::DraggingEdge)
+  {
+    computeDisplayedPosAndSize(
+      &displayed_pos, 
+      &displayed_size,
+      container_cursor,
+      doc->drag_start,
+      doc->dragged_edges);
+
+    if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+    {
+      doc->control_state = Doc::ControlState::None;
+      doc->size = displayed_size;
+      doc->pos = displayed_pos;
+    }
+  }
+
+  // Place the hit area.
+  vec2f hit_size;
+  hit_size.x = displayed_size.x + 2 * border_hit_size;
+  hit_size.y = displayed_size.y + 2 * border_hit_size;
+  ui.beginGroup(Rect::from(displayed_pos - hit_offset, hit_size));
+  
+  // Place a focusable covering the entire area of the window + some offset 
+  // from each edge for resize controls.
+  ui::FocusFlags focus = 
+    ui.putFocusableBounds("doc-border"_fid, ui.getBounds());
+
+  if (focus.test(ui::FocusFlag::Hovered) && 
+      doc->control_state != Doc::ControlState::DraggingEdge)
+  {
+    vec2f local_cursor = ui.getLocalCursorPos();
+
+    Doc::EdgeFlags edges = 
+      computeEdgeFlags(local_cursor, hit_size, border_hit_size);
+
+    if (focus.test(ui::FocusFlag::PrimaryPressed))
+    {
+      clicked = true;
+      doc->drag_start = container_cursor;
+      doc->dragged_edges = edges;
+      doc->control_state = Doc::ControlState::DraggingEdge;
+    }
+  }
+
+  // Place the actual Window stuff.
+  ui.beginGroup(Rect::from(hit_offset, displayed_size));
+  {
+    ui::ItemSkin bg = {};
+    bg.color = 0x000000ff;
+    bg.border = { -border_w, -border_w, -border_w, -border_w };
+    bg.border_color = 0xaaaaaaff;
+
+    ui.putItem(Rect::from({0,0}, displayed_size), bg);
+
+    Rect header_bounds = {};
+    header_bounds.x = 0.f;
+    header_bounds.y = 0.f;
+    header_bounds.w = ui.getWidth();
+    header_bounds.h = header_h;
+
+    ui.putTextItem(header_bounds, doc->title, skin.window_header);
+
+    ui::FocusFlags focus = 
+      ui.putFocusableBounds("doc-window"_fid, header_bounds);
+  
+    if (doc->control_state == Doc::ControlState::DraggingWindow)
+    {
+      if (focus.test(ui::FocusFlag::PrimaryReleased))
+      {
+        doc->control_state = Doc::ControlState::None;
+      }
+      else
+      {
+        vec2f lcur = ui.getLocalCursorPos();
+        doc->pos += lcur - ui.focus_state.pressed_cursor_offset;
+      }
+    }
+    else if (focus.test(ui::FocusFlag::PrimaryPressed))
+    {
+      clicked = true;
+      doc->control_state = Doc::ControlState::DraggingWindow;
+    }
+
+    Rect content_bounds = {};
+    content_bounds.x = border_w;
+    content_bounds.y = header_h;
+    content_bounds.w = ui.getWidth() - 2 * border_w;
+    content_bounds.h = ui.getHeight() - border_w - header_h;
+    
+    ui.beginGroup(content_bounds);
+    doc->placeUI(ui, skin);
+    ui.endGroup();
+  }
+  ui.endGroup();
+  ui.endGroup();
+
+  return clicked;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+{
+  b8 clicked = false;
+  u32 clicked_idx = 0;
+  for (u32 iorder = 0; iorder < order.len(); ++iorder)
+  {
+    u32 ordered_idx = order[iorder];
+
+    if (putDocWindow(ui, docs[ordered_idx].doc, skin) &&
+        !clicked)
+    {
+      clicked = true;
+      clicked_idx = iorder;
+    }
+  }
+
+  if (clicked)
+  {
+    u32 doc_idx = order[clicked_idx];
+    order.remove(clicked_idx);
+    order.push(doc_idx);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::update()
+{
+  for (TrackedDoc& tdoc : docs)
+  {
+    tdoc.doc->update();
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::render(gfx::Vulkan& vk)
+{
+  for (TrackedDoc& tdoc : docs)
+    tdoc.doc->render(vk);
+}
+
+}

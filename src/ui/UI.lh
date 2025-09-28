@@ -224,26 +224,11 @@ struct Panel
 enum class LayerFlag
 {
   TopMost,
+  TakeFocus,
 
   COUNT
 };
 typedef Flags<LayerFlag> LayerFlags;
-
-/* ============================================================================
- *  TODO(sushi) it may be more useful to allow users to inject commands 
- *              at either end of the command list, as trying to solve 
- *              the problem I want to solve with this can still be broken
- *              if something decides to draw to a sublayer before something
- *              else and idk immediate mode ui is weird.
- */
-enum class Sublayer
-{
-  Bottom,
-  Middle,
-  Top,
-
-  COUNT
-};
 
 /* ============================================================================
  */
@@ -266,8 +251,7 @@ struct Layer
   Layer* next = nullptr;
 
   // A stack of CmdLists created externally. Usually used to inject 
-  // a series of commands in a specific order. If nullptr, then 
-  // Cmds will be pushed to the normal CmdList of the active Sublayer.
+  // a series of commands in a specific order. 
   CmdList* cmd_list_stack = nullptr;
 
   CmdList cmd_list = {};
@@ -340,10 +324,15 @@ enum class PopupFlag
 {
   // Close popup when an input is made elsewhere.
   Dismissable,
+
+  // Focus immediately upon opening.
+  FocusOnOpen,
   
   COUNT
 };
 typedef Flags<PopupFlag> PopupFlags;
+
+DefineFlagsOrOp(PopupFlags, PopupFlag);
 
 /* ============================================================================
  */
@@ -438,14 +427,15 @@ struct UI
     Panel* prev, 
     GroupScissor scissoring)
   {
-    beginPanel(getCombinedId(id), bounds, prev, scissoring);
+    beginPanel(getCombinedId(id), bounds, prev, scissoring, false);
   }
 
   void beginPanel(
     CombinedItemId id,
     Rect bounds,
     Panel* prev,
-    GroupScissor scissoring);
+    GroupScissor scissoring,
+    b8 take_focus);
 
   void endPanel();
 
@@ -482,6 +472,8 @@ struct UI
 
   // Places text with a background and various other decor (eventually).
   void putTextItem(Rect bounds, String text, const TextItemSkin& skin);
+
+  vec2f measureText(Rect bounds, String text, const TextSkin& skin);
 
   // Returns true if clicked.
   b8 putButton(

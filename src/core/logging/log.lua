@@ -4,6 +4,8 @@
 --- TODO(sushi) document the api!
 ---
 
+local sbuf = require "string.buffer"
+
 -- Logging is extremely common, so it is global.
 log = {}
 
@@ -39,12 +41,12 @@ log.error = function(cat, ...) end
 log.fatal = function(cat, ...) end
 
 local function genverb(verb, ret)
-  log[verb:lower()] = function(cat, first, ...)
+  local function impl(is_line, cat, first, ...)
     if not first then
       error("log called without something to print")
     end
 
-    local buf = require "string.buffer" .new()
+    local buf = sbuf.new()
 
     if ret then
       buf:put "__ECS_LOG_MACRO_TRUE"
@@ -64,9 +66,21 @@ local function genverb(verb, ret)
 
     recur(first, ...)
 
+    if is_line then
+      buf:put ", '\\n'"
+    end
+
     buf:put ')'
 
     return buf:get()
+  end
+
+  log[verb:lower()] = function(cat, first, ...)
+    return impl(false, cat, first, ...)
+  end
+
+  log[verb:lower().."ln"] = function(cat, first, ...)
+    return impl(true, cat, first, ...)
   end
 end
 

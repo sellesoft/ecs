@@ -62,6 +62,8 @@ struct Doc
 
   // Interface called by the Editor to display this document. 
 
+  virtual void onOpen() { }
+
   // Called just after this doc has been allocated.
   virtual void onAllocated() { }
 

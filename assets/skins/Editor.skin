@@ -31,7 +31,7 @@ text =
   color = white,
 }
 
-button_base = { text = text }
+button_base = { text = text : { align = {0.5, 0.5} } }
 
 button = 
 {
@@ -68,6 +68,12 @@ menu_bar = EditorMenuBarSkin
 {
   bg_color = black,
   height = 20,
+  tab_width = 50,
+  // tab = 
+  // {
+  //   text = text : { align = { 0.5, 0.5 } },
+  //   item = { color = dark_blue },
+  // }
 }
 
 return EditorSkinDef

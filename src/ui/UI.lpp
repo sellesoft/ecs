@@ -525,7 +525,9 @@ void UI::pushLayer(
 
   current_layer = next_layer;
 
-  beginPanel(id, bounds, prev_panel, scissoring);
+  b8 take_focus = flags.test(LayerFlag::TakeFocus);
+
+  beginPanel(id, bounds, prev_panel, scissoring, take_focus);
 }
 
 /* ----------------------------------------------------------------------------
@@ -601,7 +603,8 @@ void UI::beginPanel(
     CombinedItemId id, 
     Rect bounds, 
     Panel* prev, 
-    GroupScissor scissoring)
+    GroupScissor scissoring,
+    b8 take_focus)
 {
   @log.debug(ui, "UI::beginPanel(", id.val, ") ");
 
@@ -653,6 +656,9 @@ void UI::beginPanel(
   next_panel->next = current_layer->panels;
   current_layer->panels = next_panel;
   current_layer->current_panel = next_panel;
+
+  if (take_focus)
+    focus_state.focused = next_panel->item;
 
   // putFocusableBounds(id, Rect::from({0,0}, bounds.size()));
 
@@ -812,6 +818,7 @@ void UI::openPopup(CombinedItemId id)
   PopupData* new_popup = open_popups.push();
   new_popup->id = id;
   new_popup->internal_flags.set(InternalPopupFlag::JustOpened);
+  @log.debugln(ui, "opened popup ", id.val);
 }
 
 /* ----------------------------------------------------------------------------
@@ -824,6 +831,7 @@ void UI::closePopup(CombinedItemId id)
     {
       popup.reset();
       open_popups.removeUnordered(&popup);
+      @log.debugln(ui, "closed popup ", id.val);
     }
   }
 } 
@@ -873,7 +881,13 @@ b8 UI::beginPopup(CombinedItemId id, Rect bounds, PopupFlags flags)
     return false;
   }
 
-  pushLayer(id, bounds, {}, GroupScissor::None);
+  LayerFlags layer_flags = {};
+
+  if (flags.test(PopupFlag::FocusOnOpen) &&
+      popup->internal_flags.test(InternalPopupFlag::JustOpened))
+    layer_flags.set(LayerFlag::TakeFocus);
+
+  pushLayer(id, bounds, layer_flags, GroupScissor::None);
 
   return true;
 }
@@ -1042,6 +1056,16 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
   expandCurrentGroupExtents(Rect::from(text_pos, text_size));
 
   return text_size;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+vec2f UI::measureText(Rect bounds, String text, const TextSkin& skin)
+{
+  const gfx::CompiledFont& font = skin.font->compiled_font.get();
+
+  // TODO(sushi) needs to work with wrapping once we have that.
+  return gfx::measureText(text, font, skin.font_height, 1.f);
 }
 
 /* ----------------------------------------------------------------------------

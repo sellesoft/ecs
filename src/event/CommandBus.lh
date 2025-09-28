@@ -1,0 +1,67 @@
+/*
+ */
+
+$ require "common"
+
+#include "iro/Unicode.h"
+#include "iro/containers/Slice.h"
+#include "iro/containers/LinkedPool.h"
+
+namespace event
+{
+
+typedef iro::Slice<iro::String> CommandArgs;
+
+struct Command
+{
+  iro::String name;
+  
+  void* handler_data;
+  b8 (*handler)(void*, CommandArgs);
+};
+
+struct CommandBus
+{
+  iro::DLinkedPool<Command> commands;
+
+  b8 init()
+  {
+    return commands.init();
+  }
+
+  void deinit()
+  {
+    commands.deinit();
+  }
+
+  template<typename T>
+  b8 registerCommand(
+      iro::String name, 
+      T* handler_data, 
+      void (*handler)(T&, CommandArgs))
+  {
+    if (nullptr != findCommand(name))
+      return false;
+
+    Command* nu = commands.pushTail()->data;
+    nu->name = name.allocateCopy();
+    nu->handler_data = handler_data;
+    nu->handler = (b8 (*)(void*, CommandArgs))handler;
+
+    return true;
+  }
+
+  Command* findCommand(iro::String name)
+  {
+    for (Command& cmd : commands)
+    {
+      if (cmd.name == name)
+        return &cmd;
+    }
+    return nullptr;
+  }
+
+  b8 exec(iro::String cmd);
+};
+
+}

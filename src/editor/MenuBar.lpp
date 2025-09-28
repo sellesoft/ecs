@@ -6,6 +6,8 @@ $ require "common"
 @lpp.import "ui/UI.lh"
 @lpp.import "editor/Skin.defs.lh"
 
+#include "iro/print.h"
+
 namespace editor
 {
 
@@ -13,13 +15,83 @@ namespace editor
  */
 void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
+  using namespace ui;
+
   const EditorMenuBarSkin& bar_skin = skin.menu_bar;
 
   ui.putQuad(
     Rect::from(0, 0, ui.getWidth(), bar_skin.height), 
     bar_skin.bg_color);
 
+  f32 x = 0.f;
+  for (u32 itab = 0; itab < tabs.len(); ++itab)
+  {
+    const MenuBarTab& tab = tabs[itab];
 
+    ui.pushId(ui.generateIdFromInteger(itab));
+    defer { ui.popId(); };
+
+    auto tab_bounds = Rect::from(
+      x,
+      0.f,
+      bar_skin.tab_width,
+      bar_skin.height);
+
+    if (ui.putButton(
+          "tab-button"_fid,
+          tab_bounds,
+          tab.name,
+          skin.button))
+      ui.openPopup("tab-popup"_fid);
+
+    Rect popup_bounds = {};
+    popup_bounds.x = x;
+    popup_bounds.y = bar_skin.height;
+    popup_bounds.w = bar_skin.tab_width;
+    popup_bounds.h = bar_skin.height * tab.options.len();
+
+    f32 max_name_len = 0.f; 
+
+    for (const MenuBarTab::Option& opt : tab.options)
+    {
+      max_name_len = max(max_name_len, 
+        ui.measureText({}, opt.name, skin.button.normal.text).x);
+    }
+
+    popup_bounds.w = max_name_len;
+
+    if (ui.beginPopup(
+          "tab-popup"_fid, 
+          popup_bounds, 
+            ui::PopupFlag::Dismissable
+          | ui::PopupFlag::FocusOnOpen))
+    {
+      f32 y = 0.f;
+      for (u32 iopt = 0; iopt < tab.options.len(); ++iopt)
+      {
+        const MenuBarTab::Option& opt = tab.options[iopt];
+
+        Rect opt_bounds = Rect::from(
+          0.f, 
+          y,
+          ui.getWidth(),
+          bar_skin.height);
+
+        if (ui.putButton(
+              ui.generateIdFromInteger(iopt),
+              opt_bounds,
+              opt.name,
+              skin.button))
+        {
+          editor->cmd_bus.exec(opt.command);
+        }
+
+        y += bar_skin.height;
+      }
+
+      ui.endPopup();
+    }
+  }
 }
 
 }

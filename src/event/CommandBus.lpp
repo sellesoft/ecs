@@ -1,0 +1,60 @@
+$ require "common"
+
+@lpp.import "event/CommandBus.lh"
+
+#include "iro/Unicode.h"
+#include "iro/print.h"
+#include "iro/StringFuncs.h"
+#include "iro/containers/SmallArray.h"
+
+@log.import
+
+using namespace iro;
+
+namespace event
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 CommandBus::exec(String cmd)
+{
+  String scan = cmd.trimLeft();
+
+  if (isnil(scan))
+    return false;
+
+  String name = scan;
+
+  while (!scan.isEmpty() && !isSpace(scan.current()))
+    scan.advance();
+
+  name.len = scan.ptr - name.ptr;
+
+  Command* command = findCommand(name);
+  if (command == nullptr)
+    return @log.error(event, "unknown command '", name, "'\n");
+
+  SmallArray<String, 32> args;
+
+  for (;;)
+  {
+    while (!scan.isEmpty() && isSpace(scan.current()))
+      scan.advance();
+
+    if (scan.isEmpty())
+      break;
+
+    u8* arg_start = scan.ptr;
+    
+    while (!scan.isEmpty() && !isSpace(scan.current()))
+      scan.advance();
+
+    args.push(String::from(arg_start, scan.ptr));
+  }
+
+  command->handler(command->handler_data, args.asSlice());
+
+  return true;
+}
+
+}

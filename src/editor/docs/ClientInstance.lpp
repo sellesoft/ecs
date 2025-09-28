@@ -2,8 +2,9 @@ $ require "common"
 
 #include "iro/print.h"
 
+@lpp.import "editor/docs/ClientInstance.lh"
+
 @lpp.import "editor/Editor.lh"
-@lpp.import "editor/ClientInstance.lh"
 @lpp.import "graphics/vk.lh"
 @lpp.import "window/Window.events.lh"
 
@@ -65,7 +66,7 @@ b8 ClientInstance::resetClient(this ClientInstance& self)
 
 /* ----------------------------------------------------------------------------
  */
-b8 ClientInstance::init(this S& self, BroadcastEventBus* eventbus)
+b8 ClientInstance::init(this S& self)
 {
   self.title = "client-instance"_str;
 
@@ -79,9 +80,6 @@ b8 ClientInstance::init(this S& self, BroadcastEventBus* eventbus)
 
   if (!initClient(self))
     return false;
-
-  eventbus->subscribeTo<WindowResized>(
-    &self, &ClientInstance::onWindowResized);
 
   return true;
 }
@@ -124,16 +122,23 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   bounds.y += menu_bar_bounds.h;
   bounds.h -= menu_bar_bounds.h;
 
+  
+  InputState input;
+
+  ui::FocusFlags game_focus = 
+    ui.putFocusableBounds("game-focus"_fid, bounds);
+
+  if (game_focus.test(ui::FocusFlag::Focused))
+    editor->input.cloneInputState(&input);
+
+  input.setCursorPos(ui.getLocalCursorPos());
+
   ui_size = bounds.size();
 
   vec4f uv = {0,0,0,0};
   uv.z = ui_size.x / c_client_render_w;
   uv.w = ui_size.y / c_client_render_h;
 
-  InputState input;
-  editor->input.cloneInputState(&input);
-
-  input.setCursorPos(ui.getLocalCursorPos());
 
   Client::UpdateParams params = 
   {
@@ -184,13 +189,5 @@ void ClientInstance::render(gfx::Vulkan& vk)
 
   gfx::vk::prepareImageForSampling(&vk, client_render.image);
 }
-
-/* ----------------------------------------------------------------------------
- */
-void ClientInstance::onWindowResized(WindowResized& ev)
-{
-
-}
-
 
 }

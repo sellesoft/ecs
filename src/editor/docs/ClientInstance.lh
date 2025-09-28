@@ -35,7 +35,9 @@ struct ClientInstance : Doc
   vec2u client_render_size;
   vec2f ui_size;
 
-  b8 init(this ClientInstance& self, BroadcastEventBus* eventbus);
+  void onOpen() override { init(); }
+
+  b8 init(this S& self);
   void deinit();
 
   b8 resetClient(this ClientInstance& self);
@@ -46,8 +48,6 @@ struct ClientInstance : Doc
   void placeUI(ui::UI& ui, const EditorSkinDef& skin) override;
 
   void notifyAssetChanged(String name, String type);
-
-  void onWindowResized(WindowResized&);
 };
 
 }

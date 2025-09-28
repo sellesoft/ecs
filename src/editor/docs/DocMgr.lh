@@ -1,0 +1,39 @@
+/*
+ *  System which manages Editor Docs.
+ */
+
+@lpp.import "editor/Doc.lh"
+@lpp.import "editor/MenuBar.lh"
+@lpp.import "reflect/TypeId.lh"
+
+#include "iro/containers/Array.h"
+
+namespace editor
+{
+
+/* ============================================================================
+ */
+struct DocMgr
+{
+  struct TrackedDoc
+  {
+    rtr::TypeId type;
+    Doc* doc;
+  };
+
+  Editor* editor;
+  Array<TrackedDoc> docs;
+  Array<u32> order;
+
+  b8 init(Editor& editor);
+  void deinit();
+
+  b8 open(String name);
+
+  void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+  void update();
+  void render(gfx::Vulkan& vk);
+};
+
+}
+

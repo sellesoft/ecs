@@ -8,7 +8,6 @@ $ local glob = require "iro.fs.glob"
 $ if not ECS_GEN_PRETTY_PRINT then
 
 @log.import
-
 @lpp.import "reflect/rtr.lh"
 
 namespace rtr

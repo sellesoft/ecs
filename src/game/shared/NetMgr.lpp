@@ -453,8 +453,11 @@ b8 SharedNetMgr::init(mem::Allocator* allocator)
   assertpointer(allocator);
   @log.trace(net, "initializing network manager\n");
 
-  if (!openSocket())
-    return @log.error(net, "failed to open socket\n");
+  if (!isSocketOpen())
+  {
+    if (!openSocket())
+      return @log.error(net, "failed to open socket\n");
+  }
 
   auto failsafe_close_socket = deferWithCancel
   {

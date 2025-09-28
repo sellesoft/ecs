@@ -5,6 +5,7 @@
 $ require "common"
 
 #include "iro/Common.h"
+#include "iro/containers/Array.h"
 
 @lpp.import "event/BroadcastEventBus.lh"
 @lpp.import "editor/Editor.events.lh"
@@ -17,17 +18,64 @@ struct EditorSkinDef;
 namespace editor
 {
 
+struct Editor;
+
+/* ============================================================================
+ */
+struct MenuBarTab
+{
+  String name;
+
+  struct Option
+  {
+    String name;
+    String command;
+  };
+
+  Array<Option> options;
+
+  b8 is_open;
+};
+
 /* ============================================================================
  */
 struct MenuBar
 {
-  b8 init(BroadcastEventBus& beb) 
+  Editor* editor;
+
+  Array<MenuBarTab> tabs;
+
+  b8 init(Editor* editor, BroadcastEventBus& beb) 
   { 
+    this->editor = editor;
+    
+    if (!tabs.init())
+      return false;
     return true; 
   }
-  void deinit() {}
+
+  void deinit() 
+  {
+    tabs.destroy();
+  }
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+
+  b8 registerTab(String name, Slice<MenuBarTab::Option> options)
+  {
+    MenuBarTab* tab = tabs.push();
+    tab->name = name.allocateCopy();
+    tab->options.init();
+
+    for (MenuBarTab::Option in_opt : options)
+    {
+      MenuBarTab::Option* opt = tab->options.push();
+      opt->name = in_opt.name.allocateCopy();
+      opt->command = in_opt.command.allocateCopy();
+    }
+
+    return true;
+  }
 };
 
 }

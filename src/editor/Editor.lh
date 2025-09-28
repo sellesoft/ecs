@@ -4,11 +4,14 @@ $ require "common"
 #include "iro/Unicode.h"
 #include "iro/concurrent/Thread.h"
 
+@lpp.import "editor/docs/DocMgr.lh"
 @lpp.import "editor/Skin.defs.lh"
 @lpp.import "editor/MenuBar.lh"
 @lpp.import "editor/FileWatcherThread.lh"
 @lpp.import "editor/FileExplorer.lh"
-@lpp.import "editor/ClientInstance.lh"
+@lpp.import "editor/docs/ClientInstance.lh"
+
+@lpp.import "event/CommandBus.lh"
 
 @lpp.import "ui/UI.lh"
 @lpp.import "input/InputMgr.lh"
@@ -62,10 +65,13 @@ struct Editor
   // Marks when the Editor last started a frame.
   TimePoint frame_mark_time;
 
+  DocMgr doc_mgr;
+
+  event::CommandBus cmd_bus;
+
   // UI elements.
   MenuBar menu_bar;
   FileExplorer file_explorer;
-  ClientInstance client_instance;
 
   struct InitParams
   {

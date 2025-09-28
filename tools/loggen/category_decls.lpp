@@ -151,9 +151,6 @@ void through_cat_$(cat.name)(Verbosity v, Args... args)
 
   Interceptor interceptor(cat, v);
 
-  writePrefix(iro::fs::stdout(), v, cat);
-  cat_$(cat.name).need_prefix = false;
-
   iro::io::formatv(&interceptor, args...);
 }
 

@@ -4,6 +4,8 @@ local o = lake.obj
 local List = require "iro.List"
 local fs = require "iro.fs"
 
+print "hi"
+
 local cwd = fs.cwd()
 
 lake.setMaxJobs(8)
@@ -44,9 +46,8 @@ local shared_libs = List
   "vulkan",
   "shaderc_combined",
   -- TODO(sushi) make building iro with lua state optional.
-  --             I mean yeah, I could just compile iro manually here instead
-  --             of calling into it, but I dont WANT TO.
   "luajit",
+  "hreload"
 }
 
 local static_libs = List
@@ -80,6 +81,7 @@ local cpp_params =
   {
     ECS_DEBUG = 1,
     ECS_GEN_PRETTY_PRINT=1,
+    ECS_HOT_RELOAD=1
   },
 
   include_paths = include_dirs,
@@ -92,6 +94,10 @@ local cpp_params =
 
   asan = asan,
   tsan = tsan,
+
+  patchable_function_entry = 16,
+
+  pic = true,
 }
 
 ---@type lake.obj.Lpp.PreprocessParams
@@ -250,10 +256,30 @@ for cfile in lake.utils.glob("src/**/*.cpp"):each() do
   objs:push(o.Cpp(cfile):compile(output, cpp_params))
 end
 
+--- For now assume that any obj file depends on log generation.
+for obj in objs:each() do
+  obj.task:dependsOn(loggen)
+end
+
 objs:pushList(iro_objs)
 objs:pushList(loggen_objs)
 
-o.Exe "_build/ecs" :link(objs, link_params)
+if lake.cliargs[1] == "patch" then
+  o.SharedLib("_build/ecs_patch"..lake.cliargs[2])
+    :link(objs, link_params)
+else
+  o.Exe "_build/ecs" :link(objs, link_params)
+end
+
+local hrf = build_dir.."/ecs.hrf"
+
+local f = io.open(hrf, "w+")
+for obj in objs:each() do
+  if not obj.path:find ".lua.o" then
+    f:write("+o", obj.path, '\n')
+  end
+end
+f:close()
 
 cc:write "compile_commands.json"
 

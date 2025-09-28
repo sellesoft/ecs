@@ -3,6 +3,8 @@
 $ require "common"
 
 #include "iro/Common.h"
+#include "math/vec.h"
+#include "iro/Flags.h"
 
 namespace ui { struct UI; }
 namespace gfx 
@@ -25,6 +27,35 @@ struct Doc
   // A handle to the Editor. This is set by the Editor upon allocation of the 
   // document.
   Editor* editor;
+
+  vec2f pos;
+  vec2f size;
+
+  iro::String title;
+
+  enum class ControlState
+  {
+    None,
+    DraggingWindow,
+    DraggingEdge,
+  };
+
+  ControlState control_state;
+
+  enum class Edge
+  {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    COUNT
+  };
+
+  typedef iro::Flags<Edge> EdgeFlags;
+
+  EdgeFlags dragged_edges;
+
+  vec2f drag_start;
 
   Doc() {}
   virtual ~Doc() {}

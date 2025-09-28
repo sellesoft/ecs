@@ -38,6 +38,8 @@ struct Rect
   vec2f size() const { return {w,h}; }
   vec2f extent() const { return pos() + size(); }
 
+  vec4f asVec4f() const { return vec4f(x,y,w,h); }
+
   void floorPos() { x = floor(x); y = floor(y); }
 
   void addPos(vec2f v) { x += v.x; y += v.y; }

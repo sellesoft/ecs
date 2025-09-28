@@ -57,11 +57,6 @@ struct GameSim : SharedGameSim
 
   b8 render(const RenderParams& params);
 
-  void setViewport(Rect viewport) 
-  {
-    this->viewport = viewport;
-    gamemgr.setViewport(viewport);
-  }
 };
 
 }

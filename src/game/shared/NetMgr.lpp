@@ -479,7 +479,8 @@ $ end)
 void SharedNetMgr::deinit()
 {
   @log.trace(net, "deinitializing network manager\n");
-  closeSocket();
+  if (isSocketOpen())
+    closeSocket();
 }
 
 /* ----------------------------------------------------------------------------

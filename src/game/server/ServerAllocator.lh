@@ -4,6 +4,10 @@
  *  (systems can setup their own more complex allocators as needed). Tick
  *  allocations are cleared every update so we don't need anything more
  *  complex there either.
+ *
+ *  TODO(sushi) support freeing and reallocating the last allocation so this
+ *              works more like a stack allocator. We should have that be a 
+ *              general allocator used in Client code as well.
  */
 $ require "common"
 

@@ -28,6 +28,8 @@ struct EditorSkinDef
   ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
+  
+  ui::TextItemSkin window_header;
 
   EditorMenuBarSkin menu_bar;
 };

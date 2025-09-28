@@ -77,7 +77,7 @@ struct GameRenderer
     EntityMgr* entmgr;
     MapSys* map;
 
-    Rect   viewport;
+    vec2u viewport_size;
     mat3x2 view;
 
     // TODO(sushi) see if it would be better to just start a RenderPass outside

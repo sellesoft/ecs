@@ -3,9 +3,11 @@ $ local cmn = require "common"
 #include "iro/time/Time.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
+#include "iro/io/Memory.h"
+#include "iro/print.h"
 
 $ if ECS_HOT_RELOAD then
-#include "iro/Process.h"
+#include "iro/os/Process.h"
 $ end
 
 @lpp.import "Engine.lh"
@@ -15,7 +17,7 @@ $ if IRO_LINUX then
 $ end
 
 #if ECS_HOT_RELOAD
-#include "hreload/Reloader.h"
+#include "hreload/hreload.h"
 #include "dlfcn.h"
 #endif
 
@@ -30,66 +32,57 @@ $ end
 void doReload(hr::Reloader* r)
 {
 #if ECS_HOT_RELOAD
-  NOTICE("starting hot reload...\n");
-
-  // Generate patch subcommand to pass to lake.
-  io::StaticBuffer<32> patchnumbuf;
-  patchnumbuf.open();
+  @log.info(main, "want hr\n");
+  
+  io::SmallBuffer<32> patchnumbuf;
   io::format(&patchnumbuf, hr::getPatchNumber(r));
 
-  String args[2] =
+  String args[] = 
   {
     "patch"_str,
-    patchnumbuf.asStr(),
+    String(patchnumbuf),
   };
 
-  // Run lake and emit its output.
-  auto lake =
-    Process::spawn(
-      "/home/sushi/src/enosi/bin/lake"_str,
-      Slice<String>::from(args, 2),
-      "/home/sushi/src/enosi"_str);
-
-  while (lake.status == Process::Status::Running || lake.hasOutput())
+  auto lake = os::Process::spawn(
   {
-    if (lake.hasOutput())
-    {
-      io::StaticBuffer<255> outbuf;
-      outbuf.len = lake.read(Bytes::from(outbuf.buffer, outbuf.capacity()));
-      INFO(outbuf);
-    }
-    lake.check();
-  }
+    .file = "lake"_str,
+    .args = makeSlice(args),
+    .cwd = nil,
+    .non_blocking = false,
+    .redirect_err_to_out = true,
+    .pty = false,
+  });
 
-  if (lake.exit_code != 0)
+  if (isnil(lake))
   {
-    ERROR("build failed, aborting hot reload\n");
+    @log.error(main, "failed to spawn lake\n");
     return;
   }
 
-  // Perform the hot relaod if the build succeeded.
-  void* dlhandle = dlopen(nullptr, RTLD_LAZY);
+  while (!lake.closed || lake.hasOutput())
+  {
+    if (lake.hasOutput())
+    {
+      io::StaticBuffer<512> output_buffer;
+      output_buffer.len = lake.read(output_buffer.asBytesBuffer());
+      print(String(output_buffer));
+    }
+    lake.hasExited();
+  }
 
-  hr::ReloadContext context;
-  context.hrfpath = "build/debug/ecs.hrf"_str;
-  context.exepath = "build/debug/ecs"_str;
-  context.reloadee_handle = dlhandle;
+  io::StaticBuffer<512> patch_path;
+  io::formatv(&patch_path, "_build/ecs_patch", hr::getPatchNumber(r));
 
-  hr::ReloadResult result;
-  hr::doReload(r, context, &result);
+  println(String(patch_path));
+
+  hr::reload(r, String(patch_path));
 #endif
 }
-
-struct Test
-{
-  BitArray<4096*4096> test;
-};
 
 /* ----------------------------------------------------------------------------
  */
 int main(int argc, const char** args)
 {
-
 $ if ECS_WAIT_FOR_TRACY_CONNECTION then
   while (!TracyIsConnected)
     platform::sleep(TimeSpan::fromMilliseconds(1));
@@ -119,7 +112,15 @@ $ end
   }
 
 #if ECS_HOT_RELOAD
-  hr::Reloader* reloader = hr::createReloader({});
+  void* dlhandle = dlopen(nullptr, RTLD_LAZY);
+
+  hr::Reloader* reloader = hr::createReloader(
+    dlhandle, String::fromCStr(args[0]));
+
+  io::StackMemory filter;
+  fs::File::openAndRead(&filter, "_build/ecs.hrf"_str);
+
+  hr::setReloaderFilter(reloader, String(filter));
 #endif
 
   Engine engine = { .launch_args = launch_args };

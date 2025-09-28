@@ -65,4 +65,17 @@ Texture Texture::createForRenderTarget(
   return t;
 }
 
+/* ----------------------------------------------------------------------------
+ */
+void Texture::destroy(Vulkan& vk)
+{
+  if (isnil(*this))
+    return;
+
+  descriptor_set.destroy(vk);
+  sampler.destroy(vk);
+  view.destroy(vk);
+  image.destroy(vk);
+}
+
 }

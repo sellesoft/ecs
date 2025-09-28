@@ -267,6 +267,9 @@ void UI::endFrame(InputState* consumed_input)
               break;
             }
           }
+
+          if (notnil(next_focus_state.hovered.id))
+            break;
         }
       }
     }
@@ -902,7 +905,7 @@ UI::PopupData* UI::getOpenPopupData(CombinedItemId id)
  */
 void UI::putItem(Rect bounds, const ItemSkin& skin)
 {
-  if (skin.color.a == 0)
+  if (skin.color.a == 0 && skin.border_color.a == 0)
     // Skip queuing commands for invisible items.
     return;
 
@@ -955,7 +958,8 @@ vec2f UI::getLocalCursorPos() const
 {
   Group* curgroup = getCurrentGroup();
   Item* curitem = curgroup->items;
-  assert(curitem != nullptr);
+  if (curitem == nullptr)
+    return frame_input.getCursorPos() - curgroup->transform.getTranslation();
 
   return frame_input.getCursorPos() - 
          (curitem->bounds.pos() + curgroup->transform.getTranslation());
@@ -1628,7 +1632,7 @@ void BorderDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
       (gfx::Vertex*)ui.vertex_buffer.mapped_data,
       (gfx::Index*)ui.index_buffer.mapped_data,
       ui.draw_counts,
-      vec4f(1,1,1,1),
+      offsets.asVec4f(),
       bounds.pos(),
       bounds.size(),
       color);
@@ -1645,6 +1649,7 @@ void UI::drawDebugBorder(Rect bounds, Color color)
   auto* border_cmd = frame_allocator.construct<BorderDrawCmd>();
 
   border_cmd->bounds = bounds;
+  border_cmd->offsets = { -1, -1, -1, -1 };
   border_cmd->color = color;
 
   border_cmd->next = debug_cmds;

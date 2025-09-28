@@ -35,6 +35,10 @@ struct Category
   // value where it is defined and adjustable at runtime through UI and 
   // console commands.
   Verbosity verbosity;
+
+  u64 line_len;
+
+  b8 need_prefix;
 };
 
 /* ============================================================================

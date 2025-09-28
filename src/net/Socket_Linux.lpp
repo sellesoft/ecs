@@ -112,6 +112,7 @@ void closeSocket()
   @log_dbg("closing ipv6 socket\n");
 
   close(s_ipv6_socket);
+  s_ipv6_socket = 0;
 }
 
 /* ----------------------------------------------------------------------------

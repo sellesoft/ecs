@@ -25,7 +25,7 @@ struct EyeSys : EntitySys
   // f32   rotation = 0.f;
   // f32   zoom = 1.f;
 
-  vec2f viewport_size = {};
+  vec2u viewport_size = {};
 
   EntityId attached = nil;
 

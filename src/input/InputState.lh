@@ -80,6 +80,8 @@ struct InputState
   vec2f getCursorDelta() const { return cursor_delta; }
   b8 didCursorMove() const { return cursor_delta != vec2f(0.f,0.f); }
 
+  void setCursorPos(vec2f pos) { cursor_pos = pos; }
+
   f32 getScroll() const { return scroll; }
 
   b8 hasCharInput() const { return char_count != 0; }

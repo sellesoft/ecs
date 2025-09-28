@@ -36,11 +36,12 @@ struct Client
   };
 
   b8 init(const InitParams& params);
-  void deinit();
+  void deinit(gfx::Vulkan& vk);
 
   struct UpdateParams
   {
     InputState& input;
+    vec2u viewport_size;
   };
 
   struct UpdateResult
@@ -49,26 +50,21 @@ struct Client
 
   UpdateResult update(const UpdateParams& params);
 
-  struct RenderResult
-  {
-  };
-
   struct RenderParams
   {
     gfx::Vulkan& vk;
     gfx::RenderTarget& target;
   };    
 
+  struct RenderResult
+  {
+  };
+
   RenderResult render(const RenderParams& params);
 
   b8 connectToServer(net::Address address);
 
   void disconnectFromServer();
-
-  void setViewport(Rect viewport)
-  {
-    gamemgr.setViewport(viewport);
-  }
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker)
   {

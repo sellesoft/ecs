@@ -66,9 +66,7 @@ void Engine::deinit()
  */
 b8 Engine::wantHotReload()
 {
-#if ECS_HOT_RELOAD
-#endif
-  return false;
+  return editor.wantHotReload();
 }
 
 /* ----------------------------------------------------------------------------

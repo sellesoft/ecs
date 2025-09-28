@@ -347,10 +347,12 @@ $   local rtname = resource_decl.type.name
     if (isnil(data->name))
       return true; // nothing to link.
 
-    // Resource.
-    // Ask the ResourceMgr to create the resource or give us it if it already
-    // exists.
-    // TODO(sushi) check if it already exists.
+    if (data->resource != nullptr)
+      return true;
+
+    if ((data->resource = resource_mgr.find$(rname)(data->name)))
+      return true;
+
     data->resource = resource_mgr.getOrCreate$(rname)(data->name);
 
     auto* r = ($(rtname)*)data->resource;

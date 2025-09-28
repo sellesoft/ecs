@@ -4,10 +4,7 @@
 
 $ require "common"
 
-@lpp.import "graphics/Image.lh"
-@lpp.import "graphics/ImageView.lh"
-@lpp.import "graphics/DescriptorSet.lh"
-@lpp.import "graphics/Sampler.lh"
+@lpp.import "graphics/Texture.lh"
 
 namespace gfx
 {

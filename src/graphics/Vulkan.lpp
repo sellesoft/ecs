@@ -1736,6 +1736,8 @@ b8 Vulkan::allocateVkDescriptorSet(
     &alloc_info,
     out))
 
+  @log.debug(vk, "allocated descriptor set ", io::Hex((u64)out), "\n");
+
   if (notnil(debug_name))
     debugSetObjectName(
       VK_OBJECT_TYPE_DESCRIPTOR_SET,

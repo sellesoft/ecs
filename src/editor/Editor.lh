@@ -91,6 +91,8 @@ struct Editor
   UpdateResult update(const UpdateParams& params);
 
   b8 render(this Editor& self);
+
+  b8 wantHotReload();
 };
 
 }

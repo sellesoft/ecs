@@ -28,12 +28,12 @@ void EyeSys::getViewMat(mat3x2* view) const
  */
 vec2f EyeSys::screenToWorld(vec2f sp) const
 {
-  return view.viewportPointToWorld(sp, viewport_size);
+  return view.viewportPointToWorld(sp, vec2f(viewport_size));
 }
 
 /* ----------------------------------------------------------------------------
  */
 vec2f EyeSys::worldToScreen(vec2f wp) const
 {
-  return view.worldPointToViewport(wp, viewport_size);
+  return view.worldPointToViewport(wp, vec2f(viewport_size));
 }

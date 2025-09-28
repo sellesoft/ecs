@@ -19,8 +19,6 @@ $ require "common"
 #include "iro/concurrent/Thread.h"
 #include "iro/io/Stream.h"
 
-#include <atomic>
-
 @log.import
 
 using namespace iro;
@@ -35,10 +33,36 @@ b8 Server::init(const InitParams& params)
   @log.info(game, "creating server...\n");
 
   using namespace sv;
-  
-  assert(false);
 
-  return false;
+$ local function createServerAllocator(allocator, size)
+  {
+    void* mem = mem::stl_allocator.allocate($(size));
+
+    if (!$(allocator).init(mem, $(size)))
+      return @log.error(game, 
+        "failed to initialize allocator '$(allocator)' with size ", 
+        $(size), "\n");
+
+    @log.info(game, "initialized $(allocator) with size ", $(size), '\n');
+  }
+$ end
+
+  @createServerAllocator(global_allocator, params.global_allocation_size)
+  @createServerAllocator(match_allocator, params.match_allocation_size)
+  @createServerAllocator(tick_allocator, params.tick_allocation_size)
+
+  target_timespan = 
+    TimeSpan::fromMilliseconds(params.target_tickrate_ms);
+
+  @log.info(game, "target tickrate set to ", WithUnits(target_timespan), '\n');
+
+  if (!netmgr.init(
+        &global_allocator, 
+        this,
+        params.max_sessions))
+    return @log.error(game, "failed to initialize net manager\n");
+
+  return true;
 }
 
 /* ----------------------------------------------------------------------------
@@ -64,5 +88,22 @@ void stopMatch()
  */
 Server::UpdateResult Server::update()
 {
-  return {};
+  Server::UpdateResult result = {};
+
+  tick_allocator.clear();
+
+  netmgr.receiveMessages();
+
+  if (state == State::InGame)
+  {
+    if (!entsysmgr.update())
+    {
+      @log.error(game, "entity system manager update failed\n");
+      result.sim_error = true;
+    }
+  }
+
+  netmgr.sendMessages();
+
+  return result;
 }

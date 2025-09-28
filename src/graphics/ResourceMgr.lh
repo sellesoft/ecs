@@ -106,6 +106,31 @@ struct ResourceMgr
   FontResource*     getOrCreateFontResource(String name);
   PipelineResource* getOrCreatePipelineResource(String name);
 
+  TextureResource* findTextureResource(String name)
+  { 
+    if (auto* r = textures.find(name))
+      return &r->resource;
+    return nullptr;
+  }
+  ShaderResource* findShaderResource(String name)
+  { 
+    if (auto* r = shaders.find(name))
+      return &r->resource;
+    return nullptr;
+  }
+  FontResource* findFontResource(String name)
+  { 
+    if (auto* r = fonts.find(name))
+      return &r->resource;
+    return nullptr;
+  }
+  PipelineResource* findPipelineResource(String name)
+  { 
+    if (auto* r = pipelines.find(name))
+      return &r->resource;
+    return nullptr;
+  }
+
   // Loads the given resource onto the GPU and such, or does nothing if its 
   // already loaded.
   b8 loadTextureResource(TextureResource* texture);

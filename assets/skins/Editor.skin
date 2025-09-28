@@ -120,5 +120,15 @@ return EditorSkinDef
 
   text = text,
 
+  window_header = 
+  {
+    text = text,
+    item = 
+    {
+      color = dark_blue,
+    },
+    text_padding = { 3, 3 },
+  },
+
   menu_bar = menu_bar,
 }

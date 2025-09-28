@@ -192,7 +192,10 @@ $ end
 
   // The handle is our internal representation instead of the VkBuffer, as 
   // we have to track its device memory internally.
-  return {internal_buffer, mapped_data};
+  Buffer buffer = {internal_buffer, mapped_data};
+  @log.debug(gfx, "created ", buffer, " (", internal_buffer->set, ")", "\n");
+  return buffer;
+
 }
 
 /* ----------------------------------------------------------------------------
@@ -207,7 +210,10 @@ void Buffer::destroy(Vulkan& vk)
   auto* internal_buffer = (DeviceBuffer*)handle;
 
   if (internal_buffer->set != VK_NULL_HANDLE)
+  {
     vk.deallocateVkDescriptorSet(internal_buffer->set);
+    internal_buffer->set = VK_NULL_HANDLE;
+  }
 
   // Unmapping when this is not mapped is safe and handled in this call.
   vk.unmapVkBuffer(internal_buffer->ptr);

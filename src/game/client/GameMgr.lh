@@ -46,6 +46,7 @@ struct GameMgr
   struct UpdateParams
   { 
     InputState& input;
+    vec2u viewport_size;
   };
 
   b8 update(UpdateParams& params);
@@ -54,15 +55,9 @@ struct GameMgr
   {
     gfx::Vulkan& vk;
     gfx::RenderTarget& target;
-
-    // An optional view to render the game from which will overload the 
-    // eye sys' view.
-    gfx::View* view;
   };
 
   b8 render(const RenderParams& params);
-
-  void setViewport(Rect viewport);
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker)
   {

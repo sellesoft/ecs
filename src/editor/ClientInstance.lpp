@@ -1,29 +1,40 @@
 $ require "common"
 
+#include "iro/print.h"
+
 @lpp.import "editor/Editor.lh"
 @lpp.import "editor/ClientInstance.lh"
 @lpp.import "graphics/vk.lh"
+@lpp.import "window/Window.events.lh"
 
 @log.import
 
 namespace editor
 {
 
+static const u64 c_client_render_w = 4096;
+static const u64 c_client_render_h = c_client_render_w;
+
 /* ----------------------------------------------------------------------------
  */
-b8 ClientInstance::init(this S& self)
+static inline b8 recreateClientTexture(
+    gfx::Vulkan& vk,
+    gfx::Texture* texture)
 {
-  vec2u winsize = vec2u(self.editor->window.size);
+  texture->destroy(vk);
 
-  self.client_render = gfx::Texture::createForRenderTarget(*self.editor->vk,
+  *texture = gfx::Texture::createForRenderTarget(vk,
   {
-    .size = winsize,
+    .size = vec2u(c_client_render_w, c_client_render_h),
     .debug_name = "client instance texture"_str
   });
-  if (isnil(self.client_render))
-    return @log.error(editor, 
-      "failed to initialize a client render texture\n");
 
+  return notnil(*texture);
+}
+/* ----------------------------------------------------------------------------
+ */
+static b8 initClient(ClientInstance& self)
+{
   reflect::Linker linker = 
   { 
     .resource_mgr = self.editor->resource_mgr,
@@ -39,7 +50,38 @@ b8 ClientInstance::init(this S& self)
   if (!self.client.init(client_params))
     return @log.error(editor, "failed to initialize a client instance\n");
 
-  self.client.setViewport(Rect::from({0,0}, vec2f(winsize)));
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ClientInstance::resetClient(this ClientInstance& self)
+{
+  gfx::vk::waitForDeviceIdle(self.editor->vk);
+
+  self.client.deinit(*self.editor->vk);
+  return initClient(self);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ClientInstance::init(this S& self, BroadcastEventBus* eventbus)
+{
+  self.title = "client-instance"_str;
+
+  self.client_render_size = vec2u(self.editor->window.size);
+
+  if (!recreateClientTexture(
+        *self.editor->vk,
+        &self.client_render))
+    return @log.error(editor, 
+      "failed to initialize client render texture\n");
+
+  if (!initClient(self))
+    return false;
+
+  eventbus->subscribeTo<WindowResized>(
+    &self, &ClientInstance::onWindowResized);
 
   return true;
 }
@@ -54,22 +96,56 @@ void ClientInstance::deinit()
  */
 void ClientInstance::update() 
 {
-  InputState input;
-  editor->input.cloneInputState(&input);
-
-  Client::UpdateParams params = 
-  {
-    .input = input,
-  };
-
-  client.update(params);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  ui.putQuad(ui.getBounds(), client_render.getHandle(), 0xffffffff);
+  Rect menu_bar_bounds = {};
+  menu_bar_bounds.x = 0.f;
+  menu_bar_bounds.y = 0.f;
+  menu_bar_bounds.w = ui.getWidth();
+  menu_bar_bounds.h = 15.f;
+
+  f32 bar_x = 0.f;
+
+  if (ui.putButton(
+        "reset"_fid, 
+        Rect::from(bar_x, 0.f, 30.f, 15.f),
+        "reset"_str,
+        skin.button))
+  {
+    @log.info(editor, "reset\n");
+    resetClient();
+  }
+
+  Rect bounds = ui.getBounds();
+  bounds.y += menu_bar_bounds.h;
+  bounds.h -= menu_bar_bounds.h;
+
+  ui_size = bounds.size();
+
+  vec4f uv = {0,0,0,0};
+  uv.z = ui_size.x / c_client_render_w;
+  uv.w = ui_size.y / c_client_render_h;
+
+  InputState input;
+  editor->input.cloneInputState(&input);
+
+  input.setCursorPos(ui.getLocalCursorPos());
+
+  Client::UpdateParams params = 
+  {
+    .input = input,
+    .viewport_size = vec2u(ui_size),
+  };
+
+  // Yeah weird but we have proper cursor input here. Would be nice to 
+  // separate this from UI stuff. Maybe an input update or something.
+  client.update(params);
+
+  ui.putQuad(bounds, client_render.getHandle(), uv, 0xffffffff);
 }
 
 /* ----------------------------------------------------------------------------
@@ -89,6 +165,9 @@ void ClientInstance::notifyAssetChanged(String name, String type)
  */
 void ClientInstance::render(gfx::Vulkan& vk) 
 {
+  if (ui_size.x == 0 || ui_size.y == 0)
+    return;
+
   gfx::RenderTarget target = 
   { 
     .image = client_render.image,
@@ -104,6 +183,13 @@ void ClientInstance::render(gfx::Vulkan& vk)
   client.render(client_params);
 
   gfx::vk::prepareImageForSampling(&vk, client_render.image);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientInstance::onWindowResized(WindowResized& ev)
+{
+
 }
 
 

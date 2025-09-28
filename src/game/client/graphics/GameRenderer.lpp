@@ -102,8 +102,15 @@ b8 GameRenderer::init(InitParams& params)
 void GameRenderer::deinit(gfx::Vulkan& vk)
 {
   scene_uniform_buffer.destroy(vk);
+
+  background_vertex_buffer.destroy(vk);
+  background_index_buffer.destroy(vk);
+
   quads_vertex_buffer.destroy(vk);
   quads_index_buffer.destroy(vk);
+
+  null_texture = {};
+  quad_pipeline_link = {};
 }
 
 /* ----------------------------------------------------------------------------
@@ -217,22 +224,24 @@ b8 GameRenderer::render(const RenderParams& params)
 
   gfx::Vulkan& vk = params.vk;
 
+  vec2u view_size = params.viewport_size;
+
   assert(notnil(params.target));
 
   ///////////////////////////////////////////////
   // 0. Update Scene
   {
     mat3x2 proj = mat3x2::identity();
-    proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / (f32)params.viewport.w);
-    proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / (f32)params.viewport.h);
+    proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / (f32)view_size.x);
+    proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / (f32)view_size.y);
     proj.toMat4(scene.proj);
 
     params.view.toTransposedMat4(scene.view);
 
     f32 time = (TimePoint::monotonic() - TimePoint{}).toSeconds();
 
-    scene.resolution_and_time[0] = (f32)params.viewport.w;
-    scene.resolution_and_time[1] = (f32)params.viewport.h;
+    scene.resolution_and_time[0] = (f32)view_size.x;
+    scene.resolution_and_time[1] = (f32)view_size.y;
     scene.resolution_and_time[2] = time;
 
     scene_uniform_buffer.map(vk);
@@ -244,14 +253,13 @@ b8 GameRenderer::render(const RenderParams& params)
   if (!gfx::vk::beginRenderPass(&vk,
         &pass,
         params.target,
-        vec2i(params.viewport.pos()),
-        vec2u(params.viewport.size()),
+        vec2i(0, 0),
+        view_size,
         0x000000ff))
     return false;
 
-  pass.setViewport(params.viewport.pos(), params.viewport.size());
-  pass.setScissor(
-    vec2i(params.viewport.pos()), vec2u(params.viewport.size()));
+  pass.setViewport({0,0}, vec2f(view_size));
+  pass.setScissor({0,0}, view_size);
 
   ///////////////////////////////////////////////
   // 1. Draw Background
@@ -268,7 +276,6 @@ b8 GameRenderer::render(const RenderParams& params)
     // renderer.bindTexture(stars_texture);
     // renderer.draw(0, 6, 0);
   }
-
 
   ///////////////////////////////////////////////
   // 2. Draw Map Tiles

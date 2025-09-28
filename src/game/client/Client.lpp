@@ -38,16 +38,15 @@ b8 Client::init(const InitParams& params)
   if (!gamemgr.init(gamemgr_params))
     return @log.error(game, "failed to initialize game manager\n");
 
-  gamemgr.setViewport(Rect::from(0,0,1000,1000));
-
   return true;
 }
 
 /* ----------------------------------------------------------------------------
  */
-void Client::deinit()
+void Client::deinit(gfx::Vulkan& vk)
 {
   netmgr.deinit();
+  gamemgr.deinit(vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -56,13 +55,18 @@ Client::UpdateResult Client::update(const UpdateParams& params)
 {
   UpdateResult result = {};
 
+  netmgr.receiveMessages();
+
   cl::GameMgr::UpdateParams gamemgr_params = 
   {
     .input = params.input,
+    .viewport_size = params.viewport_size,
   };
 
   if (!gamemgr.update(gamemgr_params))
     return result;
+
+  netmgr.sendMessages();
 
   return result;
 }
@@ -75,7 +79,6 @@ Client::RenderResult Client::render(const RenderParams& params)
   {
     .vk = params.vk,
     .target = params.target,
-    .view = nullptr,
   };
 
   gamemgr.render(gamemgr_params);

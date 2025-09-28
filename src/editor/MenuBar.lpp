@@ -22,10 +22,4 @@ void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 
 }
 
-/* ----------------------------------------------------------------------------
- */
-void MenuBar::onFileModified(FileModifiedEvent& e)
-{
-}
-
 }

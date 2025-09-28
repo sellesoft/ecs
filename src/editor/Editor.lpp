@@ -173,38 +173,58 @@ struct BuildThread
  */
 b8 Editor::init(const InitParams& params)
 {
-  if (!asset_mgr.init(&mem::stl_allocator, "_data"_str))
-    return @logerr("failed to initialize AssetMgr\n");
-
-  if (!input.init())
-    return @logerr("failed to initialize InputMgr\n");
-
-  if (!Window::initializeBackend())
-    return @logerr("failed to initialize Window backend\n");
-
-  if (!window.init(params.engine, "ecs editor"_str, input))
-    return @logerr("failed to initialize Window\n");
-
-  gfx::vk::CreateParams vk_create_params = 
+$ local function initSubSystem(name, code)
   {
-    .allocator = &mem::stl_allocator,
-    .window = window,
-  };
+    auto start = TimePoint::monotonic();
+    b8 success = false;
 
-  vk = gfx::vk::create(vk_create_params);
-  if (vk == nullptr)
-    return @logerr("failed to create Vulkan instance\n");
+    $(code)
 
-  if (!resource_mgr.init(vk))
-    return @logerr("failed to initialize ResourceMgr\n");
+    if (!success)
+      return @logerr("failed to initialize $(name)"_str);
 
-  build::Rule build_rules[] = 
+    @loginfo("initialized $(name) in ", 
+             WithUnits(TimePoint::monotonic() - start), '\n');
+  }
+$ end
+  
+  @initSubSystem(AssetMgr,
   {
-    gfx::getTextureBuildRule(),
-    gfx::getShaderBuildRule(),
-    gfx::getFontBuildRule(),
-    reflect::CompiledData::getBuildRule(),
-  };
+    success = asset_mgr.init(&mem::stl_allocator, "_data"_str);
+  });
+
+  @initSubSystem(Input,
+  {
+    success = input.init();
+  })
+
+  @initSubSystem(Window backend,
+  {
+    success = Window::initializeBackend();
+  })
+
+  @initSubSystem(Window,
+  {
+    success = window.init(params.engine, "ecs editor"_str, input);
+  })
+
+  @initSubSystem(Vulkan,
+  {
+    gfx::vk::CreateParams vk_create_params = 
+    {
+      .allocator = &mem::stl_allocator,
+      .window = window,
+    };
+
+    vk = gfx::vk::create(vk_create_params);
+
+    success = vk != nullptr;
+  })
+
+  @initSubSystem(gfx::ResourceMgr,
+  {
+    success = resource_mgr.init(vk);
+  })
 
   fs::PathBuffer cwd_buffer;
   cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
@@ -212,28 +232,42 @@ b8 Editor::init(const InitParams& params)
     return @logerr("failed to get current working directory\n");
   String cwd = String(cwd_buffer);
 
-  fs::PathBuffer compiled_dir_buffer;
-  io::formatv(&compiled_dir_buffer, cwd, "/_data"_str);
-
-  fs::PathBuffer trash_dir_buffer;
-  io::formatv(&trash_dir_buffer, cwd, "/_trash"_str);
-
-  build::BuildSystem::InitParams build_system_params = 
+  @initSubSystem(BuildSystem,
   {
-    .source_mount = cwd,
-    .compiled_mount = String(compiled_dir_buffer),
-    .trash_mount = String(trash_dir_buffer),
-    .rules = makeSlice(build_rules),
-  };
+    build::Rule build_rules[] = 
+    {
+      gfx::getTextureBuildRule(),
+      gfx::getShaderBuildRule(),
+      gfx::getFontBuildRule(),
+      reflect::CompiledData::getBuildRule(),
+    };
 
-  if (!build_system.init(build_system_params))
-    return @logerr("failed to initialize build system\n");
+    fs::PathBuffer compiled_dir_buffer;
+    io::formatv(&compiled_dir_buffer, cwd, "/_data"_str);
+
+    fs::PathBuffer trash_dir_buffer;
+    io::formatv(&trash_dir_buffer, cwd, "/_trash"_str);
+
+    build::BuildSystem::InitParams build_system_params = 
+    {
+      .source_mount = cwd,
+      .compiled_mount = String(compiled_dir_buffer),
+      .trash_mount = String(trash_dir_buffer),
+      .rules = makeSlice(build_rules),
+    };
+
+    success = build_system.init(build_system_params);
+  })
+
+  @loginfo("loading and building asset lists...\n");
 
   build_system.loadAssetList("src/editor/Editor.asset_list"_str);
   build_system.loadAssetList("src/ui/UI.asset_list"_str);
 
   if (!build_system.build())
     return @logerr("failed to build required Editor assets\n");
+
+  @loginfo("linking Editor skin def...\n");
 
   l_skin.name = "assets/skins/Editor"_str;
 
@@ -251,20 +285,26 @@ b8 Editor::init(const InitParams& params)
     resource_mgr,
     asset_mgr);
 
-  ui::UI::InitParams ui_params = 
+  @initSubSystem(UI,
   {
-    .vk = *vk,
-    .resource_mgr = resource_mgr,
-    .asset_mgr = asset_mgr,
-    .viewport = Rect::from(0,0,window.size.x,window.size.y),
-    .white_texture = l_white_texture.getHandle(),
-  };
+    ui::UI::InitParams ui_params = 
+    {
+      .vk = *vk,
+      .resource_mgr = resource_mgr,
+      .asset_mgr = asset_mgr,
+      .viewport = Rect::from(0,0,window.size.x,window.size.y),
+      .white_texture = l_white_texture.getHandle(),
+    };
 
-  if (!ui.init(ui_params))
-    return @logerr("failed to init UI\n");
+    success = ui.init(ui_params);
+  })
+
+  @loginfo("starting build thread...\n");
 
   build_thread = mem::stl_allocator.construct<BuildThread>();
   build_thread->init(&build_system);
+
+  @loginfo("starting file watcher thread...\n");
 
   if (!file_watcher.init())
     return @logerr("failed to initialize file watcher\n");
@@ -288,7 +328,10 @@ b8 Editor::init(const InitParams& params)
   file_explorer.changeDir(cwd);
 
   client_instance.editor = this;
-  client_instance.init();
+  client_instance.init(&params.eventbus);
+
+  client_instance.pos = {100.f, 100.f};
+  client_instance.size = {500.f, 500.f};
 
   start_time = TimePoint::monotonic();
 
@@ -362,6 +405,150 @@ b8 Editor::render(this Editor& self)
 
 /* ----------------------------------------------------------------------------
  */
+static Doc::EdgeFlags computeEdgeFlags(
+    vec2f local_cursor,
+    vec2f size,
+    f32 hit_size)
+{
+  Doc::EdgeFlags flags = {};
+  if (local_cursor.x < hit_size)
+    flags.set(Doc::Edge::Left);
+  if (local_cursor.y < hit_size)
+    flags.set(Doc::Edge::Top);
+  if (size.x - local_cursor.x < hit_size)
+    flags.set(Doc::Edge::Right);
+  if (size.y - local_cursor.y < hit_size)
+    flags.set(Doc::Edge::Bottom);
+  return flags;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void placeDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
+{
+  const f32 border_w = 1.f;
+  const f32 border_hit_size = 10.f;
+
+  const f32 header_h = 20.f;
+
+
+  vec2f hit_offset = { border_hit_size, border_hit_size };
+
+  vec2f displayed_pos = doc->pos;
+  vec2f displayed_size = doc->size;
+
+  vec2f container_cursor = ui.getLocalCursorPos();
+
+  if (doc->control_state == Doc::ControlState::DraggingEdge)
+  {
+    vec2f diff = container_cursor - doc->drag_start;
+
+    if (doc->dragged_edges.test(Doc::Edge::Top))
+    {
+      displayed_pos.y += diff.y;
+      displayed_size.y -= diff.y;
+    }
+    else if (doc->dragged_edges.test(Doc::Edge::Bottom))
+    {
+      displayed_size.y += diff.y;
+    }
+
+    if (doc->dragged_edges.test(Doc::Edge::Left))
+    {
+      displayed_pos.x += diff.x;
+      displayed_size.x -= diff.x;
+    }
+    else if (doc->dragged_edges.test(Doc::Edge::Right))
+    {
+      displayed_size.x += diff.x;
+    }
+
+    if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+    {
+      doc->control_state = Doc::ControlState::None;
+      doc->size = displayed_size;
+      doc->pos = displayed_pos;
+    }
+  }
+
+  vec2f real_size;
+  real_size.x = displayed_size.x + 2 * border_hit_size;
+  real_size.y = displayed_size.y + 2 * border_hit_size;
+
+  ui.beginGroup(Rect::from(displayed_pos - hit_offset, real_size));
+  
+  ui::FocusFlags focus = 
+    ui.putFocusableBounds("doc-border"_fid, ui.getBounds());
+
+  if (focus.test(ui::FocusFlag::Hovered) && 
+      doc->control_state != Doc::ControlState::DraggingEdge)
+  {
+    vec2f local_cursor = ui.getLocalCursorPos();
+
+    Doc::EdgeFlags edges = 
+      computeEdgeFlags(local_cursor, real_size, border_hit_size);
+
+    if (focus.test(ui::FocusFlag::PrimaryPressed))
+    {
+      doc->drag_start = container_cursor;
+      doc->dragged_edges = edges;
+      doc->control_state = Doc::ControlState::DraggingEdge;
+    }
+  }
+
+  ui.beginGroup(Rect::from(hit_offset, displayed_size));
+  {
+    ui::ItemSkin bg = {};
+    bg.color = 0x000000ff;
+    bg.border = { -border_w, -border_w, -border_w, -border_w };
+    bg.border_color = 0xaaaaaaff;
+
+    ui.putItem(Rect::from({0,0}, displayed_size), bg);
+
+    Rect header_bounds = {};
+    header_bounds.x = 0.f;
+    header_bounds.y = 0.f;
+    header_bounds.w = ui.getWidth();
+    header_bounds.h = header_h;
+
+    ui.putTextItem(header_bounds, doc->title, skin.window_header);
+
+    ui::FocusFlags focus = 
+      ui.putFocusableBounds("doc-window"_fid, header_bounds);
+  
+    if (doc->control_state == Doc::ControlState::DraggingWindow)
+    {
+      if (focus.test(ui::FocusFlag::PrimaryReleased))
+      {
+        doc->control_state = Doc::ControlState::None;
+      }
+      else
+      {
+        vec2f lcur = ui.getLocalCursorPos();
+        doc->pos += lcur - ui.focus_state.pressed_cursor_offset;
+      }
+    }
+    else if (focus.test(ui::FocusFlag::PrimaryPressed))
+    {
+      doc->control_state = Doc::ControlState::DraggingWindow;
+    }
+
+    Rect content_bounds = {};
+    content_bounds.x = border_w;
+    content_bounds.y = header_h;
+    content_bounds.w = ui.getWidth() - 2 * border_w;
+    content_bounds.h = ui.getHeight() - border_w - header_h;
+    
+    ui.beginGroup(content_bounds);
+    doc->placeUI(ui, skin);
+    ui.endGroup();
+  }
+  ui.endGroup();
+  ui.endGroup();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 Editor::UpdateResult Editor::update(const UpdateParams& params)
 {
   UpdateResult result = {};
@@ -403,9 +590,9 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   ui.beginFrame(ui_frame_params);
   {
     const EditorSkinDef& skin = *l_skin;
-    menu_bar.placeUI(ui, skin);
+    // menu_bar.placeUI(ui, skin);
 
-    client_instance.placeUI(ui, skin);
+    placeDocWindow(ui, &client_instance, skin);
 
     // NOTE(sushi) disabled for now as I'm going to focus on getting the 
     //             game running again.
@@ -484,6 +671,16 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   }
 
   return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Editor::wantHotReload()
+{
+  if (input.real_state.wasKeyPressed(Key::R))
+    return true;
+
+  return false;
 }
 
 }

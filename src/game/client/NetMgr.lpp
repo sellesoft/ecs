@@ -96,8 +96,8 @@ void NetMgr::receiveMessages()
   if (connection.address.type == AddressType::Offline)
   {
     //NOTE(delle) lock during offline packet processing
-    this->lockOfflinePacketMutex(Source::Server);
-    defer { this->unlockOfflinePacketMutex(Source::Server); };
+    // this->lockOfflinePacketMutex(Source::Server);
+    // defer { this->unlockOfflinePacketMutex(Source::Server); };
 
     Fragment fragment;
     connection.receive(Source::Server, fragment);
@@ -149,8 +149,8 @@ void NetMgr::sendMessages()
   //NOTE(delle) lock before offline connection receive/send
   if (connection.address.type == AddressType::Offline)
   {
-    this->lockOfflinePacketMutex(Source::Client);
-    defer { this->unlockOfflinePacketMutex(Source::Client); };
+    // this->lockOfflinePacketMutex(Source::Client);
+    // defer { this->unlockOfflinePacketMutex(Source::Client); };
   }
 
   if (connection.state == Connection::State::Connected)
@@ -177,7 +177,7 @@ void NetMgr::sendMessages()
     if (time_since_challenge.toMilliseconds() > 1000)
     {
       //TODO(delle) drop connection if time since challenge is too long
-      @log.info(net, "CHALLENGE TIMED OUT [", connection.address, "]\n");
+      // @log.info(net, "CHALLENGE TIMED OUT [", connection.address, "]\n");
       return;
     }
 

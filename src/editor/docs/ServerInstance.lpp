@@ -1,0 +1,113 @@
+$ require "common"
+
+@lpp.import "editor/docs/ServerInstance.lh"
+@lpp.import "editor/docs/ClientInstance.lh"
+
+@log.import
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 handleOfflinePacketSend(
+    ServerInstance& self, 
+    net::Source source,
+    void* data,
+    u16 len)
+{
+  for (ClientInstance* connected : self.connected_clients)
+  {
+    net::MessageBuffer& packet = connected->offline_packet_in;
+    mem::copy(packet.arr, data, len);
+    packet.len = len;
+  }
+
+  @log.info(editor, "server send packet: ", data, ' ', len, '\n');
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 handleOfflinePacketGet(
+    ServerInstance& self, 
+    net::Source source,
+    net::Fragment& fragment)
+{
+  for (ClientInstance* connected : self.connected_clients)
+  {
+    net::MessageBuffer& packet = connected->offline_packet_out;
+    if (!packet.isEmpty())
+    {
+      @log.info(editor, 
+        "server got packet from client ", connected, "\n",
+        "  size: ", packet.len, '\n');
+      mem::copy(fragment.arr, packet.arr, packet.len);
+      fragment.len = packet.len;
+      packet.len = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 initServer(ServerInstance& self)
+{
+  Server::InitParams params = 
+  {
+    .global_allocation_size = unit::megabytes(128),
+    .match_allocation_size = unit::megabytes(128),
+    .tick_allocation_size = unit::megabytes(128),
+    .target_tickrate_ms = 1,
+    .max_sessions = 2,
+    .publicity = Server::Publicity::Offline,
+  };
+
+  if (!self.server.init(params))
+    return false;
+
+  self.server.netmgr.registerOfflinePacketHandler(
+    &self, 
+    handleOfflinePacketSend,
+    handleOfflinePacketGet);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ServerInstance::init(this S& self)
+{
+  if (!initServer(self))
+    return false;
+
+  if (!self.connected_clients.init())
+    return false;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ServerInstance::update()
+{
+  server.update();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ServerInstance::connectClientInstance(ClientInstance* instance)
+{
+  for (ClientInstance* connected : connected_clients)
+  {
+    if (connected == instance)
+      return;
+  }
+
+  connected_clients.push(instance);
+  instance->connected_server = this;
+}
+
+}

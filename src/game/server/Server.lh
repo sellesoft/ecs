@@ -49,14 +49,12 @@ struct Server
 
   Engine* engine;
 
-  sv::GameSim sim;
   sv::NetMgr netmgr;
 
   sv::EntitySysMgr entsysmgr;
 
   struct InitParams
   {
-    Engine& engine;
     u64 global_allocation_size;
     u64 match_allocation_size;
     u64 tick_allocation_size;

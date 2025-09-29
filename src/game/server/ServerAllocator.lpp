@@ -31,7 +31,7 @@ b8 ServerAllocator::init(void* backing, u64 size)
 void ServerAllocator::clear()
 {
   assertpointer(this->backing);
-  @log.trace(net, "clearing a server allocator\n");
+  // @log.trace(net, "clearing a server allocator\n");
 
   if (this->used > 0)
     mem::zero(this->backing, this->used);

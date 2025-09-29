@@ -32,7 +32,7 @@ namespace net
  */
 void Message::init(u8* data, u16 size)
 {
-  @log.trace(net, "initializing message with ", size, " bytes\n");
+  // @log.trace(net, "initializing message with ", size, " bytes\n");
   if (size > MAX_SIZE)
   {
     @log.error(net, "attempted to initialize a message with more bytes than"

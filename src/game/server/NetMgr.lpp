@@ -125,8 +125,8 @@ void NetMgr::receiveMessages()
   // receive messages from clients
   if (this->server->publicity == Server::Publicity::Offline)
   {
-    this->lockOfflinePacketMutex(Source::Client);
-    defer { this->unlockOfflinePacketMutex(Source::Client); };
+    // this->lockOfflinePacketMutex(Source::Client);
+    // defer { this->unlockOfflinePacketMutex(Source::Client); };
 
     Fragment fragment;
     if (!this->receiveOfflinePacket(Source::Client, fragment))
@@ -186,8 +186,8 @@ void NetMgr::sendMessages()
   //NOTE(delle) lock before offline connection receive/send
   if (this->server->publicity == Server::Publicity::Offline)
   {
-    this->lockOfflinePacketMutex(Source::Server);
-    defer { this->unlockOfflinePacketMutex(Source::Server); };
+    // this->lockOfflinePacketMutex(Source::Server);
+    // defer { this->unlockOfflinePacketMutex(Source::Server); };
   }
 
   u8 message_data[Message::MAX_SIZE];
@@ -204,26 +204,28 @@ void NetMgr::sendMessages()
       if (time_since_challenge.toMilliseconds() > 1000)
       {
         //TODO(delle) drop connection if time since challenge is too long
-        @log.info(net, 
-          "CHALLENGE TIMED OUT [", session.connection.address, "]\n");
-        continue;
+       // @log.info(net, 
+       //   "CHALLENGE TIMED OUT [", session.connection.address, "]\n");
+        ChallengeNetEvent challenge_event = 
+        {
+          .session = &session,
+          .challenge_value = session.challenge_value,
+        };
+        this->queueEvent(challenge_event);
+        session.last_challenge_time = TimePoint::monotonic();
+        @log.info(net, "sent challenge\n");
       }
-
-      ChallengeNetEvent challenge_event = 
-      {
-        .session = &session,
-        .challenge_value = session.challenge_value,
-      };
-      this->queueEvent(challenge_event);
-      session.last_challenge_time = TimePoint::monotonic();
     }
 
     this->packEventsIntoMessage(message, &session);
     if (!message.writeOverflowed())
     {
-      session.connection.send(Source::Server, message, false);
-      if (session.connection.outgoing_message_pending_fragments)
-        session.connection.sendNextFragment();
+      if (message.size != 0)
+      {
+        session.connection.send(Source::Server, message, false);
+        if (session.connection.outgoing_message_pending_fragments)
+          session.connection.sendNextFragment();
+      }
     }
     else
     {

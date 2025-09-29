@@ -43,7 +43,8 @@ $ local function createServerAllocator(allocator, size)
         "failed to initialize allocator '$(allocator)' with size ", 
         $(size), "\n");
 
-    @log.info(game, "initialized $(allocator) with size ", $(size), '\n');
+    @log.info(game, "initialized $(allocator) with size ", 
+               iro::io::ByteUnits($(size)), '\n');
   }
 $ end
 

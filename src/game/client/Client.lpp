@@ -94,8 +94,6 @@ b8 Client::connectToServer(net::Address address)
   if (address.type == net::AddressType::Invalid)
     return @log.error(game, "invalid address\n");
 
-  assert(!"reimplement client connection to server");
-
   return netmgr.connectToServer(address);
 }
 

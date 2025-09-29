@@ -22,7 +22,7 @@ namespace gfx
 $ local print_success = false
 $ local print_non_error_success_as_warning = false
 $ local release_validation = false
-$ local disable_validation = false
+$ local disable_validation = true
 $ local validation = 
 $   (ECS_DEBUG or release_validation) and 
 $   not disable_validation

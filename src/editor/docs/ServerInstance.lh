@@ -1,0 +1,48 @@
+/*
+ *  An Editor Doc serving as an instance of a game server.
+ */
+
+$ require "common"
+
+@lpp.import "editor/Doc.lh"
+@lpp.import "game/server/Server.lh"
+@lpp.import "graphics/Texture.lh"
+
+struct WindowResized;
+
+namespace gfx
+{
+struct Vulkan;
+struct RenderPass;
+}
+
+namespace editor
+{
+
+struct ClientInstance;
+
+/* ============================================================================
+ */
+struct ServerInstance : Doc
+{
+  using S = ServerInstance;
+
+  Server server;
+
+  Array<ClientInstance*> connected_clients;
+
+  void onOpen() override { init(); }
+
+  b8 init(this S& self);
+  void deinit();
+
+  b8 resetServer(this S& self);
+
+  void update() override;
+
+  void notifyAssetChanged(String name, String type);
+
+  void connectClientInstance(ClientInstance* instance);
+};
+
+}

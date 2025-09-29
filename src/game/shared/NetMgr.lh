@@ -5,6 +5,7 @@ $ require "common"
 
 #include "iro/Common.h"
 #include "iro/containers/StackArray.h"
+#include "iro/io/StaticBuffer.h"
 
 namespace iro::mem { struct Allocator; }
 struct SharedNetMgr;
@@ -101,6 +102,21 @@ struct Connection
   void receive(Source source, Fragment& fragment);
 };
 
+template<typename T>
+using OfflinePacketSender = b8 (*)(T, Source, void*, u16);
+
+template<typename T>
+using OfflinePacketGetter = b8 (*)(T, Source, Fragment&);
+
+struct IOfflinePacketHandler
+{
+  void* data = nullptr;
+  OfflinePacketGetter<void*> getter = nullptr;
+  OfflinePacketSender<void*> sender = nullptr;
+};
+
+typedef iro::io::StaticBuffer<Message::MAX_SIZE> MessageBuffer;
+
 } // namespace net
 
 /* ============================================================================
@@ -109,6 +125,8 @@ struct SharedNetMgr
 {
   iro::mem::Allocator* allocator;
   struct NetEventBusData* event_bus_data;
+
+  net::IOfflinePacketHandler offline;
 
   b8 init(iro::mem::Allocator* allocator);
   void deinit();
@@ -123,6 +141,27 @@ struct SharedNetMgr
 
   void lockOfflinePacketMutex(net::Source source);
   void unlockOfflinePacketMutex(net::Source source);
+
+  void registerOfflinePacketHandler(
+    void* data, 
+    net::OfflinePacketSender<void*> sender,
+    net::OfflinePacketGetter<void*> getter)
+  {
+    offline.data = data;
+    offline.sender = sender;
+    offline.getter = getter;
+  }
+
+  template<typename T>
+  void registerOfflinePacketHandler(
+    T* data, 
+    net::OfflinePacketSender<T&> sender,
+    net::OfflinePacketGetter<T&> getter)
+  {
+    offline.data = data;
+    offline.sender = (net::OfflinePacketSender<void*>)sender;
+    offline.getter = (net::OfflinePacketGetter<void*>)getter;
+  }
 
   template<typename EventType>
   void subscribeToEvent(

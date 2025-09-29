@@ -3,6 +3,7 @@ $ require "common"
 #include "iro/print.h"
 
 @lpp.import "editor/docs/ClientInstance.lh"
+@lpp.import "editor/docs/ServerInstance.lh"
 
 @lpp.import "editor/Editor.lh"
 @lpp.import "graphics/vk.lh"
@@ -15,6 +16,47 @@ namespace editor
 
 static const u64 c_client_render_w = 4096;
 static const u64 c_client_render_h = c_client_render_w;
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 handleOfflinePacketSend(
+    ClientInstance& self, 
+    net::Source source,
+    void* data,
+    u16 len)
+{
+  if (self.connected_server == nullptr)
+    return false;
+
+  self.offline_packet_out.clear();
+  self.offline_packet_out.write((u8*)data, len);
+
+  @log.info(editor, "client send packet: ", data, ' ', len, '\n');
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 handleOfflinePacketGet(
+    ClientInstance& self, 
+    net::Source source,
+    net::Fragment& fragment)
+{
+  if (self.offline_packet_in.len == 0)
+    return false;
+
+  mem::copy(
+    fragment.arr, 
+    self.offline_packet_in.arr, 
+    self.offline_packet_in.len);
+  fragment.len = self.offline_packet_in.len;
+
+  @log.info(editor, "client got a packet of size ", fragment.len, '\n');
+
+  self.offline_packet_in.clear();
+
+  return true;
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -50,6 +92,13 @@ static b8 initClient(ClientInstance& self)
 
   if (!self.client.init(client_params))
     return @log.error(editor, "failed to initialize a client instance\n");
+
+  self.client.netmgr.registerOfflinePacketHandler(
+    &self,
+    handleOfflinePacketSend,
+    handleOfflinePacketGet);
+
+  self.client.connectToServer(net::Address::createOffline());
 
   return true;
 }
@@ -94,6 +143,18 @@ void ClientInstance::deinit()
  */
 void ClientInstance::update() 
 {
+  if (connected_server == nullptr)
+  {
+    for (DocMgr::TrackedDoc& tdoc : editor->doc_mgr.docs)
+    {
+      if (tdoc.type == "editor::ServerInstance"_typeid)
+      {
+        ((editor::ServerInstance*)tdoc.doc)->connectClientInstance(this);
+        @log.info(editor, "ClientInstance found a ServerInstance\n");
+        break;
+      }
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -122,7 +183,6 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   bounds.y += menu_bar_bounds.h;
   bounds.h -= menu_bar_bounds.h;
 
-  
   InputState input;
 
   ui::FocusFlags game_focus = 

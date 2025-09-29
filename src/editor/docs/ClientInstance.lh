@@ -10,7 +10,6 @@ $ require "common"
 @lpp.import "editor/Doc.lh"
 @lpp.import "game/client/Client.lh"
 @lpp.import "graphics/Texture.lh"
-@lpp.import "event/BroadcastEventBus.lh"
 
 struct WindowResized;
 
@@ -23,6 +22,8 @@ struct RenderPass;
 namespace editor
 {
 
+struct ServerInstance;
+
 /* ============================================================================
  */
 struct ClientInstance : Doc
@@ -30,6 +31,11 @@ struct ClientInstance : Doc
   using S = ClientInstance;
 
   Client client;
+
+  ServerInstance* connected_server;
+
+  net::MessageBuffer offline_packet_out;
+  net::MessageBuffer offline_packet_in;
 
   gfx::Texture client_render;
   vec2u client_render_size;

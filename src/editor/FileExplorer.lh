@@ -13,24 +13,30 @@ namespace editor
 
 /* ============================================================================
  */
+struct DirEntry
+{
+  enum class Kind
+  {
+    Unknown,
+    File,
+    Directory,
+  };
+
+  Kind kind;
+  iro::fs::PathBuffer name;
+};
+
+/* ============================================================================
+ */
 struct FileExplorer : Doc
 {
   iro::fs::PathBuffer current_dir;
 
-  struct DirEntry
-  {
-    enum class Kind
-    {
-      Unknown,
-      File,
-      Directory,
-    };
-
-    Kind kind;
-    iro::fs::PathBuffer name;
-  };
-
   iro::SmallArray<DirEntry, 64> entries;
+  
+  void onOpen() override { init(); }
+
+  b8 init();
 
   void onAllocated() override {   }
   void beforeDeallocate() override { entries.deinit(); }

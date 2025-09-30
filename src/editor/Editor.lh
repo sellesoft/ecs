@@ -10,6 +10,7 @@ $ require "common"
 @lpp.import "editor/FileWatcherThread.lh"
 @lpp.import "editor/FileExplorer.lh"
 @lpp.import "editor/docs/ClientInstance.lh"
+@lpp.import "editor/Console.lh"
 
 @lpp.import "event/CommandBus.lh"
 
@@ -66,6 +67,8 @@ struct Editor
   TimePoint frame_mark_time;
 
   DocMgr doc_mgr;
+
+  Console console;
 
   event::CommandBus cmd_bus;
 

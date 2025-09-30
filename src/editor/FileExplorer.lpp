@@ -6,11 +6,43 @@ $ require "common"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/Dir.h"
+#include "iro/sort.h"
+
+#include "string.h"
 
 @log.import
 
 namespace editor
 {
+
+/* ----------------------------------------------------------------------------
+ */
+b8 FileExplorer::init()
+{
+  fs::PathBuffer cwd_buffer;
+  cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
+  if (cwd_buffer.len == 0)
+    return @log.error(editor, "FileExplorer failed to get cwd on init\n");
+
+  changeDir(String(cwd_buffer));
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static s32 entrySort(const DirEntry& l, const DirEntry& r)
+{
+  // Directories come before files.
+  if (l.kind < r.kind)
+    return 1;
+  if (l.kind > r.kind)
+    return -1;
+
+  // TODO(sushi) natural sorting for numbers.
+
+  return strcmp((char*)l.name.arr, (char*)r.name.arr);
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -70,6 +102,8 @@ void FileExplorer::changeDir(String path)
     else
       ent->kind = DirEntry::Kind::Unknown;
   }
+
+  quickSort(entries.begin(), entries.end(), entrySort);
 }
 
 /* ----------------------------------------------------------------------------
@@ -80,8 +114,16 @@ void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 
   for (DirEntry& ent : entries)
   {
+    Rect entry_bounds = Rect::from(
+      0.f, y, ui.getWidth(), 15.f);
+
+    if (ent.kind == DirEntry::Kind::Directory)
+    {
+      ui.putQuad(entry_bounds, 0x333333ff);
+    }
+
     ui.putText({0.f, y, ui.getWidth(), 20.f}, String(ent.name), skin.text);
-    y += 20.f;
+    y += 15.f;
   }
 }
 

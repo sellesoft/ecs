@@ -307,6 +307,13 @@ $ end
     success = ui.init(ui_params);
   })
 
+  @initSubSystem(Console,
+  {
+    success = console.init();
+  })
+
+  console.cmd_bus = &cmd_bus;
+
   @loginfo("starting build thread...\n");
 
   build_thread = mem::stl_allocator.construct<BuildThread>();

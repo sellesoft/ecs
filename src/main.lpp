@@ -5,6 +5,7 @@ $ local cmn = require "common"
 #include "iro/fs/File.h"
 #include "iro/io/Memory.h"
 #include "iro/print.h"
+#include "iro/sort.h"
 
 $ if ECS_HOT_RELOAD then
 #include "iro/os/Process.h"
@@ -83,6 +84,7 @@ void doReload(hr::Reloader* r)
  */
 int main(int argc, const char** args)
 {
+
 $ if ECS_WAIT_FOR_TRACY_CONNECTION then
   while (!TracyIsConnected)
     platform::sleep(TimeSpan::fromMilliseconds(1));

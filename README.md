@@ -4,10 +4,16 @@ properly mapped under a p4 stream. This mirror is more for use as a way to view
 the source online without setting up something like P4 Code Review or manually 
 hosting the source.
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b6a8098 (Update README.md)
 
 ecs used to be developed under the [enosi git repo](https://github.com/sellesoft/enosi), but
 that project has since been moved to p4.
 
 There is an Obsidian vault in this repo.
+<<<<<<< HEAD
 =======
 >>>>>>> 2bb5ba9 (add mirror readme)
+=======
+>>>>>>> b6a8098 (Update README.md)

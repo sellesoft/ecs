@@ -5,7 +5,7 @@ $ local glob = require "iro.fs.glob"
 
 #define private public
 
-$ if not ECS_GEN_PRETTY_PRINT then
+$ if 0 == ECS_GEN_PRETTY_PRINT then
 
 @log.import
 @lpp.import "reflect/rtr.lh"
@@ -49,7 +49,8 @@ local function importpattern(pattern)
   glob(pattern):each(function(path)
     if not path:find "ServerAllocator" and
        not path:find "server" and
-       not path:find "Window_linux"
+       not path:find "Window_linux" and
+       not path:find "Profiling.lh"
     then
       local result = lpp.import(path)
 

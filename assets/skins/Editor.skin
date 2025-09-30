@@ -76,6 +76,79 @@ menu_bar = EditorMenuBarSkin
   // }
 }
 
+term_black   = 0x000000ff
+term_white   = 0xeaeaeaff
+term_red     = 0xd54e53ff
+term_green   = 0xb9ca4aff
+term_yellow  = 0xe6c547ff
+term_blue    = 0x7aa6daff
+term_magenta = 0xc397d8ff
+term_cyan    = 0x70c0baff
+term_gray    = 0x666666ff
+
+console = EditorConsoleSkin
+{
+  term_colors = 
+  {
+    black   = term_black,
+    white   = term_white,
+    red     = term_red,
+    green   = term_green,
+    yellow  = term_yellow,
+    blue    = term_blue,
+    magenta = term_magenta,
+    cyan    = term_cyan,
+    gray    = term_gray,
+  },
+
+  verbosity_colors = 
+  {
+    trace  = term_blue,
+    debug  = term_green,
+    info   = term_cyan,
+    notice = term_magenta,
+    warn   = term_yellow,
+    error  = term_red,
+    fatal  = term_red,
+  },
+
+  category_color = term_gray,
+
+  command_field = 
+  {
+    box = 
+    {
+      text = text : 
+      {
+        align = {0.5, 0.5},
+      },
+      item = 
+      {
+        color = dark_blue,
+        border = { 1,1,1,1 },
+        border_color = {155,155,155},
+      }
+    },
+
+    padding = {4, 0},
+
+    cursor_color = {255,255,255},
+  },
+
+  command_field_height = 20,
+
+  history_background = 
+  {
+    color = term_black,
+    border = { 1,1,1,1 },
+    border_color = term_gray,
+  },
+
+  history_text = text : {},
+
+  history_height = 200,
+}
+
 return EditorSkinDef
 {
   bg_color = black,
@@ -137,4 +210,5 @@ return EditorSkinDef
   },
 
   menu_bar = menu_bar,
+  console = console,
 }

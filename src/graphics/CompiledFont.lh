@@ -47,6 +47,7 @@ struct PackedChar
   unsigned short x0, y0, x1, y1;
   f32 xoff, yoff, xadvance;
   f32 xoff2, yoff2;
+  f32 u0, v0, u1, v1;
 };
 
 /* ==========================================================================

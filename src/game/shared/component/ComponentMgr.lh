@@ -83,4 +83,10 @@ struct ComponentMgr
 
   template<typename T>
   ComponentIter<T> iterate();
+
+  template<typename T>
+  void setEntHasComp(EntityId id, b8 val);
+
+  template<typename T>
+  b8 entHasComp(EntityId id);
 };

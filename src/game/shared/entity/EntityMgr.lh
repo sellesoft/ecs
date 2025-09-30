@@ -87,16 +87,16 @@ struct EntityMgr
   }
   
   template<typename TComp>
-  b8 addComp(Entity* ent, EntityId id, TComp* cmp) const;
+  b8 addComp(Entity* ent, EntityId id, TComp* cmp);
 
   template<typename TComp>
-  b8 addComp(Entity* ent, TComp* cmp) const
+  b8 addComp(Entity* ent, TComp* cmp)
   {
     return addComp(ent, getEntityId(ent), cmp);
   }
 
   template<typename TComp>
-  b8 addComp(EntityId id, TComp* cmp) const
+  b8 addComp(EntityId id, TComp* cmp)
   {
     return addComp(getEntity(id), id, cmp);
   }
@@ -120,6 +120,8 @@ struct EntityMgr
   T* tryComp(EntityId id)
   {
     if (isnil(id))
+      return nullptr;
+    if (!cmpmgr.entHasComp<T>(id))
       return nullptr;
     return getEntity(id)->tryComp<T>();
   }

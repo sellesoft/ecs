@@ -204,7 +204,7 @@ $ eachComp(function(decl)
 /* ----------------------------------------------------------------------------
  */
 template<>
-b8 EntityMgr::addComp(Entity* ent, EntityId id, $(decl.type.name)* cmp) const
+b8 EntityMgr::addComp(Entity* ent, EntityId id, $(decl.type.name)* cmp)
 {
   assert(isnil(cmp->owner));
 
@@ -213,6 +213,8 @@ b8 EntityMgr::addComp(Entity* ent, EntityId id, $(decl.type.name)* cmp) const
 
   cmp->owner = id;
   ent->components.insert(cmp);
+
+  cmpmgr.setEntHasComp<$(decl.type.name)>(id, true);
 
   @log.debug(game, 
     "added component $(decl.type.name) to entity ", id.value, "\n");

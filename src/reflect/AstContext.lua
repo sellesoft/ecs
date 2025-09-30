@@ -142,6 +142,8 @@ end
 AstContext.fromGlobs = function(patterns)
   local imported = cmn.buffer.new()
 
+  ECS_REFLECTION_IMPORT = true
+
   for pattern in List(patterns):each() do
     glob(pattern):each(function(path)
       local result = lpp.import(path)
@@ -151,6 +153,8 @@ AstContext.fromGlobs = function(patterns)
       end
     end)
   end
+
+  ECS_REFLECTION_IMPORT = false
 
   return AstContext.fromString(tostring(imported)), imported
 end

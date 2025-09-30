@@ -9,6 +9,8 @@ $ require "common"
 @lpp.import "graphics/vk.lh"
 @lpp.import "window/Window.events.lh"
 
+@lpp.import "Profiling.lh"
+
 @log.import
 
 namespace editor
@@ -161,6 +163,8 @@ void ClientInstance::update()
  */
 void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
+  ZoneScopedN("ClientInstance::placeUI");
+
   Rect menu_bar_bounds = {};
   menu_bar_bounds.x = 0.f;
   menu_bar_bounds.y = 0.f;
@@ -218,9 +222,14 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     .viewport_size = vec2u(ui_size),
   };
 
-  // Yeah weird but we have proper cursor input here. Would be nice to 
-  // separate this from UI stuff. Maybe an input update or something.
-  client.update(params);
+  
+  {
+    ZoneScopedN("ClientInstance::placeUI (client-update)");
+
+    // Yeah weird but we have proper cursor input here. Would be nice to 
+    // separate this from UI stuff. Maybe an input update or something.
+    client.update(params);
+  }
 
   ui.putQuad(bounds, client_render.getHandle(), uv, 0xffffffff);
 }

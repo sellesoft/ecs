@@ -134,12 +134,17 @@ $ systems:each(function(sys)
   sys_init_start = TimePoint::now();
   if (!systems->$(sys.name).init())
     return false;
-  log->info("initialized ", "$(sys.typename)"_str, " in ",
-       WithUnits(TimePoint::now() - sys_init_start));
+  log->info("initialized ", 
+    tcolor::magenta, "$(sys.typename)"_str,  tcolor::reset,
+    " in ", 
+    tcolor::green, WithUnits(TimePoint::now() - sys_init_start), 
+    tcolor::reset);
 $ end)
 
-  log->info("initialized all client entity systems in ",
-       WithUnits(TimePoint::now() - init_start), "!");
+  log->info(tcolor::green,
+      "initialized all client entity systems in ",
+       WithUnits(TimePoint::now() - init_start), "!",
+       tcolor::reset);
 
   on_fail_deallocate_systems.cancel();
   return true;

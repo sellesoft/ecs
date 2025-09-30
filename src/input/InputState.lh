@@ -76,6 +76,11 @@ struct InputState
   b8 wasAnyMouseButtonPressed() const { return mouse_pressed.testAny(); }
   b8 wasAnyMouseButtonReleased() const { return mouse_released.testAny(); } 
 
+  b8 didAnyKeyChangeState() const 
+  { 
+    return wasAnyKeyReleased() || wasAnyKeyPressed(); 
+  }
+
   vec2f getCursorPos() const { return cursor_pos; }
   vec2f getCursorDelta() const { return cursor_delta; }
   b8 didCursorMove() const { return cursor_delta != vec2f(0.f,0.f); }

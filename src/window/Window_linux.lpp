@@ -384,7 +384,7 @@ local cases = function()
   end
 
   odd "Escape" "Escape"
-  odd "asciitilde" "Backquote"
+  odd "grave" "Backquote"
   odd "Tab" "Tab"
   odd "Caps_Lock" "CapsLock"
   odd "Shift_L" "LShift"

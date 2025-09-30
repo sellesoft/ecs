@@ -15,6 +15,52 @@ struct EditorMenuBarSkin
 
 /* ============================================================================
  */
+struct EditorConsoleTermColors
+{
+  Color black;
+  Color gray;
+  Color red;
+  Color green;
+  Color yellow;
+  Color blue;
+  Color magenta;
+  Color cyan;
+  Color white;
+};
+
+/* ============================================================================
+ */
+struct EditorConsoleVerbColors
+{
+  Color trace;
+  Color debug;
+  Color info;
+  Color notice;
+  Color warn;
+  Color error;
+  Color fatal;
+};
+
+/* ============================================================================
+ */
+struct EditorConsoleSkin
+{
+  EditorConsoleTermColors term_colors;
+  EditorConsoleVerbColors verbosity_colors;
+  
+  // TODO(sushi) it would be nice if categories could specify their own color.
+  Color category_color;
+
+  ui::TextFieldSkin command_field;
+  f32 command_field_height;
+
+  ui::ItemSkin history_background;
+  ui::TextSkin history_text;
+  f32 history_height;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -32,6 +78,7 @@ struct EditorSkinDef
   
   ui::TextItemSkin window_header;
 
+  EditorConsoleSkin console;
   EditorMenuBarSkin menu_bar;
 };
 

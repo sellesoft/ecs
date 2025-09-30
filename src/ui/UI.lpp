@@ -152,6 +152,8 @@ PersistentStateMgr::GetResult PersistentStateMgr::registerOrGetState(
  */
 void UI::beginFrame(const FrameParams& params)
 {
+  ZoneScopedN("UI::beginFrame");
+
   assert(!in_frame && 
     "attempt to begin UI frame while one is already in progress");
 
@@ -217,6 +219,8 @@ void UI::pushConstantFromTransform(mat3x2 transform, gfx::RenderPass& pass)
  */
 void UI::endFrame(InputState* consumed_input)
 {
+  ZoneScopedN("UI::endFrame");
+
   @log.debug(ui, "UI::endFrame\n");
 
   assert(id_stack.isEmpty());
@@ -1026,11 +1030,7 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
         gfx::PackedChar pc;
         font.getPackedChar(&pc, cp.codepoint);
         
-        vec4f uv = {};
-        uv.x = f32(pc.x0) / font.size_x;
-        uv.y = f32(pc.y0) / font.size_y;
-        uv.z = f32(pc.x1) / font.size_x;
-        uv.w = f32(pc.y1) / font.size_y;
+        vec4f uv = { pc.u0, pc.v0, pc.u1, pc.v1 };
 
         auto glyph_size = vec2f(pc.x1 - pc.x0, pc.y1 - pc.y0);
 
@@ -1125,6 +1125,9 @@ TextFieldResult UI::putTextField(
   @log.trace(ui, "UI::putTextField\n");
 
   FocusFlags focus = putFocusableBounds(id, bounds);
+
+  if (!skin.box.text.font.isValid())
+    return result;
 
   TextEdit* edit = &state->edit;
 
@@ -1541,7 +1544,10 @@ void UI::putQuad(
   // TODO(sushi) use nil texture
   cmd->texture = notnil(texture)? texture : white_texture;
   cmd->bounds = bounds;
-  cmd->uv = uv;
+  cmd->uv.x = uv.x;
+  cmd->uv.y = uv.y;
+  cmd->uv.z = uv.z;
+  cmd->uv.w = uv.w;
   cmd->color = color;
 
   current_layer->pushCmd(cmd);
@@ -1567,8 +1573,8 @@ void UI::putQuad(Rect bounds, Color color)
  */
 void QuadDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
 {
-  @log.trace(ui, "execute draw quad ", bounds.pos(), " ", bounds.size(), 
-        " ", color, "\n");
+  // @log.trace(ui, "execute draw quad ", bounds.pos(), " ", bounds.size(), 
+  //       " ", color, "\n");
 
 
   pass.bindTexture(texture);
@@ -1593,7 +1599,7 @@ void QuadDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
       { uv.x, uv.w },
       color);
 
-  @log.trace(ui, "draw: ", ui.draw_counts.y, " ", drawn.y, " ", ui.draw_counts.x, "\n");
+  // @log.trace(ui, "draw: ", ui.draw_counts.y, " ", drawn.y, " ", ui.draw_counts.x, "\n");
 
   // TODO(sushi) batch these draw cmds.
   pass.draw(

@@ -182,17 +182,27 @@ static vec2i putFilledRect(
   Vertex* vp = putverts + offsets.x;
   Index*  ip = putindices + offsets.y;
 
-  vec2f tl = pos;
-  vec2f br = pos + dim;
-  vec2f bl = pos + vec2f{ 0, dim.y };
-  vec2f tr = pos + vec2f{ dim.x, 0 };
+  f32 l = pos.x;
+  f32 r = pos.x + dim.x;
+  f32 t = pos.y;
+  f32 b = pos.y + dim.y;
 
   ip[0] = offsets.x; ip[1] = offsets.x + 1; ip[2] = offsets.x + 2;
   ip[3] = offsets.x; ip[4] = offsets.x + 2; ip[5] = offsets.x + 3;
-  vp[0] = { tl, uv0, col };
-  vp[1] = { tr, uv1, col };
-  vp[2] = { br, uv2, col };
-  vp[3] = { bl, uv3, col };
+
+  auto fillVert = [col](Vertex* v, f32 x, f32 y, vec2f uv)
+  {
+    v->pos.x = x;
+    v->pos.y = y;
+    v->uv.x = uv.x;
+    v->uv.y = uv.y;
+    v->color = col;
+  };
+
+  fillVert(&vp[0], l, t, uv0);
+  fillVert(&vp[1], r, t, uv1);
+  fillVert(&vp[2], r, b, uv2);
+  fillVert(&vp[3], l, b, uv3);
 
   return putFilledRectCounts();
 }

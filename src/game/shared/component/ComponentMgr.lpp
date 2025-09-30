@@ -32,6 +32,8 @@ $     end
 $   end
 $ end
 
+#include "iro/containers/BitArray.h"
+
 /* ============================================================================
  */
 struct CompPools
@@ -39,6 +41,7 @@ struct CompPools
 
 $ eachComp(function(comp)
   DLinkedPool<$(comp.typename)> $(comp.name)_pool;
+  BitArray<4096> $(comp.name)_ent_map;
 $ end)
 
   b8 init()
@@ -80,6 +83,26 @@ $(comp.typename)* ComponentMgr::allocateComponent<$(comp.typename)>()
   cmp->node = node;
   cmp->Component::kind = "$(comp.typename)"_hashed;
   return cmp;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+template<>
+void ComponentMgr::setEntHasComp<$(comp.typename)>(EntityId id, b8 val)
+{
+  if (val)
+    pools->$(comp.name)_ent_map.set(id.value);
+  else
+    pools->$(comp.name)_ent_map.unset(id.value);
+}
+
+
+/* ----------------------------------------------------------------------------
+ */
+template<>
+b8 ComponentMgr::entHasComp<$(comp.typename)>(EntityId id)
+{
+  return pools->$(comp.name)_ent_map.test(id.value);
 }
 
 /* ----------------------------------------------------------------------------

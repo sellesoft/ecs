@@ -84,6 +84,7 @@ void doReload(hr::Reloader* r)
  */
 int main(int argc, const char** args)
 {
+  TracyNoop;
 
 $ if ECS_WAIT_FOR_TRACY_CONNECTION then
   while (!TracyIsConnected)

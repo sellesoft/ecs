@@ -447,6 +447,10 @@ static b8 compileFontBDF(
           pchar->y1 = pos.y + bbx.w;
           pchar->xadvance = curchar.dwidth.x;
           pchar->xoff = pchar->yoff = pchar->xoff2 = pchar->yoff2 = 0.f;
+          pchar->u0 = f32(pchar->x0) / texture_size.x;
+          pchar->v0 = f32(pchar->y0) / texture_size.y;
+          pchar->u1 = f32(pchar->x1) / texture_size.x;
+          pchar->v1 = f32(pchar->y1) / texture_size.y;
 
           u8* tl = pixels + pix_offset;
           u8* ctl = tl + top_offset * texture_size.x + left_offset;

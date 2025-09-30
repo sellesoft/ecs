@@ -364,7 +364,7 @@ b8 GameRenderer::render(const RenderParams& params)
         }
       }
 
-      if (auto* transform = owner->tryComp<Transform>())
+      if (auto* transform = entmgr.tryComp<Transform>(sprite.owner))
       {
         Layer& layer = map.layers[transform->placement_layer];
 

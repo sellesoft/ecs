@@ -4,8 +4,6 @@ local o = lake.obj
 local List = require "iro.List"
 local fs = require "iro.fs"
 
-print "hi"
-
 local cwd = fs.cwd()
 
 lake.setMaxJobs(7)
@@ -47,7 +45,7 @@ local shared_libs = List
   "shaderc_combined",
   -- TODO(sushi) make building iro with lua state optional.
   "luajit",
-  "hreload"
+  --"hreload"
 }
 
 local static_libs = List
@@ -61,6 +59,7 @@ local include_dirs = List
   cwd.."/src",
   cwd.."/include",
   cwd.."/third_party/include",
+  cwd.."/third_party/tracy/include",
   generated_dir,
 }
 
@@ -81,7 +80,11 @@ local cpp_params =
   {
     ECS_DEBUG = 1,
     ECS_GEN_PRETTY_PRINT=0,
-    ECS_HOT_RELOAD=1
+    ECS_HOT_RELOAD=0,
+    TRACY_ENABLE=1,
+    TRACY_CALLSTACK=8,
+    TRACY_SAMPLE_HZ=20000,
+    NDEBUG=0,
   },
 
   include_paths = include_dirs,
@@ -95,7 +98,7 @@ local cpp_params =
   asan = asan,
   tsan = tsan,
 
-  patchable_function_entry = 16,
+  patchable_function_entry = 0,
 
   pic = true,
 }
@@ -261,6 +264,11 @@ for obj in objs:each() do
   obj.task:dependsOn(loggen)
 end
 
+local tracy_o = 
+  o.Cpp "third_party/tracy/include/TracyClient.cpp"
+    :compile(build_dir.."/tracy/TracyClient.cpp.o", cpp_params)
+
+objs:push(tracy_o)
 objs:pushList(iro_objs)
 objs:pushList(loggen_objs)
 

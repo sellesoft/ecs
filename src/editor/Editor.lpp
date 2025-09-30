@@ -25,6 +25,8 @@ $ require "common"
 @lpp.import "reflect/rtr.lh"
 @lpp.import "reflect/Linker.lh"
 
+@lpp.import "Profiling.lh"
+
 @log.import
 
 $ local function logerr(...) return log.error("editor", ...) end
@@ -209,12 +211,9 @@ $ end
 
   @initSubSystem(Console,
   {
-    success = console.init();
+    success = console.init(*this);
   })
 
-  console.cmd_bus = &cmd_bus;
-  console.editor = this;
-  
   @initSubSystem(AssetMgr,
   {
     success = asset_mgr.init(&mem::stl_allocator, "_data"_str);
@@ -327,7 +326,6 @@ $ end
     success = ui.init(ui_params);
   })
 
-
   log.info("starting build thread...");
 
   build_thread = mem::stl_allocator.construct<BuildThread>();
@@ -404,6 +402,8 @@ void Editor::deinit()
  */
 b8 Editor::render(this Editor& self)
 {
+  ZoneScopedN("Editor::render");
+
   using namespace gfx;
 
   // This failing does not necessarily indicate an error, it could be due to
@@ -448,6 +448,10 @@ b8 Editor::render(this Editor& self)
  */
 Editor::UpdateResult Editor::update(const UpdateParams& params)
 {
+  FrameMark;
+
+  ZoneScopedN("Editor::update");
+
   UpdateResult result = {};
 
   f32 delta = (TimePoint::monotonic() - frame_mark_time).toSeconds();
@@ -473,7 +477,10 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (window_result.size_changed)
     gfx::vk::onWindowResized(vk);
 
-  doc_mgr.update();
+  {
+    ZoneScopedN("Doc update");
+    doc_mgr.update();
+  }
 
   InputState ui_input;
   input.cloneInputState(&ui_input);
@@ -486,6 +493,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
   ui.beginFrame(ui_frame_params);
   {
+    ZoneScopedN("Editor::update UI");
+
     const EditorSkinDef& skin = *l_skin;
   
     // Place all open documents.

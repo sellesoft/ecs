@@ -10,5 +10,5 @@
 // any headers and then use Tracy in them (not like there's any reason to..
 // hopefully) because this prevents that from happening.
 $ if not ECS_REFLECTION_IMPORT then
-// #include "external/tracy/tracy/Tracy.hpp"
+#include "tracy/Tracy.hpp"
 $ end

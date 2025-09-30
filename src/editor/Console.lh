@@ -48,7 +48,9 @@ struct Console
   io::StaticBuffer<256> command_buffer;
   ui::TextFieldState text_field;
 
-  b8 init();
+  b8 is_open = false;
+
+  b8 init(Editor& editor);
   void deinit();
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);

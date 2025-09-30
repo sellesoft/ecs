@@ -67,8 +67,10 @@ String AssetMgr::formAssetPath(
 Asset* AssetMgr::allocateAsset(String name)
 {
   u64 name_hash = name.hash();
-  assert(map.find(name_hash) == nullptr && 
-    "a Asset has already been allocated with the given name");
+  if (map.find(name_hash) != nullptr)
+    return @log.error(asset, 
+      "an asset with name '", name, "' already exists\n"),
+      nullptr;
 
   AssetPool::Node* node = pool.pushTail();
 
@@ -127,7 +129,10 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
   asset->size = stat.byte_size;
   asset->data = allocator->allocate(asset->size);
 
-  assert(asset->size == file.read({(u8*)asset->data, asset->size}));
+  if (asset->size != file.read({(u8*)asset->data, asset->size}))
+    return @log.error(asset, 
+      "failed to read entire asset file from ", path, "\n"),
+      nullptr;
 
   return asset;
 }

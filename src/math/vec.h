@@ -27,7 +27,10 @@ struct vec2
     struct { T u; T v; };
   };
 
+  IRO_FORCE_INLINE
   vec2() { x = 0; y = 0; }
+
+  IRO_FORCE_INLINE
   vec2(T x, T y) { this->x = x; this->y = y; }
 
   template<typename X>
@@ -35,9 +38,10 @@ struct vec2
 
   /* --------------------------------------------------------------------------
    */
-  inline vec2<T> operator+ (const vec2<T>& rhs) const
+  IRO_FORCE_INLINE
+  inline vec2<T> operator+ (this vec2 self, const vec2<T>& rhs)
   {
-    return { x + rhs.x, y + rhs.y };
+    return { self.x + rhs.x, self.y + rhs.y };
   }
 
   /* --------------------------------------------------------------------------

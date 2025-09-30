@@ -36,6 +36,8 @@
 
 $ require "common"
 
+@lpp.import "game/shared/GameLog.lh"
+
 #include "iro/Common.h"
 
 struct EntityMgr;
@@ -47,9 +49,16 @@ struct SharedEntitySysMgr
   struct InitParams
   {
     EntityMgr& entmgr;
+    GameLog& log;
   };
 
-  b8 init(const InitParams& params) { return true; }
+  GameLog* log;
+
+  b8 init(const InitParams& params) 
+  {
+    log = &params.log;
+    return true; 
+  }
   void deinit() { }
 
   b8 update() { return true; }

@@ -29,6 +29,8 @@ $ require "common"
 
 namespace reflect { struct CompiledData; }
 
+namespace logging { struct Channel; }
+
 namespace build
 {
 
@@ -76,13 +78,20 @@ struct BuildSystem
   //             and point to it on it such that we can cache that info,
   //             maybe.
   mem::LenientBump compiled_data_allocator;
-  
+
   // The BuildSystem deals a lot with forming Strings, so we pool the 
   // important ones to keep them around and so we can easily clean them 
   // up once the BuildSystem is no longer needed. So, it's important to 
   // keep in mind that any String appearing on any build related type 
   // is likely to only live until BuildSystem::deinit() is called.
+  //
+  // 
+  // TODO(sushi) I think this is used way more than it should be and we are 
+  //             probably leaking memory each build since the editor keeps 
+  //             this alive on a thread. Should prob look into that soon!!
   mem::LenientBump string_pool;
+
+  logging::Channel* log;
 
   struct InitParams
   {
@@ -94,6 +103,8 @@ struct BuildSystem
     // A Slice of Rules to use to build Targets. Of course, since this is 
     // a view, these are expected to outlive the BuildSystem.
     Slice<Rule> rules;
+
+    logging::Channel* log;
   };
 
   b8 init(const InitParams& params);

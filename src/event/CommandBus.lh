@@ -20,6 +20,13 @@ struct Command
   b8 (*handler)(void*, CommandArgs);
 };
 
+enum class ExecResult
+{
+  Success,
+  UnknownCommand,
+  EmptyCommand,
+};
+
 struct CommandBus
 {
   iro::DLinkedPool<Command> commands;
@@ -61,7 +68,7 @@ struct CommandBus
     return nullptr;
   }
 
-  b8 exec(iro::String cmd);
+  ExecResult exec(iro::String cmd);
 };
 
 }

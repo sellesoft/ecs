@@ -11,11 +11,15 @@ $ require "common"
 @lpp.import "game/shared/entity/EntityMgr.lh"
 @lpp.import "game/shared/entity/EntityEventBus.lh"
 
+@lpp.import "game/shared/GameLog.lh"
+
 /* ============================================================================
  */
 struct EntitySys
 {
   EntityMgr* entmgr;
+
+  GameLog* log;
 
   // Subscribes to events of type TEvent raised on entities that contain a 
   // Component of type TComp.

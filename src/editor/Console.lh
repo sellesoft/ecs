@@ -2,6 +2,9 @@ $ require "common"
 
 @lpp.import "ui/UI.lh"
 
+#include "iro/containers/Array.h"
+#include "iro/memory/Bump.h"
+
 namespace event
 {
 struct CommandBus;
@@ -16,11 +19,31 @@ struct Editor;
 
 /* ============================================================================
  */
+struct ConsoleEntry
+{
+  const logging::Category* category;
+  logging::Verbosity verbosity;
+  iro::String message;
+  iro::TimePoint timestamp;
+
+  f32 verbosity_width;
+  f32 category_width;
+  f32 height;
+
+  b8 seen = false;
+};
+
+/* ============================================================================
+ */
 struct Console
 {
   Editor* editor;
 
   event::CommandBus* cmd_bus;
+
+  iro::mem::LenientBump string_buffer;
+
+  iro::Array<ConsoleEntry> entries;
 
   io::StaticBuffer<256> command_buffer;
   ui::TextFieldState text_field;
@@ -29,6 +52,18 @@ struct Console
   void deinit();
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+
+  void pushEntry(const logging::Entry& entry)
+  {
+    if (editor != nullptr)
+    {
+      ConsoleEntry* cent = entries.push();
+      cent->category = entry.category;
+      cent->verbosity = entry.verbosity;
+      cent->message = entry.message.allocateCopy(&string_buffer);
+      cent->timestamp = entry.timestamp;
+    }
+  }
 };
 
 }

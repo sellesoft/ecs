@@ -1,3 +1,3 @@
 local def = require "core.logging.def"
 
-def.category("net", { verbosity = "Trace" })
+def.category("net", { verbosity = "Info" })

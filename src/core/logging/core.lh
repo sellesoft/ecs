@@ -4,8 +4,14 @@
 
 $ require "common"
 
+#ifndef _ecs_logging_core_h
+#define _ecs_logging_core_h
+
 #include "iro/Common.h"
 #include "iro/Unicode.h"
+#include "iro/time/Time.h"
+#include "iro/print.h"
+#include "iro/io/SmallBuffer.h"
 
 namespace logging
 {
@@ -57,7 +63,56 @@ struct Entry
   // The fully formed message.
   iro::String message;
 
+  iro::TimePoint timestamp = {};
+
   // TODO(sushi) perhaps some kinda data field. Not needed at the moment.
+};
+
+/* ============================================================================
+ */
+struct Channel
+{
+  virtual void log(const Entry& entry) = 0;
+
+  void log(Category* cat, Verbosity v, auto&&... args)
+  {
+    Entry entry;
+    entry.timestamp = iro::TimePoint::now();
+    entry.category = cat;
+    entry.verbosity = v;
+
+    iro::io::SmallBuffer<512> message_buffer;
+    iro::io::formatv(&message_buffer, args...);
+
+    entry.message = iro::String(message_buffer);
+    
+    log(entry);
+  }
+
+  void info(Category* cat, auto&&... args)
+  {
+    log(cat, Verbosity::Info, args...);
+  }
+
+  void notice(Category* cat, auto&&... args)
+  {
+    log(cat, Verbosity::Notice, args...);
+  }
+
+  void error(Category* cat, auto&&... args)
+  {
+    log(cat, Verbosity::Error, args...);
+  }
+};
+
+/* ============================================================================
+ */
+struct GlobalChannel : Channel
+{
+  void log(const Entry& entry) override
+  {
+    iro::println(entry.message);
+  }
 };
 
 /* ============================================================================
@@ -66,9 +121,13 @@ struct State
 {
   // An OWNED view of all categories.
   iro::Slice<Category> categories; 
+
+  GlobalChannel chan;
 };
 
 // Gets the global log state.
 State* get();
 
 }
+
+#endif

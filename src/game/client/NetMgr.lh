@@ -2,6 +2,7 @@ $ require "common"
 
 @lpp.import "game/shared/NetMgr.lh"
 @lpp.import "net/Address.lh"
+@lpp.import "game/shared/GameLog.lh"
 
 #include "iro/Common.h"
 #include "iro/time/Time.h"
@@ -19,7 +20,9 @@ struct NetMgr : public SharedNetMgr
   iro::TimePoint last_challenge_time;
   u32 challenge_value;
 
-  b8 init(iro::mem::Allocator* allocator);
+  GameLog* log;
+
+  b8 init(iro::mem::Allocator* allocator, GameLog* log);
   void deinit();
 
   b8 connectToServer(net::Address address);

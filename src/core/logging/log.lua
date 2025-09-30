@@ -17,6 +17,8 @@ log.import = function()
   ]]
 end
 
+log.chan = {}
+
 --- IDE defs.
 ---@param cat string
 ---@param ... any
@@ -41,7 +43,7 @@ log.error = function(cat, ...) end
 log.fatal = function(cat, ...) end
 
 local function genverb(verb, ret)
-  local function impl(is_line, cat, first, ...)
+  local function impl(is_line, chan, cat, first, ...)
     if not first then
       error("log called without something to print")
     end
@@ -54,7 +56,9 @@ local function genverb(verb, ret)
       buf:put "__ECS_LOG_MACRO_FALSE"
     end
 
-    buf:put("(", cat, ',', verb, ',')
+    chan = chan or "&::logging::get()->chan"
+
+    buf:put("(", chan, ',', cat, ',', verb, ',')
 
     local function recur(a, b, ...)
       buf:put(a)
@@ -76,11 +80,15 @@ local function genverb(verb, ret)
   end
 
   log[verb:lower()] = function(cat, first, ...)
-    return impl(false, cat, first, ...)
+    return impl(false, nil, cat, first, ...)
   end
 
   log[verb:lower().."ln"] = function(cat, first, ...)
-    return impl(true, cat, first, ...)
+    return impl(true, nil, cat, first, ...)
+  end
+
+  log.chan[verb:lower()] = function(chan, cat, first, ...)
+    return impl(false, chan, cat, first, ...)
   end
 end
 

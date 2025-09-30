@@ -1,0 +1,14 @@
+$ require "common"
+
+@lpp.import "core/logging/core.lh"
+
+namespace logging
+{
+
+State* get()
+{
+  static State state;
+  return &state;
+}
+
+}

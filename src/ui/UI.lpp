@@ -1419,7 +1419,7 @@ void UI::beginScrollGroup(ItemId id, Rect bounds, const ScrollBarSkin& skin)
 
 /* ----------------------------------------------------------------------------
  */
-void UI::endScrollGroup(const ScrollBarSkin& skin)
+void UI::endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end)
 {
   CombinedItemId id = current_id;
   popId();
@@ -1500,7 +1500,10 @@ void UI::endScrollGroup(const ScrollBarSkin& skin)
     *scroll_value -= 11.f * frame_input.consumeScroll();
   }
 
-  *scroll_value = floor(max(0.f, min(max_scroll, *scroll_value)));
+  if (scroll_to_end)
+    *scroll_value = max_scroll;
+  else
+    *scroll_value = floor(max(0.f, min(max_scroll, *scroll_value)));
 
   endGroup();
 }

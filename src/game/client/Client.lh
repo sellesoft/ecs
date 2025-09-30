@@ -15,6 +15,7 @@ $ require "common"
 @lpp.import "game/client/GameMgr.lh"
 @lpp.import "game/client/NetMgr.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/GameLog.lh"
 
 @lpp.import "reflect/Linker.lh"
 
@@ -28,6 +29,8 @@ struct Client
 {
   cl::NetMgr netmgr;
   cl::GameMgr gamemgr;
+
+  GameLog game_log;
 
   struct InitParams
   {

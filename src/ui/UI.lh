@@ -536,7 +536,7 @@ struct UI
   void endDropDown();
 
   void beginScrollGroup(ItemId id, Rect bounds, const ScrollBarSkin& skin);
-  void endScrollGroup(const ScrollBarSkin& skin);
+  void endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end = false);
 
   void pushGroupRenderState(Group* group);
 

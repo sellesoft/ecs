@@ -32,17 +32,17 @@ void SpawnerSys::onMapLoad(MapPostLoad&)
 
     if (isnil(entid))
     {
-      @log.error(game, "failed to spawn entity\n");
+      log->error("failed to spawn entity");
       continue;
     }
 
-    @log.info(game, 
+    log->info(
       "spawned ", entid.value, " (", getEntity(entid)->name, ") at ",
-      spawner_transform->pos, ":", spawner_transform->placement_layer, "\n");
+      spawner_transform->pos, ":", spawner_transform->placement_layer);
     
     if (spawner.def->attach)
     {
-      @log.info(game, "attaching mind and eye to ", entid.value, "\n");
+      log->info("attaching mind and eye to ", entid.value);
       input->attach(entid);
       eye->attach(entid);
     }

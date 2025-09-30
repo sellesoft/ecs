@@ -20,19 +20,19 @@ using namespace iro;
  */
 b8 Engine::init()
 {
-  @log.info(engine, "initializing engine...\n");
+  @log.info(engine, "initializing engine...");
   TimePoint start_time = TimePoint::monotonic();
   frame_start_time = TimeSpan::fromSeconds(start_time.s).toSeconds()
     + TimeSpan::fromNanoseconds(start_time.ns).toSeconds();
 
 $ local initSystem = function(act, name)
     {
-      @log.info(engine, "initializing $(name)\n");
+      @log.info(engine, "initializing $(name)");
       auto start = TimePoint::monotonic();
       if (!$(act))
-        return @log.error(engine, "failed to initialize $(name)\n");
+        return @log.error(engine, "failed to initialize $(name)");
       @log.info(engine, "finished initializing $(name) in ",
-           WithUnits(TimePoint::monotonic() - start), "\n");
+           WithUnits(TimePoint::monotonic() - start));
     }
 $ end
 
@@ -49,7 +49,7 @@ $ end
   init_time = TimePoint::now();
 
   @log.info(engine, "done initializing in ",
-    WithUnits(TimePoint::monotonic() - start_time), "\n");
+    WithUnits(TimePoint::monotonic() - start_time));
 
   return true;
 }

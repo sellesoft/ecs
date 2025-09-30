@@ -16,12 +16,12 @@ namespace event
 
 /* ----------------------------------------------------------------------------
  */
-b8 CommandBus::exec(String cmd)
+ExecResult CommandBus::exec(String cmd)
 {
   String scan = cmd.trimLeft();
 
   if (isnil(scan))
-    return false;
+    return ExecResult::EmptyCommand;
 
   String name = scan;
 
@@ -32,7 +32,7 @@ b8 CommandBus::exec(String cmd)
 
   Command* command = findCommand(name);
   if (command == nullptr)
-    return @log.error(event, "unknown command '", name, "'\n");
+    return ExecResult::UnknownCommand;
 
   SmallArray<String, 32> args;
 
@@ -54,7 +54,7 @@ b8 CommandBus::exec(String cmd)
 
   command->handler(command->handler_data, args.asSlice());
 
-  return true;
+  return ExecResult::Success;
 }
 
 }

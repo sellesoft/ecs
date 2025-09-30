@@ -172,6 +172,14 @@ struct BuildThread
 
 /* ----------------------------------------------------------------------------
  */
+void EditorLog::log(const logging::Entry& entry)
+{
+  editor->console.pushEntry(entry);
+  logging::get()->chan.log(entry);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 Editor::init(const InitParams& params)
 {
 $ local function initSubSystem(name, code)
@@ -182,19 +190,30 @@ $ local function initSubSystem(name, code)
     $(code)
 
     if (!success)
-      return @logerr("failed to initialize $(name)"_str);
+      return log.error("failed to initialize $(name)"_str);
 
-    @loginfo("initialized ", tcolor::magenta, "$(name)", tcolor::reset, 
+    log.info("initialized ", tcolor::magenta, "$(name)", tcolor::reset, 
              " in ", 
              tcolor::green, WithUnits(TimePoint::monotonic() - start), 
-             tcolor::reset, '\n');
+             tcolor::reset);
   }
 $ end
+
+  if (!log.init(this))
+    return false;
 
   @initSubSystem(CommandBus,
   {
     success = cmd_bus.init();
   })
+
+  @initSubSystem(Console,
+  {
+    success = console.init();
+  })
+
+  console.cmd_bus = &cmd_bus;
+  console.editor = this;
   
   @initSubSystem(AssetMgr,
   {
@@ -237,7 +256,7 @@ $ end
   fs::PathBuffer cwd_buffer;
   cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
   if (cwd_buffer.len == 0)
-    return @logerr("failed to get current working directory\n");
+    return log.error("failed to get current working directory");
   String cwd = String(cwd_buffer);
 
   @initSubSystem(BuildSystem,
@@ -262,20 +281,21 @@ $ end
       .compiled_mount = String(compiled_dir_buffer),
       .trash_mount = String(trash_dir_buffer),
       .rules = makeSlice(build_rules),
+      .log = &log,
     };
 
     success = build_system.init(build_system_params);
   })
 
-  @loginfo("loading and building asset lists...\n");
+  log.info("loading and building asset lists...");
 
   build_system.loadAssetList("src/editor/Editor.asset_list"_str);
   build_system.loadAssetList("src/ui/UI.asset_list"_str);
 
   if (!build_system.build())
-    return @logerr("failed to build required Editor assets\n");
+    return log.error("failed to build required Editor assets");
 
-  @loginfo("linking Editor skin def...\n");
+  log.info("linking Editor skin def...");
 
   l_skin.name = "assets/skins/Editor"_str;
 
@@ -307,22 +327,16 @@ $ end
     success = ui.init(ui_params);
   })
 
-  @initSubSystem(Console,
-  {
-    success = console.init();
-  })
 
-  console.cmd_bus = &cmd_bus;
-
-  @loginfo("starting build thread...\n");
+  log.info("starting build thread...");
 
   build_thread = mem::stl_allocator.construct<BuildThread>();
   build_thread->init(&build_system);
 
-  @loginfo("starting file watcher thread...\n");
+  log.info("starting file watcher thread...");
 
   if (!file_watcher.init())
-    return @logerr("failed to initialize file watcher\n");
+    return log.error("failed to initialize file watcher");
 
   fs::PathBuffer assets_path;
   io::formatv(&assets_path, cwd, "/assets");
@@ -402,7 +416,7 @@ b8 Editor::render(this Editor& self)
 
   RenderTarget swapchain_target;
   if (!vk::getSwapchainRenderTarget(self.vk, &swapchain_target))
-    return @logerr("failed to get swapchain render target\n");
+    return self.log.error("failed to get swapchain render target");
 
   RenderPass pass;
   if (!gfx::vk::beginRenderPass(
@@ -421,10 +435,10 @@ b8 Editor::render(this Editor& self)
   vk::endFrame(self.vk);
 
   if (!vk::submitQueue(self.vk))
-    return @logerr("failed to submit queue\n");
+    return self.log.error("failed to submit queue");
 
   if (!vk::present(self.vk))
-    return @logerr("failed to present frame\n");
+    return self.log.error("failed to present frame");
 
   return true;
 }
@@ -473,33 +487,24 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   ui.beginFrame(ui_frame_params);
   {
     const EditorSkinDef& skin = *l_skin;
-    menu_bar.placeUI(ui, skin);
-
+  
+    // Place all open documents.
     doc_mgr.placeUI(ui, skin);
-
-    // placeDocWindow(ui, &client_instance, skin);
-
-    // NOTE(sushi) disabled for now as I'm going to focus on getting the 
-    //             game running again.
-    // ui.beginGroup(
-    //   {
-    //     0.f, skin.menu_bar.height, 
-    //     ui.getWidth(), ui.getHeight()-skin.menu_bar.height
-    //   });
-    // {
-    //   file_explorer.placeUI(ui, skin);
-    // }
-    // ui.endGroup();
+  
+    // Place the console and menu bar over everything.
+    console.placeUI(ui, skin);
+    menu_bar.placeUI(ui, skin);
   }
   ui.endFrame();
 
   if (!window_result.size_changed)
     render();
 
-  if (input.real_state.wasKeyPressed(Key::B))
+  if (input.real_state.wasKeyPressed(Key::B) &&
+      input.real_state.isKeyDown(Key::LCtrl))
   {
-    @loginfo("---------------------------------------------------\n",
-             "  build requested by keybind...\n");
+    log.info("---------------------------------------------------\n",
+             "  build requested by keybind...");
 
     if (build_thread->isIdle())
       build_thread->requestBuild();
@@ -513,7 +518,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
       for (build::Target& built : build_thread->built_targets)
       {
-        @loginfo("reloading ", built, "...\n");
+        log.info("reloading ", built, "...");
         if (Asset* asset = asset_mgr.tryReloadAsset(built.name, built.type))
         {
           if (built.kind == build::TargetKind::CompiledData)
@@ -521,7 +526,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
             auto* compiled = (reflect::CompiledData*)asset->data;
             compiled->fixPointers();
 
-            @loginfo("relinking ", built, "...\n");
+            log.info("relinking ", built, "...");
             
             reflect::linkData(
               compiled->type,
@@ -561,7 +566,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
  */
 b8 Editor::wantHotReload()
 {
-  if (input.real_state.wasKeyPressed(Key::R))
+  if (input.real_state.wasKeyPressed(Key::R) && 
+      input.real_state.isKeyDown(Key::RCtrl))
     return true;
 
   return false;

@@ -78,18 +78,19 @@ $ end)
  */
 b8 EntitySysMgr::init(const InitParams& params)
 {
-  @log.info(game, "initializing entity systems...\n");
-  auto init_start = TimePoint::now();
-
   if (!SharedEntitySysMgr::init(params))
     return false;
+
+  log->info("initializing entity systems...");
+  auto init_start = TimePoint::now();
 
   // Bulk allocate all entity systems.
   systems = mem::stl_allocator.allocateType<EntitySystems>();
   mem::zero(systems, sizeof(EntitySystems));
 
-  @log.info(game, "allocated ", io::ByteUnits(sizeof(EntitySystems)),
-       " for client entity systems\n");
+  log->info(
+    "allocated ", io::ByteUnits(sizeof(EntitySystems)),
+    " for client entity systems");
 
   auto on_fail_deallocate_systems = deferWithCancel
   {
@@ -104,6 +105,7 @@ $   local sysvar = "systems->"..sys.name
   new (&$(sysvar)) $(sys.typename);
   $(sysvar).entmgr = &params.entmgr;
 $ local function initStruct(decl)
+  $(sysvar).log = log;
 $   if decl.base then
 $     initStruct(decl.base)
 $   end
@@ -132,12 +134,12 @@ $ systems:each(function(sys)
   sys_init_start = TimePoint::now();
   if (!systems->$(sys.name).init())
     return false;
-  @log.info(game, "initialized ", "$(sys.typename)"_str, " in ",
-       WithUnits(TimePoint::now() - sys_init_start), "\n");
+  log->info("initialized ", "$(sys.typename)"_str, " in ",
+       WithUnits(TimePoint::now() - sys_init_start));
 $ end)
 
-  @log.info(game, "initialized all client entity systems in ",
-       WithUnits(TimePoint::now() - init_start), "!\n");
+  log->info("initialized all client entity systems in ",
+       WithUnits(TimePoint::now() - init_start), "!");
 
   on_fail_deallocate_systems.cancel();
   return true;

@@ -32,11 +32,21 @@ namespace cl
  */
 b8 GameMgr::init(const InitParams& params)
 {
-  if (!entmgr.init())
-    return @log.error(game, "failed to initialize entmgr\n");
+  log = &params.log;
 
-  if (!entsysmgr.init({entmgr}))
-    return @log.error(game, "failed to initialize entsysmgr\n");
+  if (!entmgr.init())
+    return log->error("failed to initialize entmgr");
+
+  EntitySysMgr::InitParams ent_sys_mgr_params = 
+  { 
+    {
+      .entmgr = entmgr,
+      .log = params.log,
+    }
+  };
+
+  if (!entsysmgr.init(ent_sys_mgr_params))
+    return log->error("failed to initialize entsysmgr");
 
   GameRenderer::InitParams render_params = 
   {
@@ -44,7 +54,7 @@ b8 GameMgr::init(const InitParams& params)
     .linker = params.linker,
   };
   if (!game_renderer.init(render_params))
-    return @log.error(game, "failed to initialize rendersys\n");
+    return log->error("failed to initialize rendersys");
 
   params.linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &loaded_map);
 
@@ -55,7 +65,7 @@ b8 GameMgr::init(const InitParams& params)
   };
 
   if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
-    return @log.error(game, "failed to load map\n");
+    return log->error("failed to load map");
 
   return true;
 }
@@ -80,7 +90,7 @@ b8 GameMgr::update(UpdateParams& params)
   entsysmgr.get<EyeSys>().viewport_size = params.viewport_size;
 
   if (!entsysmgr.update())
-    return @log.error(game, "failed to update entity systems\n");
+    return log->error("failed to update entity systems\n");
 
   return true;
 }

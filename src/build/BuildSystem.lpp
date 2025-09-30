@@ -12,10 +12,10 @@ $ require "common"
 
 @log.import
 
-$ local function logerr(...) return log.error("build", ...) end
-$ local function logdbg(...) return log.debug("build", ...) end
-$ local function loginfo(...) return log.info("build", ...) end
-$ local function logwarn(...) return log.warn("build", ...) end
+$ local function logerr(...) return log.chan.error("log", "build", ...) end
+$ local function logdbg(...) return log.chan.debug("log", "build", ...) end
+$ local function loginfo(...) return log.chan.info("log", "build", ...) end
+$ local function logwarn(...) return log.chan.warn("log", "build", ...) end
 
 namespace build
 {
@@ -24,20 +24,22 @@ namespace build
  */
 b8 BuildSystem::init(const InitParams& params)
 {
+  log = params.log;
+
   if (isnil(params.source_mount))
-    return @logerr("no source mount provided\n");
+    return @logerr("no source mount provided");
 
   if (isnil(params.compiled_mount))
-    return @logerr("no compiled mount provided\n");
+    return @logerr("no compiled mount provided");
 
   if (isnil(params.trash_mount))
-    return @logerr("no trash mount provided\n");
+    return @logerr("no trash mount provided");
 
   if (isnil(params.rules))
-    return @logerr("no build rules provided\n");
+    return @logerr("no build rules provided");
   
   if (!rules.init())
-    return @logerr("failed to initialize rules array\n");
+    return @logerr("failed to initialize rules array");
 
   // I originally wanted to keep this as Slice<Rule> and leave maintaining them
   // up to the caller, but that's annoying when BuildSystem is intended to 
@@ -46,19 +48,19 @@ b8 BuildSystem::init(const InitParams& params)
     rules.push(rule);
 
   if (!targets.init())
-    return @logerr("failed to initialize targets pool\n");
+    return @logerr("failed to initialize targets pool");
 
   if (!target_set.init())
-    return @logerr("failed to initialize target set\n");
+    return @logerr("failed to initialize target set");
 
   if (!target_build_queue.init())
-    return @logerr("failed to initialize target build queue\n");
+    return @logerr("failed to initialize target build queue");
 
   if (!compiled_data_allocator.init())
-    return @logerr("failed to initialize compiled data allocator\n");
+    return @logerr("failed to initialize compiled data allocator");
 
   if (!string_pool.init())
-    return @logerr("failed to initialize string pool\n");
+    return @logerr("failed to initialize string pool");
 
   // These are cached such that if build() is used later on, we don't risk
   // the caller (me) having forgot to keep the Strings they gave us around.
@@ -89,24 +91,27 @@ void BuildSystem::deinit()
  *  Helper for packing some SourceData. 'packed' is assumed to not already 
  *  be initialized, and must be deinitialized by the caller.
  */
-static b8 packSourceData(String path, reflect::PackedData* packed)
+static b8 packSourceData(
+  String path, 
+  reflect::PackedData* packed,
+  logging::Channel* log)
 {
   assert(notnil(path));
 
   // Parse and load the source data file.
   SourceDataFile sfile;
   if (!SourceDataFile::from(&sfile, path))
-    return @logerr("failed to load source data file from '", path, "'\n");
+    return @logerr("failed to load source data file from '", path, "'");
   defer { sfile.deinit(); };
 
   if (!packed->init())
     return @logerr(
-      "failed to initialize PackedData for source data file '", path, "'\n");
+      "failed to initialize PackedData for source data file '", path, "'");
 
   reflect::PackParams pack_params = { packed };
 
   if (!reflect::packSourceDataFromType(*sfile.returned_data, pack_params))
-    return @logerr("failed to pack returned source data from '", path, "'\n");
+    return @logerr("failed to pack returned source data from '", path, "'");
 
   return true;
 }
@@ -115,9 +120,12 @@ static b8 packSourceData(String path, reflect::PackedData* packed)
  *  Helper for packing some SourceData and getting it as 'T'.
  */
 template<typename T>
-static T* packSourceDataAs(String path, reflect::PackedData* packed)
+static T* packSourceDataAs(
+    String path, 
+    reflect::PackedData* packed, 
+    logging::Channel* log)
 {
-  if (!packSourceData(path, packed))
+  if (!packSourceData(path, packed, log))
     return nullptr;
 
   return packed->getDataAs<T>();
@@ -127,14 +135,15 @@ static T* packSourceDataAs(String path, reflect::PackedData* packed)
  */
 b8 BuildSystem::loadAssetList(String path)
 {
-  @loginfo("loading asset list '", path, "'\n");
+  @loginfo("loading asset list '", path, "'");
 
   auto start_time = TimePoint::monotonic();
 
   reflect::PackedData packed_asset_list;
-  auto* asset_list = packSourceDataAs<AssetList>(path, &packed_asset_list);
+  auto* asset_list = 
+    packSourceDataAs<AssetList>(path, &packed_asset_list, log);
   if (asset_list == nullptr)
-    return @logerr("failed to pack asset list at '", path, "'\n");
+    return @logerr("failed to pack asset list at '", path, "'");
   defer { packed_asset_list.deinit(); };
 
   for (const auto& asset : *asset_list)
@@ -151,7 +160,7 @@ b8 BuildSystem::loadAssetList(String path)
     {
       @logwarn(
         "asset '", asset, "' has no extension and so we are unable to "
-        "determine its asset type; it will be skipped\n");
+        "determine its asset type; it will be skipped");
       continue;
     }
 
@@ -166,7 +175,7 @@ b8 BuildSystem::loadAssetList(String path)
     {
       @logwarn(
         "asset '", asset, "' does not appear to be a compiled asset or "
-        "compiled data and will be ignored\n");
+        "compiled data and will be ignored");
       continue;
     }
 
@@ -179,7 +188,7 @@ b8 BuildSystem::loadAssetList(String path)
 
     if (already_listed)
       @logwarn(
-        "asset '", asset, "' specified multiple times in asset list\n");
+        "asset '", asset, "' specified multiple times in asset list");
   }
 
   return true;
@@ -189,7 +198,7 @@ b8 BuildSystem::loadAssetList(String path)
  */
 b8 BuildSystem::build(TargetList* built_targets)
 {
-  @loginfo("building available targets...\n");
+  @loginfo("building available targets...");
 
   auto start_time = TimePoint::monotonic();
 
@@ -199,7 +208,7 @@ b8 BuildSystem::build(TargetList* built_targets)
 
   @loginfo("build ", 
     result? "succeeded"_str : "failed"_str,
-    " in ", WithUnits(TimePoint::monotonic() - start_time), '\n');
+    " in ", WithUnits(TimePoint::monotonic() - start_time));
 
   return result;
 }
@@ -210,7 +219,7 @@ void BuildSystem::resetTargetState()
 {
   for (Target& target : targets)
   {
-    @logdbg("resetting ", target, "\n");
+    @logdbg("resetting ", target);
     target.cacheExistance();
     target.flags.unset(Target::Flag::UpToDate);
     target.flags.unset(Target::Flag::FailedLastBuild);
@@ -286,7 +295,7 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
       if (result.wasSuccessful())
       {
         @loginfo("built ", *next_target, " in ", 
-             WithUnits(next_target->build_time), '\n');
+             WithUnits(next_target->build_time));
         next_target->flags.set(Target::Flag::UpToDate);
         next_target->cacheExistance();
 
@@ -451,7 +460,7 @@ b8 BuildSystem::queueTargets()
       // it again.
       if (target.isQueuedForBuild())
       {
-        @logdbg(target, " is already queued for build\n");
+        @logdbg(target, " is already queued for build");
         continue;
       }
 
@@ -459,7 +468,7 @@ b8 BuildSystem::queueTargets()
       // and it hasn't been updated since, don't try to build it again.
       if (target.failedLastBuild())
       {
-        @logdbg(target, " failed last build\n");
+        @logdbg(target, " failed last build");
         continue;
       }
 
@@ -489,8 +498,8 @@ b8 BuildSystem::queueTargets()
       // Rule to use to build it. 
       found_leaf = true;
 
-      @logdbg("leaf: ", target.name, '.', target.type, "\n");
-      @logdbg("    ", UTCDate(target.modtime), '\n');
+      @logdbg("leaf: ", target.name, '.', target.type);
+      @logdbg("    ", UTCDate(target.modtime));
 
       b8 is_secondary = false;
       if (const Rule* rule = findBestRuleForTarget(
@@ -568,15 +577,15 @@ b8 BuildSystem::queueTargets()
               target_build_queue.pushTail(primary_target);
               primary_target->flags.set(Target::Flag::QueuedForBuild);
               @logdbg("queuing ", *primary_target, " for build because its " 
-                    "outdated or doesn't exist\n");
+                    "outdated or doesn't exist");
             }
             else
             {
               @logdbg("can't queue ", *primary_target, " because prereqs are "
-                    "out of date:\n");
+                    "out of date:");
               for (Target& prereq : primary_target->prerequisites)
               {
-                @logdbg("  ", prereq, '\n');
+                @logdbg("  ", prereq);
               }
             }
           }
@@ -593,14 +602,14 @@ b8 BuildSystem::queueTargets()
               primary_target->flags.set(Target::Flag::QueuedForBuild);
               primary_target->flags.unset(Target::Flag::RegenMeta);
               @logdbg("queuing ", *primary_target, " for build because its " 
-                    "needs a new meta file\n");
+                    "needs a new meta file");
             }
           }
           else
           {
             // Otherwise, we can consider it up-to-date.
             primary_target->flags.set(Target::Flag::UpToDate);
-            @logdbg(*primary_target, " is up to date!\n");
+            @logdbg(*primary_target, " is up to date!");
           }
         }
       }
@@ -612,14 +621,14 @@ b8 BuildSystem::queueTargets()
           // exist, then the build system doesn't know what to do.
           fs::PathBuffer non_existant_target;
           @logerr("no rule provided for non-existant build target '",
-                target.formPath(&non_existant_target), "'\n");
+                target.formPath(&non_existant_target), "'");
           return false;
         }
         else
         {
           // Just consider this Target as an up-to-date source file.
           target.flags.set(Target::Flag::UpToDate);
-          @logdbg("this must be a source file\n");
+          @logdbg("this must be a source file");
         }
       }
     }
@@ -687,7 +696,7 @@ Target* BuildSystem::findOrCreateTarget(
   Target* new_target = targets.pushHead()->data;
 
   if (!new_target->init(name, type, mount, kind))
-    return @logerr("failed to initialize new Target '", name, '.', type, "'\n"),
+    return @logerr("failed to initialize new Target '", name, '.', type, "'"),
            nullptr;
 
   target_set.insert(new_target);
@@ -773,7 +782,7 @@ void BuildSystem::loadTargetMetaFile(Target* target)
 
   reflect::PackedData packed_metadata;
   auto* metadata = 
-    packSourceDataAs<TargetMetadata>(meta_path, &packed_metadata);
+    packSourceDataAs<TargetMetadata>(meta_path, &packed_metadata, log);
   defer { packed_metadata.deinit(); };
 
   if (metadata == nullptr)
@@ -845,7 +854,7 @@ reflect::CompiledData* BuildSystem::packAndCompileSourceDataAsset(
     String compiled_path)
 {
   reflect::PackedData packed;
-  if (!packSourceData(source_path, &packed))
+  if (!packSourceData(source_path, &packed, log))
     return nullptr;
   defer { packed.deinit(); };
 
@@ -885,7 +894,7 @@ void BuildSystem::trashPath(String path, String trash_name, String reason)
 {
   if (fs::path::exists(path))
   {
-    @log.notice(build, "trashing '", path, "'\n  reason: ", reason, "\n");
+    @log.notice(build, "trashing '", path, "'\n  reason: ", reason);
 
     fs::PathBuffer dest_path;
     io::formatv(&dest_path, trash_mount, '/', trash_name);

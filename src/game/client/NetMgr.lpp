@@ -39,10 +39,12 @@ namespace cl
 
 /* ----------------------------------------------------------------------------
  */
-b8 NetMgr::init(iro::mem::Allocator* allocator)
+b8 NetMgr::init(iro::mem::Allocator* allocator, GameLog* log)
 {
   if (!SharedNetMgr::init(allocator))
     return false;
+
+  this->log = log;
 
   this->connection.address.type = AddressType::Invalid;
   this->last_challenge_time = TimePoint::monotonic();
@@ -66,12 +68,11 @@ void NetMgr::deinit()
  */
 b8 NetMgr::connectToServer(Address address)
 {
-  @log.trace(net, "connecting to a server\n");
   if (address.type == AddressType::Invalid)
-    return @log.error(net, "invalid address\n");
+    return log->net_error("invalid address");
 
   if (!this->connection.init(address, this))
-    return @log.error(net, "failed to initialize connection\n");
+    return log->net_error("failed to initialize connection");
 
   this->connection.state = Connection::State::Connecting;
   this->last_challenge_time = TimePoint::monotonic();
@@ -109,7 +110,7 @@ void NetMgr::receiveMessages()
     message.init(connection.incoming_message_data,
                  connection.incoming_message_size);
     if (!this->parseEventsFromMessage(message, this))
-      @log.error(net, "failed to parse network message\n");
+      log->net_error("failed to parse network message");
   }
   else
   {
@@ -133,7 +134,7 @@ void NetMgr::receiveMessages()
       message.init(connection.incoming_message_data,
                   connection.incoming_message_size);
       if (!this->parseEventsFromMessage(message, this))
-        @log.error(net, "failed to parse network message\n");
+        log->net_error("failed to parse network message");
     }
   }
 }
@@ -167,7 +168,7 @@ void NetMgr::sendMessages()
     }
     else
     {
-      @log.error(net, "message overflow when packing events\n");
+      log->net_error("message overflow when packing events");
     }
   }
   else if (connection.state == Connection::State::Challenging)
@@ -199,10 +200,10 @@ void NetMgr::sendMessages()
     }
     else
     {
-      @log.error(net, "message overflow when packing events\n");
+      log->net_error("message overflow when packing events");
     }
 
-    @log.info(net, "CHALLENGING [", connection.address, "]\n");
+    log->net_notice("challenging [", connection.address, ']');    
     this->last_challenge_time = TimePoint::monotonic();
   }
   else
@@ -223,9 +224,9 @@ void NetMgr::sendMessages()
       //TODO(delle) password
 
       if (!connection.send(Source::Client, message, true))
-        @log.error(net, "failed to send challenge message\n");
+        log->net_error("failed to send challenge message");
 
-      @log.info(net, "CONNECTING [", connection.address, "]\n");
+      log->net_notice("connecting [", connection.address, ']');
       this->last_challenge_time = TimePoint::monotonic();
     }
   }

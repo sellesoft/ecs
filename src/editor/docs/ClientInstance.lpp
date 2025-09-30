@@ -179,6 +179,19 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     resetClient();
   }
 
+  bar_x += 30.f;
+
+  if (ui.putButton(
+        "dump-logs"_fid,
+        Rect::from(bar_x, 0.f, 60.f, 15.f),
+        "dump-logs"_str,
+        skin.button))
+  {
+    @log.info(editor, "dump-logs\n");
+    for (logging::Entry& ent : client.game_log.entries)
+      editor->log.log(ent);
+  }
+
   Rect bounds = ui.getBounds();
   bounds.y += menu_bar_bounds.h;
   bounds.h -= menu_bar_bounds.h;
@@ -198,7 +211,6 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   vec4f uv = {0,0,0,0};
   uv.z = ui_size.x / c_client_render_w;
   uv.w = ui_size.y / c_client_render_h;
-
 
   Client::UpdateParams params = 
   {

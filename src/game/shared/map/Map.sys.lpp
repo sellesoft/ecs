@@ -37,12 +37,18 @@ struct MapLoader
 
   MapSys* map;
   EntityMgr* entmgr;
+  GameLog* log;
 
-  static b8 load(MapSys& map, const MapDef& def, MapSys::LoadParams& params)
+  static b8 load(
+      MapSys& map, 
+      const MapDef& def, 
+      GameLog& log,
+      MapSys::LoadParams& params)
   {
     MapLoader loader;
     loader.map = &map;
     loader.entmgr = &params.entmgr;
+    loader.log = &log;
 
     return loader.loadMap(def);
   }
@@ -50,7 +56,7 @@ struct MapLoader
   b8 loadMap(const MapDef& def)
   {
     if (!map->layers.init())
-      return @log.error(game, "failed to initialize map layers array\n");
+      return log->error("failed to initialize map layers array");
 
     map->layers.resize(def.layers.len);
 
@@ -69,7 +75,7 @@ struct MapLoader
     for (auto& qent : entities)
     {
       if (isnil(entmgr->spawnEntity(*qent.ref, qent.pos, qent.layer)))
-        return @log.error(game, "failed to spawn map entity\n");
+        return log->error("failed to spawn map entity");
     }
 
     return true;
@@ -78,17 +84,17 @@ struct MapLoader
   b8 loadLayer(Layer* layer, u32 idx, const MapLayerDef& def)
   {
     if (!layer->tiles.init())
-      return @log.error(game, 
-        "failed to initialize layer tiles array (", idx, ")\n");
+      return log->error(
+        "failed to initialize layer tiles array (", idx, ")");
 
     layer->pos = def.pos;
     layer->size = def.size;
     layer->tiles.resize(def.size.x * def.size.y);
 
     if (layer->tiles.len() != def.tiles.len)
-      return @log.error(game, 
+      return log->error(
         "expected ", layer->tiles.len(), " tiles in layer ",
-                   idx, " but got ", def.tiles.len, "\n");
+                   idx, " but got ", def.tiles.len);
 
     for (u32 i = 0; i < def.tiles.len; ++i)
     {
@@ -166,7 +172,7 @@ b8 MapSys::load(const MapDef& def, LoadParams& params)
 
   this->def = &def;
 
-  if (!MapLoader::load(*this, def, params))
+  if (!MapLoader::load(*this, def, *log, params))
     return false;
 
   raise(MapPostLoad{});
@@ -180,9 +186,9 @@ Layer* MapSys::getLayerByIndex(u32 index)
 {
   if (index > layers.len())
   {
-    @log.error(game,
+    log->error(
       "attempt to get a Layer by out-of-bounds index (", index, " > ",
-      layers.len(), ")\n");
+      layers.len(), ")");
     return nullptr;
   }
 

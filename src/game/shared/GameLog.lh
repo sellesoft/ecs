@@ -1,0 +1,56 @@
+$ require "common"
+
+@lpp.import "core/logging/core.lh"
+@log.import
+
+#include "iro/memory/Bump.h"
+#include "iro/containers/Array.h"
+
+/* ============================================================================
+ */
+struct GameLog : public logging::Channel
+{
+  iro::mem::LenientBump string_buffer;
+
+  iro::Array<logging::Entry> entries;
+
+  b8 init()
+  {
+    if (!string_buffer.init())
+      return false;
+
+    if (!entries.init())
+      return false;
+
+    return true;
+  }
+
+  void log(const logging::Entry& entry) override
+  {
+    logging::Entry copy = entry;
+    copy.message = entry.message.allocateCopy(&string_buffer);
+    entries.push(copy);
+  }
+
+  b8 error(auto&&... args)
+  {
+    logging::Channel::error(&logging::cat_game, args...);
+    return false;
+  }
+
+  void info(auto&&... args)
+  {
+    logging::Channel::info(&logging::cat_game, args...);
+  }
+
+  b8 net_error(auto&&... args)
+  {
+    logging::Channel::error(&logging::cat_net, args...);
+    return false;
+  }
+
+  void net_notice(auto&&... args)
+  {
+    logging::Channel::notice(&logging::cat_net, args...);
+  }
+};

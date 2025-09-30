@@ -36,8 +36,36 @@ struct FileWatcherThread;
 
 /* ============================================================================
  */
+struct EditorLog : logging::Channel
+{
+  Editor* editor;
+
+  b8 init(Editor* editor) 
+  {
+    this->editor = editor;
+    return true;
+  }
+
+  void log(const logging::Entry& entry) override;
+
+  void info(auto&&... args) 
+  { 
+    logging::Channel::info(&logging::cat_editor, args...); 
+  }
+
+  b8 error(auto&&... args) 
+  { 
+    logging::Channel::error(&logging::cat_editor, args...); 
+    return false;
+  }
+};
+
+/* ============================================================================
+ */
 struct Editor
 {
+  EditorLog log;
+
   InputMgr input;
   Window window;
 
@@ -103,5 +131,7 @@ struct Editor
 
   b8 wantHotReload();
 };
+
+
 
 }

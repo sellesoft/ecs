@@ -26,17 +26,21 @@ $ require "common"
  */
 b8 Client::init(const InitParams& params)
 {
-  if (!netmgr.init(&mem::stl_allocator))
-    return @log.error(game, "failed to initialize net manager\n");
+  if (!game_log.init())
+    return false;
+
+  if (!netmgr.init(&mem::stl_allocator, &game_log))
+    return game_log.error("failed to initialize net manager");
 
   cl::GameMgr::InitParams gamemgr_params =
   {
     .vk = params.vk,
     .linker = params.linker,
+    .log = game_log,
   };
 
   if (!gamemgr.init(gamemgr_params))
-    return @log.error(game, "failed to initialize game manager\n");
+    return game_log.error("failed to initialize game manager");
 
   return true;
 }
@@ -90,9 +94,10 @@ Client::RenderResult Client::render(const RenderParams& params)
  */
 b8 Client::connectToServer(net::Address address)
 {
-  @log.trace(game, "connecting to a server\n");
+  game_log.info("attempting to connect to server: ", address);
+
   if (address.type == net::AddressType::Invalid)
-    return @log.error(game, "invalid address\n");
+    return game_log.error("invalid address");
 
   return netmgr.connectToServer(address);
 }
@@ -101,5 +106,6 @@ b8 Client::connectToServer(net::Address address)
  */
 void Client::disconnectFromServer()
 {
+  game_log.info("disconnecting from server");
   netmgr.disconnectFromServer();
 }

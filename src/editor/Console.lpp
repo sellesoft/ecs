@@ -2,6 +2,8 @@ $ require "common"
 
 @lpp.import "editor/Editor.lh"
 
+#include "iro/StringFuncs.h"
+
 namespace editor
 {
 
@@ -16,7 +18,178 @@ b8 Console::init()
     .space = s32(command_buffer.capacity()),
   });
 
+  if (!entries.init())
+    return false;
+
+  if (!string_buffer.init())
+    return false;
+
   return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Color getVTColor(s32 c)
+{
+  // TODO(sushi) get colors from skin.
+  switch (c)
+  {
+  case 30: return 0x000000ff; // black
+  case 90: return 0x888888ff; // gray
+  case 31: return 0xff0000ff; // red
+  case 32: return 0x00ff00ff; // green
+  case 33: return 0xffff00ff; // yellow
+  case 34: return 0x0000ffff; // blue
+  case 35: return 0xff00ffff; // magenta
+  case 36: return 0x00ffffff; // cyan
+  case 0:
+  case 37: return 0xffffffff; // white (default)
+  }
+
+  return 0xdeaddead;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putEntryPrefix(
+    ui::UI& ui,
+    vec2f pos,
+    f32 verb_width,
+    f32 cat_width,
+    ConsoleEntry& entry,
+    const EditorSkinDef& skin)
+{
+  vec2f size = {};
+  ui::TextSkin text_skin = skin.text;
+
+  io::SmallBuffer<128> timestamp_buffer;
+  io::format(&timestamp_buffer, 
+    LocalDate(entry.timestamp,
+    "[%y-%m-%d %H:%M:%S]"));
+
+  vec2f timestamp_size = ui.putText(
+    Rect::from(0.f, pos.y, 999.f, 999.f),
+    String(timestamp_buffer),
+    skin.text);
+
+  using enum logging::Verbosity;
+
+  String verb_text = nil;
+  Color verb_color = 0x000000ff;
+  switch (entry.verbosity)
+  {
+$ local function verb(v, c)
+  case $(v):
+    verb_text = "$(v:lower())"_str;
+    verb_color = $(c);
+    break;
+$ end
+  @verb(Trace,  getVTColor(36))
+  @verb(Debug,  getVTColor(32))
+  @verb(Info,   getVTColor(34))
+  @verb(Notice, getVTColor(35))
+  @verb(Warn,   getVTColor(33))
+  @verb(Error,  getVTColor(31))
+  @verb(Fatal,  getVTColor(31))
+  }
+
+  f32 verb_pos_x = pos.x + timestamp_size.x + 5.f;
+
+  text_skin.color = verb_color;
+  vec2f verb_size = ui.putText(
+    Rect::from(verb_pos_x, pos.y, 999.f, 999.f),
+    verb_text,
+    text_skin);
+
+  entry.verbosity_width = verb_size.x;
+
+  f32 cat_pos_x = verb_pos_x + verb_width + 10.f;
+
+  text_skin.color = getVTColor(90);
+  vec2f cat_size = ui.putText(
+    Rect::from(cat_pos_x, pos.y, 999.f, 999.f),
+    entry.category->name,
+    text_skin);
+
+  entry.category_width = cat_size.x;
+
+  return cat_pos_x + cat_width;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putEntries(
+    ui::UI& ui,
+    f32 verb_width,
+    f32 cat_width,
+    Slice<ConsoleEntry> entries,
+    const EditorSkinDef& skin)
+{
+  f32 y = 0.f;
+  for (ConsoleEntry& entry : entries)
+  {
+    auto pos = vec2f(0.f, y);
+
+    entry.seen = true;
+
+    // Text skin (color, for now) resets at every entry to prevent 
+    // colors from falling through.
+    ui::TextSkin text_skin = skin.text;
+    f32 height = 0.f;
+
+    f32 prefix_width = putEntryPrefix(
+      ui, 
+      pos, 
+      verb_width,
+      cat_width,
+      entry, 
+      skin);
+
+    pos.x += prefix_width + 10.f;
+
+    // Parse the string for terminal codes. Can be extended later. Maybe 
+    // we can replace the color stuff with our own rich formatting.
+    
+    String::Pair chunks = entry.message.splitAtFirst('\e');
+    for (;;)
+    {
+      vec2f chunk_size = 
+        ui.putText(
+          Rect::from(pos.x, y, ui.getWidth(), 999.f), 
+          chunks.first, 
+          text_skin);
+
+      pos.x += chunk_size.x;
+      height = max(height, chunk_size.y);
+
+      if (isnil(chunks.second))
+        break;
+
+      if (chunks.second.startsWith("["_str))
+      {
+        String coded = chunks.second;
+
+        coded.advance(); // past '['
+
+        s32 num = atoi((char*)coded.ptr);
+
+        text_skin.color = getVTColor(num);
+
+        while (isDecDigit(coded.current()) && !coded.isEmpty())
+          coded.advance();
+
+        coded.advance(); // past 'm', probably.
+        
+        chunks = coded.splitAtFirst('\e');
+      }
+      else
+      {
+        chunks = chunks.second.splitAtFirst('\e');
+      }
+    }
+
+    y += height;
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -44,10 +217,60 @@ void Console::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   {
     String input = text_field.edit.asStr();
 
-    cmd_bus->exec(input);
+    editor->log.info("> ", input);
+
+    switch (cmd_bus->exec(input))
+    {
+    case event::ExecResult::UnknownCommand:
+      editor->log.error("unknown command");
+      break;
+    }
 
     text_field.edit.clear();
   }
+
+  const f32 box_height = 200.f;
+
+  Rect box_bounds = {};
+  box_bounds.x = 0.f;
+  box_bounds.y = ui.getHeight() - bar_height - box_height;
+  box_bounds.w = ui.getWidth();
+  box_bounds.h = box_height;
+
+  ui.beginGroup(box_bounds);
+  {
+    ui.putQuad(ui.getBounds(), 0x00000099);
+
+    ui.beginScrollGroup(
+      "console-scroll"_fid, 
+      ui.getBounds().contracted(10.f),
+      skin.scroll_bar);
+
+    b8 new_entry = false;
+    f32 max_verb_width = 0.f;
+    f32 max_cat_width = 0.f;
+    for (ConsoleEntry& entry : entries)
+    {
+      max_verb_width = max(max_verb_width, entry.verbosity_width);
+      max_cat_width = max(max_cat_width, entry.category_width);
+      if (!entry.seen)
+      {
+        new_entry = true;
+        entry.seen = true;
+        println("new entry: ", entry.message);
+      }
+    }
+
+    putEntries(
+      ui, 
+      max_verb_width,
+      max_cat_width,
+      entries.asSlice(), 
+      skin);
+
+    ui.endScrollGroup(skin.scroll_bar, new_entry);
+  }
+  ui.endGroup();
 }
 
 }

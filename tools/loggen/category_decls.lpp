@@ -33,16 +33,16 @@ namespace logging
 // a warning from clang on the ', true' expression at the end being unused.
 // However, this also results in cleaner and easier to look at code, both
 // where it is output and in logging/log.lua.
-#define __ECS_LOG_MACRO(cat, verb, ...) \
+#define __ECS_LOG_MACRO(chan, cat, verb, ...) \
   (::logging::Verbosity::verb >= ::logging::cat_##cat.verbosity && \
-  (::logging::through_cat_##cat(::logging::Verbosity::verb, __VA_ARGS__), \
+  (::logging::through_cat_##cat(chan, ::logging::Verbosity::verb, __VA_ARGS__), \
   true))
 
-#define __ECS_LOG_MACRO_TRUE(cat, verb, ...) \
-  (__ECS_LOG_MACRO(cat, verb, __VA_ARGS__), true)
+#define __ECS_LOG_MACRO_TRUE(chan, cat, verb, ...) \
+  (__ECS_LOG_MACRO(chan, cat, verb, __VA_ARGS__), true)
 
-#define __ECS_LOG_MACRO_FALSE(cat, verb, ...) \
-  ((__ECS_LOG_MACRO(cat, verb, __VA_ARGS__)), false)
+#define __ECS_LOG_MACRO_FALSE(chan, cat, verb, ...) \
+  ((__ECS_LOG_MACRO(chan, cat, verb, __VA_ARGS__)), false)
 
 /* ----------------------------------------------------------------------------
  */
@@ -139,19 +139,11 @@ extern Category cat_$(cat.name);
 /* ----------------------------------------------------------------------------
  */
 template<typename... Args>
-void through_cat_$(cat.name)(Verbosity v, Args... args)
+void through_cat_$(cat.name)(Channel* chan, Verbosity v, Args... args)
 {
   using namespace iro;
 
-  io::WStream* out = fs::stdout();
-  Category& cat = cat_$(cat.name);
-
-  assert(v >= cat.verbosity && 
-    "Verbosity of category $(cat.name) was not checked externally");
-
-  Interceptor interceptor(cat, v);
-
-  iro::io::formatv(&interceptor, args...);
+  chan->log(&cat_$(cat.name), v, args...);
 }
 
 $ end

@@ -1,5 +1,7 @@
 $ require "common"
 
+$ do return end
+
 @lpp.import "Engine.lh"
 @lpp.import "game/server/GameSim.lh"
 @lpp.import "game/shared/entity/EntitySysMgr.lh"

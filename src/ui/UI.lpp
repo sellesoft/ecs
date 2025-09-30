@@ -1110,13 +1110,17 @@ b8 UI::putButton(
 
 /* ----------------------------------------------------------------------------
  */
-b8 UI::putTextField(
+TextFieldResult UI::putTextField(
     ItemId id,
     Rect bounds,
     TextFieldState* state,
     const TextFieldSkin& skin)
 {
   assert(state != nullptr);
+
+  TextFieldResult result = {};
+
+  using enum TextFieldFlag;
 
   @log.trace(ui, "UI::putTextField\n");
 
@@ -1129,9 +1133,10 @@ b8 UI::putTextField(
 
   b8 focused = focus.test(FocusFlag::Focused);
 
-  b8 cursor_moved = false;
-  b8 buffer_too_small = false;
-  b8 text_changed = false;
+  if (focused)
+    result.set(Focused);
+
+  s32 initial_cursor_pos = edit->cursor.pos;
 
   putItem(bounds, skin.box.item);
 
@@ -1150,28 +1155,25 @@ $   len = len or ""
     if (frame_input.wasKeyPressed(Key::Right))
     {
       if (0 != edit->cursorMoveRight$(len)()) 
-        cursor_moved = true;
+        result.set(CursorMoved);
     }
     if (frame_input.wasKeyPressed(Key::Left))
     {
       if (0 != edit->cursorMoveLeft$(len)())
-        cursor_moved = true;
+        result.set(CursorMoved);
     }
     if (frame_input.wasKeyPressed(Key::Backspace))
     {
       if (0 != edit->deleteLeft$(len)())
       {
-        cursor_moved = true;
-        text_changed = true;
+        result.set(CursorMoved);
+        result.set(TextChanged);
       }
     }
     if (frame_input.wasKeyPressed(Key::Delete))
     {
       if (0 != edit->deleteRight$(len)())
-      {
-        cursor_moved = true;
-        text_changed = true;
-      }
+        result.set(TextChanged);
     }
 $ end
 
@@ -1196,9 +1198,9 @@ $ end
         u32 insert_len = edit->insertString(frame_input.getCharInput());
 
         if (insert_len == 0)
-          buffer_too_small = true;
+          result.set(BufferTooSmall);
         else
-          text_changed = true;
+          result.set(TextChanged);
       }
 
       // NOTE(sushi) I'm not a fan of doing this here but since UI doesn't 
@@ -1208,6 +1210,9 @@ $ end
       frame_input.consumeCharInputs();
       frame_input.consumeAllKeys();
     }
+
+    if (frame_input.wasKeyPressed(Key::Enter))
+      result.set(Commit);
   }
 
   b8 clicked = focus.test(FocusFlag::PrimaryPressed);
@@ -1262,11 +1267,13 @@ $ end
 
       if (cursor_pos.x < 0.f)
       {
+        result.set(CursorMoved);
         edit->cursor.pos = 0;
         cursor_offset = 0.f;
       }
       else if (cscan.isEmpty() && cursor_pos.x > next_text_width)
       {
+        result.set(CursorMoved);
         edit->cursor.pos = text.len;
         cursor_offset = next_text_width;
       }
@@ -1274,11 +1281,13 @@ $ end
       {
         if (cursor_pos.x <= center)
         {
+          result.set(CursorMoved);
           edit->cursor.pos = text_pos;
           cursor_offset = text_width;
         }
         else
         {
+          result.set(CursorMoved);
           edit->cursor.pos = text_pos + 1;
           cursor_offset = next_text_width;
         }
@@ -1328,12 +1337,12 @@ $ end
   }
   endGroup();
 
-  return text_changed;
+  return result;
 }
 
 /* ----------------------------------------------------------------------------
  */
-b8 UI::putTextField(
+TextFieldResult UI::putTextField(
     ItemId id, 
     Rect bounds, 
     TextEdit::Buffer buffer,

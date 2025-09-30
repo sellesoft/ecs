@@ -260,6 +260,33 @@ struct Layer
 };
 
 /* ============================================================================
+ *  Flags that may be returned by putTextField() describing various things 
+ *  that the user did.
+ */
+enum class TextFieldFlag
+{
+  // Set while this text field is focused.
+  Focused,
+
+  // Some text was changed.
+  TextChanged,
+
+  // The Cursor was moved. This may be set via the user pressing an arrow
+  // key OR the cursor having moved because text was changed.
+  CursorMoved,
+
+  // User tried to insert some text, but the buffer was too small.
+  BufferTooSmall,
+
+  // Enter was pressed.
+  Commit,
+
+  COUNT
+};
+
+typedef Flags<TextFieldFlag> TextFieldResult;
+
+/* ============================================================================
  *  State intended to be kept persistent by users of TextFields.
  */
 struct TextFieldState
@@ -483,7 +510,7 @@ struct UI
     const ButtonSkin& skin);
 
   // Places a text field that edits some text specified in the state.
-  b8 putTextField(
+  TextFieldResult putTextField(
     ItemId id,
     Rect bounds, 
     TextFieldState* state,
@@ -493,7 +520,7 @@ struct UI
   // state of the text field is managed internally by UI. If the field goes
   // unused for too long its state will be cleared. To avoid this, use the 
   // above function with a TextFieldState stored elsewhere.
-  b8 putTextField(
+  TextFieldResult putTextField(
     ItemId id,
     Rect bounds,
     TextEdit::Buffer buffer,

@@ -1,0 +1,53 @@
+$ require "common"
+
+@lpp.import "editor/Editor.lh"
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Console::init()
+{
+  text_field.edit.setBuffer(
+  {
+    .ptr = command_buffer.arr,
+    .len = &command_buffer.len,
+    .space = s32(command_buffer.capacity()),
+  });
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Console::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+{
+  const f32 bar_height = 20.f;
+
+  Rect bar_bounds = {};
+  bar_bounds.x = 0.f;
+  bar_bounds.y = ui.getHeight() - bar_height;
+  bar_bounds.w = ui.getWidth();
+  bar_bounds.h = bar_height;
+
+  ui::TextFieldResult result = 
+    ui.putTextField(
+      "console-input"_fid,
+      bar_bounds,
+      &text_field,
+      skin.text_field);
+
+  using enum ui::TextFieldFlag;
+
+  if (result.test(Commit))
+  {
+    String input = text_field.edit.asStr();
+
+    cmd_bus->exec(input);
+
+    text_field.edit.clear();
+  }
+}
+
+}

@@ -1,0 +1,39 @@
+/*
+ *  A Doc for testing whatever in. A quick way to test some UI in a resizable
+ *  window.
+ */
+
+$ require "common"
+
+@lpp.import "editor/Doc.lh"
+@lpp.import "sdata/SourceDataEditor.lh"
+
+namespace editor
+{
+
+struct Test : Doc
+{
+  SourceDataEditor edit;
+
+  SourceDataFile test_file;
+
+  void onOpen() override 
+  { 
+    SourceDataFile::from(&test_file, 
+      "assets/entities/locker/Locker.entity"_str);
+
+    edit.init();
+
+    edit.setSourceData(
+      test_file.returned_data, 
+      &test_file, 
+      "EntityDef"_typeid);
+  }
+
+  void placeUI(ui::UI& ui, const EditorSkinDef& skin) override
+  {
+    edit.update(ui, ui.getBounds(), skin.sdata_edit);
+  }
+};
+
+}

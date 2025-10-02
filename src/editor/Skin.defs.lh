@@ -3,6 +3,7 @@ $ local metadata = require "reflect.Metadata"
 
 @lpp.import "reflect/CompiledData.lh"
 @lpp.import "ui/Skin.defs.lh"
+@lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
 /* ============================================================================
  */
@@ -80,6 +81,8 @@ struct EditorSkinDef
 
   EditorConsoleSkin console;
   EditorMenuBarSkin menu_bar;
+
+  SourceDataEditorSkinDef sdata_edit;
 };
 
 @metadata.links(skin.data)

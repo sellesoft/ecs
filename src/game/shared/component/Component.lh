@@ -16,7 +16,6 @@ using namespace iro;
 
 /* ============================================================================
  */
-@metadata.def
 @metadata.hidden
 struct Component
 {

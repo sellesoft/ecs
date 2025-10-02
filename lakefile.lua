@@ -18,6 +18,8 @@ local build_dir = cwd.."/_build"
 --- without the stuff being mixed with other build artifacts.
 local generated_dir = build_dir.."/_generated"
 
+local enable_tracy = false
+
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
 -- TODO(sushi) command for running tests
@@ -45,7 +47,7 @@ local shared_libs = List
   "shaderc_combined",
   -- TODO(sushi) make building iro with lua state optional.
   "luajit",
-  --"hreload"
+  "hreload"
 }
 
 local static_libs = List
@@ -80,16 +82,16 @@ local cpp_params =
   {
     ECS_DEBUG = 1,
     ECS_GEN_PRETTY_PRINT=0,
-    ECS_HOT_RELOAD=0,
-    TRACY_ENABLE=1,
+    ECS_HOT_RELOAD=1,
+    TRACY_ENABLE=enable_tracy and 1 or 0,
     TRACY_CALLSTACK=8,
-    TRACY_SAMPLE_HZ=20000,
+    TRACY_SAMPLE_HZ=40000,
     NDEBUG=0,
   },
 
   include_paths = include_dirs,
 
-  opt = 'none',
+  opt = 'speed',
   debug_info = true,
 
   noexceptions = true,
@@ -98,7 +100,7 @@ local cpp_params =
   asan = asan,
   tsan = tsan,
 
-  patchable_function_entry = 0,
+  patchable_function_entry = 16,
 
   pic = true,
 }
@@ -264,11 +266,14 @@ for obj in objs:each() do
   obj.task:dependsOn(loggen)
 end
 
-local tracy_o = 
-  o.Cpp "third_party/tracy/include/TracyClient.cpp"
-    :compile(build_dir.."/tracy/TracyClient.cpp.o", cpp_params)
+if enable_tracy then
+  local tracy_o = 
+    o.Cpp "third_party/tracy/include/TracyClient.cpp"
+      :compile(build_dir.."/tracy/TracyClient.cpp.o", cpp_params)
 
-objs:push(tracy_o)
+  objs:push(tracy_o)
+end
+
 objs:pushList(iro_objs)
 objs:pushList(loggen_objs)
 

@@ -10,6 +10,12 @@ $ require "common"
 @lpp.import "editor/Doc.lh"
 @lpp.import "game/client/Client.lh"
 @lpp.import "graphics/Texture.lh"
+@lpp.import "input/InputState.lh"
+
+#include "iro/concurrent/Mutex.h"
+#include "iro/concurrent/Thread.h"
+#include "iro/concurrent/ConditionVar.h"
+#include "iro/concurrent/Atomic.h"
 
 struct WindowResized;
 
@@ -23,6 +29,52 @@ namespace editor
 {
 
 struct ServerInstance;
+struct ClientInstance;
+
+/* ============================================================================
+ */
+struct ClientThread
+{
+  enum class State
+  {
+    Idle,
+
+    Running,
+    Paused,
+
+    Stopping,
+  };
+
+  Client client;
+  vec2f viewport_size;
+  InputState input;
+
+  conc::Thread thread;
+  conc::Atomic<State> state;
+  conc::ConditionVar signal;
+  conc::Mutex mutex;
+  conc::Atomic<b8> terminate;
+  conc::Atomic<b8> new_frame;
+
+  conc::Mutex update_mutex;
+
+  b8 init(ClientInstance& cli);
+  void deinit(ClientInstance& cli);
+
+  void resetClient(ClientInstance& cli);
+
+  void pause();
+  void unpause();
+
+  void render(gfx::Vulkan& vk, gfx::RenderTarget& target);
+
+  void worker();
+
+  b8 isPaused() const
+  {
+    return state.loadSeqCst() == State::Paused;
+  }
+};
 
 /* ============================================================================
  */
@@ -30,7 +82,7 @@ struct ClientInstance : Doc
 {
   using S = ClientInstance;
 
-  Client client;
+  ClientThread thread;
 
   ServerInstance* connected_server;
 

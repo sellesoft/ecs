@@ -55,10 +55,7 @@ struct OffsetSlice
 
   Slice<T> getSlice() const
   {
-    if (notnil(ptr))
-      return Slice<T>::from(ptr.get(), len);
-    else
-      return nil;
+    return Slice<T>::from(ptr.get(), len);
   }
 
   void setSlice(Slice<T> slice)

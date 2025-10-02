@@ -16,9 +16,6 @@ $ require "common"
 namespace editor
 {
 
-static const u64 c_client_render_w = 4096;
-static const u64 c_client_render_h = c_client_render_w;
-
 /* ----------------------------------------------------------------------------
  */
 static b8 handleOfflinePacketSend(
@@ -62,22 +59,6 @@ static b8 handleOfflinePacketGet(
 
 /* ----------------------------------------------------------------------------
  */
-static inline b8 recreateClientTexture(
-    gfx::Vulkan& vk,
-    gfx::Texture* texture)
-{
-  texture->destroy(vk);
-
-  *texture = gfx::Texture::createForRenderTarget(vk,
-  {
-    .size = vec2u(c_client_render_w, c_client_render_h),
-    .debug_name = "client instance texture"_str
-  });
-
-  return notnil(*texture);
-}
-/* ----------------------------------------------------------------------------
- */
 static b8 initClient(ClientInstance& self)
 {
   reflect::Linker linker = 
@@ -92,35 +73,210 @@ static b8 initClient(ClientInstance& self)
     .linker = linker,
   };
 
-  if (!self.client.init(client_params))
+  if (!self.thread.client.init(client_params))
     return @log.error(editor, "failed to initialize a client instance\n");
 
-  self.client.netmgr.registerOfflinePacketHandler(
+  self.thread.client.netmgr.registerOfflinePacketHandler(
     &self,
     handleOfflinePacketSend,
     handleOfflinePacketGet);
 
-  self.client.connectToServer(net::Address::createOffline());
+  self.thread.client.connectToServer(net::Address::createOffline());
 
   return true;
 }
 
 /* ----------------------------------------------------------------------------
  */
-b8 ClientInstance::resetClient(this ClientInstance& self)
+b8 ClientThread::init(ClientInstance& cli)
+{
+  if (!initClient(cli))
+    return false;
+
+  state.storeRelaxed(State::Idle);
+  terminate.storeRelaxed(false);
+  new_frame.storeRelaxed(false);
+
+  signal = conc::ConditionVar::create();
+  mutex = conc::Mutex::create();
+
+  update_mutex = conc::Mutex::create();
+
+  thread = conc::Thread::create(this, [](void* opaque) -> void*
+  {
+    ((ClientThread*)opaque)->worker();
+    return nullptr;
+  });
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::deinit(ClientInstance& cli)
+{
+  terminate.storeSeqCst(true);
+  signal.signalOne();
+  thread.join();
+
+  thread = nil;
+  signal.destroy();
+  mutex.destroy();
+
+  client.deinit(*cli.editor->vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::pause()
+{
+  if (state.loadSeqCst() != State::Paused)
+    state.storeSeqCst(State::Paused);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::unpause()
+{
+  if (state.loadSeqCst() != State::Running)
+  {
+    state.storeSeqCst(State::Running);
+    signal.signalOne();
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::resetClient(ClientInstance& cli)
+{
+  update_mutex.lock();
+  defer { update_mutex.unlock(); };
+
+  client.deinit(*cli.editor->vk);
+
+  if (!initClient(cli))
+  {
+    state.storeRelaxed(State::Idle);
+    return;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::worker()
+{
+  for (;;)
+  {
+    mutex.lock();
+    while (state.loadSeqCst() != State::Running &&
+           !terminate.loadSeqCst())
+    {
+      signal.wait(mutex);
+    }
+    mutex.unlock();
+
+    if (terminate.loadSeqCst())
+      break;
+
+    input.clear();
+
+    for (;;)
+    {
+      auto start_time = TimePoint::monotonic();
+
+      if (state.loadSeqCst() != State::Running)
+        break;
+
+      {
+        // TODO(sushi) we can probably do better than mutexes eventually.
+        update_mutex.lock();
+        defer { update_mutex.unlock(); };
+
+        Client::UpdateParams params = 
+        {
+          .input = input,
+          .viewport_size = vec2u(viewport_size),
+        };
+
+        client.update(params);
+
+        new_frame.storeSeqCst(true);
+
+        input.clear();
+      }
+
+      TimeSpan time_since_start = time::since(start_time);
+      TimeSpan target_time = TimeSpan::fromMilliseconds(4);
+
+      TimeSpan wait_time = TimeSpan::fromNanoseconds(
+        target_time.ns - time_since_start.ns);
+      
+      if (wait_time.ns > 0)
+        os::sleep(wait_time);
+      else
+        println("over budget by ", WithUnits(TimeSpan{-wait_time.ns}));
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void ClientThread::render(gfx::Vulkan& vk, gfx::RenderTarget& target)
+{
+  Client::RenderParams client_params = 
+  {
+    .vk = vk,
+    .target = target,
+  };
+
+  if (new_frame.loadSeqCst())
+  {
+    new_frame.storeSeqCst(false);
+
+    update_mutex.lock();
+    {
+      client.render(client_params);
+    }
+    update_mutex.unlock();
+  }
+}
+
+static const u64 c_client_render_w = 4096;
+static const u64 c_client_render_h = c_client_render_w;
+
+
+/* ----------------------------------------------------------------------------
+ */
+static inline b8 recreateClientTexture(
+    gfx::Vulkan& vk,
+    gfx::Texture* texture)
+{
+  texture->destroy(vk);
+
+  *texture = gfx::Texture::createForRenderTarget(vk,
+  {
+    .size = vec2u(c_client_render_w, c_client_render_h),
+    .debug_name = "client instance texture"_str
+  });
+
+  return notnil(*texture);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 ClientInstance::resetClient(this S& self)
 {
   gfx::vk::waitForDeviceIdle(self.editor->vk);
 
-  self.client.deinit(*self.editor->vk);
-  return initClient(self);
+  self.thread.resetClient(self);
+
+  return true;
 }
 
 /* ----------------------------------------------------------------------------
  */
 b8 ClientInstance::init(this S& self)
 {
-  self.title = "client-instance"_str;
-
   self.client_render_size = vec2u(self.editor->window.size);
 
   if (!recreateClientTexture(
@@ -129,8 +285,10 @@ b8 ClientInstance::init(this S& self)
     return @log.error(editor, 
       "failed to initialize client render texture\n");
 
-  if (!initClient(self))
+  if (!self.thread.init(self))
     return false;
+
+  self.thread.unpause();
 
   return true;
 }
@@ -139,6 +297,7 @@ b8 ClientInstance::init(this S& self)
  */
 void ClientInstance::deinit()
 {
+  thread.deinit(*this);
 }
 
 /* ----------------------------------------------------------------------------
@@ -183,17 +342,18 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     resetClient();
   }
 
-  bar_x += 30.f;
+  bar_x += 35.f;
 
   if (ui.putButton(
-        "dump-logs"_fid,
-        Rect::from(bar_x, 0.f, 60.f, 15.f),
-        "dump-logs"_str,
-        skin.button))
+      "toggle-pause"_fid,
+      Rect::from(bar_x, 0.f, 60.f, 15.f),
+      (thread.isPaused()? "play"_str : "pause"_str),
+      skin.button))
   {
-    @log.info(editor, "dump-logs\n");
-    for (logging::Entry& ent : client.game_log.entries)
-      editor->log.log(ent);
+    if (thread.isPaused())
+      thread.unpause();
+    else
+      thread.pause();
   }
 
   Rect bounds = ui.getBounds();
@@ -211,25 +371,29 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   input.setCursorPos(ui.getLocalCursorPos());
 
   ui_size = bounds.size();
+  
+  input.mergeInto(thread.input);
+
+  thread.viewport_size = ui_size;
 
   vec4f uv = {0,0,0,0};
   uv.z = ui_size.x / c_client_render_w;
   uv.w = ui_size.y / c_client_render_h;
 
-  Client::UpdateParams params = 
-  {
-    .input = input,
-    .viewport_size = vec2u(ui_size),
-  };
-
-  
-  {
-    ZoneScopedN("ClientInstance::placeUI (client-update)");
-
-    // Yeah weird but we have proper cursor input here. Would be nice to 
-    // separate this from UI stuff. Maybe an input update or something.
-    client.update(params);
-  }
+  // Client::UpdateParams params = 
+  // {
+  //   .input = input,
+  //   .viewport_size = vec2u(ui_size),
+  // };
+  //
+  //
+  // {
+  //   ZoneScopedN("ClientInstance::placeUI (client-update)");
+  //
+  //   // Yeah weird but we have proper cursor input here. Would be nice to 
+  //   // separate this from UI stuff. Maybe an input update or something.
+  //   client.update(params);
+  // }
 
   ui.putQuad(bounds, client_render.getHandle(), uv, 0xffffffff);
 }
@@ -244,7 +408,7 @@ void ClientInstance::notifyAssetChanged(String name, String type)
     .asset_mgr = editor->asset_mgr,
   };
 
-  client.notifyAssetChanged(name, type, linker);
+  // client.notifyAssetChanged(name, type, linker);
 }
 
 /* ----------------------------------------------------------------------------
@@ -260,13 +424,7 @@ void ClientInstance::render(gfx::Vulkan& vk)
     .view = client_render.view,
   };
 
-  Client::RenderParams client_params = 
-  {
-    .vk = vk,
-    .target = target,
-  };
-
-  client.render(client_params);
+  thread.render(vk, target);
 
   gfx::vk::prepareImageForSampling(&vk, client_render.image);
 }

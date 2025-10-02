@@ -191,6 +191,11 @@ struct SourceData
   SourceData* addNumberValue(f32 val, SourceDataFile& file);
   SourceData* addNumberValue(String name, f32 val, SourceDataFile& file);
 
+  void setBooleanValue(b8 value)
+  {
+    val.kind = value? Value::Kind::True : Value::Kind::False;
+  }
+
   /* --------------------------------------------------------------------------
    */
   void dump(u32 depth = 0) const;

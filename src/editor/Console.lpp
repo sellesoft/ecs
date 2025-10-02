@@ -4,6 +4,8 @@ $ require "common"
 
 #include "iro/StringFuncs.h"
 
+@lpp.import "Profiling.lh"
+
 namespace editor
 {
 
@@ -35,7 +37,6 @@ b8 Console::init(Editor& editor)
     {
       self.is_open = true;
     });
-
 
   cmd_bus->registerCommand<Console>("Editor.Console.close"_str, this,
     [](Console& self, event::CommandArgs)
@@ -246,6 +247,8 @@ static void putEntries(
  */
 void Console::placeUI(ui::UI& ui, const EditorSkinDef& editor_skin)
 {
+  ZoneScopedN("editor::Console::placeUI");
+
   const EditorConsoleSkin& skin = editor_skin.console;
 
   f32 bar_height = skin.command_field_height;

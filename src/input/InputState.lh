@@ -231,6 +231,18 @@ struct InputState
     clearNonPersistent();
   }
 
+  void mergeInto(InputState& rhs) const
+  {
+    rhs.keys_down = rhs.keys_down.bitOr(keys_down);
+    rhs.keys_pressed = rhs.keys_pressed.bitOr(keys_pressed);
+    rhs.keys_released = rhs.keys_released.bitOr(keys_released);
+    rhs.mouse_down = rhs.mouse_down.bitOr(mouse_down);
+    rhs.mouse_pressed = rhs.mouse_pressed.bitOr(mouse_pressed);
+    rhs.mouse_released = rhs.mouse_released.bitOr(mouse_released);
+    rhs.cursor_pos = cursor_pos;
+    rhs.scroll += scroll;
+  }
+
   enum
   {
     CharsLen = 8,

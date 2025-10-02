@@ -40,10 +40,10 @@ b8 buildError(build::Result* result, Args... args)
 
 /* ----------------------------------------------------------------------------
  */
-static b8 codepointInRange(PackRange* range, u32 codepoint)
+static b8 codepointInRange(PackRange range, u32 codepoint)
 {
-  return codepoint >= range->first_codepoint &&
-         codepoint < range->first_codepoint + range->chars.len;
+  return codepoint >= range.first_codepoint &&
+         codepoint < range.first_codepoint + range.chars.len;
 }
 
 /* ----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ PackRange* CompiledFont::getRangeOfCodepoint(u32 codepoint) const
 
   if (ranges.len == 1)
   {
-    if (codepointInRange(ranges.ptr, codepoint))
+    if (codepointInRange(*ranges.ptr, codepoint))
       return ranges.ptr;
     else
       return nullptr;
@@ -64,7 +64,7 @@ PackRange* CompiledFont::getRangeOfCodepoint(u32 codepoint) const
   {
     PackRange* range = ranges.ptr + rangeidx;
     
-    if (codepointInRange(range, codepoint))
+    if (codepointInRange(*range, codepoint))
       return range;
   }
 

@@ -213,13 +213,6 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
   // Place the actual Window stuff.
   ui.beginGroup(Rect::from(hit_offset, displayed_size));
   {
-    ui::ItemSkin bg = {};
-    bg.color = 0x000000ff;
-    bg.border = { -border_w, -border_w, -border_w, -border_w };
-    bg.border_color = 0xaaaaaaff;
-
-    ui.putItem(Rect::from({0,0}, displayed_size), bg);
-
     Rect header_bounds = {};
     header_bounds.x = 0.f;
     header_bounds.y = 0.f;
@@ -258,6 +251,21 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     ui.beginGroup(content_bounds);
     doc->placeUI(ui, skin);
     ui.endGroup();
+
+    // TODO(sushi) ui currently doesnt support enough to handle the background
+    //             of a window properly, since we have to draw on the same 
+    //             layer.
+    //
+    // ui.beginCmdFrontInjection();
+    //
+    // ui::ItemSkin bg = {};
+    // bg.color = 0x000000ff;
+    // bg.border = { -border_w, -border_w, -border_w, -border_w };
+    // bg.border_color = 0xaaaaaaff;
+    //
+    // ui.putItem(Rect::from({0,0}, displayed_size), bg);
+    //
+    // ui.endCmdFrontInjection();
   }
   ui.endGroup();
   ui.endGroup();

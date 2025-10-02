@@ -11,7 +11,7 @@ struct UI;
 }
 
 struct SourceData;
-struct DatumState;
+struct Datum;
 
 /* ============================================================================
  */
@@ -27,13 +27,13 @@ struct SourceDataEditor
 
   mem::Bump datum_allocator;
 
-  u64 type_id = 0;
+  rtr::TypeId type_id = nil;
 
   f32 name_column_width = 0.f;
   f32 max_name_extent = 0.f;
 
-  DatumState* current_datum = nullptr;
-  DatumState* hovered = nullptr;
+  Datum* current_datum = nullptr;
+  Datum* hovered = nullptr;
 
   // An interface for recieving notifications when the source data editor does
   // certain things.
@@ -45,16 +45,17 @@ struct SourceDataEditor
 
   Interface* interface = nullptr;
 
-  b8 init(ui::UI& ui);
+  b8 init();
   void deinit(ui::UI& ui);
 
   void setSourceData(
-      ui::UI& ui, 
       SourceData* data, 
       SourceDataFile* file, 
-      u64 type_id = 0);
+      rtr::TypeId type_id);
 
   void update(ui::UI& ui, Rect bounds, const SourceDataEditorSkinDef& skin);
+
+  Datum* allocateAndInitDatum(rtr::TypeId type, SourceData* data);
 
   SourceData* parseDefaultData(String s);
 };

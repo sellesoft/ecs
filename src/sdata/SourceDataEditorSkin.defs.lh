@@ -56,6 +56,7 @@ struct SourceDataEditorSkinDef
   ui::TextSkin      text;
   ui::TextFieldSkin text_field;
   ui::DropDownSkin  dropdown;
+  ui::ButtonSkin    dropdown_option;
   ui::ButtonSkin    button;
   ui::ScrollBarSkin scroll_bar;
 

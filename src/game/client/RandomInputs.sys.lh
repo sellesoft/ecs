@@ -1,0 +1,62 @@
+$ require "common"
+
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/input/Input.events.lh"
+@lpp.import "game/shared/Movement.comp.lh"
+@lpp.import "game/shared/input/Input.events.lh"
+
+namespace cl
+{
+
+struct RandomInputSys : EntitySys
+{
+  TimePoint last_input;
+  TimeSpan time_to_hold;
+
+  b8 init() { return true; }
+
+  void update()
+  {
+    auto since_last_input = time::since(last_input);
+
+    if (since_last_input > time_to_hold)
+    {
+      for (Movement& movement : iterateComp<Movement>())
+      {
+        MoveInputEvent event = {};
+        event.entity = movement.owner;
+        event.input.set(MoveInput::LeftReleased);
+        event.input.set(MoveInput::RightReleased);
+        event.input.set(MoveInput::UpReleased);
+        event.input.set(MoveInput::DownReleased);
+        raise(event);
+      }
+    }
+
+    if (since_last_input > TimeSpan::fromMilliseconds(1000))
+    {
+      last_input = TimePoint::monotonic();
+      time_to_hold = TimeSpan::fromMilliseconds(250);
+
+      MoveInput inputs[] = 
+      {
+        MoveInput::LeftPressed,
+        MoveInput::RightPressed,
+        MoveInput::UpPressed,
+        MoveInput::DownPressed,
+      };
+
+      MoveInput next_input = inputs[rand() % 4];
+
+      for (auto& movement : iterateComp<Movement>())
+      {
+        MoveInputEvent event = {};
+        event.input = next_input;
+        event.entity = movement.owner;
+        raise(event);
+      }
+    }
+  }
+};
+
+}

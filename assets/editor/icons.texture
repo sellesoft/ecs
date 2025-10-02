@@ -1,0 +1,7 @@
+return gfx::TextureDef
+{
+  name = "assets/editor/icons.png",
+  format = "RGBA",
+  filter = "Nearest",
+  address_mode = "ClampToWhite",
+}

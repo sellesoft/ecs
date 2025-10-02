@@ -76,8 +76,8 @@ local lib_dirs = List
 local defines = 
 {
   ECS_DEBUG = 1,
-  ECS_GEN_PRETTY_PRINT=0,
-  ECS_HOT_RELOAD=1,
+  --ECS_GEN_PRETTY_PRINT=0,
+  --ECS_HOT_RELOAD=0,
 }
 
 if enable_tracy then

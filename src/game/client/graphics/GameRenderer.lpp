@@ -197,7 +197,7 @@ void GameRenderer::drawQuad(
   quad_verts[3].color = color.rgba;
 
   auto vp = (gfx::Vertex*)quads_vertex_buffer.mapped_data + 4*quad_count;
-  mem::copy(vp, quad_verts, 4 * sizeof(quad_verts));
+  mem::copy(vp, quad_verts, sizeof(quad_verts));
 
   batches[batch_count-1].quad_count++;
   quad_count++;
@@ -225,6 +225,12 @@ b8 GameRenderer::render(const RenderParams& params)
   gfx::Vulkan& vk = params.vk;
 
   vec2u view_size = params.viewport_size;
+
+  if (view_size.x == 0 && view_size.y == 0)
+  {
+    @log.error(game, "GameRenderer::render called with a zero view_size\n");
+    return false;
+  }
 
   assert(notnil(params.target));
 

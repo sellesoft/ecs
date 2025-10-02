@@ -190,7 +190,7 @@ void SourceData::setNumberValue(f32 value, SourceDataFile& file)
   io::StaticBuffer<64> buffer;
   io::format(&buffer, value);
 
-  val.kind = Value::Kind::String;
+  val.kind = Value::Kind::Number;
   val.str = String(buffer).allocateCopy(&file.string_cache);
 }
 
@@ -216,6 +216,80 @@ SourceData* SourceData::addNumberValue(
 
   child->name = name;
   child->setNumberValue(value, file);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setIntValue(SourceDataFile& file, s64 value)
+{
+  io::StaticBuffer<64> buffer;
+  io::format(&buffer, value);
+
+  val.kind = Value::Kind::Number;
+  val.str = String(buffer).allocateCopy(&file.string_cache);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addIntValue(SourceDataFile& file, s64 val)
+{
+  return addIntValue(file, nil, val);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addIntValue(
+    SourceDataFile& file,
+    String name, 
+    s64 value)
+{
+  assert(notnil(children));
+
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setIntValue(file, value);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setUIntValue(SourceDataFile& file, u64 value)
+{
+  io::StaticBuffer<64> buffer;
+  io::format(&buffer, value);
+
+  val.kind = Value::Kind::Number;
+  val.str = String(buffer).allocateCopy(&file.string_cache);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addUIntValue(SourceDataFile& file, u64 val)
+{
+  return addUIntValue(file, nil, val);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addUIntValue(
+    SourceDataFile& file,
+    String name, 
+    u64 value)
+{
+  assert(notnil(children));
+
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setUIntValue(file, value);
 
   return child;
 }

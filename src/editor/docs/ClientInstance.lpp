@@ -108,6 +108,14 @@ b8 ClientThread::init(ClientInstance& cli)
     return nullptr;
   });
 
+  // NOTE(sushi) initialize with some viewport size since the way that we 
+  //             update it currently sucks, its possbile the client starts
+  //             to update before the proper viewport size is set, which 
+  //             causes the GameRenderer to not render, which causes the image
+  //             to be in a bad vk layout, which causes validation errors. 
+  //             We should handle this better soon.
+  viewport_size = vec2f(100, 100);
+
   return true;
 }
 
@@ -202,7 +210,6 @@ void ClientThread::worker()
         client.update(params);
 
         new_frame.storeSeqCst(true);
-
         input.clear();
       }
 
@@ -222,7 +229,7 @@ void ClientThread::worker()
 
 /* ----------------------------------------------------------------------------
  */
-void ClientThread::render(gfx::Vulkan& vk, gfx::RenderTarget& target)
+b8 ClientThread::render(gfx::Vulkan& vk, gfx::RenderTarget& target)
 {
   Client::RenderParams client_params = 
   {
@@ -230,16 +237,23 @@ void ClientThread::render(gfx::Vulkan& vk, gfx::RenderTarget& target)
     .target = target,
   };
 
-  if (new_frame.loadSeqCst())
+  b8 did_render = false;
+
+  if (new_frame.loadSeqCst() && !isPaused())
   {
     new_frame.storeSeqCst(false);
 
     update_mutex.lock();
     {
-      client.render(client_params);
+      Client::RenderResult client_result = client.render(client_params);
+      if (client_result.game_rendered)
+        did_render = true;
+        
     }
     update_mutex.unlock();
   }
+
+  return did_render;
 }
 
 static const u64 c_client_render_w = 4096;
@@ -298,6 +312,8 @@ b8 ClientInstance::init(this S& self)
  */
 void ClientInstance::deinit()
 {
+  gfx::vk::waitForDeviceIdle(editor->vk);
+
   thread.deinit(*this);
   client_render.destroy(*editor->vk);
 }
@@ -382,21 +398,6 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   uv.z = ui_size.x / c_client_render_w;
   uv.w = ui_size.y / c_client_render_h;
 
-  // Client::UpdateParams params = 
-  // {
-  //   .input = input,
-  //   .viewport_size = vec2u(ui_size),
-  // };
-  //
-  //
-  // {
-  //   ZoneScopedN("ClientInstance::placeUI (client-update)");
-  //
-  //   // Yeah weird but we have proper cursor input here. Would be nice to 
-  //   // separate this from UI stuff. Maybe an input update or something.
-  //   client.update(params);
-  // }
-
   ui.putQuad(bounds, client_render.getHandle(), uv, 0xffffffff);
 }
 
@@ -426,9 +427,8 @@ void ClientInstance::render(gfx::Vulkan& vk)
     .view = client_render.view,
   };
 
-  thread.render(vk, target);
-
-  gfx::vk::prepareImageForSampling(&vk, client_render.image);
+  if (thread.render(vk, target))
+    gfx::vk::prepareImageForSampling(&vk, client_render.image);
 }
 
 }

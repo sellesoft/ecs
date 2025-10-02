@@ -5,6 +5,7 @@
 @lpp.import "editor/Doc.lh"
 @lpp.import "editor/MenuBar.lh"
 @lpp.import "reflect/TypeId.lh"
+@lpp.import "sdata/SourceDataFile.lh"
 
 #include "iro/containers/Array.h"
 
@@ -28,13 +29,15 @@ struct DocMgr
   b8 init(Editor& editor);
   void deinit();
 
-  b8 open(String name);
-
+  Doc* open(String name);
   void close(Doc* doc);
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);
   void update();
   void render(gfx::Vulkan& vk);
+
+  void cacheDocState();
+  void loadCachedDocState();
 };
 
 }

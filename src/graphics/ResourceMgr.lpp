@@ -27,6 +27,9 @@ b8 ResourceMgr::init(Vulkan* vk)
   if (!pipelines.init())
     return false;
 
+  if (!string_buffer.init())
+    return false;
+
   return true;
 }
 
@@ -34,10 +37,35 @@ b8 ResourceMgr::init(Vulkan* vk)
  */
 void ResourceMgr::deinit()
 {
+  for (auto& texture : textures.map)
+  {
+    texture.contained_assets.clear();
+    unloadTextureResource(&texture.resource);
+  }
   textures.deinit();
+
+  for (auto& shader : shaders.map)
+  {
+    shader.contained_assets.clear();
+    unloadShaderResource(&shader.resource);
+  }
   shaders.deinit();
+
+  for (auto& font : fonts.map)
+  {
+    font.contained_assets.clear();
+    unloadFontResource(&font.resource);
+  }
   fonts.deinit();
+
+  for (auto& pipeline : pipelines.map)
+  {
+    pipeline.contained_assets.clear();
+    unloadPipelineResource(&pipeline.resource);
+  }
   pipelines.deinit();
+
+  string_buffer.deinit();
 }
 
 /* ----------------------------------------------------------------------------
@@ -318,11 +346,11 @@ b8 ResourceMgr::loadPipelineResource(PipelineResource* pipeline)
     pipeline->data.name, "pipeline.data"_str});
 
   r->contained_assets.push(
-    {def.vertex_shader->compiled_shader.name.allocateCopy(), 
+    {def.vertex_shader->compiled_shader.name.allocateCopy(&string_buffer), 
     "shader.compiled"_str});
 
   r->contained_assets.push(
-    {def.fragment_shader->compiled_shader.name.allocateCopy(), 
+    {def.fragment_shader->compiled_shader.name.allocateCopy(&string_buffer), 
     "shader.compiled"_str});
 
   pipeline->handle = gfx::Pipeline::create(*vk, def);

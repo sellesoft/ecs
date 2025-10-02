@@ -6,6 +6,7 @@ $ require "common"
 #include "iro/Unicode.h"
 #include "iro/containers/Slice.h"
 #include "iro/containers/LinkedPool.h"
+#include "iro/memory/Bump.h"
 
 namespace event
 {
@@ -31,14 +32,23 @@ struct CommandBus
 {
   iro::DLinkedPool<Command> commands;
 
+  iro::mem::LenientBump string_buffer;
+
   b8 init()
   {
-    return commands.init();
+    if (!string_buffer.init())
+      return false;
+
+    if (!commands.init())
+      return false;
+
+    return true;
   }
 
   void deinit()
   {
     commands.deinit();
+    string_buffer.deinit();
   }
 
   template<typename T>
@@ -51,7 +61,7 @@ struct CommandBus
       return false;
 
     Command* nu = commands.pushTail()->data;
-    nu->name = name.allocateCopy();
+    nu->name = name.allocateCopy(&string_buffer);
     nu->handler_data = handler_data;
     nu->handler = (b8 (*)(void*, CommandArgs))handler;
 

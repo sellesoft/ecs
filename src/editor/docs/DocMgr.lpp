@@ -21,6 +21,21 @@ namespace editor
 
 /* ----------------------------------------------------------------------------
  */
+static inline String docNameFromTypeId(rtr::TypeId type)
+{
+  switch (type.val)
+  {
+$ for derived in TDoc:allDerived() do
+  case "$(derived.qname)"_typeid_val:
+    return "$(derived.name)"_str;
+$ end
+  }
+  assert(false);
+  return "???"_str;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 DocMgr::init(Editor& editor)
 {
   this->editor = &editor;
@@ -52,12 +67,54 @@ $ end
       self.open(args[0]);
     });
 
+  // Attempt to load the last doc layout if it exists.
+  loadCachedDocState();
   return true;
 }
 
 /* ----------------------------------------------------------------------------
  */
-b8 DocMgr::open(String name)
+static void closeDocs(DocMgr& self, b8 all)
+{
+  for (s32 i = self.docs.len() - 1; i >= 0; --i)
+  {
+    if (all || self.docs[i].doc->flags.test(Doc::Flag::ToBeClosed))
+    {
+      self.editor->log.info("closing ", self.docs[i].doc->title);
+
+      self.docs[i].doc->onClose();
+
+      for (s32 o = self.order.len() - 1; o >= 0; --o)
+      {
+        if (self.order[o] == i)
+          self.order.remove(o);
+        else if (self.order[o] > i)
+          self.order[o] -= 1;
+      }
+      
+      mem::stl_allocator.free(self.docs[i].doc);
+      self.docs.remove(i);
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::deinit()
+{
+  // Save doc state on close so its restored next time the editor is opened.
+  // TODO(sushi) config for this behavior.
+  cacheDocState();
+
+  closeDocs(*this, true);
+
+  docs.destroy();
+  order.destroy();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Doc* DocMgr::open(String name)
 {
   rtr::TypeId type;
   Doc* doc = nullptr;
@@ -65,7 +122,8 @@ b8 DocMgr::open(String name)
   switch (name.hash())
   {
   default:
-    return @log.errorln(editor, "unknown doc type '", name, "'");
+    return @log.errorln(editor, "unknown doc type '", name, "'"),
+           nullptr;
 
 $ for doc in TDoc:allDerived() do
   case "$(doc.name)"_hashed:
@@ -87,7 +145,7 @@ $ end
   order.insert(0, docs.len());
   docs.push({.type = type, .doc = doc});
 
-  return true;
+  return doc;
 }
 
 /* ----------------------------------------------------------------------------
@@ -221,6 +279,13 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
   // Place the actual Window stuff.
   ui.beginGroup(Rect::from(hit_offset, displayed_size));
   {
+    ui::ItemSkin bg = {};
+    bg.color = 0x000000ff;
+    bg.border = { -border_w, -border_w, -border_w, -border_w };
+    bg.border_color = 0xaaaaaaff;
+    
+    ui.putItem(Rect::from({0,0}, displayed_size), bg);
+
     Rect header_bounds = {};
     header_bounds.x = 0.f;
     header_bounds.y = 0.f;
@@ -324,32 +389,16 @@ void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   }
 }
 
+
+
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::update()
 {
-  for (s32 i = docs.len() - 1; i >= 0; --i)
-  {
-    if (docs[i].doc->flags.test(Doc::Flag::ToBeClosed))
-    {
-      editor->log.info("closing ", docs[i].doc->title);
+  // Close any docs marked to be closed.
+  closeDocs(*this, false);
 
-      docs[i].doc->onClose();
-
-      for (u32 o = 0; i < order.len(); ++o)
-      {
-        if (order[o] == i)
-        {
-          order.remove(o);
-          break;
-        }
-      }
-      
-      mem::stl_allocator.free(docs[i].doc);
-      docs.remove(i);
-    }
-  }
-
+  // Update each open doc.
   for (TrackedDoc& tdoc : docs)
     tdoc.doc->update();
 }
@@ -360,6 +409,76 @@ void DocMgr::render(gfx::Vulkan& vk)
 {
   for (TrackedDoc& tdoc : docs)
     tdoc.doc->render(vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::cacheDocState()
+{
+  SourceDataFile sfile;
+  sfile.init();
+  defer { sfile.deinit(); };
+
+  SourceData* ret = sfile.addReturnData();
+
+  ret->setObject(nil);
+
+  SourceData* sdocs = ret->addObject(sfile, "docs"_str);
+
+  for (TrackedDoc& tdoc : docs)
+  {
+    SourceData* sdoc = sdocs->addObject(sfile, nil);
+    sdoc->addStringValue(sfile, "title"_str, tdoc.doc->title);
+    sdoc->addVec2(sfile, "pos"_str, tdoc.doc->pos);
+    sdoc->addVec2(sfile, "size"_str, tdoc.doc->size);
+    sdoc->addStringValue(sfile, "type"_str, docNameFromTypeId(tdoc.type));
+  }
+
+  SourceData* sorder = ret->addObject(sfile, "order"_str);
+
+  for (u32 o : order)
+    sorder->addUIntValue(sfile, o);
+
+  editor->cacheSourceDataFile(sfile, "doc-state"_str);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DocMgr::loadCachedDocState()
+{
+  SourceDataFile sfile;
+  defer { sfile.deinit(); };
+
+  if (!editor->loadCachedSourceDataFile(&sfile, "doc-state"_str))
+    return;
+
+  // Close all currently open docs. 
+  // TODO(sushi) probably not the best behavior.
+  closeDocs(*this, true);
+
+  SourceData* ret = sfile.returned_data;
+
+  SourceData* docs = ret->findChildByName("docs"_str);
+
+  for (SourceData* child : docs->children)
+  {
+    String title = child->findChildByName("title"_str)->val.str.allocateCopy();
+    vec2f pos    = child->findChildByName("pos"_str)->as_vec2f();
+    vec2f size   = child->findChildByName("size"_str)->as_vec2f();
+    String type  = child->findChildByName("type"_str)->val.str;
+
+    Doc* doc = open(type);
+    doc->title = title;
+    doc->size = size;
+    doc->pos = pos;
+  }
+
+  order.clear();
+
+  SourceData* cached_order = ret->findChildByName("order"_str);
+
+  for (SourceData* o : cached_order->children)
+    order.push(o->as_u64());
 }
 
 }

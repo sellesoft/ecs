@@ -7,6 +7,7 @@ $ require "common"
 #include "iro/containers/AVL.h"
 #include "iro/containers/Array.h"
 #include "iro/Unicode.h"
+#include "iro/memory/Bump.h"
 
 @lpp.import "graphics/Texture.resource.lh"
 @lpp.import "graphics/Shader.resource.lh"
@@ -92,6 +93,8 @@ struct ResourceMgr
   ResourcePool<ShaderResource> shaders;
   ResourcePool<FontResource> fonts;
   ResourcePool<PipelineResource> pipelines;
+
+  mem::LenientBump string_buffer;
 
   b8 init(Vulkan* vk);
   void deinit();

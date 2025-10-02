@@ -61,6 +61,7 @@ struct Client
 
   struct RenderResult
   {
+    b8 game_rendered;
   };
 
   RenderResult render(const RenderParams& params);

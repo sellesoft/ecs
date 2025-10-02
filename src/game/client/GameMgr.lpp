@@ -97,8 +97,10 @@ b8 GameMgr::update(UpdateParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-b8 GameMgr::render(const RenderParams& params)
+GameMgr::RenderResult GameMgr::render(const RenderParams& params)
 {
+  RenderResult result = {};
+
   EyeSys& eye = entsysmgr.get<EyeSys>();
   MapSys& map = entsysmgr.get<MapSys>();
 
@@ -113,10 +115,9 @@ b8 GameMgr::render(const RenderParams& params)
     .view = eye.view.getViewMat(),
   };
 
-  if (!game_renderer.render(render_params))
-    return false;
+  result.game_rendered = game_renderer.render(render_params);
 
-  return true;
+  return result;
 }
 
 }

@@ -382,7 +382,7 @@ struct UI
   };
 
   b8   init(InitParams& params);
-  void deinit(gfx::Vulkan& renderer);
+  void deinit(gfx::Vulkan& vk);
 
   struct FrameParams
   {

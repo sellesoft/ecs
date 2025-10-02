@@ -79,15 +79,19 @@ Client::UpdateResult Client::update(const UpdateParams& params)
  */
 Client::RenderResult Client::render(const RenderParams& params)
 {
+  RenderResult result = {};
+
   cl::GameMgr::RenderParams gamemgr_params = 
   {
     .vk = params.vk,
     .target = params.target,
   };
 
-  gamemgr.render(gamemgr_params);
+  cl::GameMgr::RenderResult gamemgr_result = gamemgr.render(gamemgr_params);
 
-  return {};
+  result.game_rendered = gamemgr_result.game_rendered;
+
+  return result;
 }
 
 /* ----------------------------------------------------------------------------

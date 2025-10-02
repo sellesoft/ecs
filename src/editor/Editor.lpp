@@ -383,19 +383,28 @@ void Editor::deinit()
   // Wait until the device isn't doing anything to avoid errors.
   gfx::vk::waitForDeviceIdle(vk);
 
-  gfx::vk::destroy(vk, &mem::stl_allocator);
+  doc_mgr.deinit();
+  menu_bar.deinit();
+  cmd_bus.deinit();
+  console.deinit();
+
+  ui.deinit(*vk);
 
   window.deinit();
   input.deinit();
 
+  resource_mgr.deinit();
   asset_mgr.deinit();
 
-  build_thread->terminate.storeSeqCst(true);
-
+  build_thread->deinit();
   build_system.deinit();
-
   mem::stl_allocator.free(build_thread);
+
+  watcher_thread->deinit();
+  file_watcher.deinit();
   mem::stl_allocator.free(watcher_thread);
+
+  gfx::vk::destroy(vk, &mem::stl_allocator);
 }
 
 /* ----------------------------------------------------------------------------
@@ -550,7 +559,6 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
         }
       }
 
-
       if (asset_reloaded)
         reflect::linkData(
           "EditorSkinDefLink"_typeid, 
@@ -578,6 +586,12 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     }
   }
 
+  if (input.real_state.wasKeyPressed(Key::O))
+    doc_mgr.cacheDocState();
+
+  if (input.real_state.wasKeyPressed(Key::I))
+    doc_mgr.loadCachedDocState();
+
   return result;
 }
 
@@ -590,6 +604,51 @@ b8 Editor::wantHotReload()
     return true;
 
   return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Editor::cacheSourceDataFile(SourceDataFile& sfile, String path)
+{
+  if (!fs::path::exists(".ecs-cache"_str))
+    fs::mkdir(".ecs-cache"_str, false);
+
+  if (!fs::path::isDirectory(".ecs-cache"_str))
+    return log.error("'.ecs-cache' already exists and is not a directory");
+
+  fs::PathBuffer cache_path_buffer;
+  io::formatv(&cache_path_buffer, ".ecs-cache/", path);
+
+  auto file = fs::File::createForTruncatedWriting(String(cache_path_buffer));
+  if (isnil(file))
+    return log.error(
+      "failed to open file at '", String(cache_path_buffer), "' to cache "
+      "source data file\n");
+
+  sfile.dump(&file);
+
+  file.close();
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 Editor::loadCachedSourceDataFile(SourceDataFile* sfile, String path)
+{
+  fs::PathBuffer cache_path_buffer;
+  io::formatv(&cache_path_buffer, ".ecs-cache/", path);
+
+  // If the cached file doesn't exist, quickly return false. If the file is 
+  // needed then the caller should log an error.
+  if (!fs::path::exists(String(cache_path_buffer)))
+    return false;
+
+  if (!SourceDataFile::from(sfile, String(cache_path_buffer)))
+    return log.error(
+      "failed to load cached source data file from '", path, "'");
+
+  return true;
 }
 
 }

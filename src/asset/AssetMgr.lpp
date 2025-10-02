@@ -28,25 +28,12 @@ b8 AssetMgr::init(mem::Allocator* allocator, String data_mount)
  */
 void AssetMgr::deinit()
 {
-// TODO(sushi) properly clean up assets. Currently we lose a lot of them,
-//             specifically when loading gfx resource defs because they 
-//             do not store the loaded source asset data used to find the 
-//             asset desired. I'm not going to do this now because I plan to
-//             rework how all of that works soon.
-$ if false then
-  if (!map.isEmpty())
+  for (Asset& asset : map)
   {
-    @log.error(asset, "AssetMgr::deinit called but Assets still exist!\n",
-          "  Currently allocated resources are: \n");
-    for (Asset& asset : map)
-    {
-      @log.error(asset, "    ", asset.name, "\n");
-    }
-
-    assert(!"AssetMgr::deinit called while Assets are still active!");
+    allocator->free(asset.name.ptr);
+    allocator->free(asset.data);
   }
-$ end
-  
+
   pool.deinit();
   map.deinit();
 }

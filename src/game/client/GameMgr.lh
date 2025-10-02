@@ -62,7 +62,12 @@ struct GameMgr
     gfx::RenderTarget& target;
   };
 
-  b8 render(const RenderParams& params);
+  struct RenderResult
+  {
+    b8 game_rendered;
+  };
+
+  RenderResult render(const RenderParams& params);
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker)
   {

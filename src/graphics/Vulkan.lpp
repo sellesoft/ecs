@@ -22,7 +22,7 @@ namespace gfx
 $ local print_success = false
 $ local print_non_error_success_as_warning = false
 $ local release_validation = false
-$ local disable_validation = true
+$ local disable_validation = false
 $ local validation = 
 $   (ECS_DEBUG or release_validation) and 
 $   not disable_validation
@@ -448,7 +448,7 @@ $ end
 
   // Initialize the default descriptor set layouts for sampled textures and 
   // buffers. See the comment on these fields about how I'd like to remove 
-  // them. Also note that we use the high-level api to do this such that
+  // them. Also note that we use the high-level api to do this so that
   // they are initialized in the same way.
 
   DescriptorSetLayout::Binding ubo_binding = 
@@ -494,6 +494,13 @@ $ end
  */
 void Vulkan::deinit(mem::Allocator* allocator)
 {
+  // Weird.
+  auto sampler_layout = DescriptorSetLayout{default_sampler_set_layout};
+  sampler_layout.destroy(*this);
+
+  auto ubo_layout = DescriptorSetLayout{default_ubo_set_layout};
+  ubo_layout.destroy(*this);
+
   for (DeviceHeap& heap : heaps)
   {
     for (DeviceHeapBlock& block : heap.blocks)

@@ -166,6 +166,28 @@ struct SourceData
   SourceData* deepCopy(SourceDataFile* sfile);
 
   /* --------------------------------------------------------------------------
+   *  Reading helpers.
+   */
+  u64 as_u64()
+  {
+    assert(val.kind == Value::Kind::Number);
+    return atoll((char*)val.str.ptr);
+  }
+
+  f32 as_f32()
+  {
+    assert(val.kind == Value::Kind::Number);
+    return atof((char*)val.str.ptr);
+  }
+
+  vec2f as_vec2f()
+  {
+    assert(hasObjectData());
+    assert(children.len() == 2);
+    return vec2f(children[0]->as_f32(), children[1]->as_f32());
+  }
+
+  /* --------------------------------------------------------------------------
    *  Editing helpers.
    */
   void        setObject(String name);
@@ -190,6 +212,14 @@ struct SourceData
   void setNumberValue(f32 val, SourceDataFile& file);
   SourceData* addNumberValue(f32 val, SourceDataFile& file);
   SourceData* addNumberValue(String name, f32 val, SourceDataFile& file);
+
+  void setIntValue(SourceDataFile& file, s64 val);
+  SourceData* addIntValue(SourceDataFile& file, s64 val);
+  SourceData* addIntValue(SourceDataFile& file, String name, s64 val);
+
+  void setUIntValue(SourceDataFile& file, u64 val);
+  SourceData* addUIntValue(SourceDataFile& file, u64 val);
+  SourceData* addUIntValue(SourceDataFile& file, String name, u64 val);
 
   void setBooleanValue(b8 value)
   {

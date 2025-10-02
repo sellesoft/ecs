@@ -55,6 +55,14 @@ b8 Console::init(Editor& editor)
 
 /* ----------------------------------------------------------------------------
  */
+void Console::deinit()
+{
+  entries.destroy();
+  string_buffer.deinit();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static Color getVTColor(s32 c, const EditorConsoleSkin& skin)
 {
   switch (c)

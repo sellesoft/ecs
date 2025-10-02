@@ -78,7 +78,6 @@ local defines =
   ECS_DEBUG = 1,
   ECS_GEN_PRETTY_PRINT=0,
   ECS_HOT_RELOAD=1,
-  NDEBUG=0,
 }
 
 if enable_tracy then
@@ -96,7 +95,7 @@ local cpp_params =
 
   include_paths = include_dirs,
 
-  opt = 'speed',
+  opt = 'none',
   debug_info = true,
 
   noexceptions = true,

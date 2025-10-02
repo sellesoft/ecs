@@ -30,6 +30,8 @@ struct DocMgr
 
   b8 open(String name);
 
+  void close(Doc* doc);
+
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);
   void update();
   void render(gfx::Vulkan& vk);

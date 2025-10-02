@@ -116,6 +116,7 @@ b8 ClientThread::init(ClientInstance& cli)
 void ClientThread::deinit(ClientInstance& cli)
 {
   terminate.storeSeqCst(true);
+  pause();
   signal.signalOne();
   thread.join();
 
@@ -298,6 +299,7 @@ b8 ClientInstance::init(this S& self)
 void ClientInstance::deinit()
 {
   thread.deinit(*this);
+  client_render.destroy(*editor->vk);
 }
 
 /* ----------------------------------------------------------------------------

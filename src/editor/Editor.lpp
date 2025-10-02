@@ -525,11 +525,13 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     {
       gfx::vk::waitForDeviceIdle(vk);
 
+      b8 asset_reloaded = false;
       for (build::Target& built : build_thread->built_targets)
       {
         log.info("reloading ", built, "...");
         if (Asset* asset = asset_mgr.tryReloadAsset(built.name, built.type))
         {
+          asset_reloaded = true;
           if (built.kind == build::TargetKind::CompiledData)
           {
             auto* compiled = (reflect::CompiledData*)asset->data;
@@ -547,6 +549,14 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
           resource_mgr.notifyAssetChanged(built.name, built.type);
         }
       }
+
+
+      if (asset_reloaded)
+        reflect::linkData(
+          "EditorSkinDefLink"_typeid, 
+          &l_skin, 
+          resource_mgr, 
+          asset_mgr);
     }
   }
 

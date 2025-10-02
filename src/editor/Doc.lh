@@ -57,12 +57,22 @@ struct Doc
 
   vec2f drag_start;
 
+  enum class Flag
+  {
+    ToBeClosed,
+    COUNT
+  };
+  typedef iro::Flags<Flag> Flags;
+
+  Flags flags;
+
   Doc() {}
   virtual ~Doc() {}
 
   // Interface called by the Editor to display this document. 
 
   virtual void onOpen() { }
+  virtual void onClose() { }
 
   // Called just after this doc has been allocated.
   virtual void onAllocated() { }

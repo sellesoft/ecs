@@ -221,7 +221,29 @@ sdata_edit = SourceDataEditorSkinDef
     comp_name_spacing = 5,
     comp_spacing = 5,
   },
+}
 
+doc = EditorDocSkin
+{
+  window = 
+  {
+    close_button = 
+    {
+      texture = "assets/editor/icons",
+      color = 0xffffffff,
+      uv = { 0, 0, 16, 16 },
+    },
+
+    header = 
+    {
+      text = text,
+      item = 
+      {
+        color = black,
+      },
+      text_padding = { 3, 3 },
+    },
+  }
 }
 
 return EditorSkinDef
@@ -274,17 +296,9 @@ return EditorSkinDef
 
   text = text,
 
-  window_header = 
-  {
-    text = text,
-    item = 
-    {
-      color = dark_blue,
-    },
-    text_padding = { 3, 3 },
-  },
 
   menu_bar = menu_bar,
   console = console,
   sdata_edit = sdata_edit,
+  doc = doc,
 }

@@ -94,6 +94,7 @@ struct ClientInstance : Doc
   vec2f ui_size;
 
   void onOpen() override { init(); }
+  void onClose() override { deinit(); }
 
   b8 init(this S& self);
   void deinit();

@@ -92,6 +92,13 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+void DocMgr::close(Doc* doc)
+{
+  doc->flags.set(Doc::Flag::ToBeClosed);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static Doc::EdgeFlags computeEdgeFlags(
     vec2f local_cursor,
     vec2f size,
@@ -149,6 +156,7 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
   defer { ui.popId(); };
 
   b8 clicked = false;
+  b8 closed = false;
 
   const f32 border_w = 1.f;
   const f32 border_hit_size = 10.f;
@@ -219,7 +227,7 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     header_bounds.w = ui.getWidth();
     header_bounds.h = header_h;
 
-    ui.putTextItem(header_bounds, doc->title, skin.window_header);
+    ui.putTextItem(header_bounds, doc->title, skin.doc.window.header);
 
     ui::FocusFlags focus = 
       ui.putFocusableBounds("doc-window"_fid, header_bounds);
@@ -242,6 +250,23 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
       doc->control_state = Doc::ControlState::DraggingWindow;
     }
 
+    const f32 close_button_size = 16.f;
+
+    Rect close_button_bounds = {};
+    close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
+    close_button_bounds.y = 
+      floor(0.5f * (header_bounds.h - skin.doc.window.close_button.uv.h));
+    close_button_bounds.w = close_button_size;
+    close_button_bounds.h = close_button_size;
+
+    ui.putItem(close_button_bounds, skin.doc.window.close_button);
+
+    ui::FocusFlags close_focus = 
+      ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
+
+    if (close_focus.test(ui::FocusFlag::PrimaryReleased))
+      doc->flags.set(Doc::Flag::ToBeClosed);
+
     Rect content_bounds = {};
     content_bounds.x = border_w;
     content_bounds.y = header_h;
@@ -256,16 +281,16 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     //             of a window properly, since we have to draw on the same 
     //             layer.
     //
-    ui.beginCmdFrontInjection();
-
-    ui::ItemSkin bg = {};
-    bg.color = 0x000000ff;
-    bg.border = { -border_w, -border_w, -border_w, -border_w };
-    bg.border_color = 0xaaaaaaff;
-
-    ui.putItem(Rect::from({0,0}, displayed_size), bg);
-
-    ui.endCmdFrontInjection();
+    // ui.beginCmdFrontInjection();
+    //
+    // ui::ItemSkin bg = {};
+    // bg.color = 0x000000ff;
+    // bg.border = { -border_w, -border_w, -border_w, -border_w };
+    // bg.border_color = 0xaaaaaaff;
+    //
+    // ui.putItem(Rect::from({0,0}, displayed_size), bg);
+    //
+    // ui.endCmdFrontInjection();
   }
   ui.endGroup();
   ui.endGroup();
@@ -303,10 +328,30 @@ void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
  */
 void DocMgr::update()
 {
-  for (TrackedDoc& tdoc : docs)
+  for (s32 i = docs.len() - 1; i >= 0; --i)
   {
-    tdoc.doc->update();
+    if (docs[i].doc->flags.test(Doc::Flag::ToBeClosed))
+    {
+      editor->log.info("closing ", docs[i].doc->title);
+
+      docs[i].doc->onClose();
+
+      for (u32 o = 0; i < order.len(); ++o)
+      {
+        if (order[o] == i)
+        {
+          order.remove(o);
+          break;
+        }
+      }
+      
+      mem::stl_allocator.free(docs[i].doc);
+      docs.remove(i);
+    }
   }
+
+  for (TrackedDoc& tdoc : docs)
+    tdoc.doc->update();
 }
 
 /* ----------------------------------------------------------------------------

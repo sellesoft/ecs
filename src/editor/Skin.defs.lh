@@ -62,6 +62,21 @@ struct EditorConsoleSkin
 
 /* ============================================================================
  */
+struct EditorDocWindowSkin
+{
+  ui::ItemSkin close_button;
+  ui::TextItemSkin header;
+};
+
+/* ============================================================================
+ */
+struct EditorDocSkin
+{
+  EditorDocWindowSkin window;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -76,11 +91,10 @@ struct EditorSkinDef
   ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
-  
-  ui::TextItemSkin window_header;
 
   EditorConsoleSkin console;
   EditorMenuBarSkin menu_bar;
+  EditorDocSkin doc;
 
   SourceDataEditorSkinDef sdata_edit;
 };

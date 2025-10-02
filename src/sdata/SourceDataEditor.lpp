@@ -1031,8 +1031,6 @@ $   if decl.user and decl.user.datum_placed then
         casted->update(ui, params);
 
       name_column_width = result.name_extents.extent().x;
-
-      ui.drawDebugBorder(result.name_extents);
     }
     break;
 $   end

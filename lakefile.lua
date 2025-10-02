@@ -73,21 +73,26 @@ local lib_dirs = List
   cwd.."/third_party/lib/shaderc",
 }
 
+local defines = 
+{
+  ECS_DEBUG = 1,
+  ECS_GEN_PRETTY_PRINT=0,
+  ECS_HOT_RELOAD=1,
+  NDEBUG=0,
+}
+
+if enable_tracy then
+  defines.TRACY_ENABLE = 1
+  defines.TRACY_CALLSTACK = 8
+  defines.TRACY_SAMPLE_HZ = 40000
+end
+
 ---@type lake.obj.Cpp.CompileParams
 local cpp_params = 
 {
   std="c++23",
 
-  defines = 
-  {
-    ECS_DEBUG = 1,
-    ECS_GEN_PRETTY_PRINT=0,
-    ECS_HOT_RELOAD=1,
-    TRACY_ENABLE=enable_tracy and 1 or 0,
-    TRACY_CALLSTACK=8,
-    TRACY_SAMPLE_HZ=40000,
-    NDEBUG=0,
-  },
+  defines = defines,
 
   include_paths = include_dirs,
 

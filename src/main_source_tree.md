@@ -62,5 +62,5 @@ tags:
 * `ui/`
   ecs' ui system.
 
-* `window/`
+* [[window|window/]]
   The Window type and platform specific stuff related to windows.

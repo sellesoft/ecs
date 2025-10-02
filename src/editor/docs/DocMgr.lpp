@@ -256,16 +256,16 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     //             of a window properly, since we have to draw on the same 
     //             layer.
     //
-    // ui.beginCmdFrontInjection();
-    //
-    // ui::ItemSkin bg = {};
-    // bg.color = 0x000000ff;
-    // bg.border = { -border_w, -border_w, -border_w, -border_w };
-    // bg.border_color = 0xaaaaaaff;
-    //
-    // ui.putItem(Rect::from({0,0}, displayed_size), bg);
-    //
-    // ui.endCmdFrontInjection();
+    ui.beginCmdFrontInjection();
+
+    ui::ItemSkin bg = {};
+    bg.color = 0x000000ff;
+    bg.border = { -border_w, -border_w, -border_w, -border_w };
+    bg.border_color = 0xaaaaaaff;
+
+    ui.putItem(Rect::from({0,0}, displayed_size), bg);
+
+    ui.endCmdFrontInjection();
   }
   ui.endGroup();
   ui.endGroup();

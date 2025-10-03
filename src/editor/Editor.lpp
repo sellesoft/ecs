@@ -486,6 +486,21 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (window_result.size_changed)
     gfx::vk::onWindowResized(vk);
 
+  if (input.real_state.wasKeyPressed(Key::V))
+  {
+    if (input.real_state.isKeyDown(Key::LCtrl))
+      cmd_bus.exec("Editor.DocMgr.open ClientInstance vl"_str);
+    else
+      cmd_bus.exec("Editor.DocMgr.open ClientInstance vr"_str);
+  }
+  if (input.real_state.wasKeyPressed(Key::H))
+  {
+    if (input.real_state.isKeyDown(Key::LCtrl))
+      cmd_bus.exec("Editor.DocMgr.open ClientInstance ht"_str);
+    else
+      cmd_bus.exec("Editor.DocMgr.open ClientInstance hb"_str);
+  }
+
   {
     ZoneScopedN("Doc update");
     doc_mgr.update();
@@ -506,8 +521,18 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
     const EditorSkinDef& skin = *l_skin;
   
+    Rect doc_bounds = {};
+    doc_bounds.x = 0.f;
+    doc_bounds.y = skin.menu_bar.height;
+    doc_bounds.w = ui.getWidth();
+    doc_bounds.h = 
+      ui.getHeight() - 
+      (skin.menu_bar.height + skin.console.command_field_height);
+
     // Place all open documents.
+    ui.beginGroup(doc_bounds);
     doc_mgr.placeUI(ui, skin);
+    ui.endGroup();
   
     // Place the console and menu bar over everything.
     console.placeUI(ui, skin);

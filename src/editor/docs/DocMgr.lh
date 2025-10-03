@@ -12,6 +12,52 @@
 namespace editor
 {
 
+struct DocTreeNode;
+
+/* ============================================================================
+ */
+struct TrackedDoc
+{
+  Doc* doc;
+};
+
+/* ============================================================================
+ */
+struct DocTreeSplit
+{
+  DocTreeNode* first = nullptr;
+  DocTreeNode* last = nullptr;
+};
+
+/* ============================================================================
+ */
+struct DocTreeNode
+{
+  enum class State
+  {
+    Invalid,
+
+    Single,
+    SplitH,
+    SplitV,
+  };
+
+  State state = State::Invalid;
+
+  f32 ratio = 1.f;
+  DocTreeNode* next = nullptr;
+  Doc* doc = nullptr;
+
+  b8 dragging = false;
+
+  DocTreeSplit split;
+
+  b8 isSplit() const
+  {
+    return state == State::SplitH || state == State::SplitV;
+  }
+};
+
 /* ============================================================================
  */
 struct DocMgr
@@ -26,10 +72,14 @@ struct DocMgr
   Array<TrackedDoc> docs;
   Array<u32> order;
 
+  Pool<DocTreeNode> tree_nodes;
+
+  DocTreeNode tree_root;
+
   b8 init(Editor& editor);
   void deinit();
 
-  Doc* open(String name);
+  Doc* open(String name, b8 v = true, b8 a = false);
   void close(Doc* doc);
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin);

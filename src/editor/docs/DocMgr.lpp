@@ -11,6 +11,7 @@ $(imported)
 @lpp.import "editor/docs/DocMgr.lh"
 
 #include "iro/print.h"
+#include "iro/io/SmallBuffer.h"
 
 $ local TDoc = astctx:lookupTypeDecl "editor::Doc"
 
@@ -46,6 +47,9 @@ b8 DocMgr::init(Editor& editor)
   if (!order.init())
     return false;
 
+  if (!tree_nodes.init())
+    return false;
+
   MenuBarTab::Option opts[] = 
   {
 $ for doc in TDoc:allDerived() do
@@ -64,11 +68,47 @@ $ end
         return;
       }
 
-      self.open(args[0]);
+      b8 v = true;
+      b8 a = false;
+      if (args.len >= 2)
+      {
+        if (args[1] == "v"_str)
+        {
+          v = true;
+          a = false;
+        }
+        else if (args[1] == "vl"_str)
+        {
+          v = true;
+          a = true;
+        }
+        else if (args[1] == "vr"_str)
+        {
+          v = true;
+          a = false;
+        }
+        else if (args[1] == "h"_str)
+        {
+          v = false;
+          a = false;
+        }
+        else if (args[1] == "ht"_str)
+        {
+          v = false;
+          a = true;
+        }
+        else if (args[1] == "hb"_str)
+        {
+          v = false;
+          a = false;
+        }
+      }
+
+      self.open(args[0], v, a);
     });
 
   // Attempt to load the last doc layout if it exists.
-  loadCachedDocState();
+  // loadCachedDocState();
   return true;
 }
 
@@ -114,7 +154,158 @@ void DocMgr::deinit()
 
 /* ----------------------------------------------------------------------------
  */
-Doc* DocMgr::open(String name)
+static void initWindowDoc(DocMgr& self, Doc* doc, rtr::TypeId type)
+{
+  doc->editor = self.editor;
+  doc->pos = { 50.f, 50.f };
+  doc->size = { 300.f, 300.f };
+
+  self.order.insert(0, self.docs.len());
+  self.docs.push({.type = type, .doc = doc});
+
+  doc->onOpen();
+}
+
+/* ============================================================================
+ *  Identifies the side of a split node. 
+ *
+ *  When SplitV, SplitSide::A is left and SplitSide::B is right.
+ *  When SplitH, SplitSide::A is top and SplitSide::B is bottom.
+ */
+enum class SplitSide
+{
+  A, B
+};
+
+/* ----------------------------------------------------------------------------
+ */
+static inline DocTreeNode* insertNode(
+    DocMgr& self, 
+    DocTreeNode* target,
+    SplitSide side)
+{
+  assert(target->isSplit());
+
+  DocTreeNode* nu = self.tree_nodes.add();
+  nu->ratio = 1.f;
+
+  if (side == SplitSide::A)
+  {
+    nu->next = target->split.first;
+    target->split.first = nu;
+  }
+  else
+  {
+    target->split.last->next = nu;
+    target->split.last = nu;
+  }
+
+  return nu;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline DocTreeNode* splitSingle(
+    DocMgr& self, 
+    DocTreeNode* target,
+    DocTreeNode::State split,
+    SplitSide side)
+{
+  using enum DocTreeNode::State;
+
+  assert(target->state == Single);
+
+  DocTreeNode* a = self.tree_nodes.add();
+  a->state = Single;
+  a->doc = target->doc;
+  a->ratio = 1.f;
+
+  DocTreeNode* b = self.tree_nodes.add();
+  b->ratio = 1.f;
+
+  if (side == SplitSide::A)
+  {
+    target->split.first = b;
+    target->split.last = a;
+    b->next = a;
+  }
+  else
+  {
+    target->split.first = a;
+    target->split.last = b;
+    a->next = b;
+  }
+
+  target->state = split;
+  return b;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Splits 'target' which is expected to already be split. If the desired 
+ *  axis is different, then a new split node is created. Otherwise the new 
+ *  node is just appended.
+ */
+static inline DocTreeNode* splitSplit(
+    DocMgr& self,
+    DocTreeNode* target,
+    DocTreeNode::State split,
+    SplitSide side)
+{
+  assert(target->isSplit());
+
+  using enum DocTreeNode::State;
+
+  // Just insert node when already in the same state.
+  if (target->state == split)
+    return insertNode(self, target, side);
+
+  // Otherwise we need to create a new split.
+  DocTreeNode* a = self.tree_nodes.add();
+  a->state = target->state;
+  a->split = target->split;
+  a->ratio = 1.f;
+
+  DocTreeNode* b = self.tree_nodes.add();
+  b->ratio = 1.f;
+
+  if (side == SplitSide::A)
+  {
+    target->split.first = b;
+    target->split.last = a;
+    b->next = a;
+  }
+  else
+  {
+    target->split.first = a;
+    target->split.last = b;
+    a->next = b;
+  }
+
+  target->state = split;
+  return b;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline DocTreeNode* splitNode(
+    DocMgr& self, 
+    DocTreeNode* target, 
+    DocTreeNode::State split,
+    SplitSide side)
+{
+  using enum DocTreeNode::State;
+
+  assert(target->state != Invalid);
+
+  if (target->state == Single)
+    return splitSingle(self, target, split, side);
+
+  return splitSplit(self, target, split, side);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Doc* DocMgr::open(String name, b8 v, b8 a)
 {
   rtr::TypeId type;
   Doc* doc = nullptr;
@@ -133,17 +324,29 @@ $ for doc in TDoc:allDerived() do
     break;
 $ end
   }
-  
-  doc->editor = editor;
-  doc->pos = { 50.f, 50.f };
-  doc->size = { 300.f, 300.f };
 
   editor->log.info("opening document '", name, "'");
 
+  using enum DocTreeNode::State;
+
+  doc->editor = editor;
   doc->onOpen();
 
-  order.insert(0, docs.len());
   docs.push({.type = type, .doc = doc});
+
+  if (tree_root.state == Invalid)
+  {
+    tree_root.state = Single;
+    tree_root.doc = doc;
+    return doc;
+  }
+
+  DocTreeNode::State split = v? SplitV : SplitH;
+  SplitSide side = a? SplitSide::A : SplitSide::B;
+
+  DocTreeNode* new_node = splitNode(*this, &tree_root, split, side);
+  new_node->state = DocTreeNode::State::Single;
+  new_node->doc = doc;
 
   return doc;
 }
@@ -341,21 +544,6 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     ui.beginGroup(content_bounds);
     doc->placeUI(ui, skin);
     ui.endGroup();
-
-    // TODO(sushi) ui currently doesnt support enough to handle the background
-    //             of a window properly, since we have to draw on the same 
-    //             layer.
-    //
-    // ui.beginCmdFrontInjection();
-    //
-    // ui::ItemSkin bg = {};
-    // bg.color = 0x000000ff;
-    // bg.border = { -border_w, -border_w, -border_w, -border_w };
-    // bg.border_color = 0xaaaaaaff;
-    //
-    // ui.putItem(Rect::from({0,0}, displayed_size), bg);
-    //
-    // ui.endCmdFrontInjection();
   }
   ui.endGroup();
   ui.endGroup();
@@ -365,8 +553,170 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
 
 /* ----------------------------------------------------------------------------
  */
+static void putDocTreeNode(
+    DocMgr& self, 
+    ui::UI& ui,
+    DocTreeNode* node,
+    const EditorSkinDef& skin)
+{
+  using enum DocTreeNode::State;
+
+  if (node->state == Invalid)
+    return;
+
+  if (node->state == Single)
+  {
+    ui.pushId(ui.generateIdFromPointer(node->doc));
+    node->doc->placeUI(ui, skin);
+    ui.popId();
+
+    return;
+  }
+
+  ui.pushId(ui.generateIdFromPointer(node));
+  defer { ui.popId(); };
+
+  b8 is_h_split = node->state == SplitH;
+
+  vec2f local_cursor = ui.getLocalCursorPos();
+
+  Rect bounds = ui.getBounds();
+
+  u32 child_count = 0;
+  f32 ratio_sum = 0.f;
+  for (DocTreeNode* child = node->split.first; child; child = child->next)
+  {
+    child_count += 1;
+    ratio_sum += child->ratio;
+  }
+
+  s32 num_dividers = child_count - 1;
+
+  const f32 divider_size = 4.f;
+  const f32 divider_half_size = divider_size / 2.f;
+
+  f32 total_divider_size = divider_size * num_dividers;
+
+  f32 children_space = is_h_split? bounds.h : bounds.w - total_divider_size;
+
+  f32 prev_end = 0.f;
+  f32 ratio_accumulator = 0.f;
+  u32 child_idx = 0;
+  for (DocTreeNode* child = node->split.first; child; 
+       child = child->next, child_idx += 1)
+  {
+    ui.pushId(ui.generateIdFromPointer(child));
+    defer { ui.popId(); };
+
+    Rect child_bounds = {};
+
+    ratio_accumulator += child->ratio;
+
+    f32 start = prev_end + divider_size;
+    f32 end = 
+      round(children_space * ratio_accumulator / ratio_sum) + 
+      divider_size * child_idx;
+
+    prev_end = end;
+    
+    if (is_h_split)
+    {
+      child_bounds.x = bounds.x;
+      child_bounds.y = start;
+      child_bounds.w = bounds.w;
+      child_bounds.h = end - start;
+    }
+    else
+    {
+      child_bounds.x = start;
+      child_bounds.y = bounds.y;
+      child_bounds.w = end - start;
+      child_bounds.h = bounds.h;
+    }
+
+    ui.beginGroup(child_bounds);
+    putDocTreeNode(self, ui, child, skin);
+    ui.endGroup();
+
+    if (child->next != nullptr)
+    {
+      Rect divider_bounds = {};
+      
+      if (is_h_split)
+      {
+        divider_bounds.x = bounds.x;
+        divider_bounds.y = child_bounds.extentY();
+        divider_bounds.w = bounds.w;
+        divider_bounds.h = divider_size;
+      }
+      else
+      {
+        divider_bounds.x = child_bounds.extentX();
+        divider_bounds.y = bounds.y;
+        divider_bounds.w = divider_size;
+        divider_bounds.h = bounds.h;
+      }
+
+      ui.putQuad(divider_bounds, 0x666666ff);
+
+      ui::FocusFlags divider_focus = 
+        ui.putFocusableBounds("divider"_fid, divider_bounds);
+
+      if (divider_focus.test(ui::FocusFlag::PrimaryPressed))
+        child->dragging = true;
+
+      if (child->dragging)
+      {
+        // Find the offset of the cursor into this pair along the proper 
+        // split axis.
+        f32 cursor_offset = 0.f;
+        if (is_h_split)
+          cursor_offset = local_cursor.y - child_bounds.y;
+        else
+          cursor_offset = local_cursor.x - child_bounds.x;
+        
+        // Figure out what pixel the next child is meant to end at.
+        f32 next_ratio_accum = ratio_accumulator + child->next->ratio;
+        f32 next_end = 
+          round(children_space * next_ratio_accum / ratio_sum) + 
+          divider_size * (child_idx + 1);
+
+        // Compute the ratio of the cursor's offset and the total width of 
+        // the 
+        f32 siblings_width = next_end - start;
+        f32 cursor_ratio = cursor_offset / siblings_width;
+
+        // Clamp ratio to kinda avoid crashing the editor.
+        cursor_ratio = max(0.1f, min(0.9f, cursor_ratio));
+
+        // Can probably simplify this.
+        f32 prev_ratio_accum = ratio_accumulator - child->ratio;
+        f32 total_ratio_need = next_ratio_accum - prev_ratio_accum;
+
+        child->ratio = cursor_ratio * total_ratio_need;
+        child->next->ratio = total_ratio_need - child->ratio;
+
+        // Make sure that ratio_accumulator will be what will give the same 
+        // end as the next_end we computed above.
+        ratio_accumulator = next_ratio_accum - child->next->ratio;
+
+        if (ui.getFocus().test(ui::FocusFlag::PrimaryReleased))
+          child->dragging = false;
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
+  putDocTreeNode(
+    *this,
+    ui,
+    &tree_root,
+    skin);
+
   b8 clicked = false;
   u32 clicked_idx = 0;
   for (u32 iorder = 0; iorder < order.len(); ++iorder)
@@ -388,8 +738,6 @@ void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     order.push(doc_idx);
   }
 }
-
-
 
 /* ----------------------------------------------------------------------------
  */

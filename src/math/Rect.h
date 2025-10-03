@@ -36,7 +36,10 @@ struct Rect
 
   vec2f pos() const { return {x,y}; }
   vec2f size() const { return {w,h}; }
-  vec2f extent() const { return pos() + size(); }
+
+  f32 extentX() const { return x + w; }
+  f32 extentY() const { return y + h; }
+  vec2f extent() const { return {extentX(),extentY()}; }
 
   vec4f asVec4f() const { return vec4f(x,y,w,h); }
 

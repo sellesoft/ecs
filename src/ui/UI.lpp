@@ -1000,8 +1000,10 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
 
   vec2f text_size = gfx::measureText(text, font, skin.font_height, 1.f);
 
+  f32 cursor_start_x = bounds.x + skin.align.x * (bounds.w - text_size.x);
+
   vec2f cursor = {};
-  cursor.x = bounds.x + skin.align.x * (bounds.w - text_size.x);
+  cursor.x = cursor_start_x;
   cursor.y = bounds.y + skin.align.y * (bounds.h - text_size.y);
   cursor = round(cursor);
 
@@ -1018,7 +1020,7 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
     {
     case '\n':
       cursor.y += skin.font_height;
-      cursor.x = bounds.x;
+      cursor.x = cursor_start_x;
       break;
 
     case '\t':

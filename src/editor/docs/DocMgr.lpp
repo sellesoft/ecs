@@ -553,6 +553,23 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
 
 /* ----------------------------------------------------------------------------
  */
+static inline void setCursorState(DocMgr& self, CursorState state)
+{
+  self.editor->cursor_state = state;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void setCursorStateDivider(DocMgr& self, DocTreeNode::State split)
+{
+  if (split == DocTreeNode::State::SplitV)
+    setCursorState(self, CursorState::ResizeH);
+  else if (split == DocTreeNode::State::SplitH)
+    setCursorState(self, CursorState::ResizeV);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void putDocTreeNode(
     DocMgr& self, 
     ui::UI& ui,
@@ -635,8 +652,29 @@ static void putDocTreeNode(
     }
 
     ui.beginGroup(child_bounds);
-    putDocTreeNode(self, ui, child, skin);
+    {
+      ui.pushCmdList();
+      putDocTreeNode(self, ui, child, skin);
+      ui.popCmdListToBack();
+    }
     ui.endGroup();
+
+    Rect bl_bounds = {};
+    bl_bounds.x = child_bounds.x;
+    bl_bounds.y = child_bounds.extentY() - divider_size * 2.f;
+    bl_bounds.w = divider_size * 2.f;
+    bl_bounds.h = divider_size * 2.f;
+
+    ui.putQuad(bl_bounds, 0xff0000ff);
+
+    ui::FocusFlags bl_focus = 
+      ui.putFocusableBounds("bl-hit"_fid, bl_bounds);
+
+    if (bl_focus.test(ui::FocusFlag::Hovered))
+    {
+      setCursorState(self, CursorState::Cross);
+      println("hover");
+    }
 
     if (child->next != nullptr)
     {
@@ -662,11 +700,16 @@ static void putDocTreeNode(
       ui::FocusFlags divider_focus = 
         ui.putFocusableBounds("divider"_fid, divider_bounds);
 
+      if (divider_focus.test(ui::FocusFlag::Hovered))
+        setCursorStateDivider(self, node->state);
+
       if (divider_focus.test(ui::FocusFlag::PrimaryPressed))
         child->dragging = true;
 
       if (child->dragging)
       {
+        setCursorStateDivider(self, node->state);
+
         // Find the offset of the cursor into this pair along the proper 
         // split axis.
         f32 cursor_offset = 0.f;
@@ -703,6 +746,7 @@ static void putDocTreeNode(
         if (ui.getFocus().test(ui::FocusFlag::PrimaryReleased))
           child->dragging = false;
       }
+
     }
   }
 }

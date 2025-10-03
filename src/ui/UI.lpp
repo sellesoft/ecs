@@ -374,36 +374,39 @@ void UI::render(gfx::RenderPass& pass, Rect viewport)
     io::formatv(&debug_layer_name, "layer ", layer_idx);
     pass.debugBeginLabel(0x3d405bff, String(debug_layer_name));
 
-    for (Cmd* cmd = layer->cmd_list.first;
-         cmd; cmd = cmd->next)
+    for (Panel* panel = layer->panels; panel; panel = panel->next)
     {
-      if (cmd->group != active_render_group)
+      for (Cmd* cmd = panel->cmd_list.first;
+           cmd; cmd = cmd->next)
       {
-        Group* group = cmd->group;
+        if (cmd->group != active_render_group)
+        {
+          Group* group = cmd->group;
 
-        // TODO(sushi) this culling needs to be done earlier but not sure 
-        //             how to nicely yet. Invisible cmds should not be 
-        //             queued at all.
-        if (group->scissor.w <= 0.f || group->scissor.h <= 0.f)
-          continue;
+          // TODO(sushi) this culling needs to be done earlier but not sure 
+          //             how to nicely yet. Invisible cmds should not be 
+          //             queued at all.
+          if (group->scissor.w <= 0.f || group->scissor.h <= 0.f)
+            continue;
 
-        active_render_group = group;
+          active_render_group = group;
 
-        vec2f group_pos = group->transform.getTranslation();
+          vec2f group_pos = group->transform.getTranslation();
 
-        ScissorCmd scissor_cmd = {};
-        scissor_cmd.bounds = group->scissor;
-        scissor_cmd.execute(*this, pass);
+          ScissorCmd scissor_cmd = {};
+          scissor_cmd.bounds = group->scissor;
+          scissor_cmd.execute(*this, pass);
 
-        TransformCmd transform_cmd = {};
-        transform_cmd.transform = &group->transform;
+          TransformCmd transform_cmd = {};
+          transform_cmd.transform = &group->transform;
 
-        transform_cmd.execute(*this, pass);
+          transform_cmd.execute(*this, pass);
 
-        pass.debugInsertLabel(0x000033ff, "group change"_str);
+          pass.debugInsertLabel(0x000033ff, "group change"_str);
+        }
+
+        cmd->execute(*this, pass);
       }
-
-      cmd->execute(*this, pass);
     }
 
     pass.debugEndLabel();
@@ -480,9 +483,11 @@ void UI::popId()
  */
 void Layer::pushCmd(Cmd* cmd)
 {
-  cmd->group = current_panel->current_group;
+  Panel* panel = current_panel;
 
-  CmdList* list = cmd_list_stack == nullptr? &cmd_list : cmd_list_stack;
+  cmd->group = panel->current_group;
+
+  CmdList* list = panel->cmd_list_stack ?: &panel->cmd_list;
 
   if (list->last != nullptr)
   {
@@ -551,25 +556,77 @@ void UI::popLayer()
  */
 void UI::beginCmdFrontInjection()
 {
-  auto* cmd_list = frame_allocator.construct<CmdList>();
-
-  cmd_list->prev = current_layer->cmd_list_stack;
-  current_layer->cmd_list_stack = cmd_list;
+  // auto* cmd_list = frame_allocator.construct<CmdList>();
+  //
+  // cmd_list->prev = current_layer->cmd_list_stack;
+  // current_layer->cmd_list_stack = cmd_list;
 }
 
 /* ----------------------------------------------------------------------------
  */
 void UI::endCmdFrontInjection()
 {
-  CmdList* list = current_layer->cmd_list_stack;
+  // CmdList* list = current_layer->cmd_list_stack;
+  // assert(list != nullptr);
+  //
+  // Cmd* old_first = current_layer->cmd_list.first;
+  //
+  // current_layer->cmd_list.first = list->first;
+  // list->last->next = old_first;
+  //
+  // current_layer->cmd_list_stack = list->prev;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void UI::pushCmdList()
+{
+  auto* cmd_list = frame_allocator.construct<CmdList>();
+
+  Panel* panel = getCurrentPanel();
+
+  cmd_list->prev = panel->cmd_list_stack;
+  panel->cmd_list_stack = cmd_list;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void UI::popCmdListToFront()
+{
+  Panel* panel = getCurrentPanel();
+
+  CmdList* list = panel->cmd_list_stack;
   assert(list != nullptr);
 
-  Cmd* old_first = current_layer->cmd_list.first;
+  CmdList* into = list->prev ?: &panel->cmd_list;
 
-  current_layer->cmd_list.first = list->first;
+  Cmd* old_first = into->first;
+
+  into->first = list->first;
   list->last->next = old_first;
 
-  current_layer->cmd_list_stack = list->prev;
+  panel->cmd_list_stack = list->prev;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void UI::popCmdListToBack()
+{
+  Panel* panel = getCurrentPanel();
+
+  CmdList* list = panel->cmd_list_stack;
+  assert(list != nullptr);
+
+  CmdList* into = list->prev ?: &panel->cmd_list;
+
+  if (into->last == nullptr)
+    into->first = list->first;
+  else
+    into->last->next = list->first;
+
+  into->last = list->last;
+
+  panel->cmd_list_stack = list->prev;
 }
 
 /* ----------------------------------------------------------------------------

@@ -153,7 +153,7 @@ struct Datum
       f32 height,
       const DatumUpdateParams& params)
   {
-    ui.beginCmdFrontInjection();
+    ui.pushCmdList();
 
     Color row_color = params.idx % 2 
       ? params.skin.row.odd_color
@@ -167,7 +167,7 @@ struct Datum
 
     ui.putQuad(bg_bounds, row_color);
 
-    ui.endCmdFrontInjection();
+    ui.popCmdListToFront();
   }
 };
 

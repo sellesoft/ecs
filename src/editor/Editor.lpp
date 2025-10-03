@@ -234,6 +234,8 @@ $ end
     success = window.init(params.engine, "ecs editor"_str, input);
   })
 
+  window.hideCursor();
+
   @initSubSystem(Vulkan,
   {
     gfx::vk::CreateParams vk_create_params = 
@@ -519,6 +521,8 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   {
     ZoneScopedN("Editor::update UI");
 
+    cursor_state = CursorState::Normal;
+
     const EditorSkinDef& skin = *l_skin;
   
     Rect doc_bounds = {};
@@ -537,6 +541,39 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
     // Place the console and menu bar over everything.
     console.placeUI(ui, skin);
     menu_bar.placeUI(ui, skin);
+
+    ui.pushLayer(
+      "cursor-layer"_fid, 
+      ui.getBounds(), 
+      ui::LayerFlag::TopMost,
+      ui::GroupScissor::None);
+    {
+      ui::ItemSkin cursor_skin;
+      cursor_skin.texture = skin.cursor.texture;
+      cursor_skin.color = 0xffffffff;
+
+      vec2f cursor_pos = input.real_state.getCursorPos();
+
+      switch (cursor_state)
+      {
+$ local function c(x, y) 
+      case CursorState::$(x): 
+        cursor_skin.uv = skin.cursor.$(y).uv;
+        cursor_pos -= vec2f(skin.cursor.$(y).hot_spot);
+        break;
+$ end
+      @c(Normal, normal);
+      @c(ResizeH, resize_h);
+      @c(ResizeV, resize_v);
+      @c(Cross, cross);
+      @c(Grab, grab);
+      }
+
+      ui.putItem(
+        Rect::from(cursor_pos.x, cursor_pos.y, 16, 16), 
+        cursor_skin);
+    }
+    ui.popLayer();
   }
   ui.endFrame();
 

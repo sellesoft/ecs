@@ -94,6 +94,9 @@ struct Window
   void setDisplayMode(DisplayMode mode);
   void setCursorMode(CursorMode mode);
 
+  void hideCursor();
+  void showCursor();
+
   template<typename E>
   void raise(const Engine& eng, E&& event) { raise<E>(eng, event); }
 

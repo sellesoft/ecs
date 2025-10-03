@@ -370,6 +370,7 @@ $ end
 
 $ putVec2Compiler "vec2<int>"
 $ putVec2Compiler "vec2<float>"
+$ putVec2Compiler "vec2<unsigned int>"
 
 $ -- * ------------------------------------------------------------------------
 

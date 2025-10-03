@@ -204,6 +204,16 @@ struct Group
 };
 
 /* ============================================================================
+ */
+struct CmdList
+{
+  Cmd* first = nullptr;
+  Cmd* last = nullptr;
+
+  CmdList* prev = nullptr;
+};
+
+/* ============================================================================
  *  TODO(sushi) it would be nice to eliminate this to cut down the amount of 
  *              layers to 2, but not sure how at the moment without sacrificing
  *              the idea of Layers being actual layers.
@@ -217,6 +227,9 @@ struct Panel
 
   Panel* parent = nullptr;
   Panel* next = nullptr;
+
+  CmdList cmd_list = {};
+  CmdList* cmd_list_stack = nullptr;
 };
 
 /* ============================================================================
@@ -232,16 +245,6 @@ typedef Flags<LayerFlag> LayerFlags;
 
 /* ============================================================================
  */
-struct CmdList
-{
-  Cmd* first = nullptr;
-  Cmd* last = nullptr;
-
-  CmdList* prev = nullptr;
-};
-
-/* ============================================================================
- */
 struct Layer
 {
   Panel* panels = nullptr;
@@ -249,12 +252,6 @@ struct Layer
 
   Layer* prev = nullptr;
   Layer* next = nullptr;
-
-  // A stack of CmdLists created externally. Usually used to inject 
-  // a series of commands in a specific order. 
-  CmdList* cmd_list_stack = nullptr;
-
-  CmdList cmd_list = {};
 
   void pushCmd(Cmd* cmd);
 };
@@ -443,6 +440,10 @@ struct UI
 
   void beginCmdFrontInjection();
   void endCmdFrontInjection();
+
+  void pushCmdList();
+  void popCmdListToFront();
+  void popCmdListToBack();
 
   // Begins a new panel.
   void beginPanel(ItemId id, Rect bounds);

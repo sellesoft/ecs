@@ -246,6 +246,22 @@ doc = EditorDocSkin
   }
 }
 
+cursor_base = 
+{
+  texture = "assets/editor/icons",
+}
+
+cursor = EditorCursorSkin
+{
+  texture = "assets/editor/icons",
+
+  normal   = { uv = { 0,  32, 16, 16 }, hot_spot = { 3, 2 } },
+  resize_h = { uv = { 32, 32, 16, 16 }, hot_spot = { 8, 8 } },
+  resize_v = { uv = { 48, 32, 16, 16 }, hot_spot = { 8, 8 } },
+  cross    = { uv = { 32, 48, 16, 16 }, hot_spot = { 8, 8 } },
+  grab     = { uv = { 16, 32, 16, 16 }, hot_spot = { 8, 2 } },
+}
+
 return EditorSkinDef
 {
   bg_color = black,
@@ -301,4 +317,5 @@ return EditorSkinDef
   console = console,
   sdata_edit = sdata_edit,
   doc = doc,
+  cursor = cursor,
 }

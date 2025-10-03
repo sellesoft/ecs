@@ -62,6 +62,17 @@ struct EditorLog : logging::Channel
 
 /* ============================================================================
  */
+enum class CursorState
+{
+  Normal,
+  ResizeH,
+  ResizeV,
+  Cross,
+  Grab,
+};
+
+/* ============================================================================
+ */
 struct Editor
 {
   EditorLog log;
@@ -103,6 +114,8 @@ struct Editor
   // UI elements.
   MenuBar menu_bar;
   FileExplorer file_explorer;
+
+  CursorState cursor_state;
 
   struct InitParams
   {

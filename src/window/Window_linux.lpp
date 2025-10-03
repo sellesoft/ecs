@@ -195,6 +195,13 @@ void Window::deinit()
 
 /* ----------------------------------------------------------------------------
  */
+void Window::hideCursor()
+{
+  XDefineCursor(x11.display, (X11Window)handle, x11.hidden_cursor);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 Window::UpdateResult Window::update(InputMgr& input)
 {
   UpdateResult result = {};

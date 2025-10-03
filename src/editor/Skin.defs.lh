@@ -77,6 +77,27 @@ struct EditorDocSkin
 
 /* ============================================================================
  */
+struct EditorCursor
+{
+  Rect uv;
+  vec2u hot_spot;
+};
+
+/* ============================================================================
+ */
+struct EditorCursors
+{
+  gfx::TextureLink texture;
+
+  EditorCursor normal;
+  EditorCursor resize_h;
+  EditorCursor resize_v;
+  EditorCursor cross;
+  EditorCursor grab;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -97,6 +118,8 @@ struct EditorSkinDef
   EditorDocSkin doc;
 
   SourceDataEditorSkinDef sdata_edit;
+
+  EditorCursors cursor;
 };
 
 @metadata.links(skin.data)

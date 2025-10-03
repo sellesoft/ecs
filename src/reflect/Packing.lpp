@@ -352,6 +352,7 @@ $ end
 
 $ putVec2Packer "vec2<int>"
 $ putVec2Packer "vec2<float>"
+$ putVec2Packer "vec2<unsigned int>"
 
 $ -- * ------------------------------------------------------------------------
 

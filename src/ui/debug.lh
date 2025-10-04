@@ -1,0 +1,47 @@
+/*
+ *  Helper that places debug UI in a given ui::UI for a separate ui::UI.
+ */
+
+$ require "common"
+
+@lpp.import "ui/UI.lh"
+@lpp.import "ui/DebugSkin.defs.lh"
+@lpp.import "ui/Window.lh"
+
+namespace ui
+{
+
+struct DebugUIOpts
+{
+
+};
+
+struct DebugUI
+{
+  UI ui;
+
+  DebugUIOpts opts;
+
+  Window menu_window;
+
+  DebugSkinLink l_skin;
+
+  Rect hovered_obj_area;
+  b8 hovering_obj_name;
+  Color hover_color;
+
+  b8 init(UI::InitParams& params);
+  void deinit();
+  
+  void debug(
+    const UI& debugged,
+    const InputState& input,
+    Rect viewport);
+
+  void render(gfx::RenderPass& pass, Rect viewport)
+  {
+    ui.render(pass, viewport);
+  }
+};
+
+}

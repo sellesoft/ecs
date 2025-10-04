@@ -33,7 +33,7 @@ end
 --             for doing that yet, though.
 -- TODO(sushi) command for building with/without this since it doesn't work
 --             under debuggers.
-local asan = false
+local asan = true
 local tsan = false
 
 local objs = List {}

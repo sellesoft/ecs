@@ -62,17 +62,17 @@ struct EditorConsoleSkin
 
 /* ============================================================================
  */
-struct EditorDocWindowSkin
+struct EditorDocHeader
 {
   ui::ItemSkin close_button;
-  ui::TextItemSkin header;
+  ui::TextItemSkin text_item;
 };
 
 /* ============================================================================
  */
 struct EditorDocSkin
 {
-  EditorDocWindowSkin window;
+  EditorDocHeader header;
 };
 
 /* ============================================================================

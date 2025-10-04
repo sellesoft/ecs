@@ -1,0 +1,30 @@
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@lpp.import "ui/Skin.defs.lh"
+@lpp.import "reflect/CompiledData.lh"
+
+namespace ui
+{
+
+/* ============================================================================
+ */
+struct DebugMenuSkin
+{
+  WindowSkin window;
+  TextSkin text;
+  ScrollBarSkin scroll_bar;
+};
+
+/* ============================================================================
+ */
+@metadata.def 
+struct DebugSkinDef
+{
+  DebugMenuSkin menu;
+};
+
+@metadata.links(skin.data)
+struct DebugSkinLink : reflect::TypedCompiledDataLink<DebugSkinDef> {};
+
+}

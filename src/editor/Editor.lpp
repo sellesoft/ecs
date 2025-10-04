@@ -576,7 +576,11 @@ $ end
   }
   ui.endFrame();
 
-  // debug_ui.debug(ui, ui_input, ui_viewport);
+  if (input.real_state.wasKeyPressed(Key::F3))
+    debug_ui_enabled = !debug_ui_enabled;
+
+  if (debug_ui_enabled)
+    debug_ui.debug(ui, ui_input, ui_viewport);
 
   if (!window_result.size_changed)
     render();

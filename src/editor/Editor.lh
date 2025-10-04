@@ -93,6 +93,8 @@ struct Editor
 
   ui::DebugUI debug_ui;
 
+  b8 debug_ui_enabled;
+
   EditorSkinDefLink l_skin;
   gfx::TextureLink l_white_texture;
 

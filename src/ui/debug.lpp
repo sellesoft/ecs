@@ -1,0 +1,224 @@
+$ require "common"
+
+@lpp.import "ui/debug.lh"
+
+#include "iro/print.h"
+
+namespace ui
+{
+
+/* ----------------------------------------------------------------------------
+ */
+b8 DebugUI::init(UI::InitParams& params)
+{
+  menu_window.title = "ui debug"_str;
+  menu_window.pos = { 20.f, 20.f };
+  menu_window.size = { 100.f, 100.f };
+
+  params.linker.link(
+    "ui::DebugSkinLink"_typeid,
+    "assets/ui/Debug"_str,
+    &l_skin);
+
+  return ui.init(params);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Rect putTreeNodeName(
+    DebugUI& self, 
+    vec2f pos, 
+    const DebugSkinDef& skin,
+    auto... args)
+{
+  Rect name_bounds = {};
+  name_bounds.x = pos.x;
+  name_bounds.y = pos.y;
+  name_bounds.w = self.ui.getWidth() - name_bounds.x;
+  name_bounds.h = 15.f;
+
+  io::StaticBuffer<128> name;
+  io::formatv(&name, args...);
+
+  self.ui.putText(name_bounds, String(name), skin.menu.text);
+
+  return name_bounds;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putUITreeItem(
+    DebugUI& self,
+    const UI& debugged,
+    const Group& group,
+    const Item& item,
+    vec2f pos,
+    const DebugSkinDef& skin)
+{
+  f32 y = pos.y;
+
+  Rect name_bounds = putTreeNodeName(self, pos, skin, "item ", &item);
+  y += name_bounds.h;
+
+  if (name_bounds.containsPoint(self.ui.getLocalCursorPos()))
+  {
+    Rect item_area = {};
+    item_area.setPos(group.transform.getTranslation() + item.bounds.pos());
+    item_area.setSize(item.bounds.size());
+
+    self.hovering_obj_name = true;
+    self.hovered_obj_area = item_area;
+    self.hover_color = 0x0000ff44;
+  }
+  
+  return y - pos.y;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putUITreeGroup(
+    DebugUI& self,
+    const UI& debugged,
+    const Group& group,
+    vec2f pos, 
+    const DebugSkinDef& skin)
+{
+  f32 y = pos.y;
+
+  Rect name_bounds = putTreeNodeName(self, pos, skin, "group ", &group);
+  y += name_bounds.h;
+
+  if (name_bounds.containsPoint(self.ui.getLocalCursorPos()))
+  {
+    Rect group_bounds = {};
+    group_bounds.setPos(group.transform.getTranslation());
+    group_bounds.setSize(group.bounds.size());
+
+    self.hovering_obj_name = true;
+    self.hovered_obj_area = group_bounds;
+    self.hover_color = 0x00ff0044;
+  }
+
+  for (Item* item = group.items; item; item = item->next)
+  {
+    y += putUITreeItem(
+      self, 
+      debugged,
+      group,
+      *item,
+      vec2f(pos.x + 6.f, y), 
+      skin);
+  }
+
+  return y - pos.y;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putUITreePanel(
+    DebugUI& self,
+    const UI& debugged,
+    const Panel& panel,
+    vec2f pos, 
+    const DebugSkinDef& skin)
+{
+  f32 y = pos.y;
+
+  Rect name_bounds = putTreeNodeName(self, pos, skin, "panel ", &panel);
+
+  y += name_bounds.h + 3.f;
+
+  for (Group* group = panel.groups; group; group = group->next)
+  {
+    y += putUITreeGroup(self, debugged, *group, vec2f(12.f, y), skin);
+  }
+
+  return y - pos.y;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putUITreeLayer(
+    DebugUI& self, 
+    const UI& debugged, 
+    const Layer& layer,
+    vec2f pos,
+    const DebugSkinDef& skin)
+{
+  f32 y = pos.y;
+
+  Rect name_bounds = putTreeNodeName(self, pos, skin, "layer ", &layer);
+
+  y += name_bounds.h + 3.f;
+
+  for (const Panel* panel = layer.panels; panel; panel = panel->next)
+  {
+    y += putUITreePanel(self, debugged, *panel, vec2f(6.f, y), skin); 
+  }
+
+  return y - pos.y;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putUITree(
+    DebugUI& self, 
+    const UI& debugged, 
+    const DebugSkinDef& skin)
+{
+  self.ui.beginScrollGroup(
+    "tree-scroll"_fid, self.ui.getBounds(), skin.menu.scroll_bar);
+
+  f32 y = 0.f;
+  for (const Layer* layer = debugged.root_layer; layer; layer = layer->next)
+  {
+    y += putUITreeLayer(self, debugged, *layer, vec2f(0.f, y), skin);
+  }
+
+  self.ui.endScrollGroup(skin.menu.scroll_bar);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putDebugMenu(
+    DebugUI& self, 
+    const UI& debugged,
+    const DebugSkinDef& skin)
+{
+  self.menu_window.begin(self.ui, "debug-menu"_fid, skin.menu.window);
+  {
+    self.ui.putQuad(self.ui.getBounds(), 0x555555ff);
+
+    putUITree(self, debugged, skin);    
+  }
+  self.menu_window.end(self.ui);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void DebugUI::debug(
+    const UI& debugged,
+    const InputState& input,
+    Rect viewport)
+{
+  UI::FrameParams frame_params = 
+  {
+    .input = input,
+    .viewport = viewport,
+  };
+
+  ui.beginFrame(frame_params);
+  {
+    hovering_obj_name = false;
+
+    putDebugMenu(*this, debugged, *l_skin);
+
+    if (hovering_obj_name)
+    {
+      ui.putQuad(hovered_obj_area, hover_color);
+    }
+  }
+  ui.endFrame();
+}
+
+}

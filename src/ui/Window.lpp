@@ -1,0 +1,168 @@
+$ require "common"
+
+@lpp.import "ui/Window.lh"
+@lpp.import "ui/UI.lh"
+
+namespace ui
+{
+
+using Control = WindowControlState;
+using Edge = WindowEdge;
+using Edges = WindowEdgeFlags;
+
+/* ----------------------------------------------------------------------------
+ */
+static void computeDisplayedPosAndSize(
+    vec2f* disp_pos,
+    vec2f* disp_size,
+    vec2f local_cursor,
+    vec2f drag_start,
+    Edges dragged_edges)
+{
+  vec2f diff = local_cursor - drag_start;
+
+  if (dragged_edges.test(Edge::Top))
+  {
+    disp_pos->y += diff.y;
+    disp_size->y -= diff.y;
+  }
+  else if (dragged_edges.test(Edge::Bottom))
+  {
+    disp_size->y += diff.y;
+  }
+
+  if (dragged_edges.test(Edge::Left))
+  {
+    disp_pos->x += diff.x;
+    disp_size->x -= diff.x;
+  }
+  else if (dragged_edges.test(Edge::Right))
+  {
+    disp_size->x += diff.x;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Edges computeEdges(vec2f local_cursor, vec2f size, f32 hit_size)
+{
+  Edges flags = {};
+  if (local_cursor.x < hit_size)
+    flags.set(Edge::Left);
+  if (local_cursor.y < hit_size)
+    flags.set(Edge::Top);
+  if (size.x - local_cursor.x < hit_size)
+    flags.set(Edge::Right);
+  if (size.y - local_cursor.y < hit_size)
+    flags.set(Edge::Bottom);
+  return flags;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Window::begin(this S& self, ui::UI& ui, ItemId id, const WindowSkin& skin)
+{
+  ui.pushId(id);
+
+  const f32 hit_size = 6.f;
+  const vec2f hit_offset = { hit_size, hit_size };
+
+  vec2f displayed_pos = self.pos;
+  vec2f displayed_size = self.size;
+
+  vec2f container_cursor = ui.getLocalCursorPos();
+
+  if (self.control_state == Control::DraggingEdge)
+  {
+    computeDisplayedPosAndSize(
+      &displayed_pos,
+      &displayed_size,
+      container_cursor,
+      self.drag_start,
+      self.dragged_edges);
+
+    if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+    {
+      self.control_state = Control::None;
+      self.size = displayed_size;
+      self.pos = displayed_pos;
+    }
+  }
+
+  // Place the hit area.
+  auto hit_area = vec2f(
+    displayed_size.x + 2.f * hit_size,
+    displayed_size.y + 2.f * hit_size);
+
+  ui.beginGroup(Rect::from(displayed_pos - hit_offset, hit_area));
+
+  // Place a focusable covering the entire area of the window + some offset 
+  // from each edge for resize controls.
+  FocusFlags outer_focus =
+    ui.putFocusableBounds(";;win-border"_fid, ui.getBounds());
+
+  if (outer_focus.test(FocusFlag::Hovered) && 
+      self.control_state != Control::DraggingEdge)
+  {
+    vec2f local_cursor = ui.getLocalCursorPos();
+
+    Edges edges = computeEdges(local_cursor, hit_area, hit_size);
+
+    if (outer_focus.test(FocusFlag::PrimaryPressed))
+    {
+      self.drag_start = container_cursor;
+      self.dragged_edges = edges;
+      self.control_state = Control::DraggingEdge;
+    }
+  }
+
+  ui.beginGroup(Rect::from(hit_offset, displayed_size));
+
+  Rect header_bounds = {};
+  header_bounds.x = 0.f;
+  header_bounds.y = 0.f;
+  header_bounds.w = ui.getWidth();
+  header_bounds.h = skin.header_height;
+
+  ui.putTextItem(header_bounds, self.title, skin.header);
+
+  FocusFlags header_focus = 
+    ui.putFocusableBounds(";;win-header"_fid, header_bounds);
+
+  if (self.control_state == Control::DraggingWindow)
+  {
+    if (header_focus.test(FocusFlag::PrimaryReleased))
+    {
+      self.control_state = Control::None;
+    }
+    else
+    {
+      self.pos += 
+        ui.getLocalCursorPos() - ui.focus_state.pressed_cursor_offset;
+    }
+  }
+  else if (header_focus.test(FocusFlag::PrimaryPressed))
+  {
+    self.control_state = Control::DraggingWindow;
+  }
+
+  Rect content_bounds = {};
+  content_bounds.x = 0.f;
+  content_bounds.y = skin.header_height;
+  content_bounds.w = ui.getWidth();
+  content_bounds.h = ui.getHeight() - content_bounds.y;
+
+  ui.beginPanel(";;win-content"_fid, content_bounds);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Window::end(this S& self, UI& ui)
+{
+  ui.endPanel();
+  ui.endGroup();
+  ui.endGroup();
+  ui.popId();
+}
+
+}

@@ -1,0 +1,61 @@
+/*
+ *  Helper type for displaying contents in a window. 
+ */
+
+$ require "common"
+
+#include "math/vec.h"
+#include "iro/Unicode.h"
+#include "iro/Flags.h"
+
+namespace ui
+{
+
+struct UI;
+struct ItemId;
+struct WindowSkin;
+
+/* ============================================================================
+ */
+enum class WindowControlState
+{
+  None,
+  DraggingWindow,
+  DraggingEdge,
+};
+
+/* ============================================================================
+ */
+enum class WindowEdge
+{
+  Top,
+  Bottom,
+  Left,
+  Right,
+  COUNT
+};
+
+typedef iro::Flags<WindowEdge> WindowEdgeFlags;
+
+/* ============================================================================
+ */
+struct Window
+{
+  using S = Window;
+
+  iro::String title;
+
+  vec2f pos;
+  vec2f size;
+
+  WindowControlState control_state;
+
+  WindowEdgeFlags dragged_edges;
+
+  vec2f drag_start;
+
+  void begin(this S& self, UI& ui, ItemId id, const WindowSkin& skin);
+  void end(this S& self, UI& ui);
+};
+
+}

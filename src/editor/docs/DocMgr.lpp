@@ -114,25 +114,170 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static b8 findDocTreeNode(
+    DocMgr& self, 
+    DocTreeNode* node, 
+    DocTreeNode* container,
+    Doc* doc,
+    DocTreeNode** out_node,
+    DocTreeNode** out_container)
+{
+  using enum DocTreeNode::State;
+
+  if (node->state == Invalid)
+    return false;
+
+  if (node->state == Single)
+  {
+    if (doc == node->doc)
+    {
+      *out_node = node;
+      *out_container = container;
+      return true;
+    }
+    return false;
+  }
+
+  for (DocTreeNode* child = node->split.first; child; child = child->next)
+  {
+    if (findDocTreeNode(self, child, node, doc, out_node, out_container))
+      return true;
+  }
+
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void removeNodeFromContainer(DocTreeNode* node, DocTreeNode* container)
+{
+  using enum DocTreeNode::State;
+
+  if (container->split.first->next == container->split.last)
+  {
+    // Removing the second-to-last node from this container, so it becomes
+    // a Single.
+
+    println(
+        "remove second-to-last", 
+      "\n  container: ", container,
+      "\n      first: ", container->split.first,
+      "\n       last: ", container->split.last,
+      "\n       node: ", node);
+
+    DocTreeNode* consumed = nullptr;
+    if (node == container->split.first)
+      consumed = container->split.last;
+    else 
+      consumed = container->split.first;
+
+    // TODO(sushi) find a anice way to not lose 'consumed' here. It or 
+    //             'container' should be removed from the pool.
+    //             I guess it makes sense that 'consumed' should be,
+    //             since 'container' could still point to a 'next' node.
+
+    container->state = consumed->state;
+    container->split = consumed->split;
+    container->doc = consumed->doc;
+    
+    rtr::prettyPrint(*consumed);
+    rtr::prettyPrint(*container);
+
+    return;
+  }
+
+  if (node == container->split.first)
+  {
+    // If this is the first node of the container, then we can just 
+    // set its first to next.
+
+    println(
+        "remove first", 
+      "\n  container: ", container,
+      "\n      first: ", container->split.first,
+      "\n       last: ", container->split.last,
+      "\n       node: ", node);
+
+    container->split.first = node->next;
+    node->next = nullptr;
+
+    return;
+  }
+
+  DocTreeNode* prev = nullptr;
+  for (DocTreeNode* child = container->split.first; 
+       child; 
+       child = child->next)
+  {
+    if (child->next == node)
+    {
+      prev = child;
+      break;
+    }
+  }
+
+  if (node == container->split.last)
+  {
+    println(
+        "remove last", 
+      "\n  container: ", container,
+      "\n      first: ", container->split.first,
+      "\n       last: ", container->split.last,
+      "\n       node: ", node,
+      "\n       prev: ", prev,
+      "\n  prev next: ", prev->next);
+
+    prev->next = nullptr;
+    container->split.last = prev;
+
+    return;
+  }
+
+  println(
+      "remove interior", 
+    "\n  container: ", container,
+    "\n      first: ", container->split.first,
+    "\n       last: ", container->split.last,
+    "\n       node: ", node,
+    "\n       prev: ", prev,
+    "\n  prev next: ", prev->next,
+    "\n  node next: ", node->next);
+
+  prev->next = node->next;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void closeDocs(DocMgr& self, b8 all)
 {
   for (s32 i = self.docs.len() - 1; i >= 0; --i)
   {
     if (all || self.docs[i].doc->flags.test(Doc::Flag::ToBeClosed))
     {
-      self.editor->log.info("closing ", self.docs[i].doc->title);
+      DocMgr::TrackedDoc* t = &self.docs[i];
 
-      self.docs[i].doc->onClose();
+      self.editor->log.info("closing ", t->doc->title);
 
-      for (s32 o = self.order.len() - 1; o >= 0; --o)
+      t->doc->onClose();
+
+      DocTreeNode* node;
+      DocTreeNode* container;
+      if (findDocTreeNode(
+            self, 
+            &self.tree_root, 
+            nullptr, 
+            t->doc, 
+            &node, 
+            &container))
       {
-        if (self.order[o] == i)
-          self.order.remove(o);
-        else if (self.order[o] > i)
-          self.order[o] -= 1;
+        if (node != &self.tree_root)
+          removeNodeFromContainer(node, container);
+
+        node->state = DocTreeNode::State::Invalid;
+        node->doc = nullptr;
       }
-      
-      mem::stl_allocator.free(self.docs[i].doc);
+
+      mem::stl_allocator.free(t->doc);
       self.docs.remove(i);
     }
   }
@@ -237,6 +382,7 @@ static inline DocTreeNode* splitSingle(
   }
 
   target->state = split;
+  target->doc = nullptr;
   return b;
 }
 
@@ -282,6 +428,7 @@ static inline DocTreeNode* splitSplit(
   }
 
   target->state = split;
+  target->doc = nullptr;
   return b;
 }
 
@@ -495,7 +642,7 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     header_bounds.w = ui.getWidth();
     header_bounds.h = header_h;
 
-    ui.putTextItem(header_bounds, doc->title, skin.doc.window.header);
+    ui.putTextItem(header_bounds, doc->title, skin.doc.header.text_item);
 
     ui::FocusFlags focus = 
       ui.putFocusableBounds("doc-window"_fid, header_bounds);
@@ -523,11 +670,11 @@ static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
     Rect close_button_bounds = {};
     close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
     close_button_bounds.y = 
-      floor(0.5f * (header_bounds.h - skin.doc.window.close_button.uv.h));
+      floor(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h));
     close_button_bounds.w = close_button_size;
     close_button_bounds.h = close_button_size;
 
-    ui.putItem(close_button_bounds, skin.doc.window.close_button);
+    ui.putItem(close_button_bounds, skin.doc.header.close_button);
 
     ui::FocusFlags close_focus = 
       ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
@@ -589,9 +736,26 @@ static void putDocTreeNode(
     header_bounds.x = 0.f;
     header_bounds.y = 0.f;
     header_bounds.w = ui.getWidth();
-    header_bounds.h = 12.f;
+    header_bounds.h = 15.f;
 
-    ui.putTextItem(header_bounds, node->doc->title, skin.doc.window.header);
+    ui.putTextItem(header_bounds, node->doc->title, skin.doc.header.text_item);
+
+    const f32 close_button_size = 16.f;
+
+    Rect close_button_bounds = {};
+    close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
+    close_button_bounds.y = 
+      floor(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h));
+    close_button_bounds.w = close_button_size;
+    close_button_bounds.h = close_button_size;
+
+    ui.putItem(close_button_bounds, skin.doc.header.close_button);
+
+    ui::FocusFlags close_focus = 
+      ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
+
+    if (close_focus.test(ui::FocusFlag::PrimaryReleased))
+      node->doc->flags.set(Doc::Flag::ToBeClosed);
 
     Rect content_bounds = {};
     content_bounds.x = 0.f;
@@ -647,7 +811,7 @@ static void putDocTreeNode(
 
     ratio_accumulator += child->ratio;
 
-    f32 start = prev_end + divider_size;
+    f32 start = prev_end + (child_idx > 0? divider_size : 0);
     f32 end = 
       round(children_space * ratio_accumulator / ratio_sum) + 
       divider_size * child_idx;

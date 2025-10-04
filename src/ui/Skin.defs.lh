@@ -94,4 +94,22 @@ struct ScrollBarSkin
   f32 rail_size;
 };
 
+/* ============================================================================
+ */
+struct CheckboxSkin
+{
+  ItemSkin enabled;
+  ItemSkin disabled;
+
+  TextSkin name;
+};
+
+/* ============================================================================
+ */
+struct WindowSkin
+{
+  f32 header_height;
+  TextItemSkin header;
+};
+
 }

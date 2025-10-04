@@ -34,6 +34,8 @@ struct Rect
   Rect& mulSize(f32 v) { mulWidth(v); mulHeight(v); return *this; }
   Rect& mulSize(f32 x, f32 y) { mulWidth(x); mulHeight(y); return *this; }
 
+  Rect& addPos(vec2f pos) { x += pos.x; y += pos.y; return *this; }
+
   vec2f pos() const { return {x,y}; }
   vec2f size() const { return {w,h}; }
 
@@ -44,8 +46,6 @@ struct Rect
   vec4f asVec4f() const { return vec4f(x,y,w,h); }
 
   void floorPos() { x = floor(x); y = floor(y); }
-
-  void addPos(vec2f v) { x += v.x; y += v.y; }
 
   Rect contractedX(f32 v) const { return {x + v, y, w - 2.f * v, h}; }
   void contractX(f32 v) { *this = contractedX(v); }

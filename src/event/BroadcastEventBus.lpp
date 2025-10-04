@@ -8,7 +8,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.events.lh"
 }
 $$$
-@imported:get
+$(imported)
 
 @lpp.import "event/BroadcastEventBus.lh"
 

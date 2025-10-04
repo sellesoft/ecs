@@ -55,7 +55,7 @@ local function importpattern(pattern)
       local result = lpp.import(path)
 
       if result then
-        imported:put((result:get()) or "")
+        imported:put((result:getOutput()) or "")
       end
     end
   end)

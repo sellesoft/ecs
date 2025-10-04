@@ -17,7 +17,7 @@ local AstContext = require "reflect.AstContext"
 local imported = require "string.buffer" .new()
 local function importpattern(pattern)
   glob(pattern):each(function(path)
-    imported:put((lpp.import(path):get()) or "")
+    imported:put((lpp.import(path):getOutput()) or "")
   end)
 end
 

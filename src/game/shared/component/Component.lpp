@@ -10,7 +10,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh",
 }
 $$$
-@imported:get
+$(imported)
 
 using namespace iro;
 

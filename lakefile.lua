@@ -169,6 +169,17 @@ lpp_params.meta_args = List { meta_arg }
 
 cpp_params.cmd_callback = cc:cmdCallback()
 
+---@type tools.docgen.Params
+-- local docgen_params = 
+-- {
+--   build_dir = build_dir,
+--   lpp_params = lpp_params,
+--   cpp_params = cpp_params,
+--   cwd = cwd,
+-- }
+--
+-- require "tools.docgen.run" (docgen_params)
+
 ---@type tools.loggen.Params
 local loggen_params = 
 {

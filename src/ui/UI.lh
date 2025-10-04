@@ -16,6 +16,8 @@ $ local cmn = require "common"
 
 @lpp.import "input/InputState.lh"
 
+@lpp.import "reflect/Linker.lh"
+
 #include "iro/containers/StackArray.h"
 #include "iro/containers/EnumArray.h"
 #include "iro/memory/Bump.h"
@@ -372,8 +374,7 @@ struct UI
   struct InitParams
   {
     gfx::Vulkan& vk;
-    gfx::ResourceMgr& resource_mgr;
-    AssetMgr& asset_mgr;
+    reflect::Linker& linker;
     Rect viewport;
     gfx::TextureHandle white_texture;
   };

@@ -7,7 +7,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh"
 }
 $$$
-@imported:get
+$(imported)
 
 @lpp.import "game/shared/entity/EntityMgr.lh"
 

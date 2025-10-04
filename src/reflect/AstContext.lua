@@ -24,6 +24,7 @@ local List = require "iro.List"
 local ast = require "reflect.ast"
 local metadata = require "reflect.Metadata"
 local glob = require "iro.fs.glob"
+local sbuf = require "string.buffer"
 
 local debug_print = false
 
@@ -105,12 +106,13 @@ end
 local Converter = IroType.make()
 
 ---@return reflect.Converter
-Converter.new = function(astctx)
+Converter.new = function(astctx, source)
   local o = {}
   o.ns_stack = List {}
   o.processed_clang_objs = {}
   o.depth = 0
   o.ctx = astctx
+  o.source = source
   return setmetatable(o, Converter)
 end
 
@@ -144,19 +146,28 @@ AstContext.fromGlobs = function(patterns)
 
   ECS_REFLECTION_IMPORT = true
 
+  local import_source = sbuf.new()
+
   for pattern in List(patterns):each() do
     glob(pattern):each(function(path)
-      local result = lpp.import(path)
-
-      if result then
-        imported:put(result:get())
-      end
+      import_source:put('@lpp.import "', path, '"\n')
     end)
   end
 
+  local source = lpp.source(tostring(import_source))
+
+  local Context = require "lppclang" "lib/lppclang.so"
+
+  local ctx = Context.new(cmn.cargs)
+  local astctx = AstContext.new()
+  local converter = Converter.new(astctx, source)
+
+  local tu = ctx:parseString(source:getOutput())
+  astctx.translation_unit = converter:processTranslationUnit(tu)
+
   ECS_REFLECTION_IMPORT = false
 
-  return AstContext.fromString(tostring(imported)), imported
+  return astctx, source:getOutput()
 end
 
 Converter.findProcessed = function(self, cdecl)
@@ -403,6 +414,23 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     -- handle here than in the process functions. Really, I should set up
     -- those functions to cascade down the class hierarchy of clang such that
     -- this stuff is set more appropriately.
+
+    local loc = cdecl:getSourceLoc()
+    
+    if loc.filename == "lppclang-inputs" then
+      if self.source then
+        local origin, line = self.source:mapOutputLineToOrigin(loc.line)
+        if origin then
+          decl.loc = {}
+          decl.loc.source = origin:getName()
+          decl.loc.line = line
+        end
+      end
+    else
+      decl.loc = {}
+      decl.loc.source = loc.filename
+      decl.loc.line = loc.line
+    end
 
     decl.comment = cdecl:getComment()
     if decl:is(ast.TagDecl) and cdecl:isAnonymous() then

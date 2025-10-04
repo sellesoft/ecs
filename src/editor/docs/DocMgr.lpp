@@ -584,7 +584,25 @@ static void putDocTreeNode(
   if (node->state == Single)
   {
     ui.pushId(ui.generateIdFromPointer(node->doc));
+      
+    Rect header_bounds = {};
+    header_bounds.x = 0.f;
+    header_bounds.y = 0.f;
+    header_bounds.w = ui.getWidth();
+    header_bounds.h = 12.f;
+
+    ui.putTextItem(header_bounds, node->doc->title, skin.doc.window.header);
+
+    Rect content_bounds = {};
+    content_bounds.x = 0.f;
+    content_bounds.y = header_bounds.h;
+    content_bounds.w = ui.getWidth();
+    content_bounds.h = ui.getHeight() - content_bounds.y;
+
+    ui.beginGroup(content_bounds);
     node->doc->placeUI(ui, skin);
+    ui.endGroup();
+      
     ui.popId();
 
     return;
@@ -651,13 +669,11 @@ static void putDocTreeNode(
       child_bounds.h = bounds.h;
     }
 
-    ui.beginGroup(child_bounds);
+    ui.beginPanel("doc-content"_fid, child_bounds);
     {
-      ui.pushCmdList();
       putDocTreeNode(self, ui, child, skin);
-      ui.popCmdListToBack();
     }
-    ui.endGroup();
+    ui.endPanel();
 
     Rect bl_bounds = {};
     bl_bounds.x = child_bounds.x;

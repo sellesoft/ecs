@@ -11,6 +11,8 @@ $ require "common"
 @lpp.import "editor/Editor.lh"
 @lpp.import "editor/Editor.events.lh"
 
+@lpp.import "ui/debug.lh"
+
 @lpp.import "Engine.lh"
 
 @lpp.import "graphics/RenderTarget.lh"
@@ -234,7 +236,7 @@ $ end
     success = window.init(params.engine, "ecs editor"_str, input);
   })
 
-  window.hideCursor();
+  // window.hideCursor();
 
   @initSubSystem(Vulkan,
   {
@@ -298,34 +300,34 @@ $ end
 
   log.info("linking Editor skin def...");
 
-  l_skin.name = "assets/skins/Editor"_str;
+  reflect::Linker linker = { resource_mgr, asset_mgr };
 
-  reflect::linkData(
-    "EditorSkinDefLink"_typeid, 
-    &l_skin, 
-    resource_mgr, 
-    asset_mgr);
+  linker.link(
+    "EditorSkinDefLink"_typeid,
+    "assets/skins/Editor"_str,
+    &l_skin);
 
-  l_white_texture.name = "assets/textures/white"_str;
-
-  reflect::linkData(
+  linker.link(
     "gfx::TextureLink"_typeid,
-    &l_white_texture,
-    resource_mgr,
-    asset_mgr);
+    "assets/textures/white"_str,
+    &l_white_texture);
+
+  ui::UI::InitParams ui_params = 
+  {
+    .vk = *vk,
+    .linker = linker,
+    .viewport = Rect::from(0,0,window.size.x,window.size.y),
+    .white_texture = l_white_texture.getHandle(),
+  };
 
   @initSubSystem(UI,
   {
-    ui::UI::InitParams ui_params = 
-    {
-      .vk = *vk,
-      .resource_mgr = resource_mgr,
-      .asset_mgr = asset_mgr,
-      .viewport = Rect::from(0,0,window.size.x,window.size.y),
-      .white_texture = l_white_texture.getHandle(),
-    };
-
     success = ui.init(ui_params);
+  })
+
+  @initSubSystem(UI (debug),
+  {
+    success = debug_ui.init(ui_params);
   })
 
   log.info("starting build thread...");
@@ -440,6 +442,7 @@ b8 Editor::render(this Editor& self)
     return false;
 
   self.ui.render(pass, Rect::from({0,0}, vec2f(self.window.size)));
+  self.debug_ui.render(pass, Rect::from({0,0}, vec2f(self.window.size)));
 
   vk::endRenderPass(self.vk);
 
@@ -467,12 +470,6 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
   f32 delta = (TimePoint::monotonic() - frame_mark_time).toSeconds();
   frame_mark_time = TimePoint::monotonic();
-
-  static TimePoint last_print = TimePoint::monotonic();
-
-  TimePoint now = TimePoint::monotonic();
-  if ((now - last_print).toMilliseconds() < 10)
-    return result;
 
   // Prepare input state for this frame.
   input.update();
@@ -511,10 +508,12 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   InputState ui_input;
   input.cloneInputState(&ui_input);
 
+  Rect ui_viewport = Rect::from(vec2f(0,0), vec2f(window.size));
+
   ui::UI::FrameParams ui_frame_params = 
   {
     .input = ui_input,
-    .viewport = Rect::from(vec2f(0,0), vec2f(window.size)),
+    .viewport = ui_viewport,
   };
 
   ui.beginFrame(ui_frame_params);
@@ -576,6 +575,8 @@ $ end
     ui.popLayer();
   }
   ui.endFrame();
+
+  // debug_ui.debug(ui, ui_input, ui_viewport);
 
   if (!window_result.size_changed)
     render();

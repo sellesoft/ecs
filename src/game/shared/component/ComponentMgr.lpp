@@ -7,7 +7,7 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/game/**/*.comp.lh"
 }
 $$$
-@imported:get
+$(imported)
 
 #include "iro/containers/LinkedPool.h"
 

@@ -33,13 +33,10 @@ b8 UI::init(InitParams& params)
   if (!frame_allocator.init())
     return @log.error(ui, "failed to initialize UI frame allocator\n");
 
-  l_pipeline.name = "assets/shaders/UI"_str;
-
-  reflect::linkData(
+  params.linker.link(
     "gfx::PipelineLink"_typeid,
-    &l_pipeline,
-    params.resource_mgr,
-    params.asset_mgr);
+    "assets/shaders/UI"_str,
+    &l_pipeline);
 
   vertex_buffer = gfx::Buffer::create(vk,
     {

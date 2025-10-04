@@ -8,4 +8,5 @@ return build::AssetList
   "assets/shaders/Quad.pipeline.data",
   "assets/maps/Test.map.data",
   "assets/floors/tiles/LightGray.texture.compiled",
+  "assets/ui/Debug.skin.data",
 }

@@ -15,6 +15,7 @@ $ require "common"
 @lpp.import "event/CommandBus.lh"
 
 @lpp.import "ui/UI.lh"
+@lpp.import "ui/debug.lh"
 @lpp.import "input/InputMgr.lh"
 @lpp.import "window/Window.lh"
 @lpp.import "graphics/RenderPass.lh"
@@ -89,6 +90,8 @@ struct Editor
   AssetMgr asset_mgr;
 
   ui::UI ui;
+
+  ui::DebugUI debug_ui;
 
   EditorSkinDefLink l_skin;
   gfx::TextureLink l_white_texture;

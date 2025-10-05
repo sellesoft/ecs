@@ -44,11 +44,14 @@ struct DocTreeNode
 
   State state = State::Invalid;
 
-  f32 ratio = 1.f;
-  DocTreeNode* next = nullptr;
+  f32 size = 1.f;
   Doc* doc = nullptr;
 
+  DocTreeNode* parent = nullptr;
+  DocTreeNode* next = nullptr;
+
   b8 dragging = false;
+  b8 splitting = false;
 
   DocTreeSplit split;
 
@@ -62,14 +65,8 @@ struct DocTreeNode
  */
 struct DocMgr
 {
-  struct TrackedDoc
-  {
-    rtr::TypeId type;
-    Doc* doc;
-  };
-
   Editor* editor;
-  Array<TrackedDoc> docs;
+  Array<Doc*> docs;
   Array<u32> order;
 
   Pool<DocTreeNode> tree_nodes;

@@ -225,7 +225,7 @@ sdata_edit = SourceDataEditorSkinDef
 
 doc = EditorDocSkin
 {
-  window = 
+  header = 
   {
     close_button = 
     {
@@ -234,7 +234,7 @@ doc = EditorDocSkin
       uv = { 0, 0, 16, 16 },
     },
 
-    header = 
+    text_item = 
     {
       text = text,
       item = 
@@ -243,7 +243,9 @@ doc = EditorDocSkin
       },
       text_padding = { 3, 3 },
     },
-  }
+  },
+
+  divider_size = 2,
 }
 
 cursor_base = 

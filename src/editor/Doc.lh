@@ -6,6 +6,8 @@ $ require "common"
 #include "math/vec.h"
 #include "iro/Flags.h"
 
+@lpp.import "reflect/TypeId.lh"
+
 namespace ui { struct UI; }
 namespace gfx 
 { 
@@ -27,6 +29,8 @@ struct Doc
   // A handle to the Editor. This is set by the Editor upon allocation of the 
   // document.
   Editor* editor;
+
+  rtr::TypeId type;
 
   vec2f pos;
   vec2f size;

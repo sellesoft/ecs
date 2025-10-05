@@ -197,6 +197,8 @@ Namespace.formCSafeName = function(self, out)
     out:put "_"
   end
   out:put(self.name)
+
+  return out
 end
 
 --- Representation of a builtin type, eg. char, int, short, etc.

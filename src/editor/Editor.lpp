@@ -488,16 +488,16 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (input.real_state.wasKeyPressed(Key::V))
   {
     if (input.real_state.isKeyDown(Key::LCtrl))
-      cmd_bus.exec("Editor.DocMgr.open ClientInstance vl"_str);
+      cmd_bus.exec("Editor.DocMgr.open Test vl"_str);
     else
-      cmd_bus.exec("Editor.DocMgr.open ClientInstance vr"_str);
+      cmd_bus.exec("Editor.DocMgr.open Test vr"_str);
   }
   if (input.real_state.wasKeyPressed(Key::H))
   {
     if (input.real_state.isKeyDown(Key::LCtrl))
-      cmd_bus.exec("Editor.DocMgr.open ClientInstance ht"_str);
+      cmd_bus.exec("Editor.DocMgr.open Test ht"_str);
     else
-      cmd_bus.exec("Editor.DocMgr.open ClientInstance hb"_str);
+      cmd_bus.exec("Editor.DocMgr.open Test hb"_str);
   }
 
   {

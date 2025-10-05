@@ -1,0 +1,43 @@
+$ local lpp = require "lpp"
+$ local ast = require "reflect.ast"
+$ local fs = require "iro.fs"
+$ local helper = require "tools.docgen.helper"
+
+$ local header, astctx = helper.parseHeader()
+
+$ local namespaces = {}
+
+$ for decl in astctx.type_decls:each() do
+$   if decl.loc.source == header 
+$      and not decl.is_anonymous
+$      and (decl.is_complete or decl:is(ast.Template))
+$   then
+type
+{
+  qname = "$(decl.qname)",
+  csafe = "$(decl:formCSafeName())",
+}
+$ if decl.namespace then
+$   local csafe = decl.namespace:formCSafeName()
+$   if not namespaces[csafe] then
+$     namespaces[csafe] = true
+namespace 
+{
+  csafe = "$(decl.namespace:formCSafeName())"
+}
+$   end
+$ end
+$ if decl:is(ast.Record) then
+$   for field in decl:eachField() do
+$     local type = field.type:desugar()
+$     if type:is(ast.TagType) then
+type
+{
+  qname = "$(type.decl.qname)",
+  csafe = "$(type.decl:formCSafeName())"
+}
+$     end
+$   end
+$ end
+$   end
+$ end

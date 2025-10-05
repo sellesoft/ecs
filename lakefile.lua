@@ -33,7 +33,7 @@ end
 --             for doing that yet, though.
 -- TODO(sushi) command for building with/without this since it doesn't work
 --             under debuggers.
-local asan = true
+local asan = false
 local tsan = false
 
 local objs = List {}
@@ -169,16 +169,21 @@ lpp_params.meta_args = List { meta_arg }
 
 cpp_params.cmd_callback = cc:cmdCallback()
 
----@type tools.docgen.Params
--- local docgen_params = 
--- {
---   build_dir = build_dir,
---   lpp_params = lpp_params,
---   cpp_params = cpp_params,
---   cwd = cwd,
--- }
---
--- require "tools.docgen.run" (docgen_params)
+if lake.cliargs[1] == "doc" then
+
+  ---@type tools.docgen.Params
+  local docgen_params = 
+  {
+    build_dir = build_dir,
+    lpp_params = lpp_params,
+    cpp_params = cpp_params,
+    cwd = cwd,
+  }
+
+  require "tools.docgen.run" (docgen_params)
+
+  return
+end
 
 ---@type tools.loggen.Params
 local loggen_params = 

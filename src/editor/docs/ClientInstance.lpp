@@ -324,11 +324,11 @@ void ClientInstance::update()
 {
   if (connected_server == nullptr)
   {
-    for (DocMgr::TrackedDoc& tdoc : editor->doc_mgr.docs)
+    for (Doc* doc : editor->doc_mgr.docs)
     {
-      if (tdoc.type == "editor::ServerInstance"_typeid)
+      if (doc->type == "editor::ServerInstance"_typeid)
       {
-        ((editor::ServerInstance*)tdoc.doc)->connectClientInstance(this);
+        ((editor::ServerInstance*)doc)->connectClientInstance(this);
         @log.info(editor, "ClientInstance found a ServerInstance\n");
         break;
       }

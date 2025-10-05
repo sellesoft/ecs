@@ -61,6 +61,7 @@ AstContext.new = function()
   o.type_decls = List {}
   o.decls_by_qualified_name = {}
   o.type_decls_by_name = {}
+  o.namespace_decls = {}
   
   return setmetatable(o, AstContext)
 end
@@ -349,6 +350,7 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
       self:write("forward record")
       local complete_decl = self:resolveDecl(cdecl, true)
       local forward = ast.ForwardRecord.new(cdecl:getName(), complete_decl)
+      forward.qname = cdecl:getQualifiedName()
       self:recordProcessed(cdecl, forward)
       return forward
     end

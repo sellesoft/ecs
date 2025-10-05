@@ -73,6 +73,8 @@ struct EditorDocHeader
 struct EditorDocSkin
 {
   EditorDocHeader header;
+
+  f32 divider_size;
 };
 
 /* ============================================================================

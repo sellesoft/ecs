@@ -37,6 +37,21 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static inline rtr::TypeId typeIdFromDocName(String name)
+{
+  switch (name.hash())
+  {
+$ for derived in TDoc:allDerived() do
+  case "$(derived.name)"_hashed:
+    return "$(derived.qname)"_typeid;
+$ end
+  }
+  assert(false);
+  return nil;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 DocMgr::init(Editor& editor)
 {
   this->editor = &editor;
@@ -114,6 +129,18 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static inline u64 calcSplitCount(DocTreeNode* target)
+{
+  assert(target->isSplit());
+
+  u64 sum = 0;
+  for (DocTreeNode* child = target->split.first; child; child = child->next)
+    sum += 1;
+  return sum;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static b8 findDocTreeNode(
     DocMgr& self, 
     DocTreeNode* node, 
@@ -149,14 +176,38 @@ static b8 findDocTreeNode(
 
 /* ----------------------------------------------------------------------------
  */
-static void removeNodeFromContainer(DocTreeNode* node, DocTreeNode* container)
+static DocTreeNode* findPrevNodeInContainer(
+    DocTreeNode* node, 
+    DocTreeNode* container)
+{
+  DocTreeNode* prev = nullptr;
+  for (DocTreeNode* child = container->split.first; 
+       child; 
+       child = child->next)
+  {
+    if (child->next == node)
+    {
+      prev = child;
+      break;
+    }
+  }
+  return prev;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void removeNodeFromContainer(
+    DocMgr& self,
+    DocTreeNode* node, 
+    DocTreeNode* container)
 {
   using enum DocTreeNode::State;
 
   if (container->split.first->next == container->split.last)
   {
-    // Removing the second-to-last node from this container, so it becomes
-    // a Single.
+    // We are removing the second-to-last child node of this node, so the 
+    // container node will be deleted and we have to merge the remaining
+    // 'consumed' node into whatever contains the container.
 
     println(
         "remove second-to-last", 
@@ -165,24 +216,55 @@ static void removeNodeFromContainer(DocTreeNode* node, DocTreeNode* container)
       "\n       last: ", container->split.last,
       "\n       node: ", node);
 
+    // Figure out which node we are consuming.
     DocTreeNode* consumed = nullptr;
     if (node == container->split.first)
       consumed = container->split.last;
     else 
       consumed = container->split.first;
 
-    // TODO(sushi) find a anice way to not lose 'consumed' here. It or 
-    //             'container' should be removed from the pool.
-    //             I guess it makes sense that 'consumed' should be,
-    //             since 'container' could still point to a 'next' node.
+    DocTreeNode* parent = container->parent;
+    if (parent != nullptr && 
+        consumed->isSplit() &&
+        parent->state == consumed->state)
+    {
+      // If this container has a parent and it is split the same way as the 
+      // 'consumed' node, we append or prepend 'consumed's children to 
+      // the parent. 
+      if (parent->split.first == container)
+      {
+        // If the container was the first child of its parent, then we can 
+        // just prepend the parent's children with consumed's.
+        consumed->split.last->next = container->next;
+        parent->split.first = consumed->split.first;
+      }
+      else
+      {
+        // Otherwise, we must find the node preceeding the container node 
+        // and inject consumed's nodes after it.
+        DocTreeNode* prev = findPrevNodeInContainer(container, parent);
 
-    container->state = consumed->state;
-    container->split = consumed->split;
-    container->doc = consumed->doc;
-    
-    rtr::prettyPrint(*consumed);
-    rtr::prettyPrint(*container);
+        consumed->split.last->next = prev->next;
+        prev->next = consumed->split.first;
 
+        if (parent->split.last == container)
+          parent->split.last = consumed->split.last;
+      }
+
+      // Delete the container node.
+      self.tree_nodes.remove(container);
+    }
+    else
+    {
+      // Literally 'consume' the consumed node into the container node.
+      // This preserves the size that container had.
+      container->state = consumed->state;
+      container->split = consumed->split;
+      container->doc = consumed->doc;
+    }
+
+    // Delete the consumed node.
+    self.tree_nodes.remove(consumed);
     return;
   }
 
@@ -198,6 +280,7 @@ static void removeNodeFromContainer(DocTreeNode* node, DocTreeNode* container)
       "\n       last: ", container->split.last,
       "\n       node: ", node);
 
+    node->next->size += node->size;
     container->split.first = node->next;
     node->next = nullptr;
 
@@ -215,6 +298,8 @@ static void removeNodeFromContainer(DocTreeNode* node, DocTreeNode* container)
       break;
     }
   }
+
+  prev->size += node->size;
 
   if (node == container->split.last)
   {
@@ -252,13 +337,13 @@ static void closeDocs(DocMgr& self, b8 all)
 {
   for (s32 i = self.docs.len() - 1; i >= 0; --i)
   {
-    if (all || self.docs[i].doc->flags.test(Doc::Flag::ToBeClosed))
+    if (all || self.docs[i]->flags.test(Doc::Flag::ToBeClosed))
     {
-      DocMgr::TrackedDoc* t = &self.docs[i];
+      Doc* doc = self.docs[i];
 
-      self.editor->log.info("closing ", t->doc->title);
+      self.editor->log.info("closing ", doc->title);
 
-      t->doc->onClose();
+      doc->onClose();
 
       DocTreeNode* node;
       DocTreeNode* container;
@@ -266,18 +351,18 @@ static void closeDocs(DocMgr& self, b8 all)
             self, 
             &self.tree_root, 
             nullptr, 
-            t->doc, 
+            doc, 
             &node, 
             &container))
       {
         if (node != &self.tree_root)
-          removeNodeFromContainer(node, container);
+          removeNodeFromContainer(self, node, container);
 
         node->state = DocTreeNode::State::Invalid;
         node->doc = nullptr;
       }
 
-      mem::stl_allocator.free(t->doc);
+      mem::stl_allocator.free(doc);
       self.docs.remove(i);
     }
   }
@@ -306,7 +391,7 @@ static void initWindowDoc(DocMgr& self, Doc* doc, rtr::TypeId type)
   doc->size = { 300.f, 300.f };
 
   self.order.insert(0, self.docs.len());
-  self.docs.push({.type = type, .doc = doc});
+  self.docs.push(doc);
 
   doc->onOpen();
 }
@@ -324,26 +409,45 @@ enum class SplitSide
 
 /* ----------------------------------------------------------------------------
  */
+static inline f32 getSplitRatioSum(DocTreeNode* node)
+{
+  assert(node->isSplit());
+  
+  f32 sum = 0.f;
+  for (DocTreeNode* child = node->split.first; child; child = child->next)
+    sum += child->size;
+  return sum;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static inline DocTreeNode* insertNode(
     DocMgr& self, 
     DocTreeNode* target,
-    SplitSide side)
+    SplitSide side,
+    f32 split_ratio)
 {
   assert(target->isSplit());
 
   DocTreeNode* nu = self.tree_nodes.add();
-  nu->ratio = 1.f;
+  nu->parent = target;
 
+  DocTreeNode* split_with = nullptr;
   if (side == SplitSide::A)
   {
+    split_with = target->split.first;
     nu->next = target->split.first;
     target->split.first = nu;
   }
   else
   {
+    split_with = target->split.last;
     target->split.last->next = nu;
     target->split.last = nu;
   }
+  
+  nu->size = floor(split_ratio * split_with->size);
+  split_with->size -= nu->size;
 
   return nu;
 }
@@ -354,36 +458,89 @@ static inline DocTreeNode* splitSingle(
     DocMgr& self, 
     DocTreeNode* target,
     DocTreeNode::State split,
-    SplitSide side)
+    SplitSide side,
+    f32 split_ratio)
 {
   using enum DocTreeNode::State;
 
   assert(target->state == Single);
 
-  DocTreeNode* a = self.tree_nodes.add();
-  a->state = Single;
-  a->doc = target->doc;
-  a->ratio = 1.f;
-
-  DocTreeNode* b = self.tree_nodes.add();
-  b->ratio = 1.f;
-
-  if (side == SplitSide::A)
+  DocTreeNode* parent = target->parent;
+  if (parent != nullptr && parent->state == split)
   {
-    target->split.first = b;
-    target->split.last = a;
-    b->next = a;
+    DocTreeNode* nu = self.tree_nodes.add();
+    nu->state = Single;
+    nu->parent = parent;
+
+    DocTreeNode* a;
+    DocTreeNode* b;
+
+    if (side == SplitSide::A)
+    {
+      a = nu;
+      b = target;
+    }
+    else
+    {
+      a = target;
+      b = nu;
+    }
+
+    a->next = b;
+
+    if (parent->split.first == target)
+    {
+      b->next = target->next;
+      parent->split.first = a;
+    }
+    else
+    {
+      DocTreeNode* prev = findPrevNodeInContainer(target, parent);
+      prev->next = a;
+
+      if (parent->split.last == target)
+        parent->split.last = b;
+    }
+
+    println("split ", target, " into ", nu);
+
+    nu->size = floor(split_ratio * target->size);
+    target->size -= nu->size;
+
+    return nu;
   }
   else
   {
-    target->split.first = a;
-    target->split.last = b;
-    a->next = b;
-  }
+    DocTreeNode* a = self.tree_nodes.add();
+    a->state = Single;
+    a->doc = target->doc;
+    a->parent = target;
 
-  target->state = split;
-  target->doc = nullptr;
-  return b;
+    DocTreeNode* b = self.tree_nodes.add();
+    b->parent = target;
+
+    if (side == SplitSide::A)
+    {
+      target->split.first = b;
+      target->split.last = a;
+      b->next = a;
+      a->size = floor(split_ratio * target->size);
+      b->size = target->size - a->size;
+    }
+    else
+    {
+      target->split.first = a;
+      target->split.last = b;
+      a->next = b;
+      b->size = floor(split_ratio * target->size);
+      a->size = target->size - b->size;
+    }
+
+    target->state = split;
+    target->doc = nullptr;
+
+    return b;
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -395,7 +552,8 @@ static inline DocTreeNode* splitSplit(
     DocMgr& self,
     DocTreeNode* target,
     DocTreeNode::State split,
-    SplitSide side)
+    SplitSide side,
+    f32 split_ratio)
 {
   assert(target->isSplit());
 
@@ -403,16 +561,20 @@ static inline DocTreeNode* splitSplit(
 
   // Just insert node when already in the same state.
   if (target->state == split)
-    return insertNode(self, target, side);
+    return insertNode(self, target, side, split_ratio);
 
   // Otherwise we need to create a new split.
   DocTreeNode* a = self.tree_nodes.add();
   a->state = target->state;
   a->split = target->split;
-  a->ratio = 1.f;
+  a->size = split_ratio;
+  a->needs_sized = true;
+  a->parent = target;
 
   DocTreeNode* b = self.tree_nodes.add();
-  b->ratio = 1.f;
+  b->size = 1.f - a->size;
+  b->parent = target;
+  b->needs_sized = true;
 
   if (side == SplitSide::A)
   {
@@ -438,62 +600,90 @@ static inline DocTreeNode* splitNode(
     DocMgr& self, 
     DocTreeNode* target, 
     DocTreeNode::State split,
-    SplitSide side)
+    SplitSide side,
+    f32 split_ratio)
 {
   using enum DocTreeNode::State;
 
   assert(target->state != Invalid);
 
   if (target->state == Single)
-    return splitSingle(self, target, split, side);
+    return splitSingle(self, target, split, side, split_ratio);
 
-  return splitSplit(self, target, split, side);
+  return splitSplit(self, target, split, side, split_ratio);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Doc* allocateDocFromTypeId(DocMgr& self, rtr::TypeId type)
+{
+  Doc* doc = nullptr;
+  switch (type.val)
+  {
+$ for doc in TDoc:allDerived() do
+  case "$(doc.qname)"_typeid_val:
+    doc = mem::stl_allocator.construct<$(doc.qname)>();
+    doc->editor = self.editor;
+    doc->title = "$(doc.name)"_str;
+    doc->type = type;
+    break;
+$ end
+  }
+  
+  if (doc != nullptr)
+    self.docs.push(doc);
+
+  return doc;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Doc* openDoc(
+    DocMgr& self, 
+    rtr::TypeId type,
+    DocTreeNode* destination,
+    DocTreeNode::State split, 
+    SplitSide side,
+    f32 split_ratio)
+{
+  using enum DocTreeNode::State;
+
+  Doc* doc = allocateDocFromTypeId(self, type);
+
+  if (destination->state == Invalid)
+  {
+    destination->state = Single;
+    destination->doc = doc;
+    destination->size = 1.f;
+    destination->needs_sized = true;
+  }
+  else
+  {
+    DocTreeNode* nu = splitNode(self, destination, split, side, split_ratio);
+    nu->state = Single;
+    nu->doc = doc;
+  }
+
+  doc->onOpen();
+
+  return doc;
 }
 
 /* ----------------------------------------------------------------------------
  */
 Doc* DocMgr::open(String name, b8 v, b8 a)
 {
-  rtr::TypeId type;
-  Doc* doc = nullptr;
-
-  switch (name.hash())
-  {
-  default:
-    return @log.errorln(editor, "unknown doc type '", name, "'"),
-           nullptr;
-
-$ for doc in TDoc:allDerived() do
-  case "$(doc.name)"_hashed:
-    type = "$(doc.qname)"_typeid;
-    doc = mem::stl_allocator.construct<$(doc.qname)>();
-    doc->title = "$(doc.name)"_str;
-    break;
-$ end
-  }
+  using enum DocTreeNode::State;
 
   editor->log.info("opening document '", name, "'");
 
-  using enum DocTreeNode::State;
-
-  doc->editor = editor;
-  doc->onOpen();
-
-  docs.push({.type = type, .doc = doc});
-
-  if (tree_root.state == Invalid)
-  {
-    tree_root.state = Single;
-    tree_root.doc = doc;
-    return doc;
-  }
-
-  DocTreeNode::State split = v? SplitV : SplitH;
-  SplitSide side = a? SplitSide::A : SplitSide::B;
-
-  DocTreeNode* new_node = splitNode(*this, &tree_root, split, side);
-  new_node->state = DocTreeNode::State::Single;
-  new_node->doc = doc;
+  Doc* doc = openDoc(
+    *this, 
+    typeIdFromDocName(name),
+    &tree_root,
+    v? SplitV : SplitH,
+    a? SplitSide::A : SplitSide::B,
+    0.5f);
 
   return doc;
 }
@@ -504,199 +694,199 @@ void DocMgr::close(Doc* doc)
 {
   doc->flags.set(Doc::Flag::ToBeClosed);
 }
-
-/* ----------------------------------------------------------------------------
- */
-static Doc::EdgeFlags computeEdgeFlags(
-    vec2f local_cursor,
-    vec2f size,
-    f32 hit_size)
-{
-  Doc::EdgeFlags flags = {};
-  if (local_cursor.x < hit_size)
-    flags.set(Doc::Edge::Left);
-  if (local_cursor.y < hit_size)
-    flags.set(Doc::Edge::Top);
-  if (size.x - local_cursor.x < hit_size)
-    flags.set(Doc::Edge::Right);
-  if (size.y - local_cursor.y < hit_size)
-    flags.set(Doc::Edge::Bottom);
-  return flags;
-}
-
-/* ----------------------------------------------------------------------------
- */
-static void computeDisplayedPosAndSize(
-    vec2f* disp_pos,
-    vec2f* disp_size,
-    vec2f local_cursor,
-    vec2f drag_start,
-    Doc::EdgeFlags dragged_edges)
-{
-  vec2f diff = local_cursor - drag_start;
-
-  if (dragged_edges.test(Doc::Edge::Top))
-  {
-    disp_pos->y += diff.y;
-    disp_size->y -= diff.y;
-  }
-  else if (dragged_edges.test(Doc::Edge::Bottom))
-  {
-    disp_size->y += diff.y;
-  }
-
-  if (dragged_edges.test(Doc::Edge::Left))
-  {
-    disp_pos->x += diff.x;
-    disp_size->x -= diff.x;
-  }
-  else if (dragged_edges.test(Doc::Edge::Right))
-  {
-    disp_size->x += diff.x;
-  }
-}
-
-/* ----------------------------------------------------------------------------
- */
-static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
-{
-  ui.pushId(ui.generateIdFromPointer(doc));
-  defer { ui.popId(); };
-
-  b8 clicked = false;
-  b8 closed = false;
-
-  const f32 border_w = 1.f;
-  const f32 border_hit_size = 10.f;
-
-  const f32 header_h = 20.f;
-
-  // Offset to the actual start of the window inside of the hit bounds.
-  vec2f hit_offset = { border_hit_size, border_hit_size };
-
-  // The position and size we will display the window with. 
-  vec2f displayed_pos = doc->pos;
-  vec2f displayed_size = doc->size;
-
-  // Save the location of the cursor before we go into window space.
-  vec2f container_cursor = ui.getLocalCursorPos();
-
-  if (doc->control_state == Doc::ControlState::DraggingEdge)
-  {
-    computeDisplayedPosAndSize(
-      &displayed_pos, 
-      &displayed_size,
-      container_cursor,
-      doc->drag_start,
-      doc->dragged_edges);
-
-    if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
-    {
-      doc->control_state = Doc::ControlState::None;
-      doc->size = displayed_size;
-      doc->pos = displayed_pos;
-    }
-  }
-
-  // Place the hit area.
-  vec2f hit_size;
-  hit_size.x = displayed_size.x + 2 * border_hit_size;
-  hit_size.y = displayed_size.y + 2 * border_hit_size;
-  ui.beginGroup(Rect::from(displayed_pos - hit_offset, hit_size));
-  
-  // Place a focusable covering the entire area of the window + some offset 
-  // from each edge for resize controls.
-  ui::FocusFlags focus = 
-    ui.putFocusableBounds("doc-border"_fid, ui.getBounds());
-
-  if (focus.test(ui::FocusFlag::Hovered) && 
-      doc->control_state != Doc::ControlState::DraggingEdge)
-  {
-    vec2f local_cursor = ui.getLocalCursorPos();
-
-    Doc::EdgeFlags edges = 
-      computeEdgeFlags(local_cursor, hit_size, border_hit_size);
-
-    if (focus.test(ui::FocusFlag::PrimaryPressed))
-    {
-      clicked = true;
-      doc->drag_start = container_cursor;
-      doc->dragged_edges = edges;
-      doc->control_state = Doc::ControlState::DraggingEdge;
-    }
-  }
-
-  // Place the actual Window stuff.
-  ui.beginGroup(Rect::from(hit_offset, displayed_size));
-  {
-    ui::ItemSkin bg = {};
-    bg.color = 0x000000ff;
-    bg.border = { -border_w, -border_w, -border_w, -border_w };
-    bg.border_color = 0xaaaaaaff;
-    
-    ui.putItem(Rect::from({0,0}, displayed_size), bg);
-
-    Rect header_bounds = {};
-    header_bounds.x = 0.f;
-    header_bounds.y = 0.f;
-    header_bounds.w = ui.getWidth();
-    header_bounds.h = header_h;
-
-    ui.putTextItem(header_bounds, doc->title, skin.doc.header.text_item);
-
-    ui::FocusFlags focus = 
-      ui.putFocusableBounds("doc-window"_fid, header_bounds);
-  
-    if (doc->control_state == Doc::ControlState::DraggingWindow)
-    {
-      if (focus.test(ui::FocusFlag::PrimaryReleased))
-      {
-        doc->control_state = Doc::ControlState::None;
-      }
-      else
-      {
-        vec2f lcur = ui.getLocalCursorPos();
-        doc->pos += lcur - ui.focus_state.pressed_cursor_offset;
-      }
-    }
-    else if (focus.test(ui::FocusFlag::PrimaryPressed))
-    {
-      clicked = true;
-      doc->control_state = Doc::ControlState::DraggingWindow;
-    }
-
-    const f32 close_button_size = 16.f;
-
-    Rect close_button_bounds = {};
-    close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
-    close_button_bounds.y = 
-      floor(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h));
-    close_button_bounds.w = close_button_size;
-    close_button_bounds.h = close_button_size;
-
-    ui.putItem(close_button_bounds, skin.doc.header.close_button);
-
-    ui::FocusFlags close_focus = 
-      ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
-
-    if (close_focus.test(ui::FocusFlag::PrimaryReleased))
-      doc->flags.set(Doc::Flag::ToBeClosed);
-
-    Rect content_bounds = {};
-    content_bounds.x = border_w;
-    content_bounds.y = header_h;
-    content_bounds.w = ui.getWidth() - 2 * border_w;
-    content_bounds.h = ui.getHeight() - border_w - header_h;
-    
-    ui.beginGroup(content_bounds);
-    doc->placeUI(ui, skin);
-    ui.endGroup();
-  }
-  ui.endGroup();
-  ui.endGroup();
-
-  return clicked;
-}
+//
+// /* ----------------------------------------------------------------------------
+//  */
+// static Doc::EdgeFlags computeEdgeFlags(
+//     vec2f local_cursor,
+//     vec2f size,
+//     f32 hit_size)
+// {
+//   Doc::EdgeFlags flags = {};
+//   if (local_cursor.x < hit_size)
+//     flags.set(Doc::Edge::Left);
+//   if (local_cursor.y < hit_size)
+//     flags.set(Doc::Edge::Top);
+//   if (size.x - local_cursor.x < hit_size)
+//     flags.set(Doc::Edge::Right);
+//   if (size.y - local_cursor.y < hit_size)
+//     flags.set(Doc::Edge::Bottom);
+//   return flags;
+// }
+//
+// /* ----------------------------------------------------------------------------
+//  */
+// static void computeDisplayedPosAndSize(
+//     vec2f* disp_pos,
+//     vec2f* disp_size,
+//     vec2f local_cursor,
+//     vec2f drag_start,
+//     Doc::EdgeFlags dragged_edges)
+// {
+//   vec2f diff = local_cursor - drag_start;
+//
+//   if (dragged_edges.test(Doc::Edge::Top))
+//   {
+//     disp_pos->y += diff.y;
+//     disp_size->y -= diff.y;
+//   }
+//   else if (dragged_edges.test(Doc::Edge::Bottom))
+//   {
+//     disp_size->y += diff.y;
+//   }
+//
+//   if (dragged_edges.test(Doc::Edge::Left))
+//   {
+//     disp_pos->x += diff.x;
+//     disp_size->x -= diff.x;
+//   }
+//   else if (dragged_edges.test(Doc::Edge::Right))
+//   {
+//     disp_size->x += diff.x;
+//   }
+// }
+//
+// /* ----------------------------------------------------------------------------
+//  */
+// static b8 putDocWindow(ui::UI& ui, Doc* doc, const EditorSkinDef& skin)
+// {
+//   ui.pushId(ui.generateIdFromPointer(doc));
+//   defer { ui.popId(); };
+//
+//   b8 clicked = false;
+//   b8 closed = false;
+//
+//   const f32 border_w = 1.f;
+//   const f32 border_hit_size = 10.f;
+//
+//   const f32 header_h = 20.f;
+//
+//   // Offset to the actual start of the window inside of the hit bounds.
+//   vec2f hit_offset = { border_hit_size, border_hit_size };
+//
+//   // The position and size we will display the window with. 
+//   vec2f displayed_pos = doc->pos;
+//   vec2f displayed_size = doc->size;
+//
+//   // Save the location of the cursor before we go into window space.
+//   vec2f container_cursor = ui.getLocalCursorPos();
+//
+//   if (doc->control_state == Doc::ControlState::DraggingEdge)
+//   {
+//     computeDisplayedPosAndSize(
+//       &displayed_pos, 
+//       &displayed_size,
+//       container_cursor,
+//       doc->drag_start,
+//       doc->dragged_edges);
+//
+//     if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+//     {
+//       doc->control_state = Doc::ControlState::None;
+//       doc->size = displayed_size;
+//       doc->pos = displayed_pos;
+//     }
+//   }
+//
+//   // Place the hit area.
+//   vec2f hit_size;
+//   hit_size.x = displayed_size.x + 2 * border_hit_size;
+//   hit_size.y = displayed_size.y + 2 * border_hit_size;
+//   ui.beginGroup(Rect::from(displayed_pos - hit_offset, hit_size));
+//
+//   // Place a focusable covering the entire area of the window + some offset 
+//   // from each edge for resize controls.
+//   ui::FocusFlags focus = 
+//     ui.putFocusableBounds("doc-border"_fid, ui.getBounds());
+//
+//   if (focus.test(ui::FocusFlag::Hovered) && 
+//       doc->control_state != Doc::ControlState::DraggingEdge)
+//   {
+//     vec2f local_cursor = ui.getLocalCursorPos();
+//
+//     Doc::EdgeFlags edges = 
+//       computeEdgeFlags(local_cursor, hit_size, border_hit_size);
+//
+//     if (focus.test(ui::FocusFlag::PrimaryPressed))
+//     {
+//       clicked = true;
+//       doc->drag_start = container_cursor;
+//       doc->dragged_edges = edges;
+//       doc->control_state = Doc::ControlState::DraggingEdge;
+//     }
+//   }
+//
+//   // Place the actual Window stuff.
+//   ui.beginGroup(Rect::from(hit_offset, displayed_size));
+//   {
+//     ui::ItemSkin bg = {};
+//     bg.color = 0x000000ff;
+//     bg.border = { -border_w, -border_w, -border_w, -border_w };
+//     bg.border_color = 0xaaaaaaff;
+//
+//     ui.putItem(Rect::from({0,0}, displayed_size), bg);
+//
+//     Rect header_bounds = {};
+//     header_bounds.x = 0.f;
+//     header_bounds.y = 0.f;
+//     header_bounds.w = ui.getWidth();
+//     header_bounds.h = header_h;
+//
+//     ui.putTextItem(header_bounds, doc->title, skin.doc.header.text_item);
+//
+//     ui::FocusFlags focus = 
+//       ui.putFocusableBounds("doc-window"_fid, header_bounds);
+//
+//     if (doc->control_state == Doc::ControlState::DraggingWindow)
+//     {
+//       if (focus.test(ui::FocusFlag::PrimaryReleased))
+//       {
+//         doc->control_state = Doc::ControlState::None;
+//       }
+//       else
+//       {
+//         vec2f lcur = ui.getLocalCursorPos();
+//         doc->pos += lcur - ui.focus_state.pressed_cursor_offset;
+//       }
+//     }
+//     else if (focus.test(ui::FocusFlag::PrimaryPressed))
+//     {
+//       clicked = true;
+//       doc->control_state = Doc::ControlState::DraggingWindow;
+//     }
+//
+//     const f32 close_button_size = 16.f;
+//
+//     Rect close_button_bounds = {};
+//     close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
+//     close_button_bounds.y = 
+//       floor(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h));
+//     close_button_bounds.w = close_button_size;
+//     close_button_bounds.h = close_button_size;
+//
+//     ui.putItem(close_button_bounds, skin.doc.header.close_button);
+//
+//     ui::FocusFlags close_focus = 
+//       ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
+//
+//     if (close_focus.test(ui::FocusFlag::PrimaryReleased))
+//       doc->flags.set(Doc::Flag::ToBeClosed);
+//
+//     Rect content_bounds = {};
+//     content_bounds.x = border_w;
+//     content_bounds.y = header_h;
+//     content_bounds.w = ui.getWidth() - 2 * border_w;
+//     content_bounds.h = ui.getHeight() - border_w - header_h;
+//
+//     ui.beginGroup(content_bounds);
+//     doc->placeUI(ui, skin);
+//     ui.endGroup();
+//   }
+//   ui.endGroup();
+//   ui.endGroup();
+//
+//   return clicked;
+// }
 
 /* ----------------------------------------------------------------------------
  */
@@ -717,60 +907,117 @@ static void setCursorStateDivider(DocMgr& self, DocTreeNode::State split)
 
 /* ----------------------------------------------------------------------------
  */
+static void putDocTreeNodeSingle(
+    DocMgr& self, 
+    ui::UI& ui, 
+    DocTreeNode* node,
+    const EditorSkinDef& skin)
+{
+  ui.pushId(ui.generateIdFromPointer(node->doc));
+    
+  Rect header_bounds = {};
+  header_bounds.x = 0.f;
+  header_bounds.y = 0.f;
+  header_bounds.w = ui.getWidth();
+  header_bounds.h = 15.f;
+
+  ui.putTextItem(header_bounds, node->doc->title, skin.doc.header.text_item);
+
+  const f32 close_button_size = 16.f;
+
+  Rect close_button_bounds = 
+  {
+    .x = header_bounds.extent().x - close_button_size - 4.f,
+    .y = floorf(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h)),
+    .w = close_button_size,
+    .h = close_button_size,
+  };
+
+  ui.putItem(close_button_bounds, skin.doc.header.close_button);
+
+  ui::FocusFlags close_focus = 
+    ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
+
+  if (close_focus.test(ui::FocusFlag::PrimaryReleased))
+    node->doc->flags.set(Doc::Flag::ToBeClosed);
+
+  Rect content_bounds = {};
+  content_bounds.x = 0.f;
+  content_bounds.y = header_bounds.h;
+  content_bounds.w = ui.getWidth();
+  content_bounds.h = ui.getHeight() - content_bounds.y;
+
+  ui.beginGroup(content_bounds);
+  // node->doc->placeUI(ui, skin);
+  ui.endGroup();
+
+  ui.putQuad(content_bounds, 0x44444499);
+
+  io::SmallBuffer<128> ppbuf;
+  io::formatv(&ppbuf, node, '\n');
+  rtr::prettyPrint(&ppbuf, *node);
+  ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
+
+  ui.popId();
+}
+
 static void putDocTreeNode(
+    DocMgr& self, 
+    ui::UI& ui,
+    DocTreeNode* node,
+    const EditorSkinDef& skin);
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 putDocTreeNodeSplitCornerTests(
+    DocMgr& self, 
+    ui::UI& ui,
+    DocTreeNode* node,
+    Rect child_bounds,
+    const EditorSkinDef& skin)
+{
+  f32 t = child_bounds.y;
+  f32 l = child_bounds.x;
+  f32 b = child_bounds.extentY();
+  f32 r = child_bounds.extentX();
+
+  vec2f corner_size = vec2f(4, 4);
+
+  Rect corner_bounds = Rect::from(vec2f(0,0), corner_size);
+
+  b8 hit = false;
+
+  auto putTest = [&](ui::ItemId id, f32 x, f32 y)
+  {
+    corner_bounds.setPos(x, y); 
+    // ui.putQuad(corner_bounds, 0xff0000ff);
+
+    ui::FocusFlags corner_focus = ui.putFocusableBounds(id, corner_bounds);
+
+    if (corner_focus.test(ui::FocusFlag::Hovered))
+      setCursorState(self, CursorState::Cross);
+
+    if (corner_focus.test(ui::FocusFlag::PrimaryPressed))
+      hit = true;
+  };
+
+  putTest("tl-hit"_fid, l, t);
+  putTest("tr-hit"_fid, r - corner_size.x, t);
+  putTest("br-hit"_fid, r - corner_size.x, b - corner_size.x);
+  putTest("bl-hit"_fid, l, b - corner_size.x);
+
+  return hit;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putDocTreeNodeSplit(
     DocMgr& self, 
     ui::UI& ui,
     DocTreeNode* node,
     const EditorSkinDef& skin)
 {
   using enum DocTreeNode::State;
-
-  if (node->state == Invalid)
-    return;
-
-  if (node->state == Single)
-  {
-    ui.pushId(ui.generateIdFromPointer(node->doc));
-      
-    Rect header_bounds = {};
-    header_bounds.x = 0.f;
-    header_bounds.y = 0.f;
-    header_bounds.w = ui.getWidth();
-    header_bounds.h = 15.f;
-
-    ui.putTextItem(header_bounds, node->doc->title, skin.doc.header.text_item);
-
-    const f32 close_button_size = 16.f;
-
-    Rect close_button_bounds = {};
-    close_button_bounds.x = header_bounds.extent().x - close_button_size - 4.f;
-    close_button_bounds.y = 
-      floor(0.5f * (header_bounds.h - skin.doc.header.close_button.uv.h));
-    close_button_bounds.w = close_button_size;
-    close_button_bounds.h = close_button_size;
-
-    ui.putItem(close_button_bounds, skin.doc.header.close_button);
-
-    ui::FocusFlags close_focus = 
-      ui.putFocusableBounds("doc-close"_fid, close_button_bounds);
-
-    if (close_focus.test(ui::FocusFlag::PrimaryReleased))
-      node->doc->flags.set(Doc::Flag::ToBeClosed);
-
-    Rect content_bounds = {};
-    content_bounds.x = 0.f;
-    content_bounds.y = header_bounds.h;
-    content_bounds.w = ui.getWidth();
-    content_bounds.h = ui.getHeight() - content_bounds.y;
-
-    ui.beginGroup(content_bounds);
-    node->doc->placeUI(ui, skin);
-    ui.endGroup();
-      
-    ui.popId();
-
-    return;
-  }
 
   ui.pushId(ui.generateIdFromPointer(node));
   defer { ui.popId(); };
@@ -781,25 +1028,23 @@ static void putDocTreeNode(
 
   Rect bounds = ui.getBounds();
 
-  u32 child_count = 0;
-  f32 ratio_sum = 0.f;
-  for (DocTreeNode* child = node->split.first; child; child = child->next)
-  {
-    child_count += 1;
-    ratio_sum += child->ratio;
-  }
+  u32 child_count = calcSplitCount(node);
 
   s32 num_dividers = child_count - 1;
 
-  const f32 divider_size = 4.f;
+  const f32 divider_size = skin.doc.divider_size;
   const f32 divider_half_size = divider_size / 2.f;
 
   f32 total_divider_size = divider_size * num_dividers;
 
-  f32 children_space = is_h_split? bounds.h : bounds.w - total_divider_size;
+  f32 children_space = 0.f;
+  if (is_h_split)
+    children_space = bounds.h - total_divider_size;
+  else
+    children_space = bounds.w - total_divider_size;
 
-  f32 prev_end = 0.f;
-  f32 ratio_accumulator = 0.f;
+  f32 pos = 0.f;
+  f32 size_accumulator = 0.f;
   u32 child_idx = 0;
   for (DocTreeNode* child = node->split.first; child; 
        child = child->next, child_idx += 1)
@@ -809,15 +1054,16 @@ static void putDocTreeNode(
 
     Rect child_bounds = {};
 
-    ratio_accumulator += child->ratio;
+    // assert(ratio_accumulator <= 1.f);
 
-    f32 start = prev_end + (child_idx > 0? divider_size : 0);
-    f32 end = 
-      round(children_space * ratio_accumulator / ratio_sum) + 
-      divider_size * child_idx;
+    f32 start = pos;
+    f32 end = start + child->size;
 
-    prev_end = end;
-    
+    // if (is_h_split)
+    //   assert(end <= bounds.h);
+    // else
+    //   assert(end <= bounds.w);
+
     if (is_h_split)
     {
       child_bounds.x = bounds.x;
@@ -833,29 +1079,75 @@ static void putDocTreeNode(
       child_bounds.h = bounds.h;
     }
 
+    pos = end;
+
     ui.beginPanel("doc-content"_fid, child_bounds);
     {
       putDocTreeNode(self, ui, child, skin);
     }
     ui.endPanel();
 
-    Rect bl_bounds = {};
-    bl_bounds.x = child_bounds.x;
-    bl_bounds.y = child_bounds.extentY() - divider_size * 2.f;
-    bl_bounds.w = divider_size * 2.f;
-    bl_bounds.h = divider_size * 2.f;
-
-    ui.putQuad(bl_bounds, 0xff0000ff);
-
-    ui::FocusFlags bl_focus = 
-      ui.putFocusableBounds("bl-hit"_fid, bl_bounds);
-
-    if (bl_focus.test(ui::FocusFlag::Hovered))
+    if (!child->isSplit())
     {
-      setCursorState(self, CursorState::Cross);
-      println("hover");
+      b8 corner_hit = 
+        putDocTreeNodeSplitCornerTests(
+          self,
+          ui,
+          node,
+          child_bounds,
+          skin);
+
+      if (corner_hit)
+        child->splitting = true;
     }
 
+    if (child->splitting)
+    {
+      vec2f child_local = local_cursor - child_bounds.pos();
+      
+      DocTreeNode::State split;
+      Rect split_divider_bounds = {};
+      f32 cursor_ratio = 0.5f;
+      
+      f32 x_test = child_bounds.h / child_bounds.w * child_local.x;
+
+      if (x_test >= child_local.y)
+      {
+        split_divider_bounds.x = child_bounds.x + child_local.x;
+        split_divider_bounds.y = child_bounds.y;
+        split_divider_bounds.w = skin.doc.divider_size;
+        split_divider_bounds.h = child_bounds.h;
+        split = SplitV;
+        cursor_ratio = child_local.x / child_bounds.w;
+      }
+      else
+      {
+        split_divider_bounds.x = child_bounds.x;
+        split_divider_bounds.y = child_bounds.y + child_local.y;
+        split_divider_bounds.w = child_bounds.w;
+        split_divider_bounds.h = skin.doc.divider_size;
+        split = SplitH;
+        cursor_ratio = child_local.y / child_bounds.h;
+      }
+
+      if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+      {
+        println(cursor_ratio);
+
+        openDoc(
+          self,
+          child->doc->type,
+          child,
+          split,
+          SplitSide::A,
+          cursor_ratio);
+
+        child->splitting = false;
+      }
+
+      ui.putQuad(split_divider_bounds, 0xffffffff);
+    }
+  
     if (child->next != nullptr)
     {
       Rect divider_bounds = {};
@@ -874,6 +1166,8 @@ static void putDocTreeNode(
         divider_bounds.w = divider_size;
         divider_bounds.h = bounds.h;
       }
+
+      pos += divider_size;
 
       ui.putQuad(divider_bounds, 0x666666ff);
 
@@ -898,37 +1192,32 @@ static void putDocTreeNode(
         else
           cursor_offset = local_cursor.x - child_bounds.x;
         
-        // Figure out what pixel the next child is meant to end at.
-        f32 next_ratio_accum = ratio_accumulator + child->next->ratio;
-        f32 next_end = 
-          round(children_space * next_ratio_accum / ratio_sum) + 
-          divider_size * (child_idx + 1);
-
-        // Compute the ratio of the cursor's offset and the total width of 
-        // the 
-        f32 siblings_width = next_end - start;
-        f32 cursor_ratio = cursor_offset / siblings_width;
-
-        // Clamp ratio to kinda avoid crashing the editor.
-        cursor_ratio = max(0.1f, min(0.9f, cursor_ratio));
-
-        // Can probably simplify this.
-        f32 prev_ratio_accum = ratio_accumulator - child->ratio;
-        f32 total_ratio_need = next_ratio_accum - prev_ratio_accum;
-
-        child->ratio = cursor_ratio * total_ratio_need;
-        child->next->ratio = total_ratio_need - child->ratio;
-
-        // Make sure that ratio_accumulator will be what will give the same 
-        // end as the next_end we computed above.
-        ratio_accumulator = next_ratio_accum - child->next->ratio;
-
         if (ui.getFocus().test(ui::FocusFlag::PrimaryReleased))
           child->dragging = false;
       }
-
     }
   }
+
+  ui.putQuad(bounds.contracted(30.f), 0x33eeaa33);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putDocTreeNode(
+    DocMgr& self, 
+    ui::UI& ui,
+    DocTreeNode* node,
+    const EditorSkinDef& skin)
+{
+  using enum DocTreeNode::State;
+
+  if (node->state == Invalid)
+    return;
+
+  if (node->state == Single)
+    putDocTreeNodeSingle(self, ui, node, skin);
+  else
+    putDocTreeNodeSplit(self, ui, node, skin);
 }
 
 /* ----------------------------------------------------------------------------
@@ -941,26 +1230,26 @@ void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     &tree_root,
     skin);
 
-  b8 clicked = false;
-  u32 clicked_idx = 0;
-  for (u32 iorder = 0; iorder < order.len(); ++iorder)
-  {
-    u32 ordered_idx = order[iorder];
-
-    if (putDocWindow(ui, docs[ordered_idx].doc, skin) &&
-        !clicked)
-    {
-      clicked = true;
-      clicked_idx = iorder;
-    }
-  }
-
-  if (clicked)
-  {
-    u32 doc_idx = order[clicked_idx];
-    order.remove(clicked_idx);
-    order.push(doc_idx);
-  }
+  // b8 clicked = false;
+  // u32 clicked_idx = 0;
+  // for (u32 iorder = 0; iorder < order.len(); ++iorder)
+  // {
+  //   u32 ordered_idx = order[iorder];
+  //
+  //   if (putDocWindow(ui, docs[ordered_idx], skin) &&
+  //       !clicked)
+  //   {
+  //     clicked = true;
+  //     clicked_idx = iorder;
+  //   }
+  // }
+  //
+  // if (clicked)
+  // {
+  //   u32 doc_idx = order[clicked_idx];
+  //   order.remove(clicked_idx);
+  //   order.push(doc_idx);
+  // }
 }
 
 /* ----------------------------------------------------------------------------
@@ -971,86 +1260,30 @@ void DocMgr::update()
   closeDocs(*this, false);
 
   // Update each open doc.
-  for (TrackedDoc& tdoc : docs)
-    tdoc.doc->update();
+  for (Doc* doc : docs)
+    doc->update();
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::render(gfx::Vulkan& vk)
 {
-  for (TrackedDoc& tdoc : docs)
-    tdoc.doc->render(vk);
+  for (Doc* doc : docs)
+    doc->render(vk);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::cacheDocState()
 {
-  SourceDataFile sfile;
-  sfile.init();
-  defer { sfile.deinit(); };
 
-  SourceData* ret = sfile.addReturnData();
-
-  ret->setObject(nil);
-
-  SourceData* sdocs = ret->addObject(sfile, "docs"_str);
-
-  for (TrackedDoc& tdoc : docs)
-  {
-    SourceData* sdoc = sdocs->addObject(sfile, nil);
-    sdoc->addStringValue(sfile, "title"_str, tdoc.doc->title);
-    sdoc->addVec2(sfile, "pos"_str, tdoc.doc->pos);
-    sdoc->addVec2(sfile, "size"_str, tdoc.doc->size);
-    sdoc->addStringValue(sfile, "type"_str, docNameFromTypeId(tdoc.type));
-  }
-
-  SourceData* sorder = ret->addObject(sfile, "order"_str);
-
-  for (u32 o : order)
-    sorder->addUIntValue(sfile, o);
-
-  editor->cacheSourceDataFile(sfile, "doc-state"_str);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::loadCachedDocState()
 {
-  SourceDataFile sfile;
-  defer { sfile.deinit(); };
 
-  if (!editor->loadCachedSourceDataFile(&sfile, "doc-state"_str))
-    return;
-
-  // Close all currently open docs. 
-  // TODO(sushi) probably not the best behavior.
-  closeDocs(*this, true);
-
-  SourceData* ret = sfile.returned_data;
-
-  SourceData* docs = ret->findChildByName("docs"_str);
-
-  for (SourceData* child : docs->children)
-  {
-    String title = child->findChildByName("title"_str)->val.str.allocateCopy();
-    vec2f pos    = child->findChildByName("pos"_str)->as_vec2f();
-    vec2f size   = child->findChildByName("size"_str)->as_vec2f();
-    String type  = child->findChildByName("type"_str)->val.str;
-
-    Doc* doc = open(type);
-    doc->title = title;
-    doc->size = size;
-    doc->pos = pos;
-  }
-
-  order.clear();
-
-  SourceData* cached_order = ret->findChildByName("order"_str);
-
-  for (SourceData* o : cached_order->children)
-    order.push(o->as_u64());
 }
 
 }

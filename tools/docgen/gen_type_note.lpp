@@ -1,0 +1,100 @@
+$ local lpp = require "lpp"
+$ local ast = require "reflect.ast"
+$ local helper = require "tools.docgen.helper"
+$ local header, astctx = helper.parseHeader()
+$ local type = helper.getType()
+$ local decl = astctx:lookupDecl(type)
+$ if not decl then
+$   error("failed to get decl for type "..type)
+$ end
+$ local function decl_link(decl)
+$   return "[["..decl:formCSafeName().."|"..decl.qname.."]]"
+$ end
+$ local function type_link(type)
+$   local type = type:desugar()
+$   if type:is(ast.Builtin) then
+$     return "[["..type.name.."]]"
+$   elseif type:is(ast.TagType) then
+$     return decl_link(type.decl)
+$   end
+$ end
+---
+aliases: [ "$(decl.qname)" ]
+tags:
+- "_generated_"
+$ if decl:is(ast.Record) then
+- "Record"
+$   if decl:is(ast.Template) then
+- "Template"
+$   elseif decl:is(ast.Struct) then
+- "Struct"
+$   end
+$ end
+$ if decl:is(ast.Enum) then
+- "Enum"
+$ end
+qname: $(decl.qname)
+$ if decl:is(ast.Record) then
+record_decl:
+  size: $(decl.type.size)
+  field_count: $(decl:countFields())
+  fields:
+$ for field in decl:eachField() do
+  - name: $(field.name)
+    type: "$(type_link(field.type) or "unknown")"
+$ end
+$ if decl.base then
+  derives_from: "$(decl_link(decl.base))"
+$ end
+$ elseif decl:is(ast.Enum) then
+enum_decl:
+  elems:
+$   for elem in decl.elems:each() do
+    - $(elem.name)
+$   end
+$ end
+$ if decl.namespace then
+in_namespace: $(decl.namespace.name)
+$ end
+---
+
+# $(decl.qname)
+---
+$ for line in decl.comment:gmatch "/// ([^\n]+)" do
+> $(line)
+$ end
+
+$ if decl.namespace then
+in namespace [[ns_$(decl.namespace:formCSafeName())|decl.namespace.name]]
+$ end
+
+Defined at [[$(decl.loc.source)]]:$(decl.loc.line)
+$ if decl.parent then
+Has parent $(decl_link(decl.parent)).
+$ end
+$ if decl:is(ast.Record) then
+$   if decl.base then
+Derives from $(decl_link(decl.base))
+$   end
+
+## Fields
+---
+$   for field in decl:eachField() do
+> $(field.name) 
+
+$     local type = field.type:desugar()
+$     if type:is(ast.Builtin) then
+builtin [[$(type.name)]].
+$     elseif type:is(ast.TagType) then
+$(decl_link(type.decl)).
+$     elseif type:is(ast.Pointer) then
+$       local subtype = type.subtype:desugar()
+$       if subtype:is(ast.TagType) then
+pointer to $(decl_link(subtype.decl)).
+$       end
+$     else
+unhandled:
+  $(tostring(type))
+$     end
+$   end
+$ end

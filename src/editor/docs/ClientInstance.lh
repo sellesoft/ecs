@@ -78,6 +78,7 @@ struct ClientThread
 
 /* ============================================================================
  */
+/// An [[editor_document]] that controls an instance of a game client.
 struct ClientInstance : Doc
 {
   using S = ClientInstance;

@@ -1,0 +1,19 @@
+$ local lpp = require "lpp"
+$ local ast = require "reflect.ast"
+$ local helper = require "tools.docgen.helper"
+$ local header, astctx = helper.parseHeader()
+$ local ns = helper.getArg "namespace"
+---
+tags: Namespace
+---
+
+Has types:
+```dataviewjs
+for (const page of dv.pages())
+{
+  if (page.in_namespace == "$(ns)")
+  {
+    dv.span(`\${dv.fileLink(page.file.path, false, page.qname)}<br>`)
+  }
+}
+```

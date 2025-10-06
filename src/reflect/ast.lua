@@ -1120,9 +1120,7 @@ Template.dump = function(self, dump)
   end)
 end
 
---- A specialization of a template. Note that at the moment, we don't support
---- representing the specialized template decl as an ast.Decl. We just store
---- its name. I don't remember why. Maybe we should...
+--- A specialization of a template. 
 ---
 --- @class ast.TemplateSpec : ast.Record
 ---
@@ -1252,6 +1250,9 @@ for k,v in pairs(ast) do
     if not v.dump then
       error(k.." does not define a dump method")
     end
+    
+    v.is_ast_node = true
+    v.node_name = k
   end
 end
 

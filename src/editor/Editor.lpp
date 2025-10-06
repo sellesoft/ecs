@@ -236,7 +236,7 @@ $ end
     success = window.init(params.engine, "ecs editor"_str, input);
   })
 
-  // window.hideCursor();
+  window.hideCursor();
 
   @initSubSystem(Vulkan,
   {

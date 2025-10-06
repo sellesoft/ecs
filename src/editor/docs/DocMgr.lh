@@ -47,6 +47,8 @@ struct DocTreeNode
   f32 size = 1.f;
   Doc* doc = nullptr;
 
+  vec2f last_displayed_size;
+
   DocTreeNode* parent = nullptr;
   DocTreeNode* next = nullptr;
 
@@ -72,6 +74,9 @@ struct DocMgr
   Pool<DocTreeNode> tree_nodes;
 
   DocTreeNode tree_root;
+
+  DocTreeNode* dragging_node = nullptr;
+  f32 drag_desired_size = 0.f;
 
   b8 init(Editor& editor);
   void deinit();

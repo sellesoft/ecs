@@ -244,11 +244,18 @@ static void removeNodeFromContainer(
         // and inject consumed's nodes after it.
         DocTreeNode* prev = findPrevNodeInContainer(container, parent);
 
-        consumed->split.last->next = prev->next;
+        consumed->split.last->next = container->next;
         prev->next = consumed->split.first;
 
         if (parent->split.last == container)
           parent->split.last = consumed->split.last;
+      }
+
+      // Reparent consumed's children.
+      for (DocTreeNode* child = consumed->split.first; child; 
+           child = child->next)
+      {
+        child->parent = parent;
       }
 
       // Delete the container node.
@@ -261,6 +268,12 @@ static void removeNodeFromContainer(
       container->state = consumed->state;
       container->split = consumed->split;
       container->doc = consumed->doc;
+
+      for (DocTreeNode* child = consumed->split.first; child; 
+           child = child->next)
+      {
+        child->parent = container;
+      }
     }
 
     // Delete the consumed node.
@@ -454,7 +467,7 @@ static inline DocTreeNode* insertNode(
 
 /* ----------------------------------------------------------------------------
  */
-static inline DocTreeNode* splitSingle(
+static DocTreeNode* splitSingle(
     DocMgr& self, 
     DocTreeNode* target,
     DocTreeNode::State split,
@@ -464,6 +477,12 @@ static inline DocTreeNode* splitSingle(
   using enum DocTreeNode::State;
 
   assert(target->state == Single);
+
+  f32 size_to_split;
+  if (split == SplitV)
+    size_to_split = target->last_displayed_size.x;
+  else
+    size_to_split = target->last_displayed_size.y;
 
   DocTreeNode* parent = target->parent;
   if (parent != nullptr && parent->state == split)
@@ -524,16 +543,16 @@ static inline DocTreeNode* splitSingle(
       target->split.first = b;
       target->split.last = a;
       b->next = a;
-      a->size = floor(split_ratio * target->size);
-      b->size = target->size - a->size;
+      b->size = floor(split_ratio * size_to_split);
+      a->size = size_to_split - b->size;
     }
     else
     {
       target->split.first = a;
       target->split.last = b;
       a->next = b;
-      b->size = floor(split_ratio * target->size);
-      a->size = target->size - b->size;
+      a->size = floor(split_ratio * size_to_split);
+      b->size = size_to_split - a->size;
     }
 
     target->state = split;
@@ -563,18 +582,25 @@ static inline DocTreeNode* splitSplit(
   if (target->state == split)
     return insertNode(self, target, side, split_ratio);
 
+  f32 size_to_split;
+  if (split == SplitV)
+    size_to_split = target->last_displayed_size.x;
+  else
+    size_to_split = target->last_displayed_size.y;
+
   // Otherwise we need to create a new split.
   DocTreeNode* a = self.tree_nodes.add();
   a->state = target->state;
   a->split = target->split;
-  a->size = split_ratio;
-  a->needs_sized = true;
+  a->size = floor(split_ratio * size_to_split);
   a->parent = target;
 
+  for (DocTreeNode* child = target->split.first; child; child = child->next)
+    child->parent = a;
+
   DocTreeNode* b = self.tree_nodes.add();
-  b->size = 1.f - a->size;
+  b->size = size_to_split - a->size;
   b->parent = target;
-  b->needs_sized = true;
 
   if (side == SplitSide::A)
   {
@@ -655,7 +681,6 @@ static Doc* openDoc(
     destination->state = Single;
     destination->doc = doc;
     destination->size = 1.f;
-    destination->needs_sized = true;
   }
   else
   {
@@ -948,15 +973,15 @@ static void putDocTreeNodeSingle(
   content_bounds.h = ui.getHeight() - content_bounds.y;
 
   ui.beginGroup(content_bounds);
-  // node->doc->placeUI(ui, skin);
+  node->doc->placeUI(ui, skin);
   ui.endGroup();
 
-  ui.putQuad(content_bounds, 0x44444499);
-
-  io::SmallBuffer<128> ppbuf;
-  io::formatv(&ppbuf, node, '\n');
-  rtr::prettyPrint(&ppbuf, *node);
-  ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
+  // ui.putQuad(content_bounds, 0x44444499);
+  //
+  // io::SmallBuffer<128> ppbuf;
+  // io::formatv(&ppbuf, node, '\n');
+  // rtr::prettyPrint(&ppbuf, *node);
+  // ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
 
   ui.popId();
 }
@@ -1011,6 +1036,217 @@ static b8 putDocTreeNodeSplitCornerTests(
 
 /* ----------------------------------------------------------------------------
  */
+static void handleDocTreeNodeSplitting(
+    DocMgr& self,
+    ui::UI& ui,
+    DocTreeNode* node,
+    Rect node_bounds,
+    vec2f local_cursor,
+    const EditorSkinDef& skin)
+{
+  using enum DocTreeNode::State;
+
+  if (!node->isSplit())
+  {
+    if (putDocTreeNodeSplitCornerTests(
+          self,
+          ui,
+          node,
+          node_bounds,
+          skin))
+      node->splitting = true;
+  }
+
+  if (!node->splitting)
+    return;
+
+  vec2f child_local = local_cursor - node_bounds.pos();
+
+  DocTreeNode::State split;
+  Rect split_divider_bounds = {};
+  f32 cursor_ratio = 0.5f;
+
+  // Scale x so that the dividing line between h or v split is along the 
+  // diagonal of the node. Would like to do this better eventually.
+  f32 x_test = node_bounds.h / node_bounds.w * child_local.x;
+
+  if (x_test >= child_local.y)
+  {
+    split_divider_bounds.x = node_bounds.x + child_local.x;
+    split_divider_bounds.y = node_bounds.y;
+    split_divider_bounds.w = skin.doc.divider_size;
+    split_divider_bounds.h = node_bounds.h;
+    split = SplitV;
+    cursor_ratio = child_local.x / node_bounds.w;
+  }
+  else
+  {
+    split_divider_bounds.x = node_bounds.x;
+    split_divider_bounds.y = node_bounds.y + child_local.y;
+    split_divider_bounds.w = node_bounds.w;
+    split_divider_bounds.h = skin.doc.divider_size;
+    split = SplitH;
+    cursor_ratio = child_local.y / node_bounds.h;
+  }
+
+  if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+  {
+    openDoc(
+        self,
+        node->doc->type,
+        node,
+        split,
+        SplitSide::A,
+        cursor_ratio);
+
+    node->splitting = false;
+  }
+
+  ui.putQuad(split_divider_bounds, 0xffffffff);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void addValueToSinglesAtEdgeOfSplits(
+    DocTreeNode* node,
+    DocTreeNode* root,
+    DocTreeNode::State split,
+    SplitSide side,
+    f32 val)
+{
+  using enum DocTreeNode::State;
+
+  if (node == nullptr)
+    return;
+
+  if (node->state == split)
+  {
+    DocTreeNode* side_node = side == SplitSide::A
+      ? node->split.first 
+      : node->split.last;
+    addValueToSinglesAtEdgeOfSplits(
+      side_node, 
+      root, 
+      split, 
+      side,
+      val);
+
+    return;
+  }
+
+  if (node->isSplit())
+  {
+    for (DocTreeNode* child = node->split.first; child; child = child->next)
+    {
+      addValueToSinglesAtEdgeOfSplits(
+        child, 
+        root, 
+        split, 
+        side,
+        val);
+    }
+  }
+
+  if (node != root && 
+      node->parent != nullptr &&
+      node->parent->state == split)
+  {
+    node->size += val;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 putDocTreeNodeDivider(
+    DocMgr& self,
+    ui::UI& ui,
+    Rect bounds,
+    DocTreeNode* node,
+    Rect node_bounds,
+    DocTreeNode::State split_state,
+    vec2f local_cursor,
+    f32 divider_size,
+    b8 is_h_split,
+    f32 pos,
+    const EditorSkinDef& skin)
+{
+  using enum DocTreeNode::State;
+
+  Rect divider_bounds = {};
+
+  if (is_h_split)
+  {
+    divider_bounds.x = bounds.x;
+    divider_bounds.y = node_bounds.extentY();
+    divider_bounds.w = bounds.w;
+    divider_bounds.h = divider_size;
+  }
+  else
+  {
+    divider_bounds.x = node_bounds.extentX();
+    divider_bounds.y = bounds.y;
+    divider_bounds.w = divider_size;
+    divider_bounds.h = bounds.h;
+  }
+
+  ui.putQuad(divider_bounds, 0x666666ff);
+
+  ui::FocusFlags divider_focus = 
+    ui.putFocusableBounds("divider"_fid, divider_bounds);
+
+  if (divider_focus.test(ui::FocusFlag::Hovered))
+    setCursorStateDivider(self, split_state);
+
+  if (divider_focus.test(ui::FocusFlag::PrimaryPressed))
+  {
+    self.dragging_node = node;
+    node->dragging = true;
+  }
+
+  if (node->dragging)
+  {
+    setCursorStateDivider(self, split_state);
+
+    // Find the offset of the cursor into this pair along the proper 
+    // split axis.
+    f32 cursor_offset = 0.f;
+    if (is_h_split)
+      cursor_offset = local_cursor.y - node_bounds.y;
+    else
+      cursor_offset = local_cursor.x - node_bounds.x;
+
+    cursor_offset = floor(cursor_offset);
+
+    self.drag_desired_size = cursor_offset;
+  }
+
+  return pos + divider_size;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Rect computeChildBounds(Rect bounds, f32 start, f32 end, b8 is_h_split)
+{
+  Rect child_bounds;
+  if (is_h_split)
+  {
+    child_bounds.x = bounds.x;
+    child_bounds.y = start;
+    child_bounds.w = bounds.w;
+    child_bounds.h = end - start;
+  }
+  else
+  {
+    child_bounds.x = start;
+    child_bounds.y = bounds.y;
+    child_bounds.w = end - start;
+    child_bounds.h = bounds.h;
+  }
+  return child_bounds;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void putDocTreeNodeSplit(
     DocMgr& self, 
     ui::UI& ui,
@@ -1044,7 +1280,7 @@ static void putDocTreeNodeSplit(
     children_space = bounds.w - total_divider_size;
 
   f32 pos = 0.f;
-  f32 size_accumulator = 0.f;
+  f32 size_sum = 0.f;
   u32 child_idx = 0;
   for (DocTreeNode* child = node->split.first; child; 
        child = child->next, child_idx += 1)
@@ -1052,32 +1288,12 @@ static void putDocTreeNodeSplit(
     ui.pushId(ui.generateIdFromPointer(child));
     defer { ui.popId(); };
 
-    Rect child_bounds = {};
-
-    // assert(ratio_accumulator <= 1.f);
-
     f32 start = pos;
     f32 end = start + child->size;
 
-    // if (is_h_split)
-    //   assert(end <= bounds.h);
-    // else
-    //   assert(end <= bounds.w);
+    size_sum += child->size;
 
-    if (is_h_split)
-    {
-      child_bounds.x = bounds.x;
-      child_bounds.y = start;
-      child_bounds.w = bounds.w;
-      child_bounds.h = end - start;
-    }
-    else
-    {
-      child_bounds.x = start;
-      child_bounds.y = bounds.y;
-      child_bounds.w = end - start;
-      child_bounds.h = bounds.h;
-    }
+    Rect child_bounds = computeChildBounds(bounds, start, end, is_h_split);
 
     pos = end;
 
@@ -1087,118 +1303,67 @@ static void putDocTreeNodeSplit(
     }
     ui.endPanel();
 
-    if (!child->isSplit())
-    {
-      b8 corner_hit = 
-        putDocTreeNodeSplitCornerTests(
-          self,
-          ui,
-          node,
-          child_bounds,
-          skin);
-
-      if (corner_hit)
-        child->splitting = true;
-    }
-
-    if (child->splitting)
-    {
-      vec2f child_local = local_cursor - child_bounds.pos();
-      
-      DocTreeNode::State split;
-      Rect split_divider_bounds = {};
-      f32 cursor_ratio = 0.5f;
-      
-      f32 x_test = child_bounds.h / child_bounds.w * child_local.x;
-
-      if (x_test >= child_local.y)
-      {
-        split_divider_bounds.x = child_bounds.x + child_local.x;
-        split_divider_bounds.y = child_bounds.y;
-        split_divider_bounds.w = skin.doc.divider_size;
-        split_divider_bounds.h = child_bounds.h;
-        split = SplitV;
-        cursor_ratio = child_local.x / child_bounds.w;
-      }
-      else
-      {
-        split_divider_bounds.x = child_bounds.x;
-        split_divider_bounds.y = child_bounds.y + child_local.y;
-        split_divider_bounds.w = child_bounds.w;
-        split_divider_bounds.h = skin.doc.divider_size;
-        split = SplitH;
-        cursor_ratio = child_local.y / child_bounds.h;
-      }
-
-      if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
-      {
-        println(cursor_ratio);
-
-        openDoc(
-          self,
-          child->doc->type,
-          child,
-          split,
-          SplitSide::A,
-          cursor_ratio);
-
-        child->splitting = false;
-      }
-
-      ui.putQuad(split_divider_bounds, 0xffffffff);
-    }
+    handleDocTreeNodeSplitting(
+      self, 
+      ui,
+      child,
+      child_bounds,
+      local_cursor,
+      skin);
   
     if (child->next != nullptr)
     {
-      Rect divider_bounds = {};
-      
-      if (is_h_split)
+      pos = 
+        putDocTreeNodeDivider(
+          self,
+          ui,
+          bounds,
+          child,
+          child_bounds,
+          node->state,
+          local_cursor,
+          divider_size,
+          is_h_split,
+          pos,
+          skin);
+     }
+  }
+
+  f32 desired_pos = is_h_split? bounds.h : bounds.w;
+  if (pos != desired_pos)
+  {
+    f32 size_sum = getSplitRatioSum(node);
+
+    f32 diff = size_sum - children_space;
+
+    if (diff > 0)
+    {
+      f32 remaining = diff;
+      for (DocTreeNode* child = node->split.first; child; child = child->next)
       {
-        divider_bounds.x = bounds.x;
-        divider_bounds.y = child_bounds.extentY();
-        divider_bounds.w = bounds.w;
-        divider_bounds.h = divider_size;
+        f32 take = floor((child->size / size_sum) * diff);
+        child->size -= take;
+        remaining -= take;
+        if (child->next == nullptr)
+          child->size -= remaining;
       }
-      else
+    }
+    else 
+    {
+      diff = -diff;
+      f32 remaining = diff;
+      for (DocTreeNode* child = node->split.first; child; child = child->next)
       {
-        divider_bounds.x = child_bounds.extentX();
-        divider_bounds.y = bounds.y;
-        divider_bounds.w = divider_size;
-        divider_bounds.h = bounds.h;
-      }
-
-      pos += divider_size;
-
-      ui.putQuad(divider_bounds, 0x666666ff);
-
-      ui::FocusFlags divider_focus = 
-        ui.putFocusableBounds("divider"_fid, divider_bounds);
-
-      if (divider_focus.test(ui::FocusFlag::Hovered))
-        setCursorStateDivider(self, node->state);
-
-      if (divider_focus.test(ui::FocusFlag::PrimaryPressed))
-        child->dragging = true;
-
-      if (child->dragging)
-      {
-        setCursorStateDivider(self, node->state);
-
-        // Find the offset of the cursor into this pair along the proper 
-        // split axis.
-        f32 cursor_offset = 0.f;
-        if (is_h_split)
-          cursor_offset = local_cursor.y - child_bounds.y;
-        else
-          cursor_offset = local_cursor.x - child_bounds.x;
-        
-        if (ui.getFocus().test(ui::FocusFlag::PrimaryReleased))
-          child->dragging = false;
+        f32 take = floor((child->size / size_sum) * diff);
+        child->size += take;
+        remaining -= take;
+        if (child->next == nullptr)
+          child->size += remaining;
       }
     }
   }
 
-  ui.putQuad(bounds.contracted(30.f), 0x33eeaa33);
+  // ui.putQuad(bounds.contracted(30.f), 0x33eeaa33);
 }
 
 /* ----------------------------------------------------------------------------
@@ -1218,12 +1383,64 @@ static void putDocTreeNode(
     putDocTreeNodeSingle(self, ui, node, skin);
   else
     putDocTreeNodeSplit(self, ui, node, skin);
+
+  node->last_displayed_size = ui.getBounds().size();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleDraggedNode(
+    DocMgr& self, 
+    ui::UI& ui, 
+    const EditorSkinDef& skin)
+{
+  using enum DocTreeNode::State;
+
+  DocTreeNode* node = self.dragging_node;
+  if (node == nullptr)
+    return;
+
+  f32 pair_size = node->size + node->next->size;
+
+  f32 old_node_size = node->size;
+
+  node->size = self.drag_desired_size;
+  node->next->size = pair_size - node->size;
+
+  f32 size_delta = old_node_size - node->size;
+
+  DocTreeNode* prev = findPrevNodeInContainer(node, node->parent);
+
+  addValueToSinglesAtEdgeOfSplits(
+    node, 
+    node,
+    node->parent->state,
+    SplitSide::B,
+    -size_delta);
+
+  addValueToSinglesAtEdgeOfSplits(
+    node->next, 
+    node->next,
+    node->parent->state,
+    SplitSide::A,
+    size_delta);
+
+  if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
+  {
+    node->dragging = false;
+    self.dragging_node = nullptr;
+  }
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
+  handleDraggedNode(
+    *this,
+    ui,
+    skin);
+
   putDocTreeNode(
     *this,
     ui,

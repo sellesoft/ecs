@@ -202,6 +202,13 @@ void Window::hideCursor()
 
 /* ----------------------------------------------------------------------------
  */
+void Window::showCursor()
+{
+  XDefineCursor(x11.display, (X11Window)handle, 0);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 Window::UpdateResult Window::update(InputMgr& input)
 {
   UpdateResult result = {};

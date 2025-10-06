@@ -64,8 +64,12 @@ $ for line in decl.comment:gmatch "/// ([^\n]+)" do
 > $(line)
 $ end
 
+$ for k,v in pairs(decl.metadata) do
+md: [[metadata_$(k)|$(k)]]: $(tostring(v))
+$ end
+
 $ if decl.namespace then
-in namespace [[ns_$(decl.namespace:formCSafeName())|decl.namespace.name]]
+in namespace [[ns_$(decl.namespace:formCSafeName())|$(decl.namespace.name)]]
 $ end
 
 Defined at [[$(decl.loc.source)]]:$(decl.loc.line)

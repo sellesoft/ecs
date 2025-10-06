@@ -577,7 +577,13 @@ $ end
   ui.endFrame();
 
   if (input.real_state.wasKeyPressed(Key::F3))
+  {
     debug_ui_enabled = !debug_ui_enabled;
+    if (debug_ui_enabled)
+      window.showCursor();
+    else
+      window.hideCursor();
+  }
 
   if (debug_ui_enabled)
     debug_ui.debug(ui, ui_input, ui_viewport);

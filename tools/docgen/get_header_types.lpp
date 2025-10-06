@@ -36,6 +36,17 @@ type
   qname = "$(type.decl.qname)",
   csafe = "$(type.decl:formCSafeName())"
 }
+$       if type.decl:is(ast.TemplateSpec) then
+$         if    type.decl.specialized.qname == "reflect::Array" 
+$            or type.decl.specialized.qname == "iro::Array"
+$         then
+type
+{
+  qname = "$(type.decl.specialized.qname)",
+  csafe = "$(type.decl.specialized:formCSafeName())"
+}
+$         end
+$       end
 $     end
 $   end
 $ end

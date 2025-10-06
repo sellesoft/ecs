@@ -4,21 +4,66 @@ local o = lake.obj
 local List = require "iro.List"
 local fs = require "iro.fs"
 
+local cfg
+local success, user_cfg = pcall(require, "build_config.user")
+if success then
+  cfg = user_cfg
+else  
+  cfg = require "build_config.debug"
+end
+
+local function set(t, k, v)
+  local dot = k:find "%."
+  if dot then
+    local tk = k:sub(1, dot-1)
+    if not t[tk] then
+      error("unknown key "..tk)
+    end
+
+    set(t[tk], k:sub(dot+1), v)
+  else
+    if t[k] == nil then
+      error("unknown key "..k)
+    end
+    if v == "true" then
+      t[k] = true
+    elseif v == "false" then
+      t[k] = false
+    else
+      local as_num = tonumber(v)
+      if as_num then
+        t[k] = as_num
+      else
+        t[k] = v
+      end
+    end
+  end
+end
+
+for arg in lake.cliargs:each() do
+  if arg:find "^." then
+    local setting = arg:sub(2)
+    local k, v = setting:match "([%.%w%d]+)=(.*)"
+    set(cfg, k, v)
+  end
+end
+
 local cwd = fs.cwd()
 
-lake.setMaxJobs(7)
+lake.setMaxJobs(cfg.max_jobs or 8)
 
 --- Directory where *all* build artifacts go. This allows a build of ecs or 
 --- any of the tools to be cleanly wiped completely by simply deleting this 
 --- directory.
-local build_dir = cwd.."/_build"
+local build_dir = cwd.."/"..cfg.build_dir
 
 --- Directory in which generated files live. This is separated such that we 
 --- can tell build tools that this is an include, require, import, etc. dir
 --- without the stuff being mixed with other build artifacts.
 local generated_dir = build_dir.."/_generated"
 
-local enable_tracy = true
+local enable_tracy = cfg.tracy.enabled
+local asan = cfg.asan
 
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
@@ -28,81 +73,59 @@ if lake.cliargs[1] == "clean" then
   return false
 end
 
--- Toggles compiling address sanitizer into the project.
--- TODO(sushi) enforce enabling this when tests are run. Don't have a command
---             for doing that yet, though.
--- TODO(sushi) command for building with/without this since it doesn't work
---             under debuggers.
-local asan = false
-local tsan = false
-
 local objs = List {}
 
-local shared_libs = List
-{
-  "X11",
-  "Xrandr",
-  "Xcursor",
-  "vulkan",
-  "shaderc_combined",
-  -- TODO(sushi) make building iro with lua state optional.
-  "luajit",
-  "hreload"
-}
+local function incwd(path)
+  if not path:find "^/" then
+    return cwd.."/"..path
+  end
+  return path
+end
 
-local static_libs = List
-{
-  "vulkan",
-  "shaderc_combined",
-}
+local shared_libs = List(cfg.link.libs)
 
-local include_dirs = List 
-{
-  cwd.."/src",
-  cwd.."/include",
-  cwd.."/third_party/include",
-  cwd.."/third_party/tracy/include",
-  generated_dir,
-}
+local lib_dirs = List(cfg.link.lib_dirs):flatten():map(incwd)
+local include_dirs = List(cfg.cpp.include_dirs):flatten():map(incwd)
 
-local lib_dirs = List
-{
-  cwd.."/lib",
-  cwd.."/third_party/lib",
-  cwd.."/third_party/lib/clang",
-  cwd.."/third_party/lib/shaderc",
-}
+include_dirs:push(generated_dir)
 
-local defines = 
-{
-  ECS_DEBUG = 1,
-  ECS_GEN_PRETTY_PRINT=1,
-  ECS_HOT_RELOAD=1,
-}
+local defines = cfg.cpp.defines
 
-if enable_tracy then
+if cfg.gen_pretty_print then
+  defines.ECS_GEN_PRETTY_PRINT = 1
+end
+
+if cfg.hreload then
+  defines.ECS_HOT_RELOAD = 1
+  shared_libs:push "hreload"
+end
+
+if cfg.cpp.debug_info then
+  defines.ECS_DEBUG = 1
+end
+
+if cfg.tracy.enabled then
   defines.TRACY_ENABLE = 1
-  defines.TRACY_CALLSTACK = 2
-  defines.TRACY_SAMPLE_HZ = 10000
+  defines.TRACY_CALLSTACK = cfg.tracy.callstack
+  defines.TRACY_SAMPLE_HZ = cfg.tracy.sample_hz
 end
 
 ---@type lake.obj.Cpp.CompileParams
 local cpp_params = 
 {
-  std="c++23",
+  std = cfg.cpp.std,
 
   defines = defines,
 
   include_paths = include_dirs,
 
-  opt = 'speed',
-  debug_info = true,
+  opt = cfg.cpp.opt,
+  debug_info = cfg.cpp.debug_info,
 
   noexceptions = true,
   nortti = true,
 
   asan = asan,
-  tsan = tsan,
 
   patchable_function_entry = 16,
 
@@ -122,11 +145,9 @@ local lpp_params =
 local link_params = 
 {
   shared_libs = shared_libs,
-  static_libs = static_libs,
   lib_dirs    = lib_dirs,
 
   asan = asan,
-  tsan = tsan,
 }
 
 local iro_objs = List {}

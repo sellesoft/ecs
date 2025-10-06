@@ -314,6 +314,13 @@ struct PersistentState
 
   void* ptr;
   u64   size;
+
+  u64 last_frame_touched;
+
+  b8 isUsed() const
+  {
+    return notnil(id) && ptr != nullptr && size != 0;
+  }
 };
 
 /* ============================================================================
@@ -330,7 +337,7 @@ struct PersistentStateMgr
   mem::LinkedHeap heap;
 
   PersistentState states[c_MaxStates];
-  u64 num_states;
+  u32 num_states;
 
   b8 init(mem::Allocator* allocator);
   void deinit(mem::Allocator* allocator);
@@ -341,7 +348,11 @@ struct PersistentStateMgr
     b8 just_created;
   };
 
-  GetResult registerOrGetState(CombinedItemId id, u64 size);
+  GetResult registerOrGetState(CombinedItemId id, u64 size, u64 frame_count);
+
+  void unregisterState(u64 idx);
+
+  void cleanOldStates(u64 frame_count);
 };
 
 /* ============================================================================
@@ -565,6 +576,9 @@ struct UI
   // True when a UI frame is in progress.
   b8 in_frame = false;
 
+  // How many times UI has begun and ended a frame.
+  u64 frame_count = 0;
+
   // The input state of an update. Inputs may be consumed from this 
   // state by either UI or Items.
   InputState frame_input;
@@ -653,7 +667,7 @@ struct UI
   b8 registerOrGetPersistentState(CombinedItemId id, T** out_state)
   {
     PersistentStateMgr::GetResult result = 
-      persistent_state_mgr.registerOrGetState(id, sizeof(T));
+      persistent_state_mgr.registerOrGetState(id, sizeof(T), frame_count);
 
     if (result.pstate == nullptr)
       return false;
@@ -666,7 +680,7 @@ struct UI
   T* getPersistentState(CombinedItemId id)
   {
     PersistentStateMgr::GetResult result = 
-      persistent_state_mgr.registerOrGetState(id, sizeof(T));
+      persistent_state_mgr.registerOrGetState(id, sizeof(T), frame_count);
 
     assert(result.pstate != nullptr && !result.just_created);
 

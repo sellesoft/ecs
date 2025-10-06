@@ -61,6 +61,16 @@ struct DocTreeNode
   {
     return state == State::SplitH || state == State::SplitV;
   }
+
+  b8 isSplitV() const
+  {
+    return state == State::SplitV;
+  }
+
+  b8 isSplitH() const
+  {
+    return state == State::SplitH;
+  }
 };
 
 /* ============================================================================

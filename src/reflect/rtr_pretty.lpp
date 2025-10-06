@@ -5,7 +5,7 @@ $ local glob = require "iro.fs.glob"
 
 #define private public
 
-$ if 0 == ECS_GEN_PRETTY_PRINT then
+$ if not ECS_GEN_PRETTY_PRINT or 0 == ECS_GEN_PRETTY_PRINT then
 
 @log.import
 @lpp.import "reflect/rtr.lh"

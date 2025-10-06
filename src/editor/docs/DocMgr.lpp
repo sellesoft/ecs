@@ -858,12 +858,13 @@ $ end
     ui.endPopup();
   }
 
-  // ui.putQuad(content_bounds, 0x44444499);
-  //
-  // io::SmallBuffer<128> ppbuf;
-  // io::formatv(&ppbuf, node, '\n');
-  // rtr::prettyPrint(&ppbuf, *node);
-  // ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
+  ui.putQuad(content_bounds, 0x44444499);
+
+  io::SmallBuffer<128> ppbuf;
+  io::formatv(&ppbuf, node, '\n');
+  rtr::prettyPrint(&ppbuf, *node, 
+    {.deref_ptrs = true, .depth_limit = 2});
+  ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
 
   ui.popId();
 }
@@ -1362,16 +1363,127 @@ void DocMgr::render(gfx::Vulkan& vk)
 
 /* ----------------------------------------------------------------------------
  */
+static void cacheDocTreeNodeState(
+    DocMgr& self, 
+    DocTreeNode* node,
+    SourceDataFile& sfile,
+    SourceData& sdata)
+{
+  using enum DocTreeNode::State;
+  
+  sdata.setObject(nil);
+  
+  if (node->state == Single)
+  {
+    sdata.type = "single"_str;
+
+    sdata.addStringValue(sfile, 
+      "title"_str, node->doc->title);
+    sdata.addStringValue(sfile, 
+      "type"_str, docNameFromTypeId(node->doc->type));
+    sdata.addUIntValue(sfile,
+      "size"_str, node->size);
+  }
+  else if (node->isSplit())
+  {
+    sdata.type = node->isSplitV()? "split_v"_str : "split_h"_str;
+    sdata.addUIntValue(sfile, "size"_str, node->size);
+
+    SourceData* split = sdata.addObject(sfile, "split"_str);
+
+    for (DocTreeNode* child = node->split.first; child; child = child->next)
+    {
+      SourceData* child_data = split->addObject(sfile, nil);
+      cacheDocTreeNodeState(self, child, sfile, *child_data);
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void DocMgr::cacheDocState()
 {
+  editor->log.info("caching document state");
 
+  SourceDataFile sfile = {};
+  sfile.init();
+  defer { sfile.deinit(); };
+
+  SourceData* root = sfile.addReturnData();
+
+  cacheDocTreeNodeState(*this, &tree_root, sfile, *root); 
+
+  editor->cacheSourceDataFile(sfile, "doc-cache"_str);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void loadCachedDocTreeNode(
+    DocMgr& self, 
+    DocTreeNode* node,
+    SourceData& sdata)
+{
+  using enum DocTreeNode::State;
+
+  if (sdata.type == "single"_str)
+    node->state = Single;
+  else if (sdata.type == "split_v"_str)
+    node->state = SplitV;
+  else if (sdata.type == "split_h"_str)
+    node->state = SplitH;
+  else
+    return; 
+
+  SourceData* size_data = sdata.findChildByName("size"_str);
+
+  node->size = size_data->as_f32();
+
+  if (node->state == Single)
+  {
+    SourceData* doc_type_data = sdata.findChildByName("type"_str);
+    rtr::TypeId type = typeIdFromDocName(doc_type_data->val.str);
+
+    node->doc = allocateDocFromTypeId(self, type);
+
+    node->doc->onOpen();
+  }
+  else
+  {
+    SourceData* split_data = sdata.findChildByName("split"_str);
+
+    for (SourceData* child : split_data->children)
+    {
+      DocTreeNode* child_node = self.tree_nodes.add();
+      child_node->parent = node;
+
+      if (node->split.first == nullptr)
+      {
+        node->split.first = child_node;
+        node->split.last = child_node;
+      }
+      else
+      {
+        node->split.last->next = child_node;
+        node->split.last = child_node;
+      }
+    
+      loadCachedDocTreeNode(self, child_node, *child);
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------------
  */
 void DocMgr::loadCachedDocState()
 {
+  closeDocs(*this, true);
 
+  SourceDataFile sfile;
+  if (!editor->loadCachedSourceDataFile(&sfile, "doc-cache"_str))
+    return;
+  defer { sfile.deinit(); };
+
+  loadCachedDocTreeNode(*this, &tree_root, *sfile.returned_data);
 }
 
 }

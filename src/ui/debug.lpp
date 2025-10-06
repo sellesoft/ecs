@@ -3,6 +3,7 @@ $ require "common"
 @lpp.import "ui/debug.lh"
 
 #include "iro/print.h"
+#include "iro/io/SmallBuffer.h"
 
 namespace ui
 {
@@ -189,7 +190,28 @@ static void putDebugMenu(
   {
     self.ui.putQuad(self.ui.getBounds(), 0x555555ff);
 
+    Rect persistent_state_bounds = Rect::zero()
+      .setSize(self.ui.getWidth(), 120.f);
+
+    self.ui.beginScrollGroup(
+        "perstate-scroll"_fid, persistent_state_bounds, skin.menu.scroll_bar);
+
+    io::SmallBuffer<512> buffer;
+    rtr::prettyPrint(&buffer, debugged.persistent_state_mgr);
+
+    self.ui.putText(self.ui.getBounds(), String(buffer), skin.menu.text);
+
+    self.ui.endScrollGroup(skin.menu.scroll_bar);
+    
+    Rect tree_bounds = Rect::zero()
+      .setSize(
+        self.ui.getWidth(), 
+        self.ui.getHeight() - persistent_state_bounds.h)
+      .alignBottomOutside(persistent_state_bounds, 2.f);
+
+    self.ui.beginGroup(tree_bounds);
     putUITree(self, debugged, skin);    
+    self.ui.endGroup();
   }
   self.menu_window.end(self.ui);
 }

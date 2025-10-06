@@ -8,7 +8,7 @@ red = 0xe82424ff
 white = 0xc5c9c5ff
 
 // Prussian blue
-dark_blue = 0x223249ff
+dark_blue = 0x233549ff
 
 // Indigo dye
 blue = 0x2d4f67ff
@@ -229,9 +229,49 @@ doc = EditorDocSkin
   {
     close_button = 
     {
-      texture = "assets/editor/icons",
-      color = 0xffffffff,
-      uv = { 0, 0, 16, 16 },
+      normal = 
+      {
+        item = 
+        {
+          texture = "assets/editor/icons",
+          color = 0xffffffff,
+          uv = { 0, 0, 16, 16 },
+        }
+      },
+      hovered = 
+      {
+        item = 
+        {
+          texture = "assets/editor/icons",
+          color = 0xffffffff,
+          uv = { 16, 0, 16, 16 },
+        }
+      },
+      pressed = 
+      {
+        item = 
+        {
+          texture = "assets/editor/icons",
+          color = 0xffffffff,
+          uv = { 32, 0, 16, 16 },
+        }
+      }
+    },
+
+    type_button = 
+    {
+      enabled = 
+      {
+        texture = "assets/editor/icons",
+        color = 0xffffffff,
+        uv = { 16, 16, 16, 16 },
+      },
+      disabled = 
+      {
+        texture = "assets/editor/icons",
+        color = 0xffffffff,
+        uv = { 0, 16, 16, 16 },
+      }
     },
 
     text_item = 
@@ -262,6 +302,30 @@ cursor = EditorCursorSkin
   resize_v = { uv = { 48, 32, 16, 16 }, hot_spot = { 8, 8 } },
   cross    = { uv = { 32, 48, 16, 16 }, hot_spot = { 8, 8 } },
   grab     = { uv = { 16, 32, 16, 16 }, hot_spot = { 8, 2 } },
+}
+
+file_button = 
+{
+  text = text :
+  {
+    align = {0, 0.5}
+  }
+}
+
+filex = EditorFileExplSkin
+{
+  file_button = 
+  {
+    normal = file_button : {},
+    hovered = file_button : { item = { color = light_blue } },
+    pressed = file_button : {},
+  },
+  dir_button = 
+  {
+    normal = file_button : { item = { color = dark_blue } },
+    hovered = file_button : { item = { color = light_blue } },
+    pressed = file_button : {},
+  }
 }
 
 return EditorSkinDef
@@ -320,4 +384,5 @@ return EditorSkinDef
   sdata_edit = sdata_edit,
   doc = doc,
   cursor = cursor,
+  filex = filex,
 }

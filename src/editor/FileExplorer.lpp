@@ -112,19 +112,40 @@ void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   f32 y = 0.f;
 
+  ui.beginScrollGroup(
+    "file-explorer-scroll"_fid, ui.getBounds(), skin.scroll_bar);
+
   for (DirEntry& ent : entries)
   {
     Rect entry_bounds = Rect::from(
       0.f, y, ui.getWidth(), 15.f);
 
-    if (ent.kind == DirEntry::Kind::Directory)
+    if (String(ent.name) == "."_str)
+      continue;
+
+    const ui::ButtonSkin* button_skin = ent.kind == DirEntry::Kind::Directory
+      ? &skin.filex.dir_button
+      : &skin.filex.file_button;
+
+    if (ui.putButton(
+          ui.generateIdFromPointer(&ent),
+          entry_bounds, 
+          String(ent.name), 
+          *button_skin))
     {
-      ui.putQuad(entry_bounds, 0x333333ff);
+      if (ent.kind == DirEntry::Kind::Directory)
+      {
+        fs::PathBuffer full_path;
+        io::formatv(&full_path, String(current_dir), '/', String(ent.name));
+
+        changeDir(String(full_path));
+      }
     }
 
-    ui.putText({0.f, y, ui.getWidth(), 20.f}, String(ent.name), skin.text);
     y += 15.f;
   }
+
+  ui.endScrollGroup(skin.scroll_bar);
 }
 
 

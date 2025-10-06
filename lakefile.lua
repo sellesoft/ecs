@@ -18,7 +18,7 @@ local build_dir = cwd.."/_build"
 --- without the stuff being mixed with other build artifacts.
 local generated_dir = build_dir.."/_generated"
 
-local enable_tracy = false
+local enable_tracy = true
 
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
@@ -82,8 +82,8 @@ local defines =
 
 if enable_tracy then
   defines.TRACY_ENABLE = 1
-  defines.TRACY_CALLSTACK = 8
-  defines.TRACY_SAMPLE_HZ = 40000
+  defines.TRACY_CALLSTACK = 2
+  defines.TRACY_SAMPLE_HZ = 10000
 end
 
 ---@type lake.obj.Cpp.CompileParams
@@ -95,7 +95,7 @@ local cpp_params =
 
   include_paths = include_dirs,
 
-  opt = 'none',
+  opt = 'speed',
   debug_info = true,
 
   noexceptions = true,

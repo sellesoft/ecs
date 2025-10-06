@@ -59,6 +59,11 @@ struct EditorLog : logging::Channel
     logging::Channel::error(&logging::cat_editor, args...); 
     return false;
   }
+
+  void warn(auto&&... args)
+  {
+    logging::Channel::warn(&logging::cat_editor, args...);
+  }
 };
 
 /* ============================================================================

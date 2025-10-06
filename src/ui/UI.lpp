@@ -1041,8 +1041,9 @@ vec2f UI::getLocalCursorPos() const
  */
 vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
 {
-  // TODO(sushi) add a null font so that this isn't fatal.
-  assert(skin.font.isValid());
+  // TODO(sushi) add a null font 
+  if (!skin.font.isValid())
+    return vec2f(0,0);
 
   @log.trace(ui, "UI::putText\n");
 
@@ -1161,6 +1162,31 @@ b8 UI::putButton(
 
   expandCurrentGroupExtents(bounds); // maybe not needed due to previous call
 
+  return clicked;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 UI::putCheckbox(
+    ItemId id, 
+    Rect bounds, 
+    b8* enabled, 
+    const CheckboxSkin& skin)
+{
+  FocusFlags focus = putFocusableBounds(id, bounds);
+
+  b8 clicked = false;
+
+  if (focus.test(FocusFlag::PrimaryReleased))
+  {
+    clicked = true;
+    *enabled = !*enabled;
+  }
+
+  const ItemSkin* state_skin = *enabled? &skin.enabled : &skin.disabled;
+
+  putItem(bounds, *state_skin);
+  
   return clicked;
 }
 

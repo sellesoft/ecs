@@ -65,6 +65,14 @@ struct DocTreeNode
 
 /* ============================================================================
  */
+struct ReplaceRequest
+{
+  DocTreeNode* node;
+  rtr::TypeId type;
+};
+
+/* ============================================================================
+ */
 struct DocMgr
 {
   Editor* editor;
@@ -72,6 +80,8 @@ struct DocMgr
   Array<u32> order;
 
   Pool<DocTreeNode> tree_nodes;
+
+  ReplaceRequest replace_request;
 
   DocTreeNode tree_root;
 

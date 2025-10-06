@@ -13,6 +13,11 @@ struct Rect
 {
   f32 x, y, w, h;
 
+  static Rect zero()
+  {
+    return {0,0,0,0};
+  }
+
   static Rect from(f32 x, f32 y, f32 w, f32 h)
   {
     return { x, y, w, h };
@@ -26,8 +31,9 @@ struct Rect
   void set(vec2f pos, vec2f size) { setPos(pos); setSize(size); }
   void setPos(vec2f pos) { x = pos.x; y = pos.y; }
   void setPos(f32 x, f32 y) { this->x = x; this->y = y; }
-  void setSize(vec2f size) { w = size.x; h = size.y; }
-  void setSize(f32 x, f32 y) { w = x; y = h; }
+  Rect& setSize(vec2f size) { w = size.x; h = size.y; return *this; }
+  Rect& setSize(f32 x, f32 y) { w = x; h = y; return *this; }
+  Rect& setSqSize(f32 x) { w = x; h = x; return *this; }
 
   Rect& mulWidth(f32 v) { w *= v; return *this; }
   Rect& mulHeight(f32 v) { h *= v; return *this; }
@@ -97,6 +103,30 @@ struct Rect
     y = min(rhs.y, y);
     w = max(rhs.x + rhs.w, x + w) - x;
     h = max(rhs.y + rhs.h, y + h) - y;
+  }
+
+  Rect& alignRightInside(const Rect& rhs, f32 offset)
+  {
+    x = rhs.extent().x - w - offset;
+    return *this;
+  }
+
+  Rect& alignLeftOutside(const Rect& rhs, f32 offset)
+  {
+    x = rhs.x - w - offset;
+    return *this;
+  }
+  
+  Rect& alignBottomOutside(const Rect& rhs, f32 offset)
+  {
+    y = rhs.extentY() + offset;
+    return *this;
+  }
+
+  Rect& alignCenteredYInside(const Rect& rhs)
+  {
+    y = floorf(0.5f * (rhs.h - h));
+    return *this;
   }
 };
 

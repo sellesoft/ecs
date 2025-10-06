@@ -103,6 +103,11 @@ struct Channel
   {
     log(cat, Verbosity::Error, args...);
   }
+
+  void warn(Category* cat, auto&&... args)
+  {
+    log(cat, Verbosity::Warn, args...);
+  }
 };
 
 /* ============================================================================

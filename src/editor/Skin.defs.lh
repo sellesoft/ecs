@@ -64,7 +64,8 @@ struct EditorConsoleSkin
  */
 struct EditorDocHeader
 {
-  ui::ItemSkin close_button;
+  ui::ButtonSkin close_button;
+  ui::CheckboxSkin type_button;
   ui::TextItemSkin text_item;
 };
 
@@ -100,6 +101,14 @@ struct EditorCursors
 
 /* ============================================================================
  */
+struct EditorFileExplSkin
+{
+  ui::ButtonSkin file_button;
+  ui::ButtonSkin dir_button;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -122,6 +131,8 @@ struct EditorSkinDef
   SourceDataEditorSkinDef sdata_edit;
 
   EditorCursors cursor;
+
+  EditorFileExplSkin filex;
 };
 
 @metadata.links(skin.data)

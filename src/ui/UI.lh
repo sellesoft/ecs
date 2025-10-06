@@ -511,6 +511,12 @@ struct UI
     String text, 
     const ButtonSkin& skin);
 
+  b8 putCheckbox(
+    ItemId id,
+    Rect bounds,
+    b8* enabled,
+    const CheckboxSkin& skin);
+
   // Places a text field that edits some text specified in the state.
   TextFieldResult putTextField(
     ItemId id,

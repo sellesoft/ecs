@@ -64,6 +64,7 @@ struct Doc
   enum class Flag
   {
     ToBeClosed,
+    TypeMenuOpen,
     COUNT
   };
   typedef iro::Flags<Flag> Flags;

@@ -107,9 +107,21 @@ struct Rect
     h = max(rhs.y + rhs.h, y + h) - y;
   }
 
+  Rect& alignTopInside(const Rect& rhs, f32 offset)
+  {
+    y = rhs.y + offset;
+    return *this;
+  }
+
   Rect& alignRightInside(const Rect& rhs, f32 offset)
   {
     x = rhs.extent().x - w - offset;
+    return *this;
+  }
+
+  Rect& alignRightOutside(const Rect& rhs, f32 offset)
+  {
+    x = rhs.extentX() + offset;
     return *this;
   }
 
@@ -127,7 +139,14 @@ struct Rect
 
   Rect& alignCenteredYInside(const Rect& rhs)
   {
-    y = floorf(0.5f * (rhs.h - h));
+    y = rhs.y + floorf(0.5f * (rhs.h - h));
+    return *this;
+  }
+
+  Rect& alignCenteredLeftInside(const Rect& rhs, f32 x_offset)
+  {
+    alignCenteredYInside(rhs);
+    x = rhs.x + x_offset;
     return *this;
   }
 

@@ -118,7 +118,7 @@ void FileExplorer::changeDir(String path)
  */
 void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  ui.beginGroup(ui.getBounds().contracted(10.f));
+  ui.beginGroup(ui.getBounds().contracted(5.f));
   defer { ui.endGroup(); };
 
   Rect path_bounds = Rect::zero()
@@ -154,19 +154,39 @@ void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     if (ent.name == "."_str)
       continue;
 
-    const ui::ButtonSkin* button_skin = ent.kind == DirEntry::Kind::Directory
-      ? &skin.filex.dir_button
-      : &skin.filex.file_button;
+    const ui::ItemSkin* icon_skin = nullptr;
+    const ui::ButtonSkin* button_skin = nullptr;
+    if (ent.kind == DirEntry::Kind::Directory)
+    {
+      button_skin = &skin.filex.dir_button;
+      icon_skin = &skin.filex.dir_icon;
+    }
+    else
+    {
+      button_skin = &skin.filex.file_button;
+      icon_skin = &skin.filex.file_icon;
+    }
+
+    Rect icon_bounds = Rect::zero()
+      .setSize(icon_skin->uv.size())
+      .alignCenteredLeftInside(entry_bounds, 2.f);
+
+    Rect button_bounds = Rect::zero()
+      .setSize(entry_bounds.w - icon_bounds.w, entry_bounds.h)
+      .alignRightOutside(icon_bounds, 2.f)
+      .alignTopInside(entry_bounds, 0.f);
 
     if (ui.putButton(
           ui.generateIdFromPointer(&ent),
-          entry_bounds, 
+          button_bounds,
           ent.name, 
           *button_skin))
     {
       if (ent.kind == DirEntry::Kind::Directory)
         io::formatv(&clicked_dir_path, String(current_dir), '/', ent.name);
     }
+
+    ui.putItem(icon_bounds, *icon_skin);
 
     y += 15.f;
   }

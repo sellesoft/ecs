@@ -105,6 +105,9 @@ struct EditorFileExplSkin
 {
   ui::ButtonSkin file_button;
   ui::ButtonSkin dir_button;
+
+  ui::ItemSkin file_icon;
+  ui::ItemSkin dir_icon;
 };
 
 /* ============================================================================

@@ -316,7 +316,7 @@ filex = EditorFileExplSkin
 {
   file_button = 
   {
-    normal = file_button : { item = { color = term_gray } },
+    normal = file_button : { },
     hovered = file_button : { item = { color = term_blue } },
     pressed = file_button : {},
   },
@@ -325,7 +325,19 @@ filex = EditorFileExplSkin
     normal = file_button : {  },
     hovered = file_button : { item = { color = term_blue } },
     pressed = file_button : {},
-  }
+  },
+  dir_icon = 
+  {
+    texture = "assets/editor/icons",
+    uv = { 1, 51, 14, 12 },
+    color = 0xffffffff,
+  },
+  file_icon = 
+  {
+    texture = "assets/editor/icons",
+    uv = { 17, 51, 12, 12 },
+    color = 0xffffffff,
+  },
 }
 
 return EditorSkinDef

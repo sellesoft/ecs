@@ -33,6 +33,8 @@ struct Rect
   void setPos(f32 x, f32 y) { this->x = x; this->y = y; }
   Rect& setSize(vec2f size) { w = size.x; h = size.y; return *this; }
   Rect& setSize(f32 x, f32 y) { w = x; h = y; return *this; }
+  Rect& setWidth(f32 w) { this->w = w; return *this; }
+  Rect& setHeight(f32 h) { this->h = h; return *this; }
   Rect& setSqSize(f32 x) { w = x; h = x; return *this; }
 
   Rect& mulWidth(f32 v) { w *= v; return *this; }
@@ -126,6 +128,12 @@ struct Rect
   Rect& alignCenteredYInside(const Rect& rhs)
   {
     y = floorf(0.5f * (rhs.h - h));
+    return *this;
+  }
+
+  Rect& fillRemainingHeight(const Rect& rhs)
+  {
+    h = rhs.extentY() - y;
     return *this;
   }
 };

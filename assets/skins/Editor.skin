@@ -316,14 +316,14 @@ filex = EditorFileExplSkin
 {
   file_button = 
   {
-    normal = file_button : {},
-    hovered = file_button : { item = { color = light_blue } },
+    normal = file_button : { item = { color = term_gray } },
+    hovered = file_button : { item = { color = term_blue } },
     pressed = file_button : {},
   },
   dir_button = 
   {
-    normal = file_button : { item = { color = dark_blue } },
-    hovered = file_button : { item = { color = light_blue } },
+    normal = file_button : {  },
+    hovered = file_button : { item = { color = term_blue } },
     pressed = file_button : {},
   }
 }

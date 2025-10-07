@@ -858,13 +858,13 @@ $ end
     ui.endPopup();
   }
 
-  ui.putQuad(content_bounds, 0x44444499);
-
-  io::SmallBuffer<128> ppbuf;
-  io::formatv(&ppbuf, node, '\n');
-  rtr::prettyPrint(&ppbuf, *node, 
-    {.deref_ptrs = true, .depth_limit = 2});
-  ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
+  // ui.putQuad(content_bounds, 0x44444499);
+  //
+  // io::SmallBuffer<128> ppbuf;
+  // io::formatv(&ppbuf, node, '\n');
+  // rtr::prettyPrint(&ppbuf, *node, 
+  //   {.deref_ptrs = true, .depth_limit = 2});
+  // ui.putText(content_bounds, String(ppbuf), skin.doc.header.text_item.text);
 
   ui.popId();
 }

@@ -23,7 +23,7 @@ struct DirEntry
   };
 
   Kind kind;
-  iro::fs::PathBuffer name;
+  iro::String name;
 };
 
 /* ============================================================================

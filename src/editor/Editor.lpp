@@ -256,11 +256,12 @@ $ end
     success = resource_mgr.init(vk);
   })
 
-  fs::PathBuffer cwd_buffer;
-  cwd_buffer.len = fs::cwd(cwd_buffer.asBytesBuffer());
-  if (cwd_buffer.len == 0)
+  root_dir.len = fs::cwd(root_dir.asBytesBuffer());
+  if (root_dir.len == 0)
     return log.error("failed to get current working directory");
-  String cwd = String(cwd_buffer);
+  String cwd = String(root_dir);
+
+  log.info("editor root dir: ", cwd);
 
   @initSubSystem(BuildSystem,
   {

@@ -8,7 +8,9 @@ local cfg
 local success, user_cfg = pcall(require, "build_config.user")
 if success then
   cfg = user_cfg
+  print("using user config")
 else  
+  print(user_cfg)
   cfg = require "build_config.debug"
 end
 
@@ -41,7 +43,7 @@ local function set(t, k, v)
 end
 
 for arg in lake.cliargs:each() do
-  if arg:find "^." then
+  if arg:find "^%." then
     local setting = arg:sub(2)
     local k, v = setting:match "([%.%w%d]+)=(.*)"
     set(cfg, k, v)
@@ -135,10 +137,10 @@ local cpp_params =
 ---@type lake.obj.Lpp.PreprocessParams
 local lpp_params = 
 {
-  require_dirs = List { "src" },
-  cpath_dirs = List { "lib" },
-  import_dirs = List { "src" },
-  gen_meta = true,
+  require_dirs = cfg.lpp.require_dirs,
+  cpath_dirs = cfg.lpp.cpath_dirs,
+  import_dirs = cfg.lpp.import_dirs,
+  gen_meta = cfg.lpp.gen_meta,
 }
 
 ---@type lake.obj.Exe.LinkParams

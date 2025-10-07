@@ -3,6 +3,7 @@ $ require "common"
 @lpp.import "editor/FileExplorer.lh"
 @lpp.import "editor/Skin.defs.lh"
 @lpp.import "ui/UI.lh"
+@lpp.import "editor/Editor.lh"
 
 #include "iro/fs/fs.h"
 #include "iro/fs/Dir.h"
@@ -41,7 +42,7 @@ static s32 entrySort(const DirEntry& l, const DirEntry& r)
 
   // TODO(sushi) natural sorting for numbers.
 
-  return strcmp((char*)l.name.arr, (char*)r.name.arr);
+  return strcmp((char*)l.name.ptr, (char*)r.name.ptr);
 }
 
 /* ----------------------------------------------------------------------------
@@ -62,17 +63,21 @@ void FileExplorer::changeDir(String path)
     return;
   }
 
-  entries.clear();
-  String cd = fs::path::canonicalize(&current_dir, path);
+  fs::PathBuffer canonical_buffer;
+  String canonical = fs::path::canonicalize(&canonical_buffer, path);
 
-  fs::Dir hcd = fs::Dir::open(cd);
+  fs::Dir hcd = fs::Dir::open(canonical);
   if (isnil(hcd))
   {
     @log.error(editor, "FileExplorer::changeDir: "
-          "failed to open dir '", cd, "' for entry caching\n");
+          "failed to open dir '", canonical, "' for entry caching\n");
     return;
   }
   defer { hcd.close(); };
+
+  current_dir.clear();
+  io::format(&current_dir, String(canonical_buffer));
+  entries.clear();
 
   for (;;)
   {
@@ -92,15 +97,18 @@ void FileExplorer::changeDir(String path)
     fs::PathBuffer full_path;
     io::formatv(&full_path, String(current_dir), '/', String(entry_name));
 
-    DirEntry* ent = entries.push();
-    io::format(&ent->name, String(entry_name));
-
+    DirEntry::Kind kind = DirEntry::Kind::Unknown;
     if (fs::path::isRegularFile(String(full_path)))
-      ent->kind = DirEntry::Kind::File;
+      kind = DirEntry::Kind::File;
     else if (fs::path::isDirectory(String(full_path)))
-      ent->kind = DirEntry::Kind::Directory;
-    else
-      ent->kind = DirEntry::Kind::Unknown;
+      kind = DirEntry::Kind::Directory;
+
+    if (kind != DirEntry::Kind::Unknown)
+    {
+      DirEntry* ent = entries.push();
+      ent->name = String(entry_name).allocateCopy();
+      ent->kind = kind;
+    }
   }
 
   quickSort(entries.begin(), entries.end(), entrySort);
@@ -110,17 +118,40 @@ void FileExplorer::changeDir(String path)
  */
 void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  f32 y = 0.f;
+  ui.beginGroup(ui.getBounds().contracted(10.f));
+  defer { ui.endGroup(); };
+
+  Rect path_bounds = Rect::zero()
+    .setSize(ui.getWidth(), 20.f);
+
+  ui::TextSkin text_skin = skin.text;
+  text_skin.align = { 0.f, 0.5f };
+
+  String cd = String(current_dir)
+    .removePrefix(String(editor->root_dir));
+
+  if (cd.isEmpty())
+    cd = "/"_str;
+
+  ui.putText(path_bounds, cd, text_skin);
+
+  Rect scrollBounds = Rect::zero()
+    .alignBottomOutside(path_bounds, 0.f)
+    .fillRemainingHeight(ui.getBounds())
+    .setWidth(ui.getWidth());
 
   ui.beginScrollGroup(
-    "file-explorer-scroll"_fid, ui.getBounds(), skin.scroll_bar);
+    "file-explorer-scroll"_fid, scrollBounds, skin.scroll_bar);
 
+  fs::PathBuffer clicked_dir_path;
+
+  f32 y = 0.f;
   for (DirEntry& ent : entries)
   {
     Rect entry_bounds = Rect::from(
       0.f, y, ui.getWidth(), 15.f);
 
-    if (String(ent.name) == "."_str)
+    if (ent.name == "."_str)
       continue;
 
     const ui::ButtonSkin* button_skin = ent.kind == DirEntry::Kind::Directory
@@ -130,20 +161,18 @@ void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     if (ui.putButton(
           ui.generateIdFromPointer(&ent),
           entry_bounds, 
-          String(ent.name), 
+          ent.name, 
           *button_skin))
     {
       if (ent.kind == DirEntry::Kind::Directory)
-      {
-        fs::PathBuffer full_path;
-        io::formatv(&full_path, String(current_dir), '/', String(ent.name));
-
-        changeDir(String(full_path));
-      }
+        io::formatv(&clicked_dir_path, String(current_dir), '/', ent.name);
     }
 
     y += 15.f;
   }
+
+  if (!clicked_dir_path.isEmpty())
+    changeDir(String(clicked_dir_path));
 
   ui.endScrollGroup(skin.scroll_bar);
 }

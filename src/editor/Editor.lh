@@ -127,6 +127,9 @@ struct Editor
 
   CursorState cursor_state;
 
+  // The directory the editor started in.
+  fs::PathBuffer root_dir;
+
   struct InitParams
   {
     Engine& engine;

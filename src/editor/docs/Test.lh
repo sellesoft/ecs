@@ -20,14 +20,14 @@ struct Test : Doc
   void onOpen() override 
   { 
     SourceDataFile::from(&test_file, 
-      "assets/entities/locker/Locker.entity"_str);
+      "assets/skins/Editor.skin"_str);
 
     edit.init();
 
     edit.setSourceData(
       test_file.returned_data, 
       &test_file, 
-      "EntityDef"_typeid);
+      "EditorSkinDef"_typeid);
   }
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin) override

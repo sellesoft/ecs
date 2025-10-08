@@ -1212,6 +1212,20 @@ static void putDocTreeNodeSplit(
      }
   }
 
+  // TODO(sushi) this is mostly to clean up errors from sizing doc nodes that
+  //             we split. Currently we store size on the node as it should 
+  //             be with the divider, but we're not guaranteed to know the 
+  //             size of the divider as specified by the skin in the splitting
+  //             logic (since its only passed into UI code via EditorSkinDef).
+  //             This caused us to have to store the 'last_displayed_size' of
+  //             nodes so we at least have some idea of how to size them on 
+  //             split, but that displayed size includes the divider that will
+  //             be created for the new split. So on split we always have a 
+  //             `divider_size` difference we have to correct here. We should 
+  //             just size children out of the parent's total size and not 
+  //             out of what we compute as `children_space` here, then remove
+  //             the size of the divider from the bounds we actually draw the
+  //             child in.
   f32 desired_pos = is_h_split? bounds.h : bounds.w;
   if (pos != desired_pos)
   {

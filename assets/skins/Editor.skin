@@ -313,6 +313,15 @@ file_button =
 }
 
 filex = EditorFileExplSkin
+|- file_button
+|  | normal, hovered, pressed: file_button
+|  | hovered.item.color = term_blue;
+`- dir_button.
+   |  normal: file_button
+   | hovered:
+   ` 
+
+filex = EditorFileExplSkin
 {
   file_button = 
   {

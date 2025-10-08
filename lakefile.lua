@@ -8,9 +8,7 @@ local cfg
 local success, user_cfg = pcall(require, "build_config.user")
 if success then
   cfg = user_cfg
-  print("using user config")
 else  
-  print(user_cfg)
   cfg = require "build_config.debug"
 end
 

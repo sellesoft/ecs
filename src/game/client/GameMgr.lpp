@@ -105,7 +105,7 @@ GameMgr::RenderResult GameMgr::render(const RenderParams& params)
 
   GameRenderer::RenderParams render_params =
   {
-    .map = &map,
+    .map = &map.state,
     .entmgr = &entmgr,
 
     .target = params.target,

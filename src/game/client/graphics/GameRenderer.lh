@@ -34,7 +34,7 @@ struct RenderPass;
 
 struct AssetMgr;
 struct EntityMgr;
-struct MapSys; // TODO(sushi) not a fan of the GameRenderer using this directly
+struct MapState; 
 
 namespace cl
 {
@@ -74,7 +74,7 @@ struct GameRenderer
   struct RenderParams
   {
     EntityMgr* entmgr;
-    MapSys* map;
+    MapState* map;
 
     vec2u viewport_size;
     mat3x2 view;

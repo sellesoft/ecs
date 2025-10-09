@@ -5,6 +5,7 @@
 $ require "common"
 
 @lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
 @log.import
 
@@ -37,9 +38,19 @@ struct Layer
 
   // Returns a Tile at the given position, which must be local to the
   // Layer. If the given index is out of bounds, nullptr is returned.
-  Tile* getTileAtPos(s32 x, s32 y);
+  Tile* getTileAtPos(s32 x, s32 y)
+  {
+    return (Tile*)((const Layer*)this)->getTileAtPos(x, y);
+  }
+
+  const Tile* getTileAtPos(s32 x, s32 y) const;
 
   Tile* getTileAtPos(vec2f pos)
+  {
+    return getTileAtPos(s32(pos.x), s32(pos.y));
+  }
+
+  const Tile* getTileAtPos(vec2f pos) const
   {
     return getTileAtPos(s32(pos.x), s32(pos.y));
   }
@@ -68,6 +79,26 @@ struct MapState
   // Returns the coordinates of a Tile from the given Layer in world space.
   // Asserts if the Tile does not belong to the given Layer.
   vec2f getTilePos(const Layer& layer, const Tile& tile) const;
+
+  b8 getLayerAndTileFromTransform(
+      this MapState& self,
+      Layer** out_layer, 
+      Tile** out_tile, 
+      const Transform& transform)
+  {
+    Layer* layer = self.getLayerByIndex(transform.placement_layer);
+    if (layer == nullptr)
+      return false;
+
+    Tile* tile = layer->getTileAtPos(transform.pos);
+    if (tile == nullptr)
+      return false;
+
+    *out_layer = layer;
+    *out_tile = tile;
+
+    return true;
+  }
 };
 
 /* ============================================================================

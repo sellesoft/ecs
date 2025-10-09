@@ -8,6 +8,7 @@ $ require "common"
 @lpp.import "game/client/Appearance.events.lh"
 
 struct MapSys;
+struct MapState;
 struct ExtendableStructure;
 
 namespace cl
@@ -29,5 +30,16 @@ struct StructureVisualizerSys : EntitySys
 
   void onAppearanceChange(EntComp<ExtendableStructure>,AppearanceChange&);
 };
+
+/* ----------------------------------------------------------------------------
+ */
+void updateStructureAppearance(
+    ExtendableStructure& structure, 
+    MapState& map, 
+    EntityMgr& entmgr);
+
+/* ----------------------------------------------------------------------------
+ */
+void updateAllStructureAppearances(MapState& map, EntityMgr& entmgr);
 
 }

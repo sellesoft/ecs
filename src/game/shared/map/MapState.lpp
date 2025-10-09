@@ -15,7 +15,7 @@ vec2f Layer::getTilePos(const Tile& tile) const
 
 /* ----------------------------------------------------------------------------
  */
-Tile* Layer::getTileAtPos(s32 x, s32 y)
+const Tile* Layer::getTileAtPos(s32 x, s32 y) const
 { 
   if (x < 0 || x >= size.x ||
       y < 0 || y >= size.y)

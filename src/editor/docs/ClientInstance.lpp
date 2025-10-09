@@ -296,8 +296,6 @@ b8 ClientInstance::resetClient(this S& self)
  */
 b8 ClientInstance::init(this S& self)
 {
-  self.client_render_size = vec2u(self.editor->window.size);
-
   if (!recreateClientTexture(
         *self.editor->vk,
         &self.client_render))
@@ -382,19 +380,19 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   bounds.y += menu_bar_bounds.h;
   bounds.h -= menu_bar_bounds.h;
 
+  ui_size = bounds.size();
+
   InputState input;
 
   ui::FocusFlags game_focus = 
     ui.putFocusableBounds("game-focus"_fid, bounds);
 
   if (game_focus.test(ui::FocusFlag::Focused))
+  {
     editor->input.cloneInputState(&input);
-
-  input.setCursorPos(ui.getLocalCursorPos());
-
-  ui_size = bounds.size();
-  
-  input.mergeInto(thread.input);
+    input.setCursorPos(ui.getLocalCursorPos());
+    input.mergeInto(thread.input);
+  }
 
   thread.viewport_size = ui_size;
 

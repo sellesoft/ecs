@@ -132,6 +132,12 @@ struct EntityMgr
     return tryComp<T>(id.ent);
   }
 
+  template<typename TComp>
+  ComponentIter<TComp> iterateComp()
+  {
+    return cmpmgr.iterate<TComp>();
+  }
+
   struct EntityIter
   {
     EntityPool* pool;

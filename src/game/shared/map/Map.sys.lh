@@ -10,16 +10,6 @@ $ local cmn = require "common"
 
 using namespace iro;
 
-struct GameMgr;
-struct MapTileDef;
-struct MapLayerDef;
-struct MapDef;
-struct AssetMgr;
-struct EntityMgr;
-struct EyeSys;
-struct MindSys;
-struct Layer;
-
 /* ============================================================================
  */
 struct MapSys : EntitySys

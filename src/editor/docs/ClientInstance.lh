@@ -93,7 +93,6 @@ struct ClientInstance : Doc
   net::MessageBuffer offline_packet_in;
 
   gfx::Texture client_render;
-  vec2u client_render_size;
   vec2f ui_size;
 
   void onOpen() override { init(); }

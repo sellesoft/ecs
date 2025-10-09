@@ -28,6 +28,16 @@ struct Test : Doc
   gfx::Texture map_render;
   vec2f ui_size;
 
+  enum class ControlState
+  {
+    None,
+    DraggingView,
+  };
+
+  ControlState control_state;
+  vec2f drag_start_world;
+  vec2f drag_start_viewport;
+
   void onOpen() override { init(); }
 
   b8 init();

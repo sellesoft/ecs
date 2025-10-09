@@ -69,6 +69,49 @@ b8 Test::init()
 
 /* ----------------------------------------------------------------------------
  */
+static void handleControlInputs(
+    Test& self, 
+    ui::UI& ui, 
+    ui::FocusFlags game_view_focus,
+    const EditorSkinDef& skin)
+{
+  using enum Test::ControlState;
+  using Focus = ui::FocusFlag;
+
+  vec2f view_size = self.ui_size;
+
+  vec2f local_cursor = ui.getLocalCursorPos();
+  vec2f world_cursor = 
+    self.view.viewportPointToWorld(local_cursor, view_size);
+
+  switch (self.control_state)
+  {
+  case None:
+    if (game_view_focus.test(Focus::PrimaryPressed))
+    {
+      self.drag_start_viewport = local_cursor;
+      self.drag_start_world = self.view.pos;
+      self.control_state = DraggingView;
+    }
+    break;
+
+  case DraggingView:
+    {
+      vec2f offset = self.view.viewportPointToWorld(
+        self.drag_start_viewport, 
+        view_size);
+
+      self.view.pos = self.drag_start_world + offset - world_cursor;
+
+      if (game_view_focus.test(Focus::PrimaryReleased))
+        self.control_state = None;
+    } 
+    break;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void Test::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   Rect bounds = ui.getBounds();
@@ -80,6 +123,18 @@ void Test::placeUI(ui::UI& ui, const EditorSkinDef& skin)
   ui_size = bounds.size();
 
   ui.putQuad(bounds, map_render.getHandle(), uv, 0xffffffff);
+
+  ui::FocusFlags game_view_focus = 
+    ui.putFocusableBounds("game-view"_fid, bounds);
+
+  vec2f local_cursor = ui.getLocalCursorPos();
+  vec2f cursor_world = view.viewportPointToWorld(local_cursor, ui_size);
+
+  handleControlInputs(
+    *this,
+    ui,
+    game_view_focus,
+    skin);
 }
 
 /* ----------------------------------------------------------------------------

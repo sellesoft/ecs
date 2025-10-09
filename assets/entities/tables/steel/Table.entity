@@ -6,5 +6,6 @@ return EntityDef
     AppearanceDef {},
     ExtendableStructureDef { kind = "SteelTable" },
     cl::SpriteDef { states = "assets/entities/tables/steel/Table" },
+    ColliderDef { bounds = { 0,0,1,1 } },
   }
 }

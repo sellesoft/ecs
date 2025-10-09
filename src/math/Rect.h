@@ -84,6 +84,14 @@ struct Rect
            rhs.x + rhs.w <= x + w && rhs.y + rhs.h <= y + h;
   }
 
+  b8 overlaps(const Rect& rhs) const
+  {
+    return !(x > rhs.extentX() || 
+             y > rhs.extentY() || 
+             extentX() < rhs.x ||
+             extentY() < rhs.y);
+  }
+
   Rect clipTo(const Rect& rhs) const
   {
     Rect result = {};

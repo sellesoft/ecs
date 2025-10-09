@@ -8,6 +8,7 @@ return EntityDef
     cl::SpriteDef 
     { 
       states = "assets/entities/tables/glass/Table",
-    }
+    },
+    ColliderDef { bounds = { 0,0,1,1 }, static_pos = true, },
   }
 }

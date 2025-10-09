@@ -200,17 +200,21 @@ void ClientThread::worker()
         // TODO(sushi) we can probably do better than mutexes eventually.
         update_mutex.lock();
         defer { update_mutex.unlock(); };
+        
+        // Cache the current input and clear immediately so that new inputs 
+        // that occur during the update are processed next tick.
+        InputState update_input = input;
+        input.clear();
 
         Client::UpdateParams params = 
         {
-          .input = input,
+          .input = update_input,
           .viewport_size = vec2u(viewport_size),
         };
 
         client.update(params);
 
         new_frame.storeSeqCst(true);
-        input.clear();
       }
 
       TimeSpan time_since_start = time::since(start_time);

@@ -33,10 +33,10 @@ struct RandomInputSys : EntitySys
       }
     }
 
-    if (since_last_input > TimeSpan::fromMilliseconds(1000))
+    if (since_last_input > TimeSpan::fromMilliseconds(500))
     {
       last_input = TimePoint::monotonic();
-      time_to_hold = TimeSpan::fromMilliseconds(250);
+      time_to_hold = TimeSpan::fromMilliseconds(400);
 
       MoveInput inputs[] = 
       {

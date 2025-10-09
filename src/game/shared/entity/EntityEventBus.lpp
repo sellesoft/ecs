@@ -99,6 +99,7 @@ $ end
  */
 struct EntitySubLists
 {
+  mem::Bump subscriber_arena;
 
 $ eachCombination(function(comp, event)
 $   local subname = getSubTypename(comp, event)
@@ -107,8 +108,10 @@ $   local listname = getSubList(comp, event)
   {
     void* subscriber;
     void (*callback)(void*, EntComp<$(comp.typename)>, $(event.typename)&);
+
+    $(subname)* next;
   };
-  SLinkedPool<$(subname)> $(listname);
+  $(subname)* $(listname);
 $ end)
 
 $ eachEvent(function(event)
@@ -116,18 +119,15 @@ $ eachEvent(function(event)
   {
     void* subscriber;
     void (*callback)(void*, $(event.typename)&);
+
+    $(event.name)Subscriber* next;
   };
-  SLinkedPool<$(event.name)Subscriber> $(event.name)_list;
+  $(event.name)Subscriber* $(event.name)_list;
 $ end)
 
   b8 init()
   {
-$ eachCombination(function(comp,event)
-    $(getSubList(comp,event)).init();
-$ end)
-$ eachEvent(function(event)
-    $(event.name)_list.init();
-$ end)
+    subscriber_arena.init();
     return true;
   }
 };
@@ -140,9 +140,14 @@ void EntityEventBus::subscribeTo<$(comp.typename), $(event.typename)>(
     void* subscriber,
     void (*cb)(void*, EntComp<$(comp.typename)>, $(event.typename)&))
 {
-  auto* sub = sub_lists->$(getSubList(comp,event)).push()->data;
+  auto* sub = sub_lists->subscriber_arena.
+    allocateType<EntitySubLists::$(getSubTypename(comp, event))>();
+
   sub->subscriber = subscriber;
   sub->callback = cb;
+
+  sub->next = sub_lists->$(getSubList(comp, event));
+  sub_lists->$(getSubList(comp, event)) = sub;
 }
 
 $ end)
@@ -155,9 +160,14 @@ void EntityEventBus::subscribeTo<$(event.typename)>(
     void* subscriber,
     void (*cb)(void*, $(event.typename)&))
 {
-  auto* sub = sub_lists->$(event.name)_list.push()->data;
+  auto* sub = sub_lists->subscriber_arena
+    .allocateType<EntitySubLists::$(event.name)Subscriber>();
+
   sub->subscriber = subscriber;
   sub->callback = cb;
+
+  sub->next = sub_lists->$(event.name)_list;
+  sub_lists->$(event.name)_list = sub;
 }
 $ end)
 
@@ -177,8 +187,9 @@ void EntityEventBus::raise<$(event.typename)>(
     {
 $ eachComponent(function(comp)
     case "$(comp.typename)"_hashed:
-      for (auto& sub : sub_lists->$(getSubList(comp,event)))
-        sub.callback(sub.subscriber, {id, ($(comp.typename)&)comp}, event);
+      for (auto* sub = sub_lists->$(getSubList(comp,event)); 
+           sub; sub = sub->next)
+        sub->callback(sub->subscriber, {id, ($(comp.typename)&)comp}, event);
       break;
 $ end)
     }
@@ -190,8 +201,8 @@ $ end)
 template<>
 void EntityEventBus::raise<$(event.typename)>($(event.typename)& event) const
 {
-  for (auto& sub : sub_lists->$(event.name)_list)
-    sub.callback(sub.subscriber, event);
+  for (auto* sub = sub_lists->$(event.name)_list; sub; sub = sub->next)
+    sub->callback(sub->subscriber, event);
 }
 $ end)
 
@@ -201,12 +212,7 @@ b8 EntityEventBus::init(EntityMgr* entmgr)
 {
   this->entmgr = entmgr;
   sub_lists = mem::stl_allocator.construct<EntitySubLists>();
-$ eachCombination(function(comp, event)
-  if (!sub_lists->$(getSubList(comp, event)).init()) return false;
-$ end)
-$ eachEvent(function(event)
-  if (!sub_lists->$(event.name)_list.init()) return false;
-$ end)
+  sub_lists->init();
   return true;
 }
 

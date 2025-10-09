@@ -15,5 +15,9 @@ Currently:
 * The client is rendered into a [[texture|Texture]] which is then displayed in a [[ui]] quad.
 
 
+A bunch of clients random walking around but with the [[editor_doc_tree|tree style document layout]] and using the basic [[collision_sys|collision system]] (apparently they can push the tables for some reason).
+2025-10-09
+![[client-walk.gif]] 
+
 A bunch of clients random walking around (not connected to a server or anything) 2025-10-01: 
 ![[Peek 2025-10-01 22-14.gif]]

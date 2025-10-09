@@ -25,7 +25,7 @@ When in an editor build, the `Editor` is owned and updated by the [[engine]]. It
 * [[file_watcher_thread|A file watcher]]
   On a thread, for notifying systems about file changes.
 * [[document_manager|DocMgr]]
-  A system which manages [[editor_document|documents]]. Currently they are displayed in movable, resizable windows. I want to move more towards tiling eventually.
+  A system which manages [[editor_document|documents]]. Documents are displayed in a [[editor_doc_tree|tiled style]]. Originally they were displayed as [[editor_doc_windows|windows]], but that has been disabled for now until popping out docs seems useful.
 * [[editor_console|Console]]
   For displaying logs and accepting commands from the user.
 * [[command_bus|CommandBus]]

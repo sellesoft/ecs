@@ -1,0 +1,18 @@
+/*
+ *  Attached to entities that should collide with other entities.
+ */
+
+$ require "common"
+
+@[comp] lpp.import "game/shared/component/Component.lh"
+
+#include "math/Rect.h"
+
+@comp.def(Collider,
+{
+  Rect bounds;
+  b8 static_pos;
+},
+{
+
+})

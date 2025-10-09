@@ -47,7 +47,6 @@ struct GameRenderer
 {
   static constexpr u32 MAX_QUADS = 8192;
   static constexpr u32 MAX_BATCHES = 256;
-  static constexpr u32 MAX_EXTERNAL = 8192;
 
   struct QuadBatch
   {

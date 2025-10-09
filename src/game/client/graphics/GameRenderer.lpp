@@ -296,7 +296,7 @@ b8 GameRenderer::render(const RenderParams& params)
     MapSys& map = *params.map;
 
     u32 layer_idx = 0;
-    for (const Layer& layer : map.layers)
+    for (const Layer& layer : map.state.layers)
     {
       Color tint = Color(0xffffffff) * (1.0f - (layer_idx * 0.25f));
 
@@ -312,7 +312,7 @@ b8 GameRenderer::render(const RenderParams& params)
           ? tilekind.texture.getHandle()
           : null_texture.getHandle();
 
-        vec2f pos = map.getTilePos(layer, tile);
+        vec2f pos = map.state.getTilePos(layer, tile);
         drawQuad(vk, pass, pos, texture, {0.f,0.f,1.f,1.f}, tint);
       }
 
@@ -372,7 +372,7 @@ b8 GameRenderer::render(const RenderParams& params)
 
       if (auto* transform = entmgr.tryComp<Transform>(sprite.owner))
       {
-        Layer& layer = map.layers[transform->placement_layer];
+        Layer& layer = map.state.layers[transform->placement_layer];
 
         vec2f pos = transform->pos;
         pos.x += layer.pos.x;

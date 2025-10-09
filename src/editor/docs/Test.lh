@@ -7,6 +7,7 @@ $ require "common"
 
 @lpp.import "editor/Doc.lh"
 @lpp.import "sdata/SourceDataEditor.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
 
 namespace editor
 {
@@ -19,15 +20,17 @@ struct Test : Doc
 
   void onOpen() override 
   { 
-    SourceDataFile::from(&test_file, 
-      "assets/skins/Editor.skin"_str);
+    // SourceDataFile::from(&test_file, 
+    //   "assets/skins/Editor.skin"_str);
+    //
+    // edit.init();
+    //
+    // edit.setSourceData(
+    //   test_file.returned_data, 
+    //   &test_file, 
+    //   "EditorSkinDef"_typeid);
 
-    edit.init();
-
-    edit.setSourceData(
-      test_file.returned_data, 
-      &test_file, 
-      "EditorSkinDef"_typeid);
+  
   }
 
   void placeUI(ui::UI& ui, const EditorSkinDef& skin) override

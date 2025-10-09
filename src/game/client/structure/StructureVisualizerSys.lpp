@@ -27,7 +27,7 @@ void StructureVisualizerSys::onAppearanceChange(
 
   auto& sprite_states = *sprite->def->states;
 
-  Layer* layer = map->getLayerByIndex(transform->placement_layer);
+  Layer* layer = map->state.getLayerByIndex(transform->placement_layer);
   if (layer == nullptr)
   {
     @log.error(game, "entity ", ec.ent, " has an invalid layer placement\n");
@@ -73,7 +73,7 @@ void StructureVisualizerSys::onAppearanceChange(
       continue;
 
     Layer* other_layer = 
-      map->getLayerByIndex(other_transform->placement_layer);
+      map->state.getLayerByIndex(other_transform->placement_layer);
     
     if (layer != other_layer)
       continue;

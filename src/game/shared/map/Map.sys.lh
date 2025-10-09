@@ -5,7 +5,7 @@ $ local cmn = require "common"
 #include "iro/Unicode.h"
 #include "math/vec.h"
 
-@lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntitySys.lh"
 
 using namespace iro;
@@ -22,92 +22,12 @@ struct Layer;
 
 /* ============================================================================
  */
-struct Tile
-{
-  TileKindLink kind;
-
-  b8 init(
-    const MapTileDef& def,
-    Layer& layer,
-    u32 layer_idx,
-    vec2f pos,
-    EntityMgr& entmgr);
-
-  void deinit();
-};
-
-/* ============================================================================
- */
-struct Layer
-{
-  vec2i pos;
-  vec2i size;
-  Array<Tile> tiles;
-
-  b8 init(
-    const MapLayerDef& def, 
-    u32 layer_idx, 
-    EntityMgr& entmgr);
-
-  void deinit();
-
-  u32 getTileIndex(const Tile& tile) const
-  {
-    assert(&tile >= tiles.arr && &tile < tiles.arr + tiles.len());
-    return &tile - tiles.arr;
-  }
-
-  // Returns the coordinate of a Tile from this Layer in Layer space.
-  // Asserts if the given Tile does not belong to this Layer.
-  vec2f getTilePos(const Tile& tile) const;
-
-  // Returns a Tile at the given position, which must be local to the
-  // Layer. If the given index is out of bounds, nullptr is returned.
-  Tile* getTileAtPos(s32 x, s32 y);
-
-  Tile* getTileAtPos(vec2f pos)
-  {
-    return getTileAtPos(s32(pos.x), s32(pos.y));
-  }
-};
-
-/* ============================================================================
- */
 struct MapSys : EntitySys
 {
-  // The currently loaded Map, or nullptr if no map is loaded.
-  const MapDef* def = nullptr;
-
-  Array<Layer> layers;
+  MapState state;
 
   b8 init();
   void deinit();
 
-  struct LoadParams
-  {
-    AssetMgr& assetmgr;
-    EntityMgr& entmgr;
-  };
-
-  b8 load(const MapDef& def, LoadParams& params);
-
-  b8 unload();
-
-  u32 getLayerIndex(const Layer& layer) const
-  {
-    assert(&layer >= layers.arr && &layer < layers.arr + layers.len());
-    return &layer - layers.arr;
-  }
-
-  // Attempts to get a Layer by some index. If the index is out of bounds
-  // nullptr is returned, and an error is printed.
-  Layer* getLayerByIndex(u32 index);
-
-  // Outputs a Tile as well as the Layer it belongs to at the given pos.
-  // Returns false if no tile was at the given pos.
-  b8 getTileAndLayerAtPos(Layer** out_layer, Tile** out_tile, vec2f pos);
-
-  // Returns the coordinates of a Tile from the given Layer in world space.
-  // Asserts if the Tile does not belong to the given Layer.
-  vec2f getTilePos(const Layer& layer, const Tile& tile) const;
+  b8 load(const MapDef& def, const MapLoadParams& params);
 };

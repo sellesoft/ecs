@@ -58,14 +58,13 @@ b8 GameMgr::init(const InitParams& params)
 
   params.linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &loaded_map);
 
-  MapSys::LoadParams map_load_params = 
+  MapLoadParams map_load_params = 
   {
-    .assetmgr = params.linker.asset_mgr,
     .entmgr = entmgr,
   };
 
   if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
-    return log->error("failed to load map");
+    return false;
 
   return true;
 }

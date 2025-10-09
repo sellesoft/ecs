@@ -1,0 +1,100 @@
+/*
+ *  Basic system handling collision between entities that have a 
+ *  Collider component.
+ *
+ *  Will likely be replaced with the proper physics system later on.
+ */
+
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/Collider.comp.lh"
+@lpp.import "game/shared/Transform.comp.lh"
+
+/* ============================================================================
+ */
+struct CollisionSys : EntitySys
+{
+  MapSys* map;
+
+  b8 init()
+  {
+    return true;
+  }
+
+  void update()
+  {
+    for (auto& c0 : iterateComp<Collider>())
+    {
+      auto* c0t = tryComp<Transform>(c0.owner);
+
+      Rect c0b = c0.def->bounds;
+      c0b.addPos(c0t->pos);
+
+      u32 c0pl = c0t->placement_layer;
+      b8 c0sp = c0.def->static_pos;
+
+      for (auto& c1 : iterateComp<Collider>())
+      {
+        if (&c0 == &c1)
+          continue;
+
+        if (c0sp && c1.def->static_pos)
+          continue;
+
+        auto* c1t = tryComp<Transform>(c1.owner);
+
+        if (c1t->placement_layer != c0pl)
+          continue;
+
+        Rect c1b = c1.def->bounds;
+        c1b.addPos(c1t->pos);
+
+        f32 ol[4] = 
+        {
+          max(0.f, c0b.extentX() - c1b.x),
+          max(0.f, c0b.extentY() - c1b.y),
+          max(0.f, c1b.extentX() - c0b.x),
+          max(0.f, c1b.extentY() - c0b.y),
+        };
+
+        if (matchAny(0.f, ol))
+          continue;
+
+        static const vec2f normals[4] = 
+        {
+          vec2f( 1.f,  0.f),
+          vec2f( 0.f,  1.f),
+          vec2f(-1.f,  0.f),
+          vec2f( 0.f, -1.f),
+        };
+
+        f32 pen = MAX_F32;
+        vec2f normal = {};
+
+        for (u32 i = 0; i < 4; ++i)
+        {
+          if (ol[i] < pen)
+          {
+            pen = ol[i];
+            normal = normals[i];
+          }
+        }
+
+        vec2f delta = pen * normal;
+
+        if (c0.def->static_pos)
+        {
+          c1t->pos += delta;
+        }
+        else if (c1.def->static_pos)
+        {
+          c0t->pos += delta;
+        }
+        else
+        {
+          c1t->pos += delta / 2.f;
+          c0t->pos -= delta / 2.f;
+        }
+      }
+    }
+  }
+};

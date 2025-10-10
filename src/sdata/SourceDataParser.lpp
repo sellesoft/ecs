@@ -505,7 +505,7 @@ b8 Parser::parseTypedOrDerivedData(
       if (aux == nullptr)
         return errorAt(id, 
           "no aux data named '", id.raw, "'; did you mean to use '{' for "
-          "defining object data of some type?\n");
+          "defining object data of some type?");
 
       if (aux->hasObjectData())
         data->base = aux;

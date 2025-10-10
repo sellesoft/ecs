@@ -1,10 +1,153 @@
 $ require "common"
+$ local List = require "iro.List"
 
 @lpp.import "core/logging/core.lh"
+
+#include "iro/ansi.h"
+#include "iro/io/StaticBuffer.h"
+#include "iro/StringFuncs.h"
+
+using namespace iro;
 
 namespace logging
 {
 
+$$$ 
+local verbs = List
+{
+  { name = "Trace",  shortname = "trce", color = "blue" },
+  { name = "Debug",  shortname = " dbg", color = "green" },
+  { name = "Info",   shortname = "info", color = "cyan" },
+  { name = "Notice", shortname = "note", color = "magenta" },
+  { name = "Warn",   shortname = "warn", color = "yellow" },
+  { name = "Error",  shortname = " err", color = "red" },
+  { name = "Fatal",  shortname = " ftl", color = "red" },
+}
+$$$
+
+/* ----------------------------------------------------------------------------
+ */
+static void writePrefix(io::WStream* out, const Entry& entry)
+{
+  switch (entry.verbosity)
+  {
+$ for verb in verbs:each() do
+  case Verbosity::$(verb.name):
+    io::formatv(out, 
+      tcolor::$(verb.color), "$(verb.shortname)"_str, tcolor::reset, ": "_str);
+    break;
+$ end
+  }
+
+  String cat = entry.category->name;
+
+  if (cat.len < 6)
+  {
+    for (s32 i = 0; i < 6 - cat.len; ++i)
+      io::format(out, ' ');
+  }
+  else
+  {
+    cat = cat.sub(0, 6);
+  }
+
+  io::formatv(out, tcolor::gray, cat, tcolor::reset, ": "_str);
+}
+
+/* ----------------------------------------------------------------------------
+ *  Funky fancy printing to stdout. This prefixes messages with the verbosity
+ *  and category names and then formats the message, admittedly in a way that
+ *  makes it fit nicely in the terminal width I use (80). 
+ *
+ *  This breaks messages by word when we get past 80 characters, and will 
+ *  prefix each line of a message with spaces to pad it to the prefix that
+ *  was initially placed before it.
+ *
+ *  Definitely not perfect, this will probably break sometimes and likely
+ *  doesn't handle unicode very well. Works well enough for now though (or 
+ *  so it seems).
+ */
+void GlobalChannel::log(const Entry& entry) 
+{
+  io::StaticBuffer<64> prefix_buffer;
+  writePrefix(&prefix_buffer, entry);
+
+  s64 prefix_len = countNonANSI(String(prefix_buffer));
+
+  io::format(fs::stdout(), String(prefix_buffer));
+
+  const s64 max_line_len = 79;
+
+  s64 word_start = -1;
+  s64 line_start = 0;
+  s64 last_write = 0;
+  s64 line_len_remaining = max_line_len - prefix_len;
+
+  auto write = [&](u64 offset, auto&&... args)
+  {
+    s64 write_len = io::formatv(fs::stdout(), args...);
+    last_write = offset;
+  };
+
+  eachNonANSI(entry.message, 
+    [&](utf8::Codepoint cp, u64 offset)
+    {
+      if (word_start == -1 && !isSpace(cp))
+      {
+        word_start = offset;
+      }
+      else if (isSpace(cp))
+      {
+        word_start = -1;
+      }
+      
+      if (cp.codepoint == '\n')
+      {
+        s64 write_end = word_start != -1? word_start : offset;
+        
+        String to_write = entry.message.sub(line_start, write_end);
+
+        // NOTE(sushi) + 1 because we dont want the newline if we have to 
+        //             flush at the end of the function after this branch
+        //             was taken.
+        write(offset + 1, to_write, '\n');
+
+        for (s32 i = 0; i < prefix_len; ++i)
+          write(offset + 1, ' ');
+        
+        line_start = offset;
+        word_start = -1;
+        line_len_remaining = max_line_len - prefix_len;
+      }
+      else if (offset - line_start > line_len_remaining)
+      {
+        b8 break_at_word = word_start != -1;
+
+        s64 write_end = break_at_word? word_start : offset;
+        write(offset, entry.message.sub(line_start, write_end), '\n');
+
+        for (s32 i = 0; i < prefix_len; ++i)
+          write(offset, ' ');
+
+        line_start = offset;
+        line_len_remaining = max_line_len - prefix_len;
+
+        if (break_at_word)
+        {
+          String to_write = entry.message.sub(word_start, offset);
+          write(offset, to_write);
+          line_len_remaining -= to_write.len;
+        }
+
+        word_start = -1;
+      }
+    });
+
+  io::formatv(fs::stdout(), entry.message.sub(last_write), '\n');
+}
+
+/* ----------------------------------------------------------------------------
+ */
 State* get()
 {
   static State state;

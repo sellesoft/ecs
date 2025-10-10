@@ -114,10 +114,7 @@ struct Channel
  */
 struct GlobalChannel : Channel
 {
-  void log(const Entry& entry) override
-  {
-    iro::println(entry.message);
-  }
+  void log(const Entry& entry) override;
 };
 
 /* ============================================================================

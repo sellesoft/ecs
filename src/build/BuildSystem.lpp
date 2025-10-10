@@ -323,13 +323,19 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
       }
       else
       {
+        io::SmallBuffer<256> errmsg;
+        io::formatv(&errmsg, 
+          tcolor::red, "failed to build ", tcolor::reset,
+          '\'', tcolor::cyan, *next_target, tcolor::reset, '\'');
+
+        if (result.buffer.len != 0)
+          io::formatv(&errmsg, ":\n", String(result.buffer));
+
         // TODO(sushi) collect these to be shown at the end. This is 
         //             specifically important for multithreading.
-        @logerr("\nfailed to build '", *next_target, "'");
-        if (result.buffer.len == 0)
-          @logerr('\n');
-        else
-          @logerr(":\n", String(result.buffer), '\n');
+
+        @logerr(String(errmsg));
+
         next_target->flags.set(Target::Flag::FailedLastBuild);
         success = false;
         

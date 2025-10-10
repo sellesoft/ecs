@@ -117,6 +117,9 @@ Converter.new = function(astctx, source)
   return setmetatable(o, Converter)
 end
 
+local lppclang_lib = "lib/lppclang.so"
+local clang_exe = "third_party/bin/clang++"
+
 --- Generate a new AstContext by parsing the given string. Note that the 
 --- given string must form a complete translation unit, as that is all we 
 --- support parsing for now.
@@ -124,7 +127,7 @@ end
 ---@param str string
 ---@return reflect.AstContext
 AstContext.fromString = function(str)
-  local Context = require "lppclang" "lib/lppclang.so"
+  local Context = require "lppclang" (lppclang_lib, clang_exe)
 
   local ctx = Context.new(cmn.cargs)
 
@@ -157,7 +160,7 @@ AstContext.fromGlobs = function(patterns)
 
   local source = lpp.source(tostring(import_source))
 
-  local Context = require "lppclang" "lib/lppclang.so"
+  local Context = require "lppclang" (lppclang_lib, clang_exe)
 
   local ctx = Context.new(cmn.cargs)
   local astctx = AstContext.new()

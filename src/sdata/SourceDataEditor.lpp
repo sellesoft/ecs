@@ -651,11 +651,11 @@ $(declareDeclDatum(decl))
     if (!datum.init(parent, data))
       return false;
 
-    if (!children.init(data->children.len()))
+    if (!children.init(data->children.len))
       return false;
 
     io::StaticBuffer<16> name;
-    for (s32 i = 0; i < data->children.len(); ++i)
+    for (s32 i = 0; i < data->children.len; ++i)
     {
       name.clear();
       io::format(&name, i);
@@ -676,7 +676,7 @@ $(declareDeclDatum(decl))
     f32 y = params.y + params.skin.row.height;
     u32 datum_idx = params.idx + 1;
 
-    for (s32 i = 0; i < children.len(); ++i)
+    for (s32 i = 0; i < children.len; ++i)
     {
       auto& child = children[i];
 

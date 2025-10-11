@@ -28,7 +28,7 @@ struct Layer
 
   u32 getTileIndex(const Tile& tile) const
   {
-    assert(&tile >= tiles.arr && &tile < tiles.arr + tiles.len());
+    assert(&tile >= tiles.arr && &tile < tiles.arr + tiles.len);
     return &tile - tiles.arr;
   }
 
@@ -64,7 +64,7 @@ struct MapState
 
   u32 getLayerIndex(const Layer& layer) const
   {
-    assert(&layer >= layers.arr && &layer < layers.arr + layers.len());
+    assert(&layer >= layers.arr && &layer < layers.arr + layers.len);
     return &layer - layers.arr;
   }
 

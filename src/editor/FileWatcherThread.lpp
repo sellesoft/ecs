@@ -69,7 +69,7 @@ static void eventProcessor(
     //             feeling this will break when dealing with other programs.
     //             So, sorry.
     b8 apparent_copy = false;
-    for (s32 i = self->events.len() - 1; i >= 0; --i)
+    for (s32 i = self->events.len - 1; i >= 0; --i)
     {
       Event* prev_event = &self->events[i];
 
@@ -92,7 +92,7 @@ static void eventProcessor(
   else if (event.actions.test(Action::Delete))
   {
     b8 dont_queue = false;
-    for (s32 i = self->events.len() - 1; i >= 0; --i)
+    for (s32 i = self->events.len - 1; i >= 0; --i)
     {
       Event prev_event = self->events[i];
 

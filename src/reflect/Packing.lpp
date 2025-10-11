@@ -304,7 +304,7 @@ $ local function putVec2Packer(name)
     if (!data.hasChildren())
       return error("expected an object to pack vec2");
 
-    if (data.children.len() != 2)
+    if (data.children.len != 2)
       return error("too many children in vec2 source data");
 
     if (isnil(data.children[0]->name))
@@ -363,7 +363,7 @@ $ -- * ------------------------------------------------------------------------
     if (!data.hasObjectData())
       return error("expected object data to pack Rect");
 
-    if (data.children.len() != 4)
+    if (data.children.len != 4)
       return error("expected 4 components to pack Rect");
 
     if (isnil(data.children[0]->name))
@@ -442,7 +442,7 @@ $ -- * ------------------------------------------------------------------------
 
     if (isnil(data.children[0]->name))
     {
-      if (data.children.len() < 3)
+      if (data.children.len < 3)
         return error("array Color data must specify at least r, g, and b");
 
       auto getCol = [&](SourceData* comp, u8* dest) -> b8
@@ -464,12 +464,12 @@ $ -- * ------------------------------------------------------------------------
       if (!getCol(data.children[2], &out->b))
         return false;
 
-      if (data.children.len() == 4)
+      if (data.children.len == 4)
       {
         if (!getCol(data.children[3], &out->a))
           return false;
       }
-      else if (data.children.len() > 4)
+      else if (data.children.len > 4)
       {
         return error(
           "array Color data must specify at most r, g, b, and a");
@@ -762,7 +762,7 @@ $   putTypePacker(subtype)
     if (!data.hasObjectData())
       return error("expected object data to pack $(decl.type.name)");
 
-    s32 child_count = data.children.len();
+    s32 child_count = data.children.len;
 
     if (!out->init(child_count, &packed->buffer))
       return error("failed to initialize $(decl.type.name)");
@@ -794,7 +794,7 @@ $   putTypePacker(subtype)
     if (!data.hasObjectData())
       return error("expected object data to pack into $(decl.type.name)");
 
-    if (!out->init(data.children.len(), &packed->buffer))
+    if (!out->init(data.children.len, &packed->buffer))
       return error("failed to initialize $(decl.type.name)");
 
     for (const SourceData* child : data.children)

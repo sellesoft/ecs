@@ -5,6 +5,8 @@ $ require "common"
 #include "iro/containers/Array.h"
 #include "iro/memory/Bump.h"
 
+@log.import
+
 namespace event
 {
 struct CommandBus;

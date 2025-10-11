@@ -31,7 +31,7 @@ const Tile* Layer::getTileAtPos(s32 x, s32 y) const
  */
 Layer* MapState::getLayerByIndex(u32 index)
 {
-  if (index > layers.len())
+  if (index > layers.len)
     return nullptr;
 
   return &layers[index];
@@ -44,14 +44,14 @@ b8 MapState::getTileAndLayerAtPos(
     Tile**  out_tile,
     vec2f   pos)
 {
-  for (s32 layer_idx = layers.len()-1; layer_idx >= 0; --layer_idx)
+  for (s32 layer_idx = layers.len-1; layer_idx >= 0; --layer_idx)
   {
     Layer* layer = &layers[layer_idx];
     vec2f layer_pos = vec2f(layer->pos);
     vec2f layer_size = vec2f(layer->size);
     if (math::pointInRect<f32>(pos, layer_pos, layer_size))
     {
-      for (s32 tile_idx = layer->tiles.len()-1; tile_idx >= 0; --tile_idx)
+      for (s32 tile_idx = layer->tiles.len-1; tile_idx >= 0; --tile_idx)
       {
         Tile* tile = &layer->tiles[tile_idx];
         vec2f tile_pos = layer->getTilePos(*tile);
@@ -140,9 +140,9 @@ static b8 loadLayer(
   layer->size = def.size;
   layer->tiles.resize(def.size.x * def.size.y);
 
-  if (layer->tiles.len() != def.tiles.len)
+  if (layer->tiles.len != def.tiles.len)
     return @log.chan.error(self.log, game,
-      "expected ", layer->tiles.len(), " tiles in layer ", layer_idx, " but "
+      "expected ", layer->tiles.len, " tiles in layer ", layer_idx, " but "
       "got ", def.tiles.len);
 
   for (u32 tile_idx = 0; tile_idx < def.tiles.len; ++tile_idx)

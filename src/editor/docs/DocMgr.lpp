@@ -329,7 +329,7 @@ static void closeDoc(
     node->doc = nullptr;
   }
 
-  for (u32 i = 0; i < self.docs.len(); ++i)
+  for (u32 i = 0; i < self.docs.len; ++i)
   {
     if (self.docs[i] == doc)
     {
@@ -345,7 +345,7 @@ static void closeDoc(
  */
 static void closeDocs(DocMgr& self, b8 all)
 {
-  for (s32 i = self.docs.len() - 1; i >= 0; --i)
+  for (s32 i = self.docs.len - 1; i >= 0; --i)
   {
     if (all || self.docs[i]->flags.test(Doc::Flag::ToBeClosed))
     {
@@ -390,7 +390,7 @@ static void initWindowDoc(DocMgr& self, Doc* doc, rtr::TypeId type)
   doc->pos = { 50.f, 50.f };
   doc->size = { 300.f, 300.f };
 
-  self.order.insert(0, self.docs.len());
+  self.order.insert(0, self.docs.len);
   self.docs.push(doc);
 
   doc->onOpen();

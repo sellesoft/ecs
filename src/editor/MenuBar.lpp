@@ -24,7 +24,7 @@ void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     bar_skin.bg_color);
 
   f32 x = 0.f;
-  for (u32 itab = 0; itab < tabs.len(); ++itab)
+  for (u32 itab = 0; itab < tabs.len; ++itab)
   {
     const MenuBarTab& tab = tabs[itab];
 
@@ -48,7 +48,7 @@ void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
     popup_bounds.x = x;
     popup_bounds.y = bar_skin.height;
     popup_bounds.w = bar_skin.tab_width;
-    popup_bounds.h = bar_skin.height * tab.options.len();
+    popup_bounds.h = bar_skin.height * tab.options.len;
 
     f32 max_name_len = 0.f; 
 
@@ -67,7 +67,7 @@ void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
           | ui::PopupFlag::FocusOnOpen))
     {
       f32 y = 0.f;
-      for (u32 iopt = 0; iopt < tab.options.len(); ++iopt)
+      for (u32 iopt = 0; iopt < tab.options.len; ++iopt)
       {
         const MenuBarTab::Option& opt = tab.options[iopt];
 

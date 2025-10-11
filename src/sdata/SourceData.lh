@@ -108,7 +108,7 @@ struct SourceData
    */
   b8 hasChildren() const
   {
-    return hasObjectData() && children.len() != 0;
+    return hasObjectData() && children.len != 0;
   }
 
   /* --------------------------------------------------------------------------
@@ -183,7 +183,7 @@ struct SourceData
   vec2f as_vec2f()
   {
     assert(hasObjectData());
-    assert(children.len() == 2);
+    assert(children.len == 2);
     return vec2f(children[0]->as_f32(), children[1]->as_f32());
   }
 

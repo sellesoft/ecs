@@ -434,7 +434,7 @@ $ local function putArrayPrinter(decl)
 $   local subtype = decl.args[1]
 $   putTypePrinter(subtype)
 $   local len_access = decl.specialized == 
-$         reflect_types.Array and "len" or "len()"
+$         reflect_types.Array and "len" or "len"
 
   /* --------------------------------------------------------------------------
    */

@@ -2294,7 +2294,7 @@ DeviceHeapAllocation* Vulkan::allocate(
       }
     }
 
-    u32 block_index = heap.blocks.len() - 1;
+    u32 block_index = heap.blocks.len - 1;
     DeviceHeapBlock& block = heap.blocks[block_index];
 
     DeviceHeapAllocation* allocation = heap.allocations.add();

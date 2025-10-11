@@ -3,6 +3,22 @@ local cc = require "lake.compile_commands" ()
 local o = lake.obj
 local List = require "iro.List"
 local fs = require "iro.fs"
+local time = require "iro.time"
+
+local start_time = time.Point.monotonic()
+lake.registerHook("final", function(success)
+  local total_time = time.Point.monotonic() - start_time
+
+  io.write("build ")
+
+  if success then
+    io.write(lake.flair.green, "succeeded ")
+  else
+    io.write(lake.flair.red, "failed ")
+  end
+
+  io.write(lake.flair.reset, "in ", total_time:pretty(), '\n')
+end)
 
 local cfg
 local success, user_cfg = pcall(require, "build_config.user")

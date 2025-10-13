@@ -62,7 +62,7 @@ void onWindowResized(Vulkan* vk)
 b8 beginFrame(Vulkan* vk)
 {
   if (vk->state.command_buffer != VK_NULL_HANDLE)
-    return @log_err("attempt to begin a frame while one is already active\n");
+    return @log_err("attempt to begin a frame while one is already active");
 
   VirtualFrame* vframe = vk->getCurrentVirtualFrame();
 
@@ -91,7 +91,7 @@ b8 beginFrame(Vulkan* vk)
   vkResetCommandBuffer(vk->state.command_buffer, 0);
 
   if (!vk->beginCommandBuffer(vk->state.command_buffer))
-    return @log_err("failed to begin command buffer\n");
+    return @log_err("failed to begin command buffer");
 
   return true;
 }
@@ -102,7 +102,7 @@ void endFrame(Vulkan* vk)
 {
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    @log_err("attempt to end the frame before it was begun\n");
+    @log_err("attempt to end the frame before it was begun");
     return;
   }
 
@@ -129,7 +129,7 @@ void endFrame(Vulkan* vk)
  */
 b8 submitQueue(Vulkan* vk)
 {
-  @log_trace("submitting queue\n");
+  @log_trace("submitting queue");
 
   VirtualFrame* vframe = vk->getCurrentVirtualFrame();
 
@@ -154,7 +154,7 @@ b8 submitQueue(Vulkan* vk)
         1, 
         &submit_info,
         vframe->command_buffer_fence))
-    return @log_err("failed to submit command buffer\n");
+    return false;
 
   return true;
 }
@@ -163,12 +163,12 @@ b8 submitQueue(Vulkan* vk)
  */
 b8 present(Vulkan* vk)
 {
-  @log_trace("presenting frame\n");
+  @log_trace("presenting frame");
 
   if (!vk->queuePresent(
         vk->swapchain_buffers[vk->next_swapchain_image].submit_semaphore,
         vk->next_swapchain_image))
-    return @log_err("failed to present frame\n");
+    return false;
 
   vk->advanceVirtualFrame();
 
@@ -190,7 +190,7 @@ b8 getSwapchainRenderTarget(Vulkan* vk, RenderTarget* out)
   
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    @log_err("attempt to get swapchain render target outside of a frame\n");
+    @log_err("attempt to get swapchain render target outside of a frame");
     return false;
   }
 
@@ -218,7 +218,7 @@ void prepareImageForSampling(Vulkan* vk, Image image)
 {
   if (isnil(image))
   {
-    @log_err("passed a nil gfx::Image to prepare for sampling\n");
+    @log_err("passed a nil gfx::Image to prepare for sampling");
     return;
   }
  
@@ -260,13 +260,13 @@ b8 beginRenderPass(
 
   if (vk->state.command_buffer == VK_NULL_HANDLE)
     return @log_err(
-      "attempt to begin a render pass before beginning a command buffer\n");
+      "attempt to begin a render pass before beginning a command buffer");
 
   if (isnil(target.image))
-    return @log_err("attempt to begin a render pass with a nil target\n");
+    return @log_err("attempt to begin a render pass with a nil target");
 
   if (isnil(target.view))
-    return @log_err("attempt to begin a render pass with a nil target\n view");
+    return @log_err("attempt to begin a render pass with a nil target view");
 
   // TODO(sushi) this kind of blows and is another reason why I want to 
   //             rework how we handle this as mentioned in the todo above 
@@ -310,7 +310,7 @@ void endRenderPass(Vulkan* vk)
 {
   if (vk->state.command_buffer == VK_NULL_HANDLE)
   {
-    @log_err("attempt to end a render pass outside a render pass instance\n");
+    @log_err("attempt to end a render pass outside a render pass instance");
     return;
   }
 

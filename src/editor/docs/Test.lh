@@ -6,11 +6,6 @@
 $ require "common"
 
 @lpp.import "editor/Doc.lh"
-@lpp.import "sdata/SourceDataEditor.lh"
-@lpp.import "game/shared/map/MapState.lh"
-@lpp.import "graphics/View.lh"
-@lpp.import "game/shared/entity/EntityMgr.lh"
-@lpp.import "game/client/graphics/GameRenderer.lh"
 
 namespace editor
 {
@@ -19,31 +14,12 @@ namespace editor
  */
 struct Test : Doc
 {
-  MapState map_state;
-  MapDefLink map_asset;
-  cl::GameRenderer game_renderer;
-  EntityMgr entity_mgr;
-  gfx::View view;
-
-  gfx::Texture map_render;
-  vec2f ui_size;
-
-  enum class ControlState
-  {
-    None,
-    DraggingView,
-  };
-
-  ControlState control_state;
-  vec2f drag_start_world;
-  vec2f drag_start_viewport;
-
   void onOpen() override { init(); }
 
   b8 init();
   void deinit();
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin) override;
+  void putUI(ui::UI& ui, const EditorSkinDef& skin) override;
   void render(gfx::Vulkan& vk) override;
 };
 

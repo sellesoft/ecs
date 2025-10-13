@@ -67,7 +67,7 @@ struct MenuBar
     tabs.destroy();
   }
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+  void putUI(ui::UI& ui, const EditorSkinDef& skin);
 
   b8 registerTab(String name, Slice<MenuBarTab::Option> options)
   {

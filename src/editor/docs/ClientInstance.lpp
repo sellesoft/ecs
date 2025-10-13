@@ -340,9 +340,9 @@ void ClientInstance::update()
 
 /* ----------------------------------------------------------------------------
  */
-void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+void ClientInstance::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  ZoneScopedN("ClientInstance::placeUI");
+  ZoneScopedN("ClientInstance::putUI");
 
   Rect menu_bar_bounds = {};
   menu_bar_bounds.x = 0.f;
@@ -358,7 +358,6 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
         "reset"_str,
         skin.button))
   {
-    @log.info(editor, "reset\n");
     resetClient();
   }
 
@@ -384,10 +383,9 @@ void ClientInstance::placeUI(ui::UI& ui, const EditorSkinDef& skin)
 
   InputState input;
 
-  ui::FocusFlags game_focus = 
-    ui.putFocusableBounds("game-focus"_fid, bounds);
+  ui::Focus game_focus = ui.putFocusableBounds("game-focus"_fid, bounds);
 
-  if (game_focus.test(ui::FocusFlag::Focused))
+  if (game_focus.isFocused())
   {
     editor->input.cloneInputState(&input);
     input.setCursorPos(ui.getLocalCursorPos());

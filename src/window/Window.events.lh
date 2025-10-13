@@ -7,3 +7,9 @@ struct WindowResized
 {
   vec2f size;
 };
+
+@metadata.event(broadcast)
+struct WindowFocusChange
+{
+  b8 has_focus;
+};

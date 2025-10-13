@@ -826,7 +826,7 @@ static void putDocTreeNodeSingle(
   content_bounds.h = ui.getHeight() - content_bounds.y;
 
   ui.beginGroup(content_bounds);
-  node->doc->placeUI(ui, skin);
+  node->doc->putUI(ui, skin);
   ui.endGroup();
 
   auto type_menu_bounds = Rect::zero()
@@ -900,12 +900,12 @@ static b8 putDocTreeNodeSplitCornerTests(
     corner_bounds.setPos(x, y); 
     // ui.putQuad(corner_bounds, 0xff0000ff);
 
-    ui::FocusFlags corner_focus = ui.putFocusableBounds(id, corner_bounds);
+    ui::Focus corner_focus = ui.putFocusableBounds(id, corner_bounds);
 
-    if (corner_focus.test(ui::FocusFlag::Hovered))
+    if (corner_focus.isHovered())
       setCursorState(self, CursorState::Cross);
 
-    if (corner_focus.test(ui::FocusFlag::PrimaryPressed))
+    if (corner_focus.wasPrimaryPressed())
       hit = true;
   };
 
@@ -1074,13 +1074,13 @@ static f32 putDocTreeNodeDivider(
 
   ui.putQuad(divider_bounds, 0x666666ff);
 
-  ui::FocusFlags divider_focus = 
+  ui::Focus divider_focus = 
     ui.putFocusableBounds("divider"_fid, divider_bounds);
 
-  if (divider_focus.test(ui::FocusFlag::Hovered))
+  if (divider_focus.isHovered())
     setCursorStateDivider(self, split_state);
 
-  if (divider_focus.test(ui::FocusFlag::PrimaryPressed))
+  if (divider_focus.wasPrimaryPressed())
   {
     self.dragging_node = node;
     node->dragging = true;
@@ -1331,7 +1331,7 @@ static void handleDraggedNode(
 
 /* ----------------------------------------------------------------------------
  */
-void DocMgr::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+void DocMgr::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   handleDraggedNode(
     *this,

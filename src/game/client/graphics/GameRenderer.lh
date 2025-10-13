@@ -24,6 +24,7 @@ $ require "common"
 @lpp.import "graphics/Pipeline.resource.lh"
 @lpp.import "graphics/RenderTarget.lh"
 @lpp.import "graphics/Texture.defs.lh"
+@lpp.import "graphics/vi_types.lh"
 @lpp.import "reflect/Linker.lh"
 
 namespace gfx 
@@ -42,11 +43,62 @@ namespace cl
 struct GameRenderer;
 
 /* ============================================================================
+ *  An interface that may be implemented and provided to GameRenderer to inject
+ *  stuff into the render at various points. 
+ *
+ *  I REALLY don't care for doing this this sort of way, but there's not 
+ *  really a better option atm. What I feel would be nice now is to just make 
+ *  each 'render pass' (not in the gfx sense) of the renderer separated and 
+ *  moving the api towards explicitly telling the renderer to draw those 
+ *  passes. Or something. Idk, I just don't like this, but I want a way to 
+ *  render stuff *in* the game from the map editor. Worked fine this way last 
+ *  time so whatever.
+ */
+struct IExternalRender
+{
+  // Counts of vertexes/indexes drawn this frame by the external render.
+  // This is not maintained internally and is just provided for convenience,
+  // the implementer is expected to count their draws.
+  //
+  // TODO(sushi) should really implement that batch renderer.
+  vec2i draw_counts;
+
+  // Pointers to the mapped vertex/index buffers.
+  gfx::Vertex* vp;
+  gfx::Index* ip;
+
+  // The current render pass.
+  gfx::RenderPass* pass;
+
+  // Called before rendering the map.
+  virtual void preMap() {}
+
+  // Called before drawing any sprites, after the map has been drawn.
+  virtual void preSprites() {}
+
+  // The last call made before GameRenderer ends its render pass. Anything
+  // drawn here will draw overtop of everything.
+  virtual void overlay() {}
+};
+
+/* ============================================================================
+ */
+struct VIBuffers
+{
+  gfx::Buffer vertex;
+  gfx::Buffer index;
+};
+
+/* ============================================================================
  */
 struct GameRenderer
 {
-  static constexpr u32 MAX_QUADS = 8192;
-  static constexpr u32 MAX_BATCHES = 256;
+  enum 
+  {
+    c_MaxQuads = 8192,
+    c_MaxBatches = 256,
+    c_MaxExternal = 1024,
+  };
 
   struct QuadBatch
   {
@@ -89,6 +141,12 @@ struct GameRenderer
     //             redone anyways, so we'll deal with this until then.
     gfx::Vulkan& vk;
     gfx::RenderTarget& target;
+
+    // Optional interface called by the renderer at various points to 
+    // allow external things to draw stuff in the game world. 
+    // Would like to get rid of this eventually, see comment on 
+    // IExternalRender.
+    IExternalRender* external;
   };
 
   b8 render(const RenderParams& params);
@@ -106,15 +164,11 @@ struct GameRenderer
   Scene scene;
   gfx::Buffer scene_uniform_buffer;
 
-  gfx::Buffer background_vertex_buffer;
-  gfx::Buffer background_index_buffer;
+  VIBuffers background_buffers;
+  VIBuffers quad_buffers;
+  VIBuffers external_buffers;
 
-  gfx::Buffer quads_vertex_buffer;
-  gfx::Buffer quads_index_buffer;
-
-  void* mapped_quads_vertex_buffer;
-
-  QuadBatch batches[MAX_BATCHES];
+  QuadBatch batches[c_MaxBatches];
   u32 batch_count = 0;
   u32 quad_count = 0;
 

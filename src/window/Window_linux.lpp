@@ -161,7 +161,7 @@ b8 Window::init(Engine& eng, String title, InputMgr& inputmgr)
   XClearWindow(display, window);
 
   u32 bw, d;
-  X11Window groot, gchild;
+  X11Window groot;
   XGetGeometry(
     display, 
     window, 
@@ -258,11 +258,13 @@ Window::UpdateResult Window::update(InputMgr& input)
     case FocusIn:
       result.focus_changed = true;
       focused = true;
+      raise<WindowFocusChange>(*eng, {.has_focus = true});
       break;
 
     case FocusOut:
       result.focus_changed = true;
       focused = false;
+      raise<WindowFocusChange>(*eng, {.has_focus = false});
       break;
 
     case KeyPress:
@@ -314,7 +316,7 @@ $ map = nil
         case Button5: input.onAddScroll(-1.f); break;
         default:
             @log.warn(window, 
-              "unhandled button given by XButtonEvent: ", bev.button, "\n");
+              "unhandled button given by XButtonEvent: ", bev.button);
           break;
         }
       }

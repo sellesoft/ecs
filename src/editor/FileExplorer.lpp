@@ -116,7 +116,7 @@ void FileExplorer::changeDir(String path)
 
 /* ----------------------------------------------------------------------------
  */
-void FileExplorer::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+void FileExplorer::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   ui.beginGroup(ui.getBounds().contracted(5.f));
   defer { ui.endGroup(); };

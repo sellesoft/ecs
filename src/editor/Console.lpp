@@ -253,9 +253,9 @@ static void putEntries(
 
 /* ----------------------------------------------------------------------------
  */
-void Console::placeUI(ui::UI& ui, const EditorSkinDef& editor_skin)
+void Console::putUI(ui::UI& ui, const EditorSkinDef& editor_skin)
 {
-  ZoneScopedN("editor::Console::placeUI");
+  ZoneScopedN("editor::Console::putUI");
 
   const EditorConsoleSkin& skin = editor_skin.console;
 

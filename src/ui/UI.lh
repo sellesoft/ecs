@@ -3,6 +3,7 @@
  */
 
 $ local cmn = require "common"
+$ local List = require "iro.List"
 
 @lpp.import "ui/Skin.defs.lh"
 @lpp.import "ui/TextEdit.lh"
@@ -44,28 +45,58 @@ struct UI;
 struct TextEdit;
 struct Group;
 
+$$$
+local focus_flags = List
+{
+  "Focused",
+  "Hovered",
+
+  "PrimaryDown",
+  "PrimaryPressed",
+  "PrimaryReleased",
+
+  "SecondaryDown",
+  "SecondaryPressed",
+  "SecondaryReleased",
+
+  "TertiaryDown",
+  "TertiaryPressed",
+  "TertiaryReleased",
+}
+$$$
+
 /* ============================================================================
  */
 enum class FocusFlag
 {
-  Focused,
-  Hovered,
-
-  PrimaryDown,
-  PrimaryPressed,
-  PrimaryReleased,
-
-  SecondaryDown,
-  SecondaryPressed,
-  SecondaryReleased,
-
-  TertiaryDown,
-  TertiaryPressed,
-  TertiaryReleased,
+$ for flag in focus_flags:each() do
+  $(flag),
+$ end
 
   COUNT
 };
 typedef Flags<FocusFlag> FocusFlags;
+
+/* ============================================================================
+ *  Helper type that wraps focus flags. May be expanded later to contain
+ *  more information, but mostly writing ui::FocusFlag::PrimaryDown is 
+ *  annoying.
+ */
+struct Focus
+{
+  FocusFlags flags;
+
+$ for flag in focus_flags:each() do
+$   local prefix = "is"
+$   if flag:find "Pressed" or flag:find "Released" then
+$     prefix = "was"
+$   end
+  b8 $(prefix)$(flag)() const 
+  {
+    return flags.test(FocusFlag::$(flag));
+  }
+$ end
+};
 
 /* ============================================================================
  */
@@ -425,9 +456,9 @@ struct UI
   void putQuad(Rect bounds, gfx::TextureHandle texture, Color color);
   void putQuad(Rect bounds, Color color);
 
-  FocusFlags putFocusableBounds(ItemId id, Rect bounds)
+  Focus putFocusableBounds(ItemId id, Rect bounds)
     { return putFocusableBounds(getCombinedId(id), bounds); }
-  FocusFlags putFocusableBounds(CombinedItemId id, Rect bounds);
+  Focus putFocusableBounds(CombinedItemId id, Rect bounds);
 
   // Pushes a layer and starts a new panel at the given bounds with the 
   // given id.
@@ -583,6 +614,22 @@ struct UI
   // state by either UI or Items.
   InputState frame_input;
 
+  // Because I'm tired of accessing `frame_input` everytime I need to check
+  // if a mouse button was released globally, I'm adding these. HOWEVER I 
+  // also think that if you need to check this (eg. something uses mouse
+  // drag, so may be released on a UI Item other than what it started on)
+  // you should use these in case we ever decide that what maps to 'Primary,'
+  // 'Secondary,' etc. can be different than just mouse buttons.
+  // Its also more explicit. Makes it look less like you forgot to check the
+  // focus flags rather than raw input.
+$ local function globalReleaseTest(x, y)
+  b8 was$(x)ReleasedGlobally() const 
+    { return frame_input.wasMouseButtonReleased(MouseButton::$(y)); }
+$ end
+  @globalReleaseTest(Primary, Left)
+  @globalReleaseTest(Secondary, Right)
+  @globalReleaseTest(Tertiary, Middle)
+
   vec2i draw_counts = {};
   
   enum class InternalPopupFlag
@@ -639,8 +686,8 @@ struct UI
   b8 isHoveredItem(CombinedItemId id) const
     { return focus_state.hovered.id == id; }
 
-  FocusFlags getFocus() const
-    { return focus_state.flags; }
+  Focus getFocus() const
+    { return {focus_state.flags}; }
 
   void drawDebugRect(Rect rect, Color color = 0xff0000ff);
   void drawDebugBorder(Rect rect, Color color = 0xff0000ff);

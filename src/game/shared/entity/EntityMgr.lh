@@ -138,17 +138,6 @@ struct EntityMgr
     return cmpmgr.iterate<TComp>();
   }
 
-  struct EntityIter
-  {
-    EntityPool* pool;
-    EntityPool::Slot* current;
-    
-    b8 isValid() const
-    {
-      return current != pool->pool + pool->capacity();
-    }
-  };
-
   // This sucks massively.
   struct Iter
   {

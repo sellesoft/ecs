@@ -13,7 +13,7 @@ namespace editor
 
 /* ----------------------------------------------------------------------------
  */
-void MenuBar::placeUI(ui::UI& ui, const EditorSkinDef& skin)
+void MenuBar::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   using namespace ui;
 

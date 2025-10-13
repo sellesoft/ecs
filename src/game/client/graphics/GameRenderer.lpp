@@ -45,23 +45,23 @@ b8 GameRenderer::init(InitParams& params)
       .debug_name = "game.renderer.scene"_str,
     });
   if (isnil(scene_uniform_buffer))
-    return @log.error(game, "failed to init scene uniform buffer\n");
+    return @log.error(game, "failed to init scene uniform buffer");
 
-  quads_vertex_buffer = gfx::Buffer::create(vk,
+  quad_buffers.vertex = gfx::Buffer::create(vk,
     {
       .data       = nullptr,
-      .size       = MAX_QUADS * 4 * sizeof(gfx::Vertex),
+      .size       = c_MaxQuads * 4 * sizeof(gfx::Vertex),
       .usage      = gfx::Buffer::VertexBuffer,
       .properties = gfx::Buffer::DeviceMappable,
       .behavior   = gfx::Buffer::Occasional,
       .debug_name = "game.renderer.quads.vertex"_str,
     });
 
-  if (isnil(quads_vertex_buffer))
-    return @log.error(game, "failed to init the quads vertex buffer\n");
+  if (isnil(quad_buffers.vertex))
+    return @log.error(game, "failed to init the quads vertex buffer");
   
-  gfx::Index quad_indices[MAX_QUADS * 6];
-  for (int i = 0, j = 0; i < 6*MAX_QUADS; j++, i += 6)
+  gfx::Index quad_indices[c_MaxQuads * 6];
+  for (int i = 0, j = 0; i < 6*c_MaxQuads; j++, i += 6)
   {
     quad_indices[i+0] = 4*j + 0;
     quad_indices[i+1] = 4*j + 1;
@@ -71,18 +71,18 @@ b8 GameRenderer::init(InitParams& params)
     quad_indices[i+5] = 4*j + 3;
   }
 
-  quads_index_buffer = gfx::Buffer::create(vk,
+  quad_buffers.index = gfx::Buffer::create(vk,
     {
       .data = quad_indices,
-      .size = MAX_QUADS * 6 * sizeof(gfx::Index),
+      .size = c_MaxQuads * 6 * sizeof(gfx::Index),
       .usage = gfx::Buffer::IndexBuffer,
       .properties = gfx::Buffer::DeviceOnly,
       .behavior = gfx::Buffer::Never,
       .debug_name = "game.renderer.quads.index"_str,
     });
 
-  if (isnil(quads_index_buffer))
-    return @log.error(game, "failed to init the quads index buffer\n");
+  if (isnil(quad_buffers.index))
+    return @log.error(game, "failed to init the quads index buffer");
 
   //init quads batches
   batches[0].texture = null_texture.getHandle();
@@ -94,6 +94,36 @@ b8 GameRenderer::init(InitParams& params)
     "assets/shaders/Quad"_str, 
     &quad_pipeline_link);
 
+  // Initialize external rendering buffers. 
+  // TODO(sushi) make this optional, the game wont do this but stuff like 
+  //             the map editor does. I would like to make this work better
+  //             overall though.
+  external_buffers.vertex = gfx::Buffer::create(vk,
+  {
+    .data = nullptr,
+    .size = c_MaxExternal * 4 * sizeof(gfx::Vertex),
+    .usage = gfx::Buffer::VertexBuffer,
+    .properties = gfx::Buffer::DeviceMappable,
+    .behavior = gfx::Buffer::Occasional,
+    .debug_name = "game.renderer.external.vertex"_str,
+  });
+
+  if (isnil(external_buffers.vertex))
+    return @log.error(game, "failed to init external vertex buffer");
+
+  external_buffers.index = gfx::Buffer::create(vk,
+  {
+    .data = nullptr,
+    .size = c_MaxExternal * 6 * sizeof(gfx::Index),
+    .usage = gfx::Buffer::IndexBuffer,
+    .properties = gfx::Buffer::DeviceMappable,
+    .behavior = gfx::Buffer::Occasional,
+    .debug_name = "game.renderer.external.index"_str,
+  });
+
+  if (isnil(external_buffers.index))
+    return @log.error(game, "failed to init external index buffer");
+
   return true;
 }
 
@@ -103,11 +133,11 @@ void GameRenderer::deinit(gfx::Vulkan& vk)
 {
   scene_uniform_buffer.destroy(vk);
 
-  background_vertex_buffer.destroy(vk);
-  background_index_buffer.destroy(vk);
+  quad_buffers.vertex.destroy(vk);
+  quad_buffers.index.destroy(vk);
 
-  quads_vertex_buffer.destroy(vk);
-  quads_index_buffer.destroy(vk);
+  external_buffers.vertex.destroy(vk);
+  external_buffers.index.destroy(vk);
 
   null_texture = {};
   quad_pipeline_link = {};
@@ -117,11 +147,11 @@ void GameRenderer::deinit(gfx::Vulkan& vk)
  */
 static void drawBatches(GameRenderer& sys, gfx::RenderPass& pass)
 {
-  assert(sys.batch_count <= GameRenderer::MAX_BATCHES);
-  assert(sys.quad_count <= GameRenderer::MAX_QUADS);
+  assert(sys.batch_count <= GameRenderer::c_MaxBatches);
+  assert(sys.quad_count <= GameRenderer::c_MaxQuads);
 
-  pass.bindVertexBuffer(sys.quads_vertex_buffer);
-  pass.bindIndexBuffer(sys.quads_index_buffer);
+  pass.bindVertexBuffer(sys.quad_buffers.vertex);
+  pass.bindIndexBuffer(sys.quad_buffers.index);
 
   u32 index_offset = 0;
   for (u32 i = 0; i < sys.batch_count; i++)
@@ -153,13 +183,13 @@ void GameRenderer::drawQuad(
   {
     if (batches[batch_count-1].quad_count > 0)
     {
-      if (batch_count >= GameRenderer::MAX_BATCHES)
+      if (batch_count >= GameRenderer::c_MaxBatches)
       {
         // TODO(delle) investigate if this stalls
-        quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-        quads_vertex_buffer.unmap(vk);
+        quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+        quad_buffers.vertex.unmap(vk);
         drawBatches(*this, pass);
-        quads_vertex_buffer.map(vk);
+        quad_buffers.vertex.map(vk);
       }
       else
       {
@@ -196,19 +226,19 @@ void GameRenderer::drawQuad(
   quad_verts[2].color = color.rgba;
   quad_verts[3].color = color.rgba;
 
-  auto vp = (gfx::Vertex*)quads_vertex_buffer.mapped_data + 4*quad_count;
+  auto vp = (gfx::Vertex*)quad_buffers.vertex.mapped_data + 4*quad_count;
   mem::copy(vp, quad_verts, sizeof(quad_verts));
 
   batches[batch_count-1].quad_count++;
   quad_count++;
 
-  if (quad_count >= GameRenderer::MAX_QUADS)
+  if (quad_count >= GameRenderer::c_MaxQuads)
   {
     // TODO(delle) investigate if this stalls
-    quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-    quads_vertex_buffer.unmap(vk);
+    quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+    quad_buffers.vertex.unmap(vk);
     drawBatches(*this, pass);
-    quads_vertex_buffer.map(vk);
+    quad_buffers.vertex.map(vk);
   }
 }
 
@@ -267,6 +297,16 @@ b8 GameRenderer::render(const RenderParams& params)
   pass.setViewport({0,0}, vec2f(view_size));
   pass.setScissor({0,0}, view_size);
 
+  if (params.external != nullptr)
+  {
+    // If we were given an external render interface, prep its buffer pointers
+    // and draw counts.
+    params.external->draw_counts = {};
+    params.external->vp = (gfx::Vertex*)external_buffers.vertex.map(vk);
+    params.external->ip = (gfx::Index*)external_buffers.index.map(vk);
+    params.external->pass = &pass;
+  }
+
   ///////////////////////////////////////////////
   // 1. Draw Background
   {
@@ -287,9 +327,12 @@ b8 GameRenderer::render(const RenderParams& params)
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
 
+  if (params.external != nullptr)
+    params.external->preMap();
+
   pass.bindPipeline(quad_pipeline_link.getHandle());
   pass.bindUniformBuffer(scene_uniform_buffer);
-  quads_vertex_buffer.map(vk);
+  quad_buffers.vertex.map(vk);
 
   if (params.map)
   {
@@ -323,6 +366,9 @@ b8 GameRenderer::render(const RenderParams& params)
   ///////////////////////////////////////////////
   // 3. Draw Sprite Components
 
+  if (params.external != nullptr)
+    params.external->preSprites();
+
   if (params.entmgr && params.map)
   {
     MapState&     map    = *params.map;
@@ -353,16 +399,14 @@ b8 GameRenderer::render(const RenderParams& params)
           const gfx::CompiledTexture& tex_data = 
             stex->texture->compiled_texture.get();
 
-          // Sooo many dereferences. 
-          // TODO(sushi) it would be nice to cache this somehow but I'm not 
-          //             sure if that's possible given our current setup.
           texture = stex->texture.getHandle();
           color = stex->color;
 
           vec2f uv_min = stex->uv.pos();
           vec2f uv_max = stex->uv.extent();
 
-          // TODO(sushi) it would be nice to cache these as well.
+          // TODO(sushi) we need to set up something during data compiling 
+          //             that caches these somewhere for us.
           uv.x = uv_min.x / f32(tex_data.width);
           uv.y = uv_min.y / f32(tex_data.height);
           uv.z = uv_max.x / f32(tex_data.width);
@@ -383,11 +427,29 @@ b8 GameRenderer::render(const RenderParams& params)
     }
   }
 
-  quads_vertex_buffer.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-  quads_vertex_buffer.unmap(vk);
+  quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  quad_buffers.vertex.unmap(vk);
   if (batch_count > 0)
   {
     drawBatches(*this, pass);
+  }
+
+  if (params.external != nullptr)
+  {
+    params.external->overlay();
+    
+    pass.bindVertexBuffer(external_buffers.vertex);
+    pass.bindVertexBuffer(external_buffers.vertex);
+
+    vec2i external_draw_counts = params.external->draw_counts;
+    if (external_draw_counts.x != 0 && external_draw_counts.y != 0)
+      pass.draw(0, external_draw_counts.y, 0);
+
+    external_buffers.vertex.unmap(vk);
+    external_buffers.index.unmap(vk);
+
+    external_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+    external_buffers.index.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
   }
 
   gfx::vk::endRenderPass(&vk);

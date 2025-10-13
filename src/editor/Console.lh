@@ -55,7 +55,7 @@ struct Console
   b8 init(Editor& editor);
   void deinit();
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+  void putUI(ui::UI& ui, const EditorSkinDef& skin);
 
   void pushEntry(const logging::Entry& entry)
   {

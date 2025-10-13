@@ -6,6 +6,8 @@
 $ local cmn = require "common"
 $ local List = require "iro.List"
 
+@lpp.import "graphics/vi_types.lh"
+
 #include "math/vec.h"
 #include "Color.h"
 #include "iro/Unicode.h"
@@ -16,17 +18,7 @@ namespace gfx
 {
 
 struct CompiledFont;
-
-struct Vertex
-{
-  vec2f pos;
-  vec2f uv;
-  u32   color;
-};
-
 struct PackedChar;
-
-typedef u32 Index;
 
 /* ----------------------------------------------------------------------------
  */

@@ -2,162 +2,34 @@ $ require "common"
 
 @lpp.import "editor/docs/Test.lh"
 @lpp.import "editor/Editor.lh"
-@lpp.import "game/client/structure/StructureVisualizer.sys.lh"
+
+#include "math/util.h"
 
 namespace editor
 {
-
-static const f32 c_map_render_w = 2048;
-static const f32 c_map_render_h = 2048;
-
-/* ----------------------------------------------------------------------------
- */
-static inline b8 recreateMapTexture(gfx::Vulkan& vk, gfx::Texture* texture)
-{
-  texture->destroy(vk);
-
-  *texture = gfx::Texture::createForRenderTarget(vk,
-  {
-    .size = vec2u(c_map_render_w, c_map_render_h),
-    .debug_name = "map render texture"_str,
-  });
-
-  return notnil(*texture);
-}
 
 /* ----------------------------------------------------------------------------
  */
 b8 Test::init()
 {
-  if (!entity_mgr.init())
-    return editor->log.error("failed to init entity manager");
-
-  reflect::Linker linker = 
-  {
-    .asset_mgr = editor->asset_mgr,
-    .resource_mgr = editor->resource_mgr,
-  };
-
-  cl::GameRenderer::InitParams game_renderer_params = 
-  {
-    .vk = *editor->vk,
-    .linker = linker,
-  };
-
-  if (!game_renderer.init(game_renderer_params))
-    return editor->log.error("failed to init game renderer");
-
-  linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &map_asset);
-
-  MapLoadParams map_load_params = 
-  {
-    .entmgr = entity_mgr,
-  };
-
-  if (!loadMap(&map_state, *map_asset, map_load_params))
-    return editor->log.error("failed to load map");
-
-  if (!recreateMapTexture(*editor->vk, &map_render))
-    return editor->log.error("failed to create map texture");
-
-  // Call StructureVisualizer's helper for updating structure sprite states
-  // so that they appear properly in the render.
-  cl::updateAllStructureAppearances(map_state, entity_mgr);
-
   return true;
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void handleControlInputs(
-    Test& self, 
-    ui::UI& ui, 
-    ui::FocusFlags game_view_focus,
-    const EditorSkinDef& skin)
+void Test::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  using enum Test::ControlState;
-  using Focus = ui::FocusFlag;
+  ui::TextSkin text = skin.text;
+  text.align = vec2f(0.5, 0.5);
 
-  vec2f view_size = self.ui_size;
-
-  vec2f local_cursor = ui.getLocalCursorPos();
-  vec2f world_cursor = 
-    self.view.viewportPointToWorld(local_cursor, view_size);
-
-  switch (self.control_state)
-  {
-  case None:
-    if (game_view_focus.test(Focus::PrimaryPressed))
-    {
-      self.drag_start_viewport = local_cursor;
-      self.drag_start_world = self.view.pos;
-      self.control_state = DraggingView;
-    }
-    break;
-
-  case DraggingView:
-    {
-      vec2f offset = self.view.viewportPointToWorld(
-        self.drag_start_viewport, 
-        view_size);
-
-      self.view.pos = self.drag_start_world + offset - world_cursor;
-
-      if (game_view_focus.test(Focus::PrimaryReleased))
-        self.control_state = None;
-    } 
-    break;
-  }
-}
-
-/* ----------------------------------------------------------------------------
- */
-void Test::placeUI(ui::UI& ui, const EditorSkinDef& skin)
-{
-  Rect bounds = ui.getBounds();
-
-  auto uv = vec4f(0,0,0,0);
-  uv.z = bounds.w / c_map_render_w;
-  uv.w = bounds.h / c_map_render_h;
-
-  ui_size = bounds.size();
-
-  ui.putQuad(bounds, map_render.getHandle(), uv, 0xffffffff);
-
-  ui::FocusFlags game_view_focus = 
-    ui.putFocusableBounds("game-view"_fid, bounds);
-
-  vec2f local_cursor = ui.getLocalCursorPos();
-  vec2f cursor_world = view.viewportPointToWorld(local_cursor, ui_size);
-
-  handleControlInputs(
-    *this,
-    ui,
-    game_view_focus,
-    skin);
+  ui.putText(ui.getBounds(), "your test here!"_str, text);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void Test::render(gfx::Vulkan& vk)
 {
-  gfx::RenderTarget target = 
-  {
-    .image = map_render.image,
-    .view = map_render.view,
-  };
 
-  cl::GameRenderer::RenderParams render_params = 
-  {
-    .entmgr = &entity_mgr,
-    .map = &map_state,
-    .viewport_size = vec2u(ui_size),
-    .vk = vk,
-    .target = target,
-    .view = view.getViewMat(),
-  };
-
-  game_renderer.render(render_params);
 }
 
 }

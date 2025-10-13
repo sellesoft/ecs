@@ -130,6 +130,8 @@ struct Editor
   // The directory the editor started in.
   fs::PathBuffer root_dir;
 
+  BroadcastEventBus* event_bus;
+
   struct InitParams
   {
     Engine& engine;
@@ -139,7 +141,7 @@ struct Editor
   b8 init(const InitParams& params);
   void deinit();
 
-  void placeUI();
+  void putUI();
 
   struct UpdateParams
   {
@@ -160,7 +162,5 @@ struct Editor
   b8 cacheSourceDataFile(SourceDataFile& file, String path);
   b8 loadCachedSourceDataFile(SourceDataFile* file, String path);
 };
-
-
 
 }

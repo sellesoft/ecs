@@ -274,6 +274,16 @@ convfunc.processNamespaceDecl = function(self, cns)
   if name == "std" then
     -- Ignore converting std stuff, cause its a mess, bloated, dumb, stupid,
     -- and we don't use it in our projects. 
+    -- Well, we do sometimes.
+    return
+  end
+
+  if name == "concepts" and 
+     self.ns_stack:last() and
+     self.ns_stack:last().name == "iro" 
+  then
+    -- Ignore iro's concepts stuff because it uses template arguments that
+    -- we don't support for now.
     return
   end
 

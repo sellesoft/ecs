@@ -1,5 +1,6 @@
 local lake = require "lake"
 local cc = require "lake.compile_commands" ()
+local cclpp = require "lake.compile_commands" ()
 local o = lake.obj
 local List = require "iro.List"
 local fs = require "iro.fs"
@@ -155,6 +156,7 @@ local lpp_params =
   cpath_dirs = cfg.lpp.cpath_dirs,
   import_dirs = cfg.lpp.import_dirs,
   gen_meta = cfg.lpp.gen_meta,
+  cmd_callback = cclpp:cmdCallback(),
 }
 
 ---@type lake.obj.Exe.LinkParams
@@ -352,4 +354,4 @@ end
 f:close()
 
 cc:write "compile_commands.json"
-
+cclpp:write "compile_commands_lpp.json"

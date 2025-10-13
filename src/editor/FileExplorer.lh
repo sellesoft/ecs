@@ -44,7 +44,7 @@ struct FileExplorer : Doc
   void changeDir(iro::String path);
   iro::String currentDir() { return iro::String(current_dir); }
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin) override;
+  void putUI(ui::UI& ui, const EditorSkinDef& skin) override;
 };
 
 }

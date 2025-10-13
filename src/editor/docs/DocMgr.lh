@@ -104,7 +104,7 @@ struct DocMgr
   Doc* open(String name, b8 v = true, b8 a = false);
   void close(Doc* doc);
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin);
+  void putUI(ui::UI& ui, const EditorSkinDef& skin);
   void update();
   void render(gfx::Vulkan& vk);
 

@@ -206,6 +206,8 @@ $ end
   if (!log.init(this))
     return false;
 
+  event_bus = &params.eventbus;
+
   @initSubSystem(CommandBus,
   {
     success = cmd_bus.init();
@@ -535,12 +537,12 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
 
     // Place all open documents.
     ui.beginGroup(doc_bounds);
-    doc_mgr.placeUI(ui, skin);
+    doc_mgr.putUI(ui, skin);
     ui.endGroup();
   
     // Place the console and menu bar over everything.
-    console.placeUI(ui, skin);
-    menu_bar.placeUI(ui, skin);
+    console.putUI(ui, skin);
+    menu_bar.putUI(ui, skin);
 
     ui.pushLayer(
       "cursor-layer"_fid, 

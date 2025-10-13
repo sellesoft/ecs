@@ -35,6 +35,12 @@ struct BroadcastEventBus
     subscribeTo<E>(sub, x.y);
   }
 
+  template<typename E, typename S>
+  void subscribeTo(S* sub, void (*cb)(S& s, E& e))
+  {
+    subscribeTo<E>(sub, (void(*)(void*, E&))cb);
+  }
+
   template<typename T>
   void raise(T&& event) const { raise<T>(event); }
 

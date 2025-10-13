@@ -86,7 +86,7 @@ struct Doc
   virtual void beforeDeallocate() {}
 
   // Called within a group that will contain this document's contents.
-  virtual void placeUI(ui::UI& ui, const EditorSkinDef& skin) { }
+  virtual void putUI(ui::UI& ui, const EditorSkinDef& skin) { }
 
   // Not sure where will be called yet.
   virtual void update()  { }

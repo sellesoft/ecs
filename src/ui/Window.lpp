@@ -98,17 +98,17 @@ void Window::begin(this S& self, ui::UI& ui, ItemId id, const WindowSkin& skin)
 
   // Place a focusable covering the entire area of the window + some offset 
   // from each edge for resize controls.
-  FocusFlags outer_focus =
+  Focus outer_focus =
     ui.putFocusableBounds(";;win-border"_fid, ui.getBounds());
 
-  if (outer_focus.test(FocusFlag::Hovered) && 
+  if (outer_focus.isHovered() && 
       self.control_state != Control::DraggingEdge)
   {
     vec2f local_cursor = ui.getLocalCursorPos();
 
     Edges edges = computeEdges(local_cursor, hit_area, hit_size);
 
-    if (outer_focus.test(FocusFlag::PrimaryPressed))
+    if (outer_focus.wasPrimaryPressed())
     {
       self.drag_start = container_cursor;
       self.dragged_edges = edges;
@@ -126,12 +126,12 @@ void Window::begin(this S& self, ui::UI& ui, ItemId id, const WindowSkin& skin)
 
   ui.putTextItem(header_bounds, self.title, skin.header);
 
-  FocusFlags header_focus = 
+  Focus header_focus = 
     ui.putFocusableBounds(";;win-header"_fid, header_bounds);
 
   if (self.control_state == Control::DraggingWindow)
   {
-    if (header_focus.test(FocusFlag::PrimaryReleased))
+    if (header_focus.wasPrimaryReleased())
     {
       self.control_state = Control::None;
     }
@@ -141,7 +141,7 @@ void Window::begin(this S& self, ui::UI& ui, ItemId id, const WindowSkin& skin)
         ui.getLocalCursorPos() - ui.focus_state.pressed_cursor_offset;
     }
   }
-  else if (header_focus.test(FocusFlag::PrimaryPressed))
+  else if (header_focus.wasPrimaryPressed())
   {
     self.control_state = Control::DraggingWindow;
   }

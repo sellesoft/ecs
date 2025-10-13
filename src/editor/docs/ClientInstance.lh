@@ -106,7 +106,7 @@ struct ClientInstance : Doc
   void update() override;
   void render(gfx::Vulkan& vk) override;
 
-  void placeUI(ui::UI& ui, const EditorSkinDef& skin) override;
+  void putUI(ui::UI& ui, const EditorSkinDef& skin) override;
 
   void notifyAssetChanged(String name, String type);
 };

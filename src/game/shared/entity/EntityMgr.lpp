@@ -86,13 +86,12 @@ EntityId EntityMgr::spawnEntity(const EntityDefLink& def, vec2f pos, u32 layer)
   auto* transform = tryComp<Transform>(id);
   transform->pos = pos;
   transform->placement_layer = layer;
-  //
+
   eventbus.raise(id, ComponentInit{});
   eventbus.raise(id, ComponentStartup{});
 
   return id;
 }
-
 
 /* ----------------------------------------------------------------------------
  */

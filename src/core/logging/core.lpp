@@ -76,6 +76,7 @@ void GlobalChannel::log(const Entry& entry)
 
   io::format(fs::stdout(), String(prefix_buffer));
 
+  // TODO(sushi) this should be adjustable/disablable.
   const s64 max_line_len = 79;
 
   s64 word_start = -1;

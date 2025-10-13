@@ -423,8 +423,6 @@ void UI::render(gfx::RenderPass& pass, Rect viewport)
 
           active_render_group = group;
 
-          vec2f group_pos = group->transform.getTranslation();
-
           ScissorCmd scissor_cmd = {};
           scissor_cmd.bounds = group->scissor;
           scissor_cmd.execute(*this, pass);
@@ -1176,21 +1174,21 @@ b8 UI::putButton(
     String text,
     const ButtonSkin& skin)
 {
-  FocusFlags focus = putFocusableBounds(id, bounds);
+  Focus focus = putFocusableBounds(id, bounds);
 
   const TextItemSkin* state_skin = &skin.normal;
 
   b8 clicked = false;
 
-  if (focus.test(FocusFlag::Hovered))
+  if (focus.isHovered())
   {
     state_skin = &skin.hovered;
 
-    if (focus.test(FocusFlag::PrimaryReleased))
+    if (focus.wasPrimaryReleased())
       clicked = true;
   }
 
-  if (focus.test(FocusFlag::PrimaryDown))
+  if (focus.isPrimaryDown())
     state_skin = &skin.pressed;
 
   putTextItem(bounds, text, *state_skin);
@@ -1208,11 +1206,11 @@ b8 UI::putCheckbox(
     b8* enabled, 
     const CheckboxSkin& skin)
 {
-  FocusFlags focus = putFocusableBounds(id, bounds);
+  Focus focus = putFocusableBounds(id, bounds);
 
   b8 clicked = false;
 
-  if (focus.test(FocusFlag::PrimaryReleased))
+  if (focus.wasPrimaryReleased())
   {
     clicked = true;
     *enabled = !*enabled;
@@ -1241,7 +1239,7 @@ TextFieldResult UI::putTextField(
 
   @log.trace(ui, "UI::putTextField\n");
 
-  FocusFlags focus = putFocusableBounds(id, bounds);
+  Focus focus = putFocusableBounds(id, bounds);
 
   if (!skin.box.text.font.isValid())
     return result;
@@ -1251,12 +1249,10 @@ TextFieldResult UI::putTextField(
   const gfx::FontResource& font_resource = *skin.box.text.font;
   const gfx::CompiledFont& font = font_resource.compiled_font.get();
 
-  b8 focused = focus.test(FocusFlag::Focused);
+  b8 focused = focus.isFocused();
 
   if (focused)
     result.set(Focused);
-
-  s32 initial_cursor_pos = edit->cursor.pos;
 
   putItem(bounds, skin.box.item);
 
@@ -1335,7 +1331,7 @@ $ end
       result.set(Commit);
   }
 
-  b8 clicked = focus.test(FocusFlag::PrimaryPressed);
+  b8 clicked = focus.wasPrimaryPressed();
   vec2f cursor_pos = getLocalCursorPos().xadd(-skin.padding.x);
 
   f32 text_width = 0.f;
@@ -1491,9 +1487,9 @@ b8 UI::beginDropDown(
 {
   putTextItem(bounds, selected_text, skin.selection);
 
-  FocusFlags focus = putFocusableBounds(id, bounds);
+  Focus focus = putFocusableBounds(id, bounds);
 
-  if (focus.test(FocusFlag::PrimaryReleased))
+  if (focus.wasPrimaryReleased())
     openPopup(id);
 
   expandCurrentGroupExtents(bounds);
@@ -1598,9 +1594,7 @@ void UI::endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end)
 
     if (isFocusedItem(button_id))
     {
-      FocusFlags flags = getFocus();
-
-      if (flags.test(FocusFlag::PrimaryDown))
+      if (getFocus().isPrimaryDown())
       {
         drag_scroll = true;
         
@@ -1751,7 +1745,7 @@ void LineDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
 
 /* ----------------------------------------------------------------------------
  */
-FocusFlags UI::putFocusableBounds(CombinedItemId id, Rect bounds)
+Focus UI::putFocusableBounds(CombinedItemId id, Rect bounds)
 {
   @log.trace(ui, "UI::putFocusableBounds(", id.val, ")\n");
 
@@ -1767,17 +1761,17 @@ FocusFlags UI::putFocusableBounds(CombinedItemId id, Rect bounds)
   focusable->next = current_panel->current_group->items;
   current_panel->current_group->items = focusable;
   
-  FocusFlags result = {};
+  Focus result = {};
   if (isFocusedItem(id))
   {
     result = getFocus();
-    result.set(FocusFlag::Focused);
+    result.flags.set(FocusFlag::Focused);
   }
 
   if (isHoveredItem(id))
-    result.set(FocusFlag::Hovered);
+    result.flags.set(FocusFlag::Hovered);
 
-  return result;
+  return {result};
 }
 
 /* ----------------------------------------------------------------------------

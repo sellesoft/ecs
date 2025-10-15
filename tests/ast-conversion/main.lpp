@@ -1,6 +1,5 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
-$ local clog = require "iro.Logger" ("packing", Verbosity.Debug)
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
@@ -8,16 +7,15 @@ $$$
 
 local AstContext = require "reflect.AstContext"
 
-local imported = lpp.import "src/game/shared/entity/Entity.defs.lh"
+local astctx, imported = require "reflect.AstContext".fromGlobs
+{
+  "src/graphics/Font.resource.lh"
+}
 
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
+local fr = astctx:lookupTypeDecl "gfx::FontResource"
 
--- io.write(ast.dump(astctx.translation_unit), '\n')
-
--- Shorthand helper for looking up a declaration by name.
-local function lookup(name)
-  return astctx:lookupDecl(name)
-end
+local ct = fr:findField "compiled_texture"
+-- ast.dumpout(ct.type:desugar())
 
 $$$
 

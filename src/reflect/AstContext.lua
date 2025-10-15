@@ -227,8 +227,6 @@ local convfunc = setmetatable({},
 convfunc.processTranslationUnit = function(self, tu)
   self.tu = ast.TranslationUnit.new()
 
-  -- tu:dump()
-
   local iter = tu:getContextIter()
   local cdecl = iter:next()
   while cdecl do
@@ -535,7 +533,10 @@ convfunc.resolveType = function(self, ctype)
     local len = ctype:getArrayLen()
     type = ast.CArray.new(subtype, len)
     type.size = ctype:getSize() / 8
-  elseif ctype:isElaborated() then
+  elseif ctype:isBuiltin() then
+    self:write("is builtin")
+    type = ast.Builtin.new(name, ctype:getSize() / 8)
+  elseif ctype:isTypedef() then
     -- Check if this is one of iro's typedefs of builtin types and return 
     -- our internal representation of it. This is a little cheat to get around
     -- having to unwrap them in reflection code. Cause that's really annoying.
@@ -543,20 +544,6 @@ convfunc.resolveType = function(self, ctype)
     if ast.builtins[name] then
       return ast.builtins[name]
     end
-
-    self:write("is elaborated")
-    local desugared = ctype:getSingleStepDesugared()
-      or error("failed to get desugared type")
-    type =
-      ast.Elaborated.new(name, self:resolveType(desugared))
-    type.size = type.subtype.size
-
-    type.subtype.elaborations = type.subtype.elaborations or List {}
-    type.subtype.elaborations:push(type)
-  elseif ctype:isBuiltin() then
-    self:write("is builtin")
-    type = ast.Builtin.new(name, ctype:getSize() / 8)
-  elseif ctype:isTypedef() then
     self:write("is typedef")
     local decl = self:resolveDecl(ctype:getTypedefDecl())
     if not decl then
@@ -612,6 +599,7 @@ convfunc.resolveType = function(self, ctype)
 
   if type then
     type.name = ctype:getName()
+    type.qname = ctype:getFullyQualifiedName()
   end
 
   return type

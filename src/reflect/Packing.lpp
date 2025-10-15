@@ -170,7 +170,7 @@ $ -- * ------------------------------------------------------------------------
 
 $ local function getPackerSig(decl)
 $   return getPackerName(decl).."(const SourceData& data, "..
-$          decl.type.name.."* out)"
+$          decl.type.qname.."* out)"
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -563,7 +563,7 @@ $     if not field.metadata.hidden then
 $       if field.metadata.default then
 $         -- If this field has a default attached to it, then put logic for 
 $         -- filling it out when the field was not found in data.
-$         local default_aux_name = decl.type.name.."::"..field.name
+$         local default_aux_name = decl.type.qname.."::"..field.name
         // Try to retrieve already parsed SourceData from the defaults cache.
         SourceData* default_data = 
           defaults_cache.findAuxData("$(default_aux_name)"_str);
@@ -1041,15 +1041,15 @@ $         -- that typedef will be generated later.
 $         -- This happens when a typedef decl is directly marked with the 
 $         -- def metadata.
 $         if not typedef.user.packer_placed then
-  case "$(typedef.type.name)"_hashed:
+  case "$(typedef.type.qname)"_hashed:
 $         end
 $       end
 $     end
-  case "$(decl.type.name)"_hashed:
+  case "$(decl.type.qname)"_hashed:
     packer.packed->data.ptr = 
-      (u8*)packer.packed->buffer.allocateType<$(decl.type.name)>();
+      (u8*)packer.packed->buffer.allocateType<$(decl.type.qname)>();
     if (!packer.$(getPackerName(decl))(
-          data, ($(decl.type.name)*)packer.packed->data.ptr))
+          data, ($(decl.type.qname)*)packer.packed->data.ptr))
       return false;
     // Set the typeid on the PackedData to whatever was specified by the 
     // given data. We do this at runtime to ensure that we can't accidentally 

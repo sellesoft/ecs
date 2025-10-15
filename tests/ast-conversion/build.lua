@@ -2,26 +2,20 @@ local lake = require "lake"
 local o = lake.obj
 local List = require "iro.List"
 
-return function(
-    build_dir, 
-    lpp_params, 
-    cpp_params, 
-    link_params,
-    iro_objs)
-
+---@param params ecs.test.Params
+return function(params)
   local objs = List {}
-  objs:pushList(iro_objs)
 
   local function compileLpp(lfile)
-    local cpp = build_dir.."/"..lfile..".cpp"
+    local cpp = params.build_dir.."/"..lfile..".cpp"
     objs:push(
       o.Lpp(lfile)
-        :preprocessToCpp(cpp, lpp_params)
-        :compile(cpp..".o", cpp_params))
+        :preprocessToCpp(cpp, params.lpp_params)
+        :compile(cpp..".o", params.cpp_params))
   end
 
   compileLpp "tests/ast-conversion/main.lpp"
+  compileLpp "src/reflect/CompiledData.lpp"
 
-  -- o.Exe(build_dir.."/tests/ast-conversion/run")
-  --   :link(objs, link_params)
+  return objs
 end

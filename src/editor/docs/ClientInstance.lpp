@@ -102,10 +102,9 @@ b8 ClientThread::init(ClientInstance& cli)
 
   update_mutex = conc::Mutex::create();
 
-  thread = conc::Thread::create(this, [](void* opaque) -> void*
+  thread = conc::Thread::create(this, [](void* opaque)
   {
     ((ClientThread*)opaque)->worker();
-    return nullptr;
   });
 
   // NOTE(sushi) initialize with some viewport size since the way that we 

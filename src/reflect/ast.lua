@@ -60,6 +60,15 @@ end
 --- A representation of a Type in the AST.
 ---@class ast.Type : iro.Type
 ---
+--- The name of this type.
+---@field name string
+---
+--- The fully qualified name of this type, similar to Decl.qname. This should
+--- be used over `name` when generating code, as it allows you to refer to 
+--- the correct type regardless of the context. If you are really not sure,
+--- prepend this name with '::'.
+---@field qname string
+---
 --- The size of this type in bytes.
 ---@field size number
 ---
@@ -461,6 +470,7 @@ end
 
 TagType.dump = function(self, dump)
   dump:typenode("TagType", function()
+    dump:tag("name", self.name)
     dump:tag("decl", self.decl)
   end)
 end
@@ -588,41 +598,6 @@ TypedefDecl.formCSafeName = function(self, out)
   end
   out:put(self.name)
   return out
-end
-
---- A representation of an 'elaborated' type. This is a concept from clang,
---- and it represents 'sugar' wrapping some other type. In this case, 
---- Elaborated represents the way a type was actually written in the source 
---- code it was retrieved from.
----
---- @class ast.Elaborated : ast.Type
----
---- The name this type was actually written with in the source code.
----@field name string
----
---- The type this elaborated type wraps.
----@field subtype ast.Type
----
-local Elaborated = Type:derive()
-ast.Elaborated = Elaborated
-
----@return ast.Elaborated
-Elaborated.new = function(name, subtype)
-  local o = Elaborated:derive()
-  o.name = name
-  o.subtype = subtype
-  return o
-end
-
-Elaborated.__tostring = function(self)
-  return qstr("Elaborated(", self.name, ",", self.subtype, ")")
-end
-
-Elaborated.dump = function(self, dump)
-  dump:typenode("Elaborated", function()
-    dump:inline_name(self.name)
-    self.subtype:dump(dump)
-  end)
 end
 
 --- An enum declaration.

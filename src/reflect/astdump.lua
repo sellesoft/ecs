@@ -83,6 +83,7 @@ end
 AstDump.typenode = function(self, name, func)
   local node = AstDumpNode.new(name)
   node.is_type = true
+  self.root_node = self.root_node or node
 
   local prev = self.node_stack:last()
   if prev then

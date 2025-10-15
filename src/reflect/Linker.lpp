@@ -185,7 +185,7 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function getDeclLinkerSig(decl)
-$   return getDeclLinkerName(decl).."("..decl.type.name.."* data)"
+$   return getDeclLinkerName(decl).."("..decl.type.qname.."* data)"
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -397,12 +397,12 @@ $ end
     switch (type.val)
     {
 $ for decl in link_decls:each() do
-    case "$(decl.type.name)"_typeid_val:
-      return $(getDeclLinkerName(decl))(($(decl.type.name)*)data);
+    case "$(decl.type.qname)"_typeid_val:
+      return $(getDeclLinkerName(decl))(($(decl.type.qname)*)data);
 $ end
 $ for decl in decls_with_links:each() do
-    case "$(decl.type.name)"_typeid_val:
-      return $(getDeclLinkerName(decl))(($(decl.type.name)*)data);
+    case "$(decl.type.qname)"_typeid_val:
+      return $(getDeclLinkerName(decl))(($(decl.type.qname)*)data);
 $ end
     }
     return true;

@@ -77,10 +77,9 @@ struct BuildThread
 
     built_targets.init();
 
-    thread = conc::Thread::create(this, [](void* opaque) -> void*
+    thread = conc::Thread::create(this, [](void* opaque)
     {
       ((BuildThread*)opaque)->worker();
-      return nullptr;
     });
 
     return true;

@@ -28,10 +28,9 @@ b8 FileWatcherThread::init(os::FileWatcher* watcher)
   events.init();
   string_pool.init();
 
-  thread = conc::Thread::create(this, [](void* opaque) -> void*
+  thread = conc::Thread::create(this, [](void* opaque)
   {
     ((FileWatcherThread*)opaque)->worker();
-    return nullptr;
   });
 
   return true;

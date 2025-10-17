@@ -54,6 +54,11 @@ struct MapEditor : Doc
 
   void putUI(ui::UI& ui, const EditorSkinDef& skin) override;
   void render(gfx::Vulkan& vk) override;
+
+  vec2f viewportToWorld(vec2f point)
+  {
+    return view.viewportPointToWorld(point, map_view_size);
+  }
 };
 
 }

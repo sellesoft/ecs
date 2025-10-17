@@ -930,9 +930,6 @@ $   end
 $ end
 
 $ putTypePlacer = function(type)
-$   if type:is(ast.TypedefType) then
-$     print(type)
-$   end
 $   type = type:desugar()
 $   if type:is(ast.TagType) then
 $     putDeclPlacer(type.decl)

@@ -306,7 +306,7 @@ void Buffer::unmap(Vulkan& vk)
 
   if (!vk.unmapVkBuffer(internal_buffer->ptr))
     @log.error(gfx, 
-      "attempt to unmap ", *this, " but it was already unmapped\n"); 
+      "attempt to unmap ", *this, " but it was already unmapped"); 
 }
 
 }

@@ -323,6 +323,9 @@ b8 GameRenderer::render(const RenderParams& params)
     // renderer.draw(0, 6, 0);
   }
 
+  if (params.external != nullptr)
+    params.external->preMap();
+
   ///////////////////////////////////////////////
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
@@ -436,6 +439,10 @@ b8 GameRenderer::render(const RenderParams& params)
 
   if (params.external != nullptr)
   {
+    // TODO(sushi) due to the way batching works, we can't actually 
+    //             inject commands between layers. Need to rework this stuff
+    //             to be emitted in explicit layers (like drawMap(), 
+    //             drawSprites(), etc.).
     params.external->overlay();
     
     pass.bindVertexBuffer(external_buffers.vertex);

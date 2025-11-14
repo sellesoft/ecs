@@ -50,7 +50,8 @@ $ local cerr = helpers.defCreateErr("gfx::Pipeline", "name")
       {
         .offset = pc.offset,
         .size = pc.size,
-        .stageFlags = shaderStageFlagsToVulkan(pc.stages),
+        .stageFlags = 
+          (VkShaderStageFlags)shaderStageFlagsToVulkan(pc.stages),
       });
     }
   }

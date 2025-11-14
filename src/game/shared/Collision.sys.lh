@@ -13,8 +13,6 @@
  */
 struct CollisionSys : EntitySys
 {
-  MapSys* map;
-
   b8 init()
   {
     return true;

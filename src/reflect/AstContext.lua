@@ -117,8 +117,8 @@ Converter.new = function(astctx, source)
   return setmetatable(o, Converter)
 end
 
-local lppclang_lib = "lib/lppclang.so"
-local clang_exe = "third_party/bin/clang++"
+local lppclang_lib = ECS_LPPCLANG_LIB
+local clang_exe = ECS_CLANG_EXE
 
 --- Generate a new AstContext by parsing the given string. Note that the 
 --- given string must form a complete translation unit, as that is all we 
@@ -146,15 +146,16 @@ end
 ---@param patterns table | iro.List
 ---@return reflect.AstContext, string
 AstContext.fromGlobs = function(patterns)
-  local imported = cmn.buffer.new()
-
   ECS_REFLECTION_IMPORT = true
 
   local import_source = sbuf.new()
 
   for pattern in List(patterns):each() do
     glob(pattern):each(function(path)
-      import_source:put('@lpp.import "', path, '"\n')
+      if not path:find "Window_win32" then
+        import_source:put("// import ", path, '\n')
+        import_source:put('@lpp.import "', path, '"\n')
+      end
     end)
   end
 

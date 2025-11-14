@@ -8,10 +8,10 @@ using Win32ErrMsg = iro::platform::Win32ErrMsg;
 
 using namespace iro;
 
-@lpp.import "Window.lh"
-@lpp.import "Window_win32.lh"
-@lpp.import "Window.events.lh"
-@lpp.import "../Engine.lh"
+@lpp.import "window/Window.lh"
+@lpp.import "window/Window_win32.lh"
+@lpp.import "window/Window.events.lh"
+@lpp.import "Engine.lh"
 
 #include "iro/Logger.h"
 

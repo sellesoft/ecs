@@ -25,6 +25,10 @@ $ local List = require "iro.List"
 #include "iro/fs/fs.h"
 #include "iro/StringFuncs.h"
 
+#undef stdout
+#undef stderr
+#undef stdin
+
 namespace logging
 {
 

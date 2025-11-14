@@ -1,7 +1,7 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
 
-#define private public
+// #define private public
 
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs

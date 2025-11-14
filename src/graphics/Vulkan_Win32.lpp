@@ -1,10 +1,10 @@
-$ require "common"
 $ if IRO_WIN32 then
+$ require "common"
 
 @lpp.import "graphics/Vulkan.lh"
 
-#include "vulkan/vulkan_win32.h"
 @lpp.import "window/Window_win32.lh"
+#include "vulkan/vulkan_win32.h"
 
 namespace gfx
 {
@@ -22,8 +22,8 @@ b8 Vulkan::initSurface(Window& window)
     .hwnd = (HWND)window.handle,
   };
 
-  @vkc(vkCreateWin32SurfaceKHR(
-    instance, &create_info, &allocator_callbacks, &surface))
+  vkCreateWin32SurfaceKHR(
+    instance, &create_info, &allocator_callbacks, &surface);
 
   return true;
 }

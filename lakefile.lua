@@ -82,6 +82,10 @@ local generated_dir = build_dir.."/_generated"
 local enable_tracy = cfg.tracy.enabled
 local asan = cfg.asan
 
+if lake.os == "windows" then
+	asan = false
+end
+
 -- TODO(sushi) command for cleaning data/
 -- TODO(sushi) command for code hot reloading
 -- TODO(sushi) command for running tests
@@ -102,11 +106,21 @@ end
 local shared_libs = List(cfg.link.libs)
 
 local lib_dirs = List(cfg.link.lib_dirs):flatten():map(incwd)
-local include_dirs = List(cfg.cpp.include_dirs):flatten():map(incwd)
+local include_dirs = List(cfg.cpp.include_dirs)
 
 include_dirs:push(generated_dir)
 
 local defines = cfg.cpp.defines
+
+if lake.os == "windows" then
+  defines.ECS_LPPCLANG_LIB = "lib/lppclang.dll"
+  defines.ECS_CLANG_EXE = "third_party/bin/win32/clang"
+elseif lake.os == "linux" then
+  defines.ECS_LPPCLANG_LIB = "lib/lppclang.so"
+  defines.ECS_CLANG_EXE = "third_party/bin/linux/clang"
+else
+  error "unhandled os"
+end
 
 if cfg.gen_pretty_print then
   defines.ECS_GEN_PRETTY_PRINT = 1
@@ -146,7 +160,7 @@ local cpp_params =
 
   patchable_function_entry = 16,
 
-  pic = true,
+  pic = false,
 }
 
 ---@type lake.obj.Lpp.PreprocessParams

@@ -3,9 +3,8 @@ $ local ast = require "reflect.ast"
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
-#define private public
-
-$ if not ECS_GEN_PRETTY_PRINT or 0 == ECS_GEN_PRETTY_PRINT then
+$ -- if not ECS_GEN_PRETTY_PRINT or 0 == ECS_GEN_PRETTY_PRINT then
+$ if true then
 
 @log.import
 @lpp.import "reflect/rtr.lh"

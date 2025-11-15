@@ -416,22 +416,21 @@ static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
 
   for (f32 x = grid_start.x; x <= grid_end.x; x += grid_sep)
   {
-    for (f32 y = grid_start.y; y >= grid_end.y; y -= grid_sep)
-    {
-      br.drawLine(
-        vec2f(x, world_view_origin.y),
-        vec2f(x, world_view_extent.y),
-        2.f * world_pixel_size.x, 
-        0x77777788);
-
-      br.drawLine(
-        vec2f(world_view_origin.x, y),
-        vec2f(world_view_extent.x, y),
-        2.f * world_pixel_size.x, 
-        0x77777788);
-    }
+    br.drawLine(
+      vec2f(x, world_view_origin.y),
+      vec2f(x, world_view_extent.y),
+      2.f * world_pixel_size.x, 
+      0x77777788);
   }
 
+  for (f32 y = grid_start.y; y >= grid_end.y; y -= grid_sep)
+  {
+    br.drawLine(
+      vec2f(world_view_origin.x, y),
+      vec2f(world_view_extent.x, y),
+      2.f * world_pixel_size.x, 
+      0x77777788);
+  }
 }
 
 /* ----------------------------------------------------------------------------

@@ -7,6 +7,7 @@ $ require "common"
 @lpp.import "game/shared/Collider.comp.lh"
 
 @lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/BatchRenderer.lh"
 
 @lpp.import "window/Window.events.lh"
 
@@ -343,62 +344,10 @@ struct MapEditorRender : cl::IExternalRender
   MapEditorRender(MapEditor& self) : self(self) {}
 
   // TODO(sushi) move these to common.h
-  s64 roundUpTo(s64 value, s64 multiple)
-  {
-    return (value + multiple - 1) / multiple * multiple;
-  }
-
-  s64 roundDownTo(s64 value, s64 multiple)
-  {
-    return (value - (value % multiple));
-  }
 
   void placeGrid()
   {
-    // Get where the top-left and top-right of the viewport correspond to 
-    // in the world.
-    vec2f world_view_origin = self.viewportToWorld(vec2f(0.f, 0.f));
-    vec2f world_view_extent = self.viewportToWorld(self.map_view_size);
-
-    // Used to determine thickness of lines as drawn in the world so that 
-    // they appear with a consistent thickness on screen.
-    vec2f world_pixel_size = 
-      self.viewportToWorld(vec2f(1.f, 1.f)) - world_view_origin;
-
-    vec2f world_view_size = world_view_extent - world_view_origin;
-
-    f32 grid_sep = max(1.f, roundf(self.view.zoom * 2.f));
-
-    vec2f grid_start;
-    grid_start.x = roundDownTo(world_view_origin.x, grid_sep);
-    grid_start.y = roundDownTo(world_view_origin.y, grid_sep);
-
-    vec2f grid_end;
-    grid_end.x = roundUpTo(world_view_extent.x, grid_sep);
-    grid_end.y = roundDownTo(world_view_extent.y, grid_sep);
-
-    for (f32 x = grid_start.x; x <= grid_end.x; x += grid_sep)
-    {
-      for (f32 y = grid_start.y; y >= grid_end.y; y -= grid_sep)
-      {
-        gfx::putLine(
-          vp, ip,
-          &draw_counts,
-          vec2f(x, world_view_origin.y),
-          vec2f(x, world_view_extent.y), 
-          2.f * world_pixel_size.x, 
-          0x77777788);
-
-        gfx::putLine(
-          vp, ip,
-          &draw_counts,
-          vec2f(world_view_origin.x, y),
-          vec2f(world_view_extent.x, y),
-          2.f * world_pixel_size.x, 
-          0x77777788);
-      }
     }
-  }
 
   void preSprites() override
   {
@@ -441,6 +390,52 @@ struct MapEditorRender : cl::IExternalRender
 
 /* ----------------------------------------------------------------------------
  */
+static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
+{
+  // Get where the top-left and top-right of the viewport correspond to 
+  // in the world.
+  vec2f world_view_origin = self.viewportToWorld(vec2f(0.f, 0.f));
+  vec2f world_view_extent = self.viewportToWorld(self.map_view_size);
+
+  // Used to determine thickness of lines as drawn in the world so that 
+  // they appear with a consistent thickness on screen.
+  vec2f world_pixel_size = 
+    self.viewportToWorld(vec2f(1.f, 1.f)) - world_view_origin;
+
+  vec2f world_view_size = world_view_extent - world_view_origin;
+
+  f32 grid_sep = max(1.f, roundf(self.view.zoom * 2.f));
+
+  vec2f grid_start;
+  grid_start.x = roundDownTo(world_view_origin.x, grid_sep);
+  grid_start.y = roundDownTo(world_view_origin.y, grid_sep);
+
+  vec2f grid_end;
+  grid_end.x = roundUpTo(world_view_extent.x, grid_sep);
+  grid_end.y = roundDownTo(world_view_extent.y, grid_sep);
+
+  for (f32 x = grid_start.x; x <= grid_end.x; x += grid_sep)
+  {
+    for (f32 y = grid_start.y; y >= grid_end.y; y -= grid_sep)
+    {
+      br.drawLine(
+        vec2f(x, world_view_origin.y),
+        vec2f(x, world_view_extent.y),
+        2.f * world_pixel_size.x, 
+        0x77777788);
+
+      br.drawLine(
+        vec2f(world_view_origin.x, y),
+        vec2f(world_view_extent.x, y),
+        2.f * world_pixel_size.x, 
+        0x77777788);
+    }
+  }
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void MapEditor::render(gfx::Vulkan& vk)
 {
   MapEditorRender editor_render(*this);
@@ -459,10 +454,55 @@ void MapEditor::render(gfx::Vulkan& vk)
     .vk = vk,
     .target = target,
     .view = view.getViewMat(),
-    .external = &editor_render,
+    .external = nullptr,
   };
 
-  game_renderer.render(render_params);
+  gfx::RenderPass pass;
+  if (!gfx::vk::beginRenderPass(
+        &vk,
+        &pass,
+        target,
+        vec2i(0,0),
+        vec2u(map_view_size),
+        0x000000ff))
+    return;
+
+  game_renderer.updateSceneBuffer(vk, map_view_size, view.getViewMat());
+
+  gfx::VertexBufferView vbv;
+  gfx::IndexBufferView ibv;
+  game_renderer.mapBuffersAndGetViews(vk, &vbv, &ibv);
+
+  gfx::BatchRenderer br;
+  br.init(&pass, vbv, ibv);
+
+  br.begin();
+
+  br.setPipeline(game_renderer.quad_pipeline_link.getHandle());
+
+  pass.bindVertexBuffer(game_renderer.quad_buffers.vertex);
+  pass.bindIndexBuffer(game_renderer.quad_buffers.index);
+  pass.bindUniformBuffer(game_renderer.scene_uniform_buffer);
+
+  pass.setViewport({0,0}, map_view_size);
+  pass.setScissor({0,0}, vec2u(map_view_size));
+  
+  game_renderer.renderMapState(vk, br, map_state);
+  
+  br.setTexture(editor->l_white_texture.getHandle());
+  placeGrid(*this, br);
+
+  game_renderer.renderSprites(vk, br, map_state, entity_mgr);
+
+  // game_renderer.render(render_params);
+
+  br.end();
+
+  game_renderer.unmapBuffers(vk);
+
+  gfx::vk::endRenderPass(&vk);
+
+  gfx::vk::prepareImageForSampling(&vk, map_render.image);
 }
 
 }

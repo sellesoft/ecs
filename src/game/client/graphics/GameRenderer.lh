@@ -25,6 +25,7 @@ $ require "common"
 @lpp.import "graphics/RenderTarget.lh"
 @lpp.import "graphics/Texture.defs.lh"
 @lpp.import "graphics/vi_types.lh"
+@lpp.import "graphics/BatchRenderer.lh"
 @lpp.import "reflect/Linker.lh"
 
 namespace gfx 
@@ -149,6 +150,13 @@ struct GameRenderer
     IExternalRender* external;
   };
 
+  void mapBuffersAndGetViews(
+    gfx::Vulkan& vk,
+    gfx::VertexBufferView* vb, 
+    gfx::IndexBufferView* ib);
+
+  void unmapBuffers(gfx::Vulkan& vk);
+
   void updateSceneBuffer(
     gfx::Vulkan& vk,
     vec2f view_size,
@@ -156,20 +164,22 @@ struct GameRenderer
 
   void renderMapState(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     MapState& map);
 
   void renderSprites(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     MapState& map,
     EntityMgr& entmgr);
 
+  // NOTE(sushi) likely to be removed once the splitting up of this function
+  //             seems to work nicely.
   b8 render(const RenderParams& params);
 
   void drawQuad(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     vec2f pos,
     gfx::TextureHandle texture,
     vec4f uv,

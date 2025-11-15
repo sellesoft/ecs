@@ -1,0 +1,136 @@
+$ require "common"
+
+@lpp.import "graphics/BatchRenderer.lh"
+@lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/RenderPass.lh"
+
+@log.import
+
+namespace gfx
+{
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::init(
+    RenderPass* pass, 
+    VertexBufferView vb, 
+    IndexBufferView ib)
+{
+  assert(pass != nullptr);
+  assert(notnil(vb));
+  assert(notnil(ib));
+
+  this->pass = pass;
+  vtx = vb;
+  idx = ib;
+
+  buffer_counts = { 0, 0 };
+  batch_begin = buffer_counts;
+
+  texture = nil;
+  pipeline = nil;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void flushBatch(BatchRenderer& br)
+{
+  vec2i batch_counts = br.buffer_counts - br.batch_begin;
+
+  if (batch_counts.x != 0 && batch_counts.y != 0)
+    br.pass->draw(br.batch_begin.y, batch_counts.y, 0);
+
+  br.batch_begin = br.buffer_counts;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::begin()
+{
+  assert(batch_begin.x == buffer_counts.x);
+  assert(batch_begin.y == buffer_counts.y);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::end()
+{
+  flushBatch(*this);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::setTexture(TextureHandle texture)
+{
+  if (this->texture != texture)
+  {
+    flushBatch(*this);
+    this->texture = texture;
+    pass->bindTexture(texture);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::setPipeline(Pipeline pipeline)
+{
+  if (this->pipeline.handle != pipeline.handle)
+  {
+    flushBatch(*this);
+    this->pipeline = pipeline;
+    pass->bindPipeline(pipeline);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::drawQuad(
+    vec2f negneg, vec2f negpos,
+    vec2f posneg, vec2f pospos,
+    vec4f uv,
+    Color color)
+{
+  vec2i next_counts = buffer_counts + putFilledRectCounts();
+  if (next_counts.x > vtx.len || next_counts.y > idx.len)
+  {
+    @log.warn(gfx, "BatchRenderer buffers full\n");
+    return;
+  }
+
+  gfx::putFilledRect(
+    vtx.ptr, idx.ptr,
+    &buffer_counts,
+    negneg, negpos,
+    posneg, pospos,
+    vec2f(uv.x, uv.w), 
+    vec2f(uv.z, uv.w), 
+    vec2f(uv.z, uv.y), 
+    vec2f(uv.x, uv.y),
+    color);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::drawLine(
+    vec2f start,
+    vec2f end,
+    f32 thickness,
+    Color color)
+{
+  vec2i next_counts = buffer_counts + putLineCounts();
+  if (next_counts.x > vtx.len || next_counts.y > idx.len)
+  {
+    @log.warn(gfx, "BatchRenderer buffers full\n");
+    return;
+  }
+
+  gfx::putLine(
+    vtx.ptr, idx.ptr,
+    &buffer_counts,
+    start,
+    end,
+    thickness,
+    color);
+}
+
+}

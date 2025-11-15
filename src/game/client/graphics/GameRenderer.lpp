@@ -76,8 +76,8 @@ b8 GameRenderer::init(InitParams& params)
       .data = quad_indices,
       .size = c_MaxQuads * 6 * sizeof(gfx::Index),
       .usage = gfx::Buffer::IndexBuffer,
-      .properties = gfx::Buffer::DeviceOnly,
-      .behavior = gfx::Buffer::Never,
+      .properties = gfx::Buffer::DeviceMappable,
+      .behavior = gfx::Buffer::Occasional,
       .debug_name = "game.renderer.quads.index"_str,
     });
 
@@ -173,67 +173,97 @@ static void drawBatches(GameRenderer& sys, gfx::RenderPass& pass)
  */
 void GameRenderer::drawQuad(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     vec2f pos,
     gfx::TextureHandle texture,
     vec4f uv,
     Color color)
 {
-  if (texture != batches[batch_count-1].texture)
-  {
-    if (batches[batch_count-1].quad_count > 0)
-    {
-      if (batch_count >= GameRenderer::c_MaxBatches)
-      {
-        // TODO(delle) investigate if this stalls
-        drawBatches(*this, pass);
-      }
-      else
-      {
-        batch_count++;
-      }
-    }
+  br.setTexture(texture);
+  br.drawQuad(
+    Rect::from(pos, vec2f(1.f, 1.f)),
+    uv,
+    color);
 
-    batches[batch_count-1].quad_count = 0;
-    batches[batch_count-1].texture = texture;
-  }
+  // if (texture != batches[batch_count-1].texture)
+  // {
+  //   if (batches[batch_count-1].quad_count > 0)
+  //   {
+  //     if (batch_count >= GameRenderer::c_MaxBatches)
+  //     {
+  //       // TODO(delle) investigate if this stalls
+  //       drawBatches(*this, pass);
+  //     }
+  //     else
+  //     {
+  //       batch_count++;
+  //     }
+  //   }
+  //
+  //   batches[batch_count-1].quad_count = 0;
+  //   batches[batch_count-1].texture = texture;
+  // }
+  //
+  // static const vec2f offsets[4] = 
+  // {
+  //   vec2f(-0.f,-0.f),
+  //   vec2f( 1.f,-0.f),
+  //   vec2f( 1.f, 1.f),
+  //   vec2f(-0.f, 1.f),
+  // };
+  //
+  // gfx::Vertex quad_verts[4] = {};
+  //
+  // quad_verts[0].pos = pos + offsets[0];
+  // quad_verts[1].pos = pos + offsets[1];
+  // quad_verts[2].pos = pos + offsets[2];
+  // quad_verts[3].pos = pos + offsets[3];
+  //
+  // quad_verts[0].uv = vec2f(uv.x, uv.w);
+  // quad_verts[1].uv = vec2f(uv.z, uv.w);
+  // quad_verts[2].uv = vec2f(uv.z, uv.y);
+  // quad_verts[3].uv = vec2f(uv.x, uv.y);
+  //
+  // quad_verts[0].color = color.rgba;
+  // quad_verts[1].color = color.rgba;
+  // quad_verts[2].color = color.rgba;
+  // quad_verts[3].color = color.rgba;
+  //
+  // auto vp = (gfx::Vertex*)quad_buffers.vertex.mapped_data + 4*quad_count;
+  // mem::copy(vp, quad_verts, sizeof(quad_verts));
+  //
+  // batches[batch_count-1].quad_count++;
+  // quad_count++;
+  //
+  // if (quad_count >= GameRenderer::c_MaxQuads)
+  // {
+  //   // TODO(delle) investigate if this stalls
+  //   drawBatches(*this, pass);
+  // }
+}
 
-  static const vec2f offsets[4] = 
-  {
-    vec2f(-0.f,-0.f),
-    vec2f( 1.f,-0.f),
-    vec2f( 1.f, 1.f),
-    vec2f(-0.f, 1.f),
-  };
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::mapBuffersAndGetViews(
+    gfx::Vulkan& vk,
+    gfx::VertexBufferView* vb, 
+    gfx::IndexBufferView* ib)
+{
+  quad_buffers.vertex.map(vk);
+  quad_buffers.index.map(vk);
 
-  gfx::Vertex quad_verts[4] = {};
+  setSlice(vb, (gfx::Vertex*)quad_buffers.vertex.mapped_data, 4 * c_MaxQuads);
+  setSlice(ib, (gfx::Index*)quad_buffers.index.mapped_data, 6 * c_MaxQuads);
+}
 
-  quad_verts[0].pos = pos + offsets[0];
-  quad_verts[1].pos = pos + offsets[1];
-  quad_verts[2].pos = pos + offsets[2];
-  quad_verts[3].pos = pos + offsets[3];
-
-  quad_verts[0].uv = vec2f(uv.x, uv.w);
-  quad_verts[1].uv = vec2f(uv.z, uv.w);
-  quad_verts[2].uv = vec2f(uv.z, uv.y);
-  quad_verts[3].uv = vec2f(uv.x, uv.y);
-
-  quad_verts[0].color = color.rgba;
-  quad_verts[1].color = color.rgba;
-  quad_verts[2].color = color.rgba;
-  quad_verts[3].color = color.rgba;
-
-  auto vp = (gfx::Vertex*)quad_buffers.vertex.mapped_data + 4*quad_count;
-  mem::copy(vp, quad_verts, sizeof(quad_verts));
-
-  batches[batch_count-1].quad_count++;
-  quad_count++;
-
-  if (quad_count >= GameRenderer::c_MaxQuads)
-  {
-    // TODO(delle) investigate if this stalls
-    drawBatches(*this, pass);
-  }
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::unmapBuffers(gfx::Vulkan& vk)
+{
+  quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  quad_buffers.index.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
+  quad_buffers.vertex.unmap(vk);
+  quad_buffers.index.unmap(vk);
 }
 
 /* ----------------------------------------------------------------------------
@@ -267,13 +297,9 @@ void GameRenderer::updateSceneBuffer(
  */
 void GameRenderer::renderMapState(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     MapState& map)
 {
-  pass.bindPipeline(quad_pipeline_link.getHandle());
-  pass.bindUniformBuffer(scene_uniform_buffer);
-  quad_buffers.vertex.map(vk);
-
   u32 layer_idx = 0;
   for (const Layer& layer : map.layers)
   {
@@ -292,19 +318,16 @@ void GameRenderer::renderMapState(
         : null_texture.getHandle();
 
       vec2f pos = map.getTilePos(layer, tile);
-      drawQuad(vk, pass, pos, texture, {0.f,0.f,1.f,1.f}, tint);
+      drawQuad(vk, br, pos, texture, {0.f,0.f,1.f,1.f}, tint);
     }
 
     layer_idx++;
   }
-
-  drawBatches(*this, pass);
-  quad_buffers.vertex.map(vk);
 }
 
 void GameRenderer::renderSprites(
     gfx::Vulkan& vk,
-    gfx::RenderPass& pass,
+    gfx::BatchRenderer& br,
     MapState& map,
     EntityMgr& entmgr)
 {
@@ -357,7 +380,7 @@ void GameRenderer::renderSprites(
       pos.x += layer.pos.x;
       pos.y += layer.pos.y;
 
-      drawQuad(vk, pass, pos, texture, uv, color);
+      drawQuad(vk, br, pos, texture, uv, color);
     }
   }
 }
@@ -396,18 +419,21 @@ b8 GameRenderer::render(const RenderParams& params)
         0x000000ff))
     return false;
 
+  pass.bindVertexBuffer(quad_buffers.vertex);
+  pass.bindIndexBuffer(quad_buffers.index);
+
+  gfx::BatchRenderer br;
+  
+  gfx::VertexBufferView vbv;
+  gfx::IndexBufferView ibv;
+  mapBuffersAndGetViews(vk, &vbv, &ibv);
+
+  br.init(&pass, vbv, ibv);
+
+  br.begin();
+
   pass.setViewport({0,0}, vec2f(view_size));
   pass.setScissor({0,0}, view_size);
-
-  if (params.external != nullptr)
-  {
-    // If we were given an external render interface, prep its buffer pointers
-    // and draw counts.
-    params.external->draw_counts = {};
-    params.external->vp = (gfx::Vertex*)external_buffers.vertex.map(vk);
-    params.external->ip = (gfx::Index*)external_buffers.index.map(vk);
-    params.external->pass = &pass;
-  }
 
   ///////////////////////////////////////////////
   // 1. Draw Background
@@ -425,71 +451,30 @@ b8 GameRenderer::render(const RenderParams& params)
     // renderer.draw(0, 6, 0);
   }
 
-  if (params.external != nullptr)
-    params.external->preMap();
-
   ///////////////////////////////////////////////
   // 2. Draw Map Tiles
   // TODO(delle) only update changed tiles after init
 
-  if (params.external != nullptr)
-    params.external->preMap();
-
-  pass.bindPipeline(quad_pipeline_link.getHandle());
+  br.setPipeline(quad_pipeline_link.getHandle());
   pass.bindUniformBuffer(scene_uniform_buffer);
-  quad_buffers.vertex.map(vk);
 
   if (params.map)
-  {
-    renderMapState(
-      vk,
-      pass,
-      *params.map);
-  }
+    renderMapState(vk, br, *params.map);
 
   ///////////////////////////////////////////////
   // 3. Draw Sprite Components
 
-  if (params.external != nullptr)
-    params.external->preSprites();
-
   if (params.entmgr && params.map)
-  {
-    renderSprites(
-      vk,
-      pass,
-      *params.map,
-      *params.entmgr);
-  }
+    renderSprites(vk, br, *params.map, *params.entmgr);
 
-  quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-  quad_buffers.vertex.unmap(vk);
-  if (batch_count > 0)
-  {
-    drawBatches(*this, pass);
-  }
+  br.end();
 
-  if (params.external != nullptr)
-  {
-    // TODO(sushi) due to the way batching works, we can't actually 
-    //             inject commands between layers. Need to rework this stuff
-    //             to be emitted in explicit layers (like drawMap(), 
-    //             drawSprites(), etc.).
-    params.external->overlay();
-    
-    pass.bindVertexBuffer(external_buffers.vertex);
-    pass.bindVertexBuffer(external_buffers.vertex);
+  unmapBuffers(vk);
 
-    vec2i external_draw_counts = params.external->draw_counts;
-    if (external_draw_counts.x != 0 && external_draw_counts.y != 0)
-      pass.draw(0, external_draw_counts.y, 0);
-
-    external_buffers.vertex.unmap(vk);
-    external_buffers.index.unmap(vk);
-
-    external_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-    external_buffers.index.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-  }
+  // if (batch_count > 0)
+  // {
+  //   drawBatches(*this, pass);
+  // }
 
   gfx::vk::endRenderPass(&vk);
 

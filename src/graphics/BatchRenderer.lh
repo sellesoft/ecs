@@ -1,0 +1,74 @@
+/*
+ *  Helper for tracking state to batch draw calls.
+ */
+
+$ require "common"
+
+@lpp.import "graphics/vi_types.lh"
+
+#include "iro/containers/Slice.h"
+
+@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "graphics/Pipeline.lh"
+
+#include "math/Rect.h"
+#include "Color.h"
+
+namespace gfx
+{
+
+struct Vulkan;
+struct RenderPass;
+
+typedef Slice<gfx::Vertex> VertexBufferView;
+typedef Slice<gfx::Index> IndexBufferView;
+
+/* ============================================================================
+ */
+struct BatchRenderer
+{
+  RenderPass* pass;
+
+  VertexBufferView vtx;
+  IndexBufferView idx;
+
+  vec2i buffer_counts;
+  vec2i batch_begin;
+
+  TextureHandle texture;
+  Pipeline pipeline;
+
+  void init(RenderPass* pass, VertexBufferView vb, IndexBufferView ib);
+  void deinit();
+  
+  void begin();
+  void end();
+
+  void setTexture(TextureHandle texture);
+  void setPipeline(Pipeline pipeline);
+
+  void drawQuad(
+    vec2f negneg, vec2f negpos,
+    vec2f posneg, vec2f pospos,
+    vec4f uv,
+    Color color = 0xffffffff);
+
+  void drawQuad(Rect bounds, vec4f uv, Color color = 0xffffffff)
+  {
+    drawQuad(
+      vec2f(bounds.x,            bounds.y), 
+      vec2f(bounds.x,            bounds.y + bounds.h),
+      vec2f(bounds.x + bounds.w, bounds.y),
+      vec2f(bounds.x + bounds.w, bounds.y + bounds.h),
+      uv,
+      color);
+  }
+
+  void drawLine(
+    vec2f start,
+    vec2f end,
+    f32 thickness,
+    Color color);
+};
+
+}

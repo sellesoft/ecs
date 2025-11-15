@@ -1,0 +1,31 @@
+/*
+ *  The opposite of Packing. Takes binary data and turns it into SourceData.
+ */
+
+$ require "common"
+
+@lpp.import "reflect/TypeId.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+
+namespace reflect
+{
+
+struct UnpackParams
+{
+  // The type of the supplied data.
+  rtr::TypeId type;
+
+  // The data. Note that the size of the provided data is validated 
+  // via rtr::typeSizeFromTypeId(type).
+  Bytes data;
+
+  // SourceDataFile to output data into. Unpacking only allocates SourceData
+  // from the file. It does not touch the auxillary data list nor the 
+  // returned data.
+  SourceDataFile* sfile;
+
+};
+
+SourceData* unpackData(const UnpackParams& params);
+
+}

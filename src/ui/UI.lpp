@@ -1641,6 +1641,7 @@ void TransformCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
   @log.trace(ui, "execute transform ", transform->getTranslation(), "\n");
 
+  // Flush batch so we draw it with the current transform.
   br.flush();
 
   ui.pushConstantFromTransform(*transform, br);
@@ -1652,6 +1653,7 @@ void ScissorCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
   @log.trace(ui, "execute scissor ", bounds.pos(), " ", bounds.size(), "\n");
 
+  // Flush batch so we draw it with the current scissor.
   br.flush();
 
   br.pass->setScissor(vec2i(bounds.pos()), vec2u(bounds.size()));

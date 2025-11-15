@@ -1,6 +1,6 @@
 /*
- *  A pointer which internally stores its type. For polymorphic 
- *  data like Components.
+ *  A pointer which internally stores its type. For polymorphic data like 
+ *  Components.
  */
 
 $ require "common"

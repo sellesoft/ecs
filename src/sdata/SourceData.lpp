@@ -103,6 +103,18 @@ void SourceData::dump(u32 depth) const
 
 /* ----------------------------------------------------------------------------
  */
+SourceData* SourceData::addData(SourceDataFile& file, String name, String type)
+{
+  assert(hasObjectData());
+
+  SourceData* child = addChild(file.allocateSourceData());
+  child->name = name;
+  child->type = type;
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void SourceData::setObject(String name)
 {
   if (!hasObjectData())
@@ -141,26 +153,82 @@ SourceData* SourceData::addObject(
 
 /* ----------------------------------------------------------------------------
  */
-void SourceData::setVec2(SourceDataFile& file, vec2f v)
+void SourceData::setVec2f(SourceDataFile& file, vec2f v)
 {
   setObject(nil);
 
-  addNumberValue("x"_str, v.x, file);
-  addNumberValue("y"_str, v.y, file);
+  addNumberValue(file, "x"_str, v.x);
+  addNumberValue(file, "y"_str, v.y);
 }
 
 /* ----------------------------------------------------------------------------
  */
-SourceData* SourceData::addVec2(SourceDataFile& file, String name, vec2f v)
+SourceData* SourceData::addVec2f(SourceDataFile& file, String name, vec2f v)
 {
   SourceData* child = file.allocateSourceData();
 
   children.push(child);
 
   child->name = name;
-  child->setVec2(file, v);
+  child->setVec2f(file, v);
 
   return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setVec2i(SourceDataFile& file, vec2i v)
+{
+  setObject(nil);
+
+  addIntValue(file, "x"_str, v.x);
+  addIntValue(file, "y"_str, v.y);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addVec2i(SourceDataFile& file, String name, vec2i v)
+{
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setVec2i(file, v);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setVec2u(SourceDataFile& file, vec2u v)
+{
+  setObject(nil);
+
+  addUIntValue(file, "x"_str, v.x);
+  addUIntValue(file, "y"_str, v.y);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+SourceData* SourceData::addVec2u(SourceDataFile& file, String name, vec2u v)
+{
+  SourceData* child = file.allocateSourceData();
+
+  children.push(child);
+
+  child->name = name;
+  child->setVec2u(file, v);
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setStringValue(SourceDataFile& file, String value)
+{
+  value = value.allocateCopy(&file.string_cache);
+  setStringValue(value);
 }
 
 /* ----------------------------------------------------------------------------
@@ -185,7 +253,7 @@ SourceData* SourceData::addStringValue(
 
 /* ----------------------------------------------------------------------------
  */
-void SourceData::setNumberValue(f32 value, SourceDataFile& file)
+void SourceData::setNumberValue(SourceDataFile& file, f32 value)
 {
   io::StaticBuffer<64> buffer;
   io::format(&buffer, value);
@@ -196,17 +264,17 @@ void SourceData::setNumberValue(f32 value, SourceDataFile& file)
 
 /* ----------------------------------------------------------------------------
  */
-SourceData* SourceData::addNumberValue(f32 val, SourceDataFile& file)
+SourceData* SourceData::addNumberValue(SourceDataFile& file, f32 val)
 {
-  return addNumberValue(nil, val, file);
+  return addNumberValue(file, nil, val);
 }
 
 /* ----------------------------------------------------------------------------
  */
 SourceData* SourceData::addNumberValue(
+    SourceDataFile& file,
     String name, 
-    f32 value, 
-    SourceDataFile& file)
+    f32 value)
 {
   assert(notnil(children));
 
@@ -215,7 +283,7 @@ SourceData* SourceData::addNumberValue(
   children.push(child);
 
   child->name = name;
-  child->setNumberValue(value, file);
+  child->setNumberValue(file, value);
 
   return child;
 }
@@ -292,4 +360,15 @@ SourceData* SourceData::addUIntValue(
   child->setUIntValue(file, value);
 
   return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceData::setHexValue(SourceDataFile& file, u64 value)
+{
+  io::StaticBuffer<32> buf;
+  io::format(&buf, io::Hex(value));
+
+  val.kind = Value::Kind::NumberHex;
+  val.str  = String(buf).allocateCopy(&file.string_cache);
 }

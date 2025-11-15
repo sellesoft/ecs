@@ -96,13 +96,6 @@ end
 
 local objs = List {}
 
-local function incwd(path)
-  if not path:find "^/" then
-    return cwd.."/"..path
-  end
-  return path
-end
-
 local shared_libs = List(cfg.link.libs)
 
 local lib_dirs = List(cfg.link.lib_dirs)

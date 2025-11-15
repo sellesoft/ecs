@@ -22,3 +22,5 @@ struct EntityDef
 @metadata.links(entity.data)
 struct EntityDefLink : reflect::TypedCompiledDataLink<EntityDef> {};
 
+typedef reflect::Array<EntityDefLink> EntityDefLinkArray;
+

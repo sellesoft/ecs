@@ -230,6 +230,7 @@ ast.builtins = {}
 Builtin.new = function(name, size)
   local o = Builtin:derive()
   o.name = name
+  o.qname = name -- Assuming anything passed in here has no ns qualifications.
   o.size = size
   ast.builtins[name] = o
   return o

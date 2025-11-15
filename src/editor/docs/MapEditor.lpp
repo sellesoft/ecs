@@ -11,6 +11,9 @@ $ require "common"
 
 @lpp.import "window/Window.events.lh"
 
+@lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/Unpacking.lh"
+
 #include "math/util.h"
 
 namespace editor

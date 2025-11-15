@@ -277,7 +277,7 @@ struct Datum_vec2
     if (data == nullptr)
     {
       data = params.default_data.allocateSourceData();
-      data->setVec2(params.default_data, {0.f, 0.f});
+      data->setVec2f(params.default_data, {0.f, 0.f});
     }
 
     return datum.init(parent, data);
@@ -308,7 +308,7 @@ struct Datum_$(name)
     if (data == nullptr)
     {
       data = params.default_data.allocateSourceData();
-      data->setNumberValue(0.f, params.default_data);
+      data->setNumberValue(params.default_data, 0.f);
     }
 
     return datum.init(parent, data);

@@ -1,10 +1,14 @@
 --- 
---- Common stuff throughout all of ecs.
+--- Common stuff throughout all of ecs. Pretty much every file should 
+--- 'require "common"' at the top. So, be careful adding things to this file 
+--- as it affects the compile times of everything.
 ---
 
 -- Introduce lpp as a global.
 lpp = require "lpp"
 
+-- Its usually not helpful to just exit out of lpp like this, ever. Especially
+-- when running under lppls (because it will just crash the ls).
 os.exit = function()
   io.write("DO NOT CALL OS.EXIT\n")
   assert(false)
@@ -13,6 +17,19 @@ end
 -- Introduces the log global
 require "core.logging.log"
 
+-- Introduce global compile time log util. We do this lazily (on first use)
+-- as clog.lua uses common.lua (don't feel like reorganizing it).
+clog = setmetatable({}, 
+{
+  __index = function(_, k)
+    clog = require "clog"
+    return function(...)
+      clog[k](...)
+    end
+  end
+})
+
+-- Convenience global func, usually used like '@dbgBreak;'
 function dbgBreak()
   return "__builtin_debugtrap()"
 end
@@ -58,38 +75,6 @@ if ECS_CLANG_RESOURCE_DIR then
   common.cargs:push("-resource-dir="..ECS_CLANG_RESOURCE_DIR)
 end
 
-common.defFileLogger = function(name, verbosity)
-  local buf = common.buffer.new()
-
-  buf:put("static Logger logger = Logger::create(\"", name, 
-          "\"_str, Logger::Verbosity::",verbosity,");")
-
-  return buf:get()
-end
--- Introduce as global given how common this is.
-defFileLogger = common.defFileLogger
-
-common.failIf = function(errval)
-  return function(cond, ...)
-      local args = common.buffer.new()
-      local first = true
-      for arg in common.List{...}:each() do
-        if first then
-          first = false
-        else
-          args:push ","
-        end
-        args:push(arg)
-      end
-      return [[
-        if (]]..cond..[[)
-        {
-          ERROR(]]..args:get()..[[);
-          return ]]..errval..[[;
-        }]]
-  end
-end
-
 common.joinArgs = function(delim, ...)
   delim = delim or " "
   local s = ""
@@ -108,5 +93,20 @@ common.joinArgs = function(delim, ...)
 
   return s
 end
+
+-- Idk how many times I have copy pasted some enumeration of these colors 
+-- in various forms throughout all of the projects I've worked on.
+common.color = 
+{
+  black   = "\x1b[30m",
+  red     = "\x1b[31m",
+  green   = "\x1b[32m",
+  yellow  = "\x1b[33m",
+  blue    = "\x1b[34m",
+  magenta = "\x1b[35m",
+  cyan    = "\x1b[36m",
+  white   = "\x1b[37m",
+  reset   = "\x1b[0m"
+}
 
 return common

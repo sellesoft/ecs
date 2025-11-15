@@ -850,7 +850,8 @@ $   local subdecl = subtype.decl
 $   for derived in subdecl:allDerived() do
 $     putDeclPacker(derived)
 $   end
-  
+  /* --------------------------------------------------------------------------
+   */
   $(packerFuncDecl(decl))
   {
     if (isnil(data.type))

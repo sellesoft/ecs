@@ -113,6 +113,15 @@ struct SourceData
 
   /* --------------------------------------------------------------------------
    */
+  SourceData* addChild(SourceData* sdata)
+  {
+    assert(hasObjectData());
+    children.push(sdata);
+    return sdata;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
   b8 hasData() const
   {
     return hasObjectData()  || 
@@ -190,12 +199,16 @@ struct SourceData
   /* --------------------------------------------------------------------------
    *  Editing helpers.
    */
+
+  // Adds generic data without any internal Value type or child data.
+  // `name` and `type` may be nil. This SourceData must be Object data.
+  SourceData* addData(SourceDataFile& file, String name, String type);
+
   void        setObject(String name);
   SourceData* addObject(SourceDataFile& file, String name);
   SourceData* addObject(SourceDataFile& file, String name, String type);
 
-  void        setVec2(SourceDataFile& file, vec2f v);
-  SourceData* addVec2(SourceDataFile& file, String name, vec2f v);
+
 
   void setStringValue(String value)
   {
@@ -203,15 +216,19 @@ struct SourceData
     val.str = value;
   }
 
+  void setStringValue(SourceDataFile& file, String value);
+
   SourceData* addStringValue(
     SourceDataFile& file, String name, String value);
 
   SourceData* addStringValue(SourceDataFile& file, String value)
     { return addStringValue(file, nil, value); }
-
-  void setNumberValue(f32 val, SourceDataFile& file);
-  SourceData* addNumberValue(f32 val, SourceDataFile& file);
-  SourceData* addNumberValue(String name, f32 val, SourceDataFile& file);
+  
+  // TODO(sushi) make this explicitly f32/f64 (or always f64) if that 
+  //             ever becomes an issue.
+  void setNumberValue(SourceDataFile& file, f32 val);
+  SourceData* addNumberValue(SourceDataFile& file, f32 val);
+  SourceData* addNumberValue(SourceDataFile& file, String name, f32 val);
 
   void setIntValue(SourceDataFile& file, s64 val);
   SourceData* addIntValue(SourceDataFile& file, s64 val);
@@ -221,10 +238,21 @@ struct SourceData
   SourceData* addUIntValue(SourceDataFile& file, u64 val);
   SourceData* addUIntValue(SourceDataFile& file, String name, u64 val);
 
+  void setHexValue(SourceDataFile& file, u64 val);
+
   void setBooleanValue(b8 value)
   {
     val.kind = value? Value::Kind::True : Value::Kind::False;
   }
+
+  void        setVec2f(SourceDataFile& file, vec2f v);
+  SourceData* addVec2f(SourceDataFile& file, String name, vec2f v);
+
+  void        setVec2i(SourceDataFile& file, vec2i v);
+  SourceData* addVec2i(SourceDataFile& file, String name, vec2i v);
+
+  void        setVec2u(SourceDataFile& file, vec2u v);
+  SourceData* addVec2u(SourceDataFile& file, String name, vec2u v);
 
   /* --------------------------------------------------------------------------
    */

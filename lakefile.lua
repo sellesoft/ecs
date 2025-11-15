@@ -118,6 +118,7 @@ if lake.os == "windows" then
 elseif lake.os == "linux" then
   defines.ECS_LPPCLANG_LIB = "lib/lppclang.so"
   defines.ECS_CLANG_EXE = "third_party/bin/linux/clang"
+  defines.ECS_CLANG_RESOURCE_DIR = cwd.."/third_party/lib/clang/22"
 else
   error "unhandled os"
 end

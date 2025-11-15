@@ -59,7 +59,7 @@ elseif lake.os == "linux" then
     "hreload",
   }
 
-  lib_dirs:push "third_party/lib"
+  lib_dirs:push "third_party/lib/luajit/linux"
   lib_dirs:push "third_party/lib/clang"
   lib_dirs:push "third_party/lib/shaderc"
 

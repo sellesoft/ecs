@@ -288,7 +288,12 @@ static void putToolMenu(
   io::formatv(&buffer, "selected: "_str, self.selected_entity, '\n');
   io::formatv(&buffer, "hovered: "_str, self.hovered_entity, '\n');
 
-  ui.putText(Rect::from(0,0,0,0), String(buffer), skin.text);
+  vec2f text_size = 
+    ui.putText(Rect::from(0,0,0,0), String(buffer), skin.text);
+
+  f32 y = text_size.y;
+
+
 }
 
 /* ----------------------------------------------------------------------------

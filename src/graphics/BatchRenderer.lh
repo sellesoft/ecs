@@ -44,6 +44,8 @@ struct BatchRenderer
   void begin();
   void end();
 
+  void flush();
+
   void setTexture(TextureHandle texture);
   void setPipeline(Pipeline pipeline);
 
@@ -68,7 +70,21 @@ struct BatchRenderer
     vec2f start,
     vec2f end,
     f32 thickness,
-    Color color);
+    Color color = 0xffffffff);
+
+  void drawBorder(
+    vec2f pos,
+    vec2f area,
+    vec4f offsets,
+    Color color = 0xffffffff);
+
+  void drawBorder(
+    Rect bounds,
+    vec4f offsets,
+    Color color = 0xffffffff)
+  {
+    drawBorder(bounds.pos(), bounds.size(), offsets, color);
+  }
 };
 
 }

@@ -33,6 +33,7 @@ struct Vulkan;
 struct Buffer;
 struct RenderPass;
 struct ResourceMgr;
+struct BatchRenderer;
 }
 
 struct InputMgr;
@@ -140,6 +141,9 @@ struct Item
 };
 
 /* ============================================================================
+ *  TODO(sushi) put these in some tagged union and remove from public api.
+ *              With BatchRenderer what these do has been greatly reduced 
+ *              (they didn't really do much to begin with).
  */
 struct Cmd
 {
@@ -148,7 +152,7 @@ struct Cmd
   // The Group that was active when this Cmd was pushed.
   Group* group;
 
-  virtual void execute(UI& ui, gfx::RenderPass& renderer) = 0;
+  virtual void execute(UI& ui, gfx::BatchRenderer& br) = 0;
 };
 
 /* ============================================================================
@@ -157,7 +161,7 @@ struct TransformCmd : Cmd
 {
   mat3x2* transform;
 
-  void execute(UI& ui, gfx::RenderPass& renderer) override;
+  void execute(UI& ui, gfx::BatchRenderer& br) override;
 };
 
 /* ============================================================================
@@ -166,7 +170,7 @@ struct ScissorCmd : Cmd
 {
   Rect bounds = {};
 
-  void execute(UI& ui, gfx::RenderPass& renderer) override;
+  void execute(UI& ui, gfx::BatchRenderer& br) override;
 };
 
 /* ============================================================================
@@ -178,7 +182,7 @@ struct QuadDrawCmd : Cmd
   Rect bounds;
   vec4f uv;
 
-  void execute(UI& ui, gfx::RenderPass& renderer) override;
+  void execute(UI& ui, gfx::BatchRenderer& br) override;
 };
 
 /* ============================================================================
@@ -189,7 +193,7 @@ struct BorderDrawCmd : Cmd
   Rect offsets;
   Color color;
 
-  void execute(UI& ui, gfx::RenderPass& renderer) override;
+  void execute(UI& ui, gfx::BatchRenderer& br) override;
 };
 
 /* ============================================================================
@@ -200,7 +204,7 @@ struct LineDrawCmd : Cmd
   vec2f end;
   Color color;
 
-  void execute(UI& ui, gfx::RenderPass& renderer) override;
+  void execute(UI& ui, gfx::BatchRenderer& br) override;
 };
 
 /* ============================================================================
@@ -740,7 +744,7 @@ $ end
     return registerOrGetPersistentState(getCombinedId(id), out_state);
   }
 
-  void pushConstantFromTransform(mat3x2 transform, gfx::RenderPass& pass);
+  void pushConstantFromTransform(mat3x2 transform, gfx::BatchRenderer& br);
 
   // Combines the given ids.
   CombinedItemId combineIds(ItemId a, ItemId b) const;

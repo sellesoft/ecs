@@ -4,6 +4,7 @@ $ local cmn = require "common"
 @lpp.import "graphics/CompiledShader.lh"
 @lpp.import "graphics/RenderPass.lh"
 @lpp.import "graphics/Geo.lh"
+@lpp.import "graphics/BatchRenderer.lh"
 @lpp.import "math/util.h"
 @lpp.import "ui/TextEdit.lh"
 @lpp.import "Profiling.lh"
@@ -72,7 +73,7 @@ b8 UI::init(InitParams& params)
 void UI::deinit(gfx::Vulkan& vk)  
 {
   pipeline.destroy(vk);
-  vertex_buffer.destroy(vk);
+vertex_buffer.destroy(vk);
   index_buffer.destroy(vk);
 }
 
@@ -218,7 +219,7 @@ void UI::beginFrame(const FrameParams& params)
 
 /* ----------------------------------------------------------------------------
  */
-void UI::pushConstantFromTransform(mat3x2 transform, gfx::RenderPass& pass)
+void UI::pushConstantFromTransform(mat3x2 transform, gfx::BatchRenderer& br)
 {
   f32 push_constant[16];
 
@@ -236,7 +237,7 @@ void UI::pushConstantFromTransform(mat3x2 transform, gfx::RenderPass& pass)
   push_constant[2] = 0.f;
   push_constant[6] = 0.f;
 
-  pass.pushConstant(
+  br.pass->pushConstant(
     push_constant, 
     c_PushConstantSize,
     0,
@@ -381,19 +382,29 @@ void UI::endFrame(InputState* consumed_input)
  */
 void UI::render(gfx::RenderPass& pass, Rect viewport)
 {
-  // Bind UI's gfx objects.
-  @log.trace(ui, "binding ui gfx objects\n");
-  pass.bindPipeline(l_pipeline.getHandle());
-  pass.bindVertexBuffer(vertex_buffer);
-  pass.bindIndexBuffer(index_buffer);
-  pass.setViewport({0,0}, viewport.size());
-
   frame_viewport = viewport;
 
   // Map the draw info buffers.
   @log.trace(ui, "mapping ui draw info buffers\n");
   vertex_buffer.map(*pass.vk);
   index_buffer.map(*pass.vk);
+
+  // Bind UI's gfx objects.
+  @log.trace(ui, "binding ui gfx objects\n");
+  gfx::BatchRenderer br;
+
+  br.init(
+    &pass, 
+    makeSlice((gfx::Vertex*)vertex_buffer.mapped_data, c_MaxVertices),
+    makeSlice((gfx::Index*)index_buffer.mapped_data, c_MaxIndices));
+
+  br.begin();
+
+  br.setPipeline(l_pipeline.getHandle());
+
+  pass.bindVertexBuffer(vertex_buffer);
+  pass.bindIndexBuffer(index_buffer);
+  pass.setViewport({0,0}, viewport.size());
 
   // Execute each layer's Cmds.
   @log.trace(ui, "executing layer draw commands\n");
@@ -425,17 +436,17 @@ void UI::render(gfx::RenderPass& pass, Rect viewport)
 
           ScissorCmd scissor_cmd = {};
           scissor_cmd.bounds = group->scissor;
-          scissor_cmd.execute(*this, pass);
+          scissor_cmd.execute(*this, br);
 
           TransformCmd transform_cmd = {};
           transform_cmd.transform = &group->transform;
 
-          transform_cmd.execute(*this, pass);
+          transform_cmd.execute(*this, br);
 
           pass.debugInsertLabel(0x000033ff, "group change"_str);
         }
 
-        cmd->execute(*this, pass);
+        cmd->execute(*this, br);
       }
     }
 
@@ -454,12 +465,12 @@ void UI::render(gfx::RenderPass& pass, Rect viewport)
     ScissorCmd scissor_cmd = {};
     scissor_cmd.bounds = viewport;
 
-    transform_cmd.execute(*this, pass);
-    scissor_cmd.execute(*this, pass);
+    transform_cmd.execute(*this, br);
+    scissor_cmd.execute(*this, br);
 
     for (Cmd* cmd = debug_cmds; cmd; cmd = cmd->next)
     {
-      cmd->execute(*this, pass);
+      cmd->execute(*this, br);
     }
   }
 
@@ -471,6 +482,8 @@ void UI::render(gfx::RenderPass& pass, Rect viewport)
   // Clean up the frame's memory.
   @log.trace(ui, "clearing ui frame allocator\n");
   frame_allocator.clear();
+
+  br.end();
 
   // Flush and unmap the buffers.
   @log.trace(ui, "flushing ui draw buffers\n");
@@ -1624,20 +1637,24 @@ void UI::endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end)
 
 /* ----------------------------------------------------------------------------
  */
-void TransformCmd::execute(UI& ui, gfx::RenderPass& pass)
+void TransformCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
   @log.trace(ui, "execute transform ", transform->getTranslation(), "\n");
 
-  ui.pushConstantFromTransform(*transform, pass);
+  br.flush();
+
+  ui.pushConstantFromTransform(*transform, br);
 }
 
 /* ----------------------------------------------------------------------------
  */
-void ScissorCmd::execute(UI& ui, gfx::RenderPass& pass)
+void ScissorCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
   @log.trace(ui, "execute scissor ", bounds.pos(), " ", bounds.size(), "\n");
 
-  pass.setScissor(vec2i(bounds.pos()), vec2u(bounds.size()));
+  br.flush();
+
+  br.pass->setScissor(vec2i(bounds.pos()), vec2u(bounds.size()));
 }
 
 /* ----------------------------------------------------------------------------
@@ -1656,9 +1673,9 @@ void UI::putQuad(
   cmd->texture = notnil(texture)? texture : white_texture;
   cmd->bounds = bounds;
   cmd->uv.x = uv.x;
-  cmd->uv.y = uv.y;
+  cmd->uv.y = uv.w;
   cmd->uv.z = uv.z;
-  cmd->uv.w = uv.w;
+  cmd->uv.w = uv.y;
   cmd->color = color;
 
   current_layer->pushCmd(cmd);
@@ -1682,65 +1699,68 @@ void UI::putQuad(Rect bounds, Color color)
 
 /* ----------------------------------------------------------------------------
  */
-void QuadDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
+void QuadDrawCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
   // @log.trace(ui, "execute draw quad ", bounds.pos(), " ", bounds.size(), 
   //       " ", color, "\n");
 
-
-  pass.bindTexture(texture);
+  br.setTexture(texture);
 
   // TODO(sushi) use a special buffer for quads so that we can just instance
   //             the indexes, like we do in RenderSys (to be renamed 
   //             GameRenderer) and so we aren't sending so many drawcmds.
 
+  br.drawQuad(bounds, uv, color);
+
   // TODO(sushi) we can probably do the actual drawing earlier, though not 
   //             sure yet if its better to defer that to frame end to 
   //             not bog down the performance of UI code.
-  vec2i drawn = 
-    gfx::putFilledRect(
-      (gfx::Vertex*)ui.vertex_buffer.mapped_data,
-      (gfx::Index*)ui.index_buffer.mapped_data,
-      ui.draw_counts,
-      bounds.pos(),
-      bounds.size(),
-      { uv.x, uv.y },
-      { uv.z, uv.y },
-      { uv.z, uv.w },
-      { uv.x, uv.w },
-      color);
+  // vec2i drawn = 
+  //   gfx::putFilledRect(
+  //     (gfx::Vertex*)ui.vertex_buffer.mapped_data,
+  //     (gfx::Index*)ui.index_buffer.mapped_data,
+  //     ui.draw_counts,
+  //     bounds.pos(),
+  //     bounds.size(),
+  //     { uv.x, uv.y },
+  //     { uv.z, uv.y },
+  //     { uv.z, uv.w },
+  //     { uv.x, uv.w },
+  //     color);
 
   // @log.trace(ui, "draw: ", ui.draw_counts.y, " ", drawn.y, " ", ui.draw_counts.x, "\n");
 
   // TODO(sushi) batch these draw cmds.
-  pass.draw(
-    ui.draw_counts.y,
-    drawn.y,
-    0);
+  // pass.draw(
+  //   ui.draw_counts.y,
+  //   drawn.y,
+  //   0);
 
-  ui.draw_counts += drawn;
+  // ui.draw_counts += drawn;
 }
 
 /* ----------------------------------------------------------------------------
  */
-void LineDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
+void LineDrawCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
-  vec2i drawn = 
-    gfx::putLine(
-      (gfx::Vertex*)ui.vertex_buffer.mapped_data,
-      (gfx::Index*)ui.index_buffer.mapped_data,
-      ui.draw_counts,
-      start,
-      end,
-      1.f,
-      color);
+  br.drawLine(start, end, 1.f, color);
 
-  pass.draw(
-    ui.draw_counts.y,
-    drawn.y,
-    0);
-
-  ui.draw_counts += drawn;
+  // vec2i drawn = 
+  //   gfx::putLine(
+  //     (gfx::Vertex*)ui.vertex_buffer.mapped_data,
+  //     (gfx::Index*)ui.index_buffer.mapped_data,
+  //     ui.draw_counts,
+  //     start,
+  //     end,
+  //     1.f,
+  //     color);
+  //
+  // pass.draw(
+  //   ui.draw_counts.y,
+  //   drawn.y,
+  //   0);
+  //
+  // ui.draw_counts += drawn;
 }
 
 /* ----------------------------------------------------------------------------
@@ -1776,23 +1796,24 @@ Focus UI::putFocusableBounds(CombinedItemId id, Rect bounds)
 
 /* ----------------------------------------------------------------------------
  */
-void BorderDrawCmd::execute(UI& ui, gfx::RenderPass& pass)
+void BorderDrawCmd::execute(UI& ui, gfx::BatchRenderer& br)
 {
-  pass.bindTexture(ui.white_texture);
+  br.setTexture(ui.white_texture);
+  br.drawBorder(bounds, offsets.asVec4f(), color);
 
-  vec2i drawn = 
-    gfx::putBorders(
-      (gfx::Vertex*)ui.vertex_buffer.mapped_data,
-      (gfx::Index*)ui.index_buffer.mapped_data,
-      ui.draw_counts,
-      offsets.asVec4f(),
-      bounds.pos(),
-      bounds.size(),
-      color);
-
-  pass.draw(ui.draw_counts.y, drawn.y, 0);
- 
-  ui.draw_counts += drawn;
+  // vec2i drawn = 
+  //   gfx::putBorders(
+  //     (gfx::Vertex*)ui.vertex_buffer.mapped_data,
+  //     (gfx::Index*)ui.index_buffer.mapped_data,
+  //     ui.draw_counts,
+  //     offsets.asVec4f(),
+  //     bounds.pos(),
+  //     bounds.size(),
+  //     color);
+  //
+  // pass.draw(ui.draw_counts.y, drawn.y, 0);
+  //
+  // ui.draw_counts += drawn;
 }
 
 /* ----------------------------------------------------------------------------

@@ -43,6 +43,7 @@ static void flushBatch(BatchRenderer& br)
   br.batch_begin = br.buffer_counts;
 }
 
+
 /* ----------------------------------------------------------------------------
  */
 void BatchRenderer::begin()
@@ -54,6 +55,13 @@ void BatchRenderer::begin()
 /* ----------------------------------------------------------------------------
  */
 void BatchRenderer::end()
+{
+  flushBatch(*this);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::flush()
 {
   flushBatch(*this);
 }
@@ -130,6 +138,30 @@ void BatchRenderer::drawLine(
     start,
     end,
     thickness,
+    color);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void BatchRenderer::drawBorder(
+    vec2f pos,
+    vec2f area,
+    vec4f offsets,
+    Color color)
+{
+  vec2i next_counts = buffer_counts + putBordersCounts();
+  if (next_counts.x > vtx.len || next_counts.y > idx.len)
+  {
+    @log.warn(gfx, "BatchRenderer buffers full\n");
+    return;
+  }
+
+  gfx::putBorders(
+    vtx.ptr, idx.ptr,
+    &buffer_counts,
+    offsets,
+    pos,
+    area,
     color);
 }
 

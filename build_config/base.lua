@@ -9,7 +9,7 @@ local shared_libs = List {}
 
 local lib_dirs = List 
 {
-  "lib",
+  cwd.."/lib",
 }
 
 local include_dirs = List
@@ -59,9 +59,9 @@ elseif lake.os == "linux" then
     "hreload",
   }
 
-  lib_dirs:push "third_party/lib/luajit/linux"
-  lib_dirs:push "third_party/lib/clang"
-  lib_dirs:push "third_party/lib/shaderc"
+  lib_dirs:push(cwd.."/third_party/lib/luajit/linux")
+  lib_dirs:push(cwd.."/third_party/lib/clang")
+  lib_dirs:push(cwd.."/third_party/lib/shaderc")
 
 end
 

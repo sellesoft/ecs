@@ -105,7 +105,7 @@ end
 
 local shared_libs = List(cfg.link.libs)
 
-local lib_dirs = List(cfg.link.lib_dirs):flatten():map(incwd)
+local lib_dirs = List(cfg.link.lib_dirs)
 local include_dirs = List(cfg.cpp.include_dirs)
 
 include_dirs:push(generated_dir)

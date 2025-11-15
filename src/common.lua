@@ -54,7 +54,7 @@ if ECS_CLANG_RESOURCE_DIR then
   -- Since we split third_party/bin into win32 and linux dirs now 
   -- (probably don't need to, really) we have to explicitly tell clang 
   -- where its resource dir is on linux since its default relative path 
-  -- (so dump) no longer works.
+  -- (so dumb) no longer works.
   common.cargs:push("-resource-dir="..ECS_CLANG_RESOURCE_DIR)
 end
 

@@ -186,10 +186,7 @@ void GameRenderer::drawQuad(
       if (batch_count >= GameRenderer::c_MaxBatches)
       {
         // TODO(delle) investigate if this stalls
-        quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-        quad_buffers.vertex.unmap(vk);
         drawBatches(*this, pass);
-        quad_buffers.vertex.map(vk);
       }
       else
       {
@@ -235,10 +232,133 @@ void GameRenderer::drawQuad(
   if (quad_count >= GameRenderer::c_MaxQuads)
   {
     // TODO(delle) investigate if this stalls
-    quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);
-    quad_buffers.vertex.unmap(vk);
     drawBatches(*this, pass);
-    quad_buffers.vertex.map(vk);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::updateSceneBuffer(
+    gfx::Vulkan& vk,
+    vec2f view_size,
+    const mat3x2& view_mat)
+{
+  assert(view_size.x != 0.f && view_size.y != 0.f);
+
+  mat3x2 proj = mat3x2::identity();
+  proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / view_size.x);
+  proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / view_size.y);
+  proj.toMat4(scene.proj);
+
+  view_mat.toTransposedMat4(scene.view);
+
+  f32 time = (TimePoint::monotonic() - TimePoint{}).toSeconds();
+
+  scene.resolution_and_time[0] = view_size.x;
+  scene.resolution_and_time[1] = view_size.y;
+  scene.resolution_and_time[2] = time;
+
+  scene_uniform_buffer.map(vk);
+  scene_uniform_buffer.copyAndFlush(vk, &scene, sizeof(scene));
+  scene_uniform_buffer.unmap(vk);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::renderMapState(
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
+    MapState& map)
+{
+  pass.bindPipeline(quad_pipeline_link.getHandle());
+  pass.bindUniformBuffer(scene_uniform_buffer);
+  quad_buffers.vertex.map(vk);
+
+  u32 layer_idx = 0;
+  for (const Layer& layer : map.layers)
+  {
+    Color tint = Color(0xffffffff) * (1.0f - (layer_idx * 0.25f));
+
+    for (const Tile& tile : layer.tiles)
+    {
+      if (!tile.kind.isValid())
+        continue;
+
+      const TileKindDef& tilekind = *tile.kind;
+
+      gfx::TextureHandle texture = 
+        tilekind.texture.isValid() 
+        ? tilekind.texture.getHandle()
+        : null_texture.getHandle();
+
+      vec2f pos = map.getTilePos(layer, tile);
+      drawQuad(vk, pass, pos, texture, {0.f,0.f,1.f,1.f}, tint);
+    }
+
+    layer_idx++;
+  }
+
+  drawBatches(*this, pass);
+  quad_buffers.vertex.map(vk);
+}
+
+void GameRenderer::renderSprites(
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
+    MapState& map,
+    EntityMgr& entmgr)
+{
+  ComponentMgr& cmpmgr = entmgr.cmpmgr;
+
+  for (Sprite& sprite : cmpmgr.iterate<Sprite>())
+  {
+    Entity* owner = entmgr.getEntity(sprite.owner);
+    if (owner == nullptr)
+    {
+      @log.error(game, 
+        "sprite component for entity ", sprite.owner.value, 
+        " has no owner\n");
+      continue;
+    }
+    
+    gfx::TextureHandle texture = null_texture.getHandle();
+    vec4f uv = {0.f, 0.f, 1.f, 1.f};
+    Color color = 0xff0000ff;
+    if (sprite.def->states.isValid())
+    {
+      const SpriteTexture* stex =
+        sprite.def->states->map.getAtIndex(sprite.state);
+
+      if (stex != nullptr && stex->texture.isValid())
+      {
+        const gfx::CompiledTexture& tex_data = 
+          stex->texture->compiled_texture.get();
+
+        texture = stex->texture.getHandle();
+        color = stex->color;
+
+        vec2f uv_min = stex->uv.pos();
+        vec2f uv_max = stex->uv.extent();
+
+        // TODO(sushi) we need to set up something during data compiling 
+        //             that caches these somewhere for us.
+        uv.x = uv_min.x / f32(tex_data.width);
+        uv.y = uv_min.y / f32(tex_data.height);
+        uv.z = uv_max.x / f32(tex_data.width);
+        uv.w = uv_max.y / f32(tex_data.height);
+      }
+    }
+
+    if (auto* transform = entmgr.tryComp<Transform>(sprite.owner))
+    {
+      Layer& layer = map.layers[transform->placement_layer];
+
+      vec2f pos = transform->pos;
+      pos.x += layer.pos.x;
+      pos.y += layer.pos.y;
+
+      drawQuad(vk, pass, pos, texture, uv, color);
+    }
   }
 }
 
@@ -262,28 +382,10 @@ b8 GameRenderer::render(const RenderParams& params)
     return false;
   }
 
-  assert(notnil(params.target));
-
-  ///////////////////////////////////////////////
-  // 0. Update Scene
-  {
-    mat3x2 proj = mat3x2::identity();
-    proj.set(0, 0, EyeSys::pixels_per_meter * 2.f / (f32)view_size.x);
-    proj.set(1, 1, EyeSys::pixels_per_meter * -2.f / (f32)view_size.y);
-    proj.toMat4(scene.proj);
-
-    params.view.toTransposedMat4(scene.view);
-
-    f32 time = (TimePoint::monotonic() - TimePoint{}).toSeconds();
-
-    scene.resolution_and_time[0] = (f32)view_size.x;
-    scene.resolution_and_time[1] = (f32)view_size.y;
-    scene.resolution_and_time[2] = time;
-
-    scene_uniform_buffer.map(vk);
-    scene_uniform_buffer.copyAndFlush(vk, &scene, sizeof(scene));
-    scene_uniform_buffer.unmap(vk);
-  }
+  updateSceneBuffer(
+    vk,
+    vec2f(view_size),
+    params.view);
 
   gfx::RenderPass pass;
   if (!gfx::vk::beginRenderPass(&vk,
@@ -339,31 +441,10 @@ b8 GameRenderer::render(const RenderParams& params)
 
   if (params.map)
   {
-    MapState& map = *params.map;
-
-    u32 layer_idx = 0;
-    for (const Layer& layer : map.layers)
-    {
-      Color tint = Color(0xffffffff) * (1.0f - (layer_idx * 0.25f));
-
-      for (const Tile& tile : layer.tiles)
-      {
-        if (!tile.kind.isValid())
-          continue;
-
-        const TileKindDef& tilekind = *tile.kind;
-
-        gfx::TextureHandle texture = 
-          tilekind.texture.isValid() 
-          ? tilekind.texture.getHandle()
-          : null_texture.getHandle();
-
-        vec2f pos = map.getTilePos(layer, tile);
-        drawQuad(vk, pass, pos, texture, {0.f,0.f,1.f,1.f}, tint);
-      }
-
-      layer_idx++;
-    }
+    renderMapState(
+      vk,
+      pass,
+      *params.map);
   }
 
   ///////////////////////////////////////////////
@@ -374,60 +455,11 @@ b8 GameRenderer::render(const RenderParams& params)
 
   if (params.entmgr && params.map)
   {
-    MapState&     map    = *params.map;
-    EntityMgr&    entmgr = *params.entmgr;
-    ComponentMgr& cmpmgr = entmgr.cmpmgr;
-
-    for (Sprite& sprite : cmpmgr.iterate<Sprite>())
-    {
-      Entity* owner = entmgr.getEntity(sprite.owner);
-      if (owner == nullptr)
-      {
-        @log.error(game, 
-          "sprite component for entity ", sprite.owner.value, 
-          " has no owner\n");
-        continue;
-      }
-      
-      gfx::TextureHandle texture = null_texture.getHandle();
-      vec4f uv = {0.f, 0.f, 1.f, 1.f};
-      Color color = 0xff0000ff;
-      if (sprite.def->states.isValid())
-      {
-        const SpriteTexture* stex =
-          sprite.def->states->map.getAtIndex(sprite.state);
-
-        if (stex != nullptr && stex->texture.isValid())
-        {
-          const gfx::CompiledTexture& tex_data = 
-            stex->texture->compiled_texture.get();
-
-          texture = stex->texture.getHandle();
-          color = stex->color;
-
-          vec2f uv_min = stex->uv.pos();
-          vec2f uv_max = stex->uv.extent();
-
-          // TODO(sushi) we need to set up something during data compiling 
-          //             that caches these somewhere for us.
-          uv.x = uv_min.x / f32(tex_data.width);
-          uv.y = uv_min.y / f32(tex_data.height);
-          uv.z = uv_max.x / f32(tex_data.width);
-          uv.w = uv_max.y / f32(tex_data.height);
-        }
-      }
-
-      if (auto* transform = entmgr.tryComp<Transform>(sprite.owner))
-      {
-        Layer& layer = map.layers[transform->placement_layer];
-
-        vec2f pos = transform->pos;
-        pos.x += layer.pos.x;
-        pos.y += layer.pos.y;
-
-        drawQuad(vk, pass, pos, texture, uv, color);
-      }
-    }
+    renderSprites(
+      vk,
+      pass,
+      *params.map,
+      *params.entmgr);
   }
 
   quad_buffers.vertex.flush(vk, 0, gfx::Buffer::FLUSH_WHOLE_BUFFER);

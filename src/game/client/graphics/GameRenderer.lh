@@ -149,6 +149,22 @@ struct GameRenderer
     IExternalRender* external;
   };
 
+  void updateSceneBuffer(
+    gfx::Vulkan& vk,
+    vec2f view_size,
+    const mat3x2& view_mat);
+
+  void renderMapState(
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
+    MapState& map);
+
+  void renderSprites(
+    gfx::Vulkan& vk,
+    gfx::RenderPass& pass,
+    MapState& map,
+    EntityMgr& entmgr);
+
   b8 render(const RenderParams& params);
 
   void drawQuad(

@@ -47,6 +47,12 @@ struct MapEditor : Doc
   s32 hovered_layer_idx;
   s32 hovered_tile_idx;
 
+  enum Tool
+  {
+    None,
+    
+  };
+
   void onOpen() override { init(); }
 
   b8 init();

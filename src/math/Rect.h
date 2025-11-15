@@ -55,6 +55,14 @@ struct Rect
 
   void floorPos() { x = floor(x); y = floor(y); }
 
+  void decompose(vec2f* nn, vec2f* np, vec2f* pn, vec2f* pp)
+  {
+    nn->set(x,     y);
+    np->set(x,     y + h);
+    pn->set(x + w, y);
+    pp->set(x + w, y + h);
+  }
+
   Rect contractedX(f32 v) const { return {x + v, y, w - 2.f * v, h}; }
   void contractX(f32 v) { *this = contractedX(v); }
 

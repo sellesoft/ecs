@@ -154,6 +154,48 @@ static inline vec2i putFilledRectCounts() { return { 4, 6 }; }
 
 /* ----------------------------------------------------------------------------
  */
+static void putFilledRect(
+    Vertex* putverts,
+    Index*  putindices,
+    vec2i*  offsets,
+    vec2f   negneg, vec2f negpos,
+    vec2f   posneg, vec2f pospos,
+    vec2f   uv0,
+    vec2f   uv1,
+    vec2f   uv2,
+    vec2f   uv3,
+    Color   color)
+{
+  if (color.a == 0)
+    return;
+
+  u32 col = color.rgba;
+
+  Vertex* vp = putverts + offsets->x;
+  Index*  ip = putindices + offsets->y;
+
+  ip[0] = offsets->x; ip[1] = offsets->x + 1; ip[2] = offsets->x + 2;
+  ip[3] = offsets->x; ip[4] = offsets->x + 2; ip[5] = offsets->x + 3;
+
+  auto fillVert = [col](Vertex* v, f32 x, f32 y, vec2f uv)
+  {
+    v->pos.x = x;
+    v->pos.y = y;
+    v->uv.x = uv.x;
+    v->uv.y = uv.y;
+    v->color = col;
+  };
+
+  fillVert(&vp[0], negneg.x, negneg.y, uv0);
+  fillVert(&vp[1], posneg.x, posneg.y, uv1);
+  fillVert(&vp[2], pospos.x, pospos.y, uv2);
+  fillVert(&vp[3], negpos.x, negpos.y, uv3);
+
+  *offsets += putFilledRectCounts();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static vec2i putFilledRect(
     Vertex* putverts,
     Index*  putindices,
@@ -166,36 +208,19 @@ static vec2i putFilledRect(
     vec2f   uv3,
     Color   color)
 {
-  if (color.a == 0)
-    return { 0, 0 };
-
-  u32 col = color.rgba;
-
-  Vertex* vp = putverts + offsets.x;
-  Index*  ip = putindices + offsets.y;
-
-  f32 l = pos.x;
-  f32 r = pos.x + dim.x;
-  f32 t = pos.y;
-  f32 b = pos.y + dim.y;
-
-  ip[0] = offsets.x; ip[1] = offsets.x + 1; ip[2] = offsets.x + 2;
-  ip[3] = offsets.x; ip[4] = offsets.x + 2; ip[5] = offsets.x + 3;
-
-  auto fillVert = [col](Vertex* v, f32 x, f32 y, vec2f uv)
-  {
-    v->pos.x = x;
-    v->pos.y = y;
-    v->uv.x = uv.x;
-    v->uv.y = uv.y;
-    v->color = col;
-  };
-
-  fillVert(&vp[0], l, t, uv0);
-  fillVert(&vp[1], r, t, uv1);
-  fillVert(&vp[2], r, b, uv2);
-  fillVert(&vp[3], l, b, uv3);
-
+  putFilledRect(
+    putverts,
+    putindices,
+    &offsets,
+    vec2f(pos.x,         pos.y),
+    vec2f(pos.x,         pos.y + dim.y),
+    vec2f(pos.x + dim.x, pos.y),
+    vec2f(pos.x + dim.x, pos.y + dim.y),
+    uv0,
+    uv1,
+    uv2,
+    uv3,
+    color);
   return putFilledRectCounts();
 }
 

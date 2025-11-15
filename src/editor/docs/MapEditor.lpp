@@ -151,6 +151,8 @@ static void handleScrollState(
     {
       self.view.zoom -= self.view.zoom / 10.f * scroll;
 
+      self.view.zoom = max(1e-3f, min(1e4f, self.view.zoom)); 
+
       vec2f new_world_cursor = self.view.viewportPointToWorld(
         view_local_cursor, 
         self.map_view_size);
@@ -293,7 +295,7 @@ static void putToolMenu(
 
   f32 y = text_size.y;
 
-
+  
 }
 
 /* ----------------------------------------------------------------------------

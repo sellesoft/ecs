@@ -39,6 +39,42 @@ static inline b8 recreateMapTexture(gfx::Vulkan& vk, gfx::Texture* texture)
 
 /* ----------------------------------------------------------------------------
  */
+static b8 loadMapState(MapEditor& self, String path)
+{
+  self.sdf_map_def.deinit();
+  self.map_def_packed.deinit();
+
+  if (!SourceDataFile::from(&self.sdf_map_def, path))
+    return false;
+
+  self.map_def_packed.init();
+
+  reflect::PackParams pack_params;
+  pack_params.packed = &self.map_def_packed;
+
+  if (!reflect::packSourceDataFromType(
+        *self.sdf_map_def.returned_data,
+        pack_params))
+    return false;
+
+  auto* def = self.map_def_packed.getDataAs<MapDef>();
+
+  self.editor->getLinker().link("MapDef"_typeid, def);
+
+  MapLoadParams map_load_params = 
+  {
+    .entmgr = self.entity_mgr,
+    .log = &self.editor->log,
+  };
+
+  if (!loadMap(&self.map_state, *def, map_load_params))
+    return false;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 MapEditor::init()
 {
   if (!entity_mgr.init())
@@ -59,15 +95,15 @@ b8 MapEditor::init()
   if (!game_renderer.init(game_renderer_params))
     return editor->log.error("failed to init game renderer");
 
-  linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &map_asset);
+  loadMapState(*this, "assets/maps/Test.map"_str);
 
-  MapLoadParams map_load_params = 
-  {
-    .entmgr = entity_mgr,
-  };
-
-  if (!loadMap(&map_state, *map_asset, map_load_params))
-    return editor->log.error("failed to load map");
+  // MapLoadParams map_load_params = 
+  // {
+  //   .entmgr = entity_mgr,
+  // };
+  //
+  // if (!loadMap(&map_state, *map_asset, map_load_params))
+  //   return editor->log.error("failed to load map");
 
   if (!recreateMapTexture(*editor->vk, &map_render))
     return editor->log.error("failed to create map texture");

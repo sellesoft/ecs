@@ -56,12 +56,10 @@ local function searchForLinks(decl)
 
     for field in decl:allFields() do
       local type = field.type
-      if type:is(ast.Elaborated) then
-        type = type.subtype
-      end
 
+      local typedef_decl
       if type:is(ast.TypedefType) then
-        local typedef_decl = type.decl
+        typedef_decl = type.decl
         if typedef_decl:findMetadata "ref" then
           typedef_decl.metadata.is_used_link = true
         end
@@ -81,10 +79,15 @@ local function searchForLinks(decl)
             local subtype = field_type_decl.args[1]:desugar()
             if subtype:is(ast.TagType) and subtype.decl:is(ast.Record) then
               searchForLinks(subtype.decl)
-              if subtype.decl.metadata.has_links then
+              -- ast.dumpout(subtype.decl)
+              if subtype.decl.metadata.has_links or
+                 subtype.decl.metadata.is_link then
                 recordDeclWithLinks(field_type_decl, false)
                 recordDeclWithLinks(decl, false)
                 field.metadata.has_links = true
+                if typedef_decl then
+                  recordDeclWithLinks(typedef_decl, false)
+                end
               end
             end
           end
@@ -165,10 +168,6 @@ $ end
 $ -- * ------------------------------------------------------------------------
 
 $ local function getTypeLinkerName(type)
-$   if type:is(ast.Elaborated) then
-$     type = type.subtype
-$   end
-$
 $   if type:is(ast.TypedefType) then
 $     return (getDeclLinkerName(type.decl))
 $   end
@@ -209,7 +208,9 @@ $ local function putStructLinker(decl)
    */
   $(declareDeclLinker(decl))
   {
+    @log.debug(rflnk, "linking [st] $(decl.name)");
 $   for field in decl:allFields() do
+    @log.debug(rflnk, " > $(decl.name)::$(field.name)");
 $     maybeCallFieldLinker(field, decl)
 $   end
     return true;
@@ -222,6 +223,7 @@ $   local subtype = decl.args[1]
    */
   $(declareDeclLinker(decl))
   {
+    @log.debug(rflnk, "l [ar] $(decl.qname)");
     u32 elem_idx = 0;
     for (auto& elem : *data)
     {
@@ -236,8 +238,19 @@ $   local subtype = decl.args[1]
   }
 $ end
 
+$ local function putTypedefLinker(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclLinker(decl))
+  {
+    return $(getTypeLinkerName(decl.subtype))(data);
+  }
+$ end
+
 $ for decl in decls_with_links:each() do
-$   if decl:is(ast.TemplateSpec) and 
+$   if decl:is(ast.TypedefDecl) then
+$     putTypedefLinker(decl)
+$   elseif decl:is(ast.TemplateSpec) and 
 $      decl.specialized.qname == "reflect::Array" then
 $     putArrayLinker(decl)
 $   else
@@ -250,11 +263,14 @@ $ local function putCompiledDataLinker(decl)
    */
   $(declareDeclLinker(decl))
   {
+    @log.debug(rflnk, "l [cd] $(decl.name) -> ", data->name);
+
     // Compiled data.
 $   local link_type = decl.metadata.links
 $   if not link_type then
-$      --clog:warn("compiled asset link type ", decl.qname, " does not specify ",
-$      --          "what asset type it links\n")
+$      -- NOTE(sushi) spams quite bad.
+$      -- clog.warn("compiled asset link type ", decl.name, " does not specify ",
+$      --           "what asset type it links\n")
     @log.warn(reflect, 
       "cannot link $(decl.type.name) because it does not specify what "
       "asset type it links\n");
@@ -270,7 +286,10 @@ $   else
     for (Asset* already_done : loaded_compiled_data_assets)
     {
       if (already_done == data->asset)
+      {
+        @log.debug(rflnk, "   already linked");
         return true;
+      }
     }
 
     loaded_compiled_data_assets.push(data->asset);
@@ -298,6 +317,8 @@ $ local function putAssetLinker(decl)
    */
   $(declareDeclLinker(decl))
   {
+    @log.debug(rflnk, "l [as] $(decl.name) -> ", data->name);
+
     // Generic asset.
 $   local link_type = decl.metadata.links
 $   if not link_type then
@@ -352,6 +373,8 @@ $   local rtname = resource_decl.type.name
 
     if ((data->resource = resource_mgr.find$(rname)(data->name)))
       return true;
+
+    @log.debug(rflnk, "l [rs] $(decl.name) -> ", data->name);
 
     data->resource = resource_mgr.getOrCreate$(rname)(data->name);
 
@@ -408,7 +431,6 @@ $ end
     return true;
   }
 };
-
 
 /* ----------------------------------------------------------------------------
  *  Generate the actual function used through the interface.

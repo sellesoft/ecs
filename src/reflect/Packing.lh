@@ -62,6 +62,7 @@ struct PackedData
   void deinit()
   {
     data = nil;
+    type = nil;
     buffer.deinit();
   }
 };

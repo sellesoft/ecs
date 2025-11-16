@@ -5,8 +5,10 @@
 $ require "common"
 
 @lpp.import "editor/Doc.lh"
-@lpp.import "game/shared/map/MapState.lh"
 @lpp.import "graphics/View.lh"
+@lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "reflect/Packing.lh"
+@lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
 
@@ -17,15 +19,15 @@ namespace editor
  */
 struct MapEditor : Doc
 {
-  MapState map_state;
-  MapDefLink map_asset;
   cl::GameRenderer game_renderer;
   EntityMgr entity_mgr;
   gfx::View view;
 
   gfx::Texture map_render;
 
-  gfx::TextureLink l_white_texture;
+  MapState map_state;
+  reflect::PackedData map_def_packed;
+  SourceDataFile sdf_map_def;
 
   // The size at which the map view should be rendered.
   vec2f map_view_size;

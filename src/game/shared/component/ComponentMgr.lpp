@@ -4,7 +4,8 @@ $ local ast = require "reflect.ast"
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
-  "src/game/**/*.comp.lh"
+  "src/game/**/*.comp.lh",
+  "src/editor/**/*.comp.lh"
 }
 $$$
 $(imported)

@@ -105,7 +105,8 @@ void EntityMgr::notifyAssetChanged(
 
   @log.info(game, "asset changed: ", name, "(", name.hash(), ")\n");
 
-  u64 def_id = name.hash();
+  EntityDefLink new_def;
+  linker.link("EntityDefLink"_typeid, name, &new_def);
 
   for (u32 i = 0; i < c_max_entities; ++i)
   {
@@ -113,47 +114,62 @@ void EntityMgr::notifyAssetChanged(
     if (slot->isUsed())
     {
       Entity* ent = &slot->elem;
-      if (ent->def_id == def_id)
+      if (ent->def_name == name)
       {
-        EntityId id;
-        ent_pool.formId(ent, &id.value, &id.salt);
-        @log.info(game, "ent ", id, " needs reloaded\n");
-
-        vec2f pos = {};
-        f32 rotation = 0.f;
-        u32 placement_layer = 0;
-        if (const Transform* transform = ent->tryComp<Transform>())
-        {
-          pos = transform->pos;
-          rotation = transform->rotation;
-          placement_layer = transform->placement_layer;
-        }
-
-        for (Component& comp : ent->components)
-        {
-          cmpmgr.deallocateComponent(&comp);
-        }
-
-        ent->components.deinit();
-        ent->components.init();
-
-        EntityDefLink new_def;
-        linker.link("EntityDefLink"_typeid, name, &new_def); 
-
-        loadEntity(ent, new_def, *this);
-
-        eventbus.raise(id, ComponentInit{});
-        eventbus.raise(id, ComponentStartup{});
-
-        if (Transform* transform = ent->tryComp<Transform>())
-        {
-          transform->pos = pos;
-          transform->rotation = rotation;
-          transform->placement_layer = placement_layer;
-        }
+        reloadEntity(
+          ent,
+          new_def.name,
+          *new_def);
       }
     }
   }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EntityMgr::reloadEntity(
+    Entity* ent,
+    String def_name,
+    const EntityDef& def)
+{
+  EntityId id;
+  ent_pool.formId(ent, &id.value, &id.salt);
+  @log.info(game, "ent ", id, " needs reloaded\n");
+
+  vec2f pos = {};
+  f32 rotation = 0.f;
+  u32 placement_layer = 0;
+  if (const Transform* transform = ent->tryComp<Transform>())
+  {
+    pos = transform->pos;
+    rotation = transform->rotation;
+    placement_layer = transform->placement_layer;
+  }
+
+  for (Component& comp : ent->components)
+  {
+    cmpmgr.deallocateComponent(&comp);
+  }
+
+  ent->components.deinit();
+  ent->components.init();
+
+  loadEntity(
+    ent, 
+    def_name,
+    def, 
+    *this);
+
+  eventbus.raise(id, ComponentInit{});
+  eventbus.raise(id, ComponentStartup{});
+
+  if (Transform* transform = ent->tryComp<Transform>())
+  {
+    transform->pos = pos;
+    transform->rotation = rotation;
+    transform->placement_layer = placement_layer;
+  }
+
 }
 
 /* ----------------------------------------------------------------------------

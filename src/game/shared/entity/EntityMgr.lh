@@ -55,15 +55,12 @@ struct EntityMgr
 
   EntityId createEntity(String name);
   
-  [[deprecated("Things typically have no access to assetmgr/renderer")]]
-  EntityId createEntityFromSourceData(
-    String path, 
-    AssetMgr& assetmgr,
-    gfx::Renderer& renderer);
-
   EntityId spawnEntity(const EntityDefLink& def, vec2f pos, u32 layer);
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker);
+
+  // Reloads the given entity with the provided `def` named `def_name`.
+  void reloadEntity(Entity* ent, String def_name, const EntityDef& def);
 
   void destroyEntity(EntityId id);
   void destroyAllEntities();
@@ -75,6 +72,16 @@ struct EntityMgr
       return nullptr;
 
     return ent_pool.getFromId(id.value, id.salt);
+  }
+ 
+  // Unlike the above, this doesn't assert. If this returns nullptr for some
+  // given id then it should be assumed that it no longer references a valid
+  // entity.
+  Entity* tryGetEntity(EntityId id) const
+  {
+    if (isnil(id))
+      return nullptr;
+    return ent_pool.tryGetFromId(id.value, id.salt);
   }
 
   EntityId getEntityId(Entity* ent) const

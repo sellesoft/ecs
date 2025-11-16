@@ -12,6 +12,7 @@ $ local cmn = require "common"
 using namespace iro;
 
 @lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
 /* ============================================================================
  */
@@ -20,9 +21,24 @@ struct Entity
   typedef AVL<Component> ComponentMap;
 
   String name; // owned
+
+  // Any other component 
   ComponentMap components;
 
-  u64 def_id;
+  // Owned String naming the def that this Entity was loaded from. 
+  // Used primarily for hot reloading assets, but also for determining what 
+  // asset created an entity in the MapEditor. 
+  String def_name;
+
+  // Cache the last Component we found in tryComp() to prevent needing to 
+  // enter AVL::find for common lookups. 
+  // TODO(sushi) once removing components is actually implemented this 
+  //             will need to be cleared if we are removing the Component 
+  //             cached here.
+  // TODO(sushi) we need a better way to store what components an entity 
+  //             has in general.
+  Component* last_comp_lookup;
+  u64 last_comp_lookup_kind;
 
   b8 init(String name);
   void deinit();
@@ -32,7 +48,18 @@ struct Entity
   template<typename T>
   T* tryComp()
   {
-    return (T*)components.find(getComponentKind<T>());
+    u64 kind = getComponentKind<T>();
+    if (last_comp_lookup != nullptr && kind == last_comp_lookup_kind)
+      return (T*)last_comp_lookup;     
+
+    auto* comp = components.find(getComponentKind<T>());
+    if (comp != nullptr)
+    {
+      last_comp_lookup = comp;
+      last_comp_lookup_kind = kind;
+    }
+
+    return (T*)comp;
   }
 };
 

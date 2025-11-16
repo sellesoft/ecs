@@ -65,6 +65,7 @@ struct DatumUpdateParams
   f32 name_column_width;
   const SourceDataEditorSkinDef& skin;
   SourceDataEditor& editor;
+  b8 embedded;
 };
 
 /* ----------------------------------------------------------------------------
@@ -138,7 +139,10 @@ struct Datum
       DatumUpdateResult* result,
       const DatumUpdateParams& params)
   {
-    result->height = max<f32>(height, params.skin.row.height);
+    if (params.embedded)
+      result->height = height;
+    else
+      result->height = max<f32>(height, params.skin.row.height);
   }
 
   void mergeChildNameExtents(
@@ -259,7 +263,16 @@ struct ObjectDatum
         String(name_buffer),
         params.skin.text);
 
-      datum->setNameBounds(result, Rect::from(text_pos, text_size));
+      auto name_bounds = Rect::from(text_pos, text_size);
+
+      datum->setNameBounds(result, name_bounds);
+
+      ui::Focus focus = ui.putFocusableBounds(
+        "obj-name-hit"_fid, 
+        name_bounds);
+
+      if (focus.wasPrimaryReleased())
+        is_open = !is_open;
     }
 
     return params.name_column_width + params.skin.row.name_value_spacing;
@@ -427,6 +440,8 @@ $(declareDeclDatumByName "iro::utf8::String")
     return true;
   }
 
+
+
   DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
   {
     DatumUpdateResult result = {};
@@ -495,22 +510,14 @@ $ end
     return true;
   }
 
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
+  void placeFields(
+      ui::UI& ui,
+      f32 child_offset,
+      f32 y,
+      u64 datum_idx,
+      const DatumUpdateParams& params,
+      DatumUpdateResult* result)
   {
-    DatumUpdateResult result = {};
-
-    if (datum.parent != nullptr)
-      object.putName(ui, &datum, &result, params);
-
-    f32 child_offset = 0.f;
-    if (datum.parent != nullptr)
-      child_offset = params.skin.children_indent;
-
-    f32 y = params.y;
-    u64 datum_idx = params.idx + 1;
-    if (datum.parent != nullptr)
-      y += params.skin.row.height;
-
 $ for field in decl:eachField() do
     {
       DatumUpdateParams sub_params = params;
@@ -518,16 +525,45 @@ $ for field in decl:eachField() do
       sub_params.y = y;
       sub_params.name = "$(field.name)"_str;
       sub_params.idx = datum_idx;
+      sub_params.embedded = false;
 
       DatumUpdateResult sub_result = 
         datum_$(field.name).update(ui, sub_params);
 
-      datum.mergeChildNameExtents(&result, sub_result);
+      datum.mergeChildNameExtents(result, sub_result);
 
       y += sub_result.height;
       datum_idx += 1;
     }
 $ end
+  }
+
+
+
+  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
+  {
+    DatumUpdateResult result = {};
+
+    if (datum.parent != nullptr && !params.embedded)
+      object.putName(ui, &datum, &result, params);
+
+    f32 child_offset = 0.f;
+    if (datum.parent != nullptr && !params.embedded)
+      child_offset = params.skin.children_indent;
+
+    f32 y = params.y;
+    u64 datum_idx = params.idx + 1;
+    if (datum.parent != nullptr && !params.embedded)
+      y += params.skin.row.height;
+
+    if (object.is_open || datum.parent == nullptr)
+      placeFields(
+        ui, 
+        child_offset,
+        y,
+        datum_idx,
+        params, 
+        &result);
 
     datum.computeHeight(y - params.y, &result, params);
     datum.putBackground(ui, result.height, params);
@@ -676,27 +712,30 @@ $(declareDeclDatum(decl))
     f32 y = params.y + params.skin.row.height;
     u32 datum_idx = params.idx + 1;
 
-    for (s32 i = 0; i < children.len; ++i)
+    if (object.is_open)
     {
-      auto& child = children[i];
+      for (s32 i = 0; i < children.len; ++i)
+      {
+        auto& child = children[i];
 
-      io::StaticBuffer<16> name;
-      io::format(&name, i);
+        io::StaticBuffer<16> name;
+        io::format(&name, i);
 
-      DatumUpdateParams child_params = params;
-      child_params.name = String(name);
-      child_params.y = y;
-      child_params.x = params.x + params.skin.children_indent;
-      child_params.idx = datum_idx;
-  
-      DatumUpdateResult child_result = child.update(ui, child_params);
+        DatumUpdateParams child_params = params;
+        child_params.name = String(name);
+        child_params.y = y;
+        child_params.x = params.x + params.skin.children_indent;
+        child_params.idx = datum_idx;
+    
+        DatumUpdateResult child_result = child.update(ui, child_params);
 
-      datum.mergeChildNameExtents(&result, child_result);
-  
-      assert(child_result.height > 0.f);
+        datum.mergeChildNameExtents(&result, child_result);
+    
+        assert(child_result.height > 0.f);
 
-      y += child_result.height;
-      datum_idx += 1;
+        y += child_result.height;
+        datum_idx += 1;
+      }
     }
 
     datum.computeHeight(y - params.y, &result, params);
@@ -803,6 +842,7 @@ $ for derived in subdecl:allDerived() do
               params.skin.dropdown_option))
         {
           println("select $(derived.qname)");
+          ui.closePopup();
         }
 
         option_bounds.y += option_bounds.h;
@@ -814,7 +854,7 @@ $ end
 
     f32 child_h = 0.f;
     f32 child_y = params.y + params.skin.row.height;
-    if (subdatum != nullptr)
+    if (subdatum != nullptr && object.is_open)
     {
       DatumUpdateResult child_result;
 
@@ -822,6 +862,7 @@ $ end
       child_params.x += params.skin.children_indent;
       child_params.y = child_y;
       child_params.name = nil;
+      child_params.embedded = true;
       child_params.idx = params.idx + 1;
 
       switch (subdatum_type.val)
@@ -842,7 +883,6 @@ $ end
     datum.putBackground(ui, result.height, params);
     return result;
   }
-  
 };
 
 $ end
@@ -1009,7 +1049,7 @@ void SourceDataEditor::update(
 {
   ZoneScopedN("SourceDataEditor::update");
 
-  ui.beginScrollGroup("sde-scroll"_fid, ui.getBounds(), skin.scroll_bar);
+  ui.beginScrollGroup("sde-scroll"_fid, bounds, skin.scroll_bar);
 
   switch (type_id.val)
   {

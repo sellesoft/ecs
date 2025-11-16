@@ -26,6 +26,8 @@ struct Layer
   vec2i size;
   Array<Tile> tiles;
 
+  void deinit();
+
   u32 getTileIndex(const Tile& tile) const
   {
     assert(&tile >= tiles.arr && &tile < tiles.arr + tiles.len);
@@ -61,6 +63,8 @@ struct Layer
 struct MapState
 {
   Array<Layer> layers;
+
+  void deinit();
 
   u32 getLayerIndex(const Layer& layer) const
   {

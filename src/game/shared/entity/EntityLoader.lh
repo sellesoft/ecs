@@ -17,11 +17,18 @@ struct Renderer;
 /* ----------------------------------------------------------------------------
  */
 EntityId loadEntity(
+  Entity* ent,
+  String def_name,
+  const EntityDef& def,
+  EntityMgr& entmgr);
+
+/* ----------------------------------------------------------------------------
+ */
+EntityId loadEntity(
   Entity* ent, 
   const EntityDefLink& l_def, 
   EntityMgr& entmgr);
 
 /* ----------------------------------------------------------------------------
- *  Load an Entity from some an ALREADY LOADED EntityDef.
  */
 EntityId loadEntity(const EntityDefLink& def, EntityMgr& entmgr);

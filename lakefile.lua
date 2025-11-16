@@ -112,6 +112,9 @@ elseif lake.os == "linux" then
   defines.ECS_LPPCLANG_LIB = "lib/lppclang.so"
   defines.ECS_CLANG_EXE = "third_party/bin/linux/clang"
   defines.ECS_CLANG_RESOURCE_DIR = cwd.."/third_party/lib/clang/22"
+  if enable_tracy then
+    defines.ECS_ENABLE_PROFILING = true
+  end
 else
   error "unhandled os"
 end
@@ -127,6 +130,10 @@ end
 
 if cfg.cpp.debug_info then
   defines.ECS_DEBUG = 1
+end
+
+if cfg.cpp.opt == "speed" then
+  defines.NDEBUG = true
 end
 
 if cfg.tracy.enabled then
@@ -153,9 +160,11 @@ local cpp_params =
   asan = asan,
 
   patchable_function_entry = 16,
-
-  pic = false,
 }
+
+if cfg.hreload then
+  cpp_params.pic = true
+end
 
 ---@type lake.obj.Lpp.PreprocessParams
 local lpp_params = 

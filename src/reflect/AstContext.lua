@@ -149,14 +149,20 @@ AstContext.fromGlobs = function(patterns)
   ECS_REFLECTION_IMPORT = true
 
   local import_source = sbuf.new()
-
+  
+  local glob_matched = false
   for pattern in List(patterns):each() do
     glob(pattern):each(function(path)
       if not path:find "Window_win32" then
-        import_source:put("// import ", path, '\n')
+        glob_matched = true
         import_source:put('@lpp.import "', path, '"\n')
       end
     end)
+  end
+
+  if not glob_matched then
+    clog.warnln("glob patterns passed to AstContext.fromGlobs didn't match "..
+                "any files")
   end
 
   local source = lpp.source(tostring(import_source))

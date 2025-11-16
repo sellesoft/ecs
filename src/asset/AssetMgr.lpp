@@ -16,10 +16,10 @@ b8 AssetMgr::init(mem::Allocator* allocator, String data_mount)
   this->data_mount = data_mount;
 
   if (!map.init(allocator))
-    return @log.error(asset, "failed to init asset map\n");
+    return @log.error(asset, "failed to init asset map");
 
   if (!pool.init(allocator))
-    return @log.error(asset, "failed to init asset pool\n");
+    return @log.error(asset, "failed to init asset pool");
 
   return true;
 }
@@ -56,7 +56,7 @@ Asset* AssetMgr::allocateAsset(String name)
   u64 name_hash = name.hash();
   if (map.find(name_hash) != nullptr)
     return @log.error(asset, 
-      "an asset with name '", name, "' already exists\n"),
+      "an asset with name '", name, "' already exists"),
       nullptr;
 
   AssetPool::Node* node = pool.pushTail();
@@ -84,29 +84,30 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
   u64 name_hash = path.hash();
   if (Asset* existing = map.find(name_hash))
   {
-    @log.debug(asset, "asset '", path, "' already loaded\n");
+    @log.debug(asset, "asset '", path, "' already loaded");
     return existing;
   }
 
-  @log.debug(asset, "loading asset '", path, "' from disk\n");
+  @log.debug(asset, "loading asset '", path, "' from disk");
 
   if (!path::exists(path))
   {
-    @log.error(asset, "no asset exists at path '", path, "'\n");
+    @dbgBreak;
+    @log.error(asset, "no asset exists at path '", path, "'");
     return nullptr;
   }
 
   auto file = File::from(path, OpenFlag::Read);
   if (isnil(file))
   {
-    @log.error(asset, "failed to open asset file at '", path, "'\n");
+    @log.error(asset, "failed to open asset file at '", path, "'");
     return nullptr;
   }
 
   Asset* asset = allocateAsset(path);
   if (asset == nullptr)
   {
-    @log.error(asset, "failed to allocate asset '", path, "'\n");
+    @log.error(asset, "failed to allocate asset '", path, "'");
     return nullptr;
   }
 
@@ -118,7 +119,7 @@ Asset* AssetMgr::loadAssetFromDisk(String name, String type)
 
   if (asset->size != file.read({(u8*)asset->data, asset->size}))
     return @log.error(asset, 
-      "failed to read entire asset file from ", path, "\n"),
+      "failed to read entire asset file from ", path, ""),
       nullptr;
 
   return asset;
@@ -139,14 +140,14 @@ Asset* AssetMgr::reloadAsset(String name, String type)
   if (asset == nullptr)
   {
     @log.error(asset, "attempt to reload asset ", name, '.', type, " but it is not "
-          "known to the AssetMgr\n");
+          "known to the AssetMgr");
     return nullptr;
   }
 
   auto file = File::from(path, OpenFlag::Read);
   if (isnil(file))
   {
-    @log.error(asset, "failed to open asset file at '", path, "'\n");
+    @log.error(asset, "failed to open asset file at '", path, "'");
     return nullptr;
   }
 

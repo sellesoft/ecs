@@ -63,6 +63,8 @@ elseif lake.os == "linux" then
   lib_dirs:push(cwd.."/third_party/lib/clang")
   lib_dirs:push(cwd.."/third_party/lib/shaderc")
 
+  include_dirs:push(cwd.."/third_party/tracy/include")
+
 end
 
 return 

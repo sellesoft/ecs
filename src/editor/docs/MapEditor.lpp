@@ -1,6 +1,11 @@
 $ require "common"
 
-@lpp.import "editor/docs/MapEditor.lh"
+$ -- TODO(sushi) make a reflect.import or something.
+$ local ast = require "reflect.ast"
+$ local astctx, imported = require "reflect.AstContext" 
+$                          .fromGlobs { "src/editor/docs/MapEditor.lh" }
+$(imported)
+
 @lpp.import "editor/Editor.lh"
 
 @lpp.import "game/client/structure/StructureVisualizer.sys.lh"
@@ -16,8 +21,12 @@ $ require "common"
 
 #include "math/util.h"
 
+$ local TTool = assert(astctx:lookupTypeDecl "editor::MapEditor::Tool")
+
 namespace editor
 {
+
+using Tool = MapEditor::Tool;
 
 static const f32 c_map_render_w = 2048;
 static const f32 c_map_render_h = 2048;
@@ -38,14 +47,13 @@ static inline b8 recreateMapTexture(gfx::Vulkan& vk, gfx::Texture* texture)
 }
 
 /* ----------------------------------------------------------------------------
+ *  Reloads the map state (and entity state) of the current source data file 
+ *  stored by MapEditor.
  */
-static b8 loadMapState(MapEditor& self, String path)
+static b8 reloadMapState(MapEditor& self)
 {
-  self.sdf_map_def.deinit();
+  self.entity_mgr.destroyAllEntities();
   self.map_def_packed.deinit();
-
-  if (!SourceDataFile::from(&self.sdf_map_def, path))
-    return false;
 
   self.map_def_packed.init();
 
@@ -70,7 +78,24 @@ static b8 loadMapState(MapEditor& self, String path)
   if (!loadMap(&self.map_state, *def, map_load_params))
     return false;
 
+  // Call StructureVisualizer's helper for updating structure sprite states
+  // so that they appear properly in the render.
+  cl::updateAllStructureAppearances(self.map_state, self.entity_mgr);
+
   return true;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Loads the map state from the source data file at `path`.
+ */
+static b8 loadMapState(MapEditor& self, String path)
+{
+  self.sdf_map_def.deinit();
+
+  if (!SourceDataFile::from(&self.sdf_map_def, path))
+    return false;
+
+  return reloadMapState(self);
 }
 
 /* ----------------------------------------------------------------------------
@@ -97,20 +122,10 @@ b8 MapEditor::init()
 
   loadMapState(*this, "assets/maps/Test.map"_str);
 
-  // MapLoadParams map_load_params = 
-  // {
-  //   .entmgr = entity_mgr,
-  // };
-  //
-  // if (!loadMap(&map_state, *map_asset, map_load_params))
-  //   return editor->log.error("failed to load map");
-
   if (!recreateMapTexture(*editor->vk, &map_render))
     return editor->log.error("failed to create map texture");
 
-  // Call StructureVisualizer's helper for updating structure sprite states
-  // so that they appear properly in the render.
-  cl::updateAllStructureAppearances(map_state, entity_mgr);
+  sd_editor.init();
 
   editor->event_bus->subscribeTo<WindowFocusChange, MapEditor>(this,
     [](auto& self, auto& ev) -> void
@@ -130,14 +145,37 @@ static TComp* tryComp(MapEditor& self, EntityId id)
   return self.entity_mgr.tryComp<TComp>(id);
 }
 
+/* ============================================================================
+ *  Bundle of state related to the view of the map computed in putUI() and 
+ *  fed down into helpers. This is intended to be immutable.
+ */
+struct MapViewState
+{
+  // Focus of the map state from UI, eg. is it hovered, focused, was a 
+  // mouse button clicked etc.
+  ui::Focus focus;
+
+  // Position of the cursor relative to the map view's position on screen 
+  // and its position in world space.
+  vec2f local_cursor;
+  vec2f world_cursor;
+};
+
+/* ============================================================================
+ *  State that helpers use to indicate if they have changed the map, which 
+ *  is used in putUI() to decide if the map needs to be reloaded.
+ */
+struct MapViewResult
+{
+  b8 changed_tile;
+};
+
 /* ----------------------------------------------------------------------------
  */
 static void handleDragState(
     MapEditor& self,
     ui::UI& ui,
-    ui::Focus game_view_focus,
-    vec2f view_local_cursor,
-    vec2f world_cursor)
+    const MapViewState& state)
 {
   using enum MapEditor::ControlState;
   using Focus = ui::FocusFlag;
@@ -145,9 +183,9 @@ static void handleDragState(
   switch (self.control_state)
   {
   case None:
-    if (game_view_focus.wasTertiaryPressed())
+    if (state.focus.wasTertiaryPressed())
     {
-      self.drag_start_viewport = view_local_cursor;
+      self.drag_start_viewport = state.local_cursor;
       self.drag_start_world = self.view.pos;
       self.control_state = DraggingView;
     }
@@ -159,7 +197,7 @@ static void handleDragState(
         self.drag_start_viewport, 
         self.map_view_size);
 
-      self.view.pos = self.drag_start_world + offset - world_cursor;
+      self.view.pos = self.drag_start_world + offset - state.world_cursor;
 
       // Check if middle mouse is released anywhere to avoid the drag state 
       // getting stuck.
@@ -175,9 +213,11 @@ static void handleDragState(
 static void handleScrollState(
     MapEditor& self,
     ui::UI& ui,
-    vec2f view_local_cursor,
-    vec2f world_cursor)
+    const MapViewState& state)
 {
+  if (!state.focus.isHovered())
+    return;
+
   f32 scroll = ui.frame_input.getScroll();
   if (scroll != 0.f)
   {
@@ -194,38 +234,55 @@ static void handleScrollState(
       self.view.zoom = max(1e-3f, min(1e4f, self.view.zoom)); 
 
       vec2f new_world_cursor = self.view.viewportPointToWorld(
-        view_local_cursor, 
+        state.local_cursor, 
         self.map_view_size);
 
-      self.view.pos -= new_world_cursor - world_cursor;
+      self.view.pos -= new_world_cursor - state.world_cursor;
     }
   }
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void handleMapAndEntityCursorInteraction(
+static void reloadEntitySourceDataFile(
     MapEditor& self,
-    ui::UI& ui,
-    ui::Focus game_view_focus,
-    vec2f world_cursor)
+    EntityId id)
 {
-  self.hovered_layer_idx = -1;
-  self.hovered_tile_idx = -1;
-  self.hovered_entity = nil;
+  SourceDataFile* sfile = &self.sdf_selected_entity_def;
+  sfile->deinit();
 
-  if (!game_view_focus.isHovered())
+  Entity* selected = self.entity_mgr.getEntity(self.selected_entity);
+  if (selected == nullptr)
+    // Must have selected empty space.
     return;
 
-  Tile* tile = nullptr;
-  Layer* layer = nullptr;
-  if (self.map_state.getTileAndLayerAtPos(&layer, &tile, world_cursor))
+  fs::PathBuffer def_path;
+  io::formatv(&def_path, selected->def_name, ".entity"_str);
+
+  if (!SourceDataFile::from(sfile, String(def_path)))
   {
-    self.hovered_tile_idx = self.map_state.getLayerIndex(*layer);
-    self.hovered_layer_idx = layer->getTileIndex(*tile);
+    self.editor->log.error(
+      "failed to load def source data for entity ", id, " from '",
+      String(def_path), "'");
+    return;
   }
 
-  u32 layer_idx = layer? self.map_state.getLayerIndex(*layer) : -1;
+  self.sd_editor.setSourceData(
+    sfile->returned_data,
+    sfile,
+    "EntityDef"_typeid);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleEntitySelection(
+    MapEditor& self,
+    ui::UI& ui,
+    const MapViewState& state,
+    Layer& layer,
+    Tile& tile)
+{
+  u32 layer_idx = self.map_state.getLayerIndex(layer);
 
   EntityMgr::Iter ent_iter(self.entity_mgr);
   for (; ent_iter.isValid(); ent_iter.next())
@@ -241,9 +298,9 @@ static void handleMapAndEntityCursorInteraction(
       continue;
 
     Rect collider_bounds = collider->def->bounds;
-    collider_bounds.addPos(transform->pos + vec2f(layer->pos));
+    collider_bounds.addPos(transform->pos + vec2f(layer.pos));
 
-    if (collider_bounds.containsPoint(world_cursor))
+    if (collider_bounds.containsPoint(state.world_cursor))
     {
       self.hovered_entity = id;
       break;
@@ -251,7 +308,67 @@ static void handleMapAndEntityCursorInteraction(
   }
 
   if (ui.frame_input.wasMouseButtonPressed(MouseButton::Left))
+  {
+    b8 new_selection = self.hovered_entity != self.selected_entity;
+
     self.selected_entity = self.hovered_entity;
+
+    if (new_selection)
+      reloadEntitySourceDataFile(self, self.selected_entity);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handlePaintTile(
+    MapEditor& self,
+    ui::UI& ui,
+    const MapViewState& state,
+    MapViewResult& result,
+    Layer* layer,
+    Tile* tile)
+{
+
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleMapAndEntityCursorInteraction(
+    MapEditor& self,
+    ui::UI& ui,
+    const MapViewState& state,
+    MapViewResult& result)
+{
+  self.hovered_layer_idx = -1;
+  self.hovered_tile_idx = -1;
+  self.hovered_entity = nil;
+
+  if (!state.focus.isHovered())
+    return;
+
+  Tile* tile = nullptr;
+  Layer* layer = nullptr;
+  b8 got_tile_layer = self.map_state.getTileAndLayerAtPos(
+      &layer, 
+      &tile, 
+      state.world_cursor);
+
+  if (got_tile_layer)
+  {
+    self.hovered_tile_idx = self.map_state.getLayerIndex(*layer);
+    self.hovered_layer_idx = layer->getTileIndex(*tile);
+  }
+
+  switch (self.selected_tool)
+  {
+  case Tool::None:
+    if (got_tile_layer)
+      handleEntitySelection(self, ui, state, *layer, *tile);
+    break;
+  case Tool::PaintTile:
+    handlePaintTile(self, ui, state, result, layer, tile);
+    break;
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -259,32 +376,13 @@ static void handleMapAndEntityCursorInteraction(
 static void handleControlInputs(
     MapEditor& self, 
     ui::UI& ui, 
-    ui::Focus game_view_focus,
-    vec2f view_local_cursor,
-    vec2f world_cursor,
+    const MapViewState& state,
+    MapViewResult& result,
     const EditorSkinDef& skin)
 {
-  using enum MapEditor::ControlState;
-  using Focus = ui::FocusFlag;
-
-  handleDragState(
-    self,
-    ui,
-    game_view_focus,
-    view_local_cursor,
-    world_cursor);
-
-  handleScrollState(
-    self,
-    ui,
-    view_local_cursor,
-    world_cursor);
-
-  handleMapAndEntityCursorInteraction(
-    self, 
-    ui, 
-    game_view_focus,
-    world_cursor);
+  handleDragState(self, ui, state);
+  handleScrollState(self, ui, state);
+  handleMapAndEntityCursorInteraction(self, ui, state, result);
 }
 
 /* ----------------------------------------------------------------------------
@@ -293,26 +391,70 @@ static void putMapView(
     MapEditor& self, 
     ui::UI& ui, 
     Rect bounds,
-    vec2f view_local_cursor,
-    vec2f world_cursor,
+    const MapViewState& state,
+    MapViewResult& result,
     const EditorSkinDef& skin)
 {
+  // Since we render the map into a texture much larger than the size
+  // we actually render it at, we have to compute the proper uv's to 
+  // use for the texture.
   auto uv = vec4f(0,0,0,0);
   uv.z = bounds.w / c_map_render_w;
   uv.w = bounds.h / c_map_render_h;
 
   ui.putQuad(bounds, self.map_render.getHandle(), uv, 0xffffffff);
 
-  ui::Focus game_view_focus = 
-    ui.putFocusableBounds("game-view"_fid, bounds);
+  handleControlInputs(self, ui, state, result, skin);
+}
 
-  handleControlInputs(
-    self,
-    ui,
-    game_view_focus,
-    view_local_cursor,
-    world_cursor,
-    skin);
+/* ----------------------------------------------------------------------------
+ */
+static void putToolSelect(
+    MapEditor& self,
+    ui::UI& ui,
+    Rect bounds,
+    const EditorSkinDef& skin)
+{
+  String selected_text = nil;
+  switch (self.selected_tool)
+  {
+$ for elem in TTool.elems:each() do
+  case Tool::$(elem.name):
+    selected_text = "$(elem.name)"_str;
+    break;
+$ end
+  }
+
+  if (ui.beginDropDown("map_editor.tool_select"_fid,
+        bounds,
+        90.f,
+        selected_text,
+        skin.dropdown))
+  {
+    Rect button_bounds;
+    button_bounds.x = 0.f;
+    button_bounds.y = 0.f;
+    button_bounds.w = ui.getWidth();
+    button_bounds.h = 14.f;
+
+$ for elem in TTool.elems:each() do
+    if (self.selected_tool != Tool::$(elem.name))
+    {
+      if (ui.putButton("map_editor.tool_select.$(elem.name)"_fid,
+            button_bounds,
+            "$(elem.name)"_str,
+            skin.button))
+      {
+        self.selected_tool = Tool::$(elem.name);
+        ui.closePopup();
+      }
+
+      button_bounds.y += button_bounds.h;
+    }
+$ end
+
+    ui.endDropDown();
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -320,29 +462,52 @@ static void putMapView(
 static void putToolMenu(
     MapEditor& self,
     ui::UI& ui,
-    vec2f view_local_cursor,
-    vec2f world_cursor,
+    const MapViewState& state,
+    MapViewResult& result,
     const EditorSkinDef& skin)
 {
+  const f32 sde_height = 300.f;
+
   io::StaticBuffer<128> buffer;
-  io::formatv(&buffer, floor(world_cursor), '\n');
+  io::formatv(&buffer, floor(state.world_cursor), '\n');
 
   io::formatv(&buffer, "selected: "_str, self.selected_entity, '\n');
   io::formatv(&buffer, "hovered: "_str, self.hovered_entity, '\n');
 
+  if (Entity* ent = self.entity_mgr.getEntity(self.selected_entity))
+  {
+    io::formatv(&buffer, "selected def: "_str, ent->def_name, '\n'); 
+  }
+
   vec2f text_size = 
     ui.putText(Rect::from(0,0,0,0), String(buffer), skin.text);
 
-  f32 y = text_size.y;
+  f32 y = text_size.y + 4.f;
 
-  
+  Rect sde_bounds;
+  sde_bounds.x = 2.f;
+  sde_bounds.y = y;
+  sde_bounds.w = ui.getWidth() - 2.f * sde_bounds.x;
+  sde_bounds.h = sde_height;
+
+  self.sd_editor.update(ui, sde_bounds, skin.sdata_edit);
+
+  y += sde_height + 4.f;
+
+  Rect select_bounds;
+  select_bounds.x = 2.f;
+  select_bounds.y = y;
+  select_bounds.w = ui.getWidth() - 2.f * select_bounds.x;
+  select_bounds.h = 14.f;
+
+  putToolSelect(self, ui, select_bounds, skin);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  const f32 tool_menu_width = 200.f;
+  const f32 tool_menu_width = 400.f;
 
   Rect map_view_bounds = {};
   map_view_bounds.x = tool_menu_width;
@@ -353,79 +518,51 @@ void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
   // Save the view size for the next time we go to render.
   map_view_size = map_view_bounds.size();
 
-  vec2f view_local_cursor = ui.getLocalCursorPos() - map_view_bounds.pos();
-  vec2f world_cursor = view.viewportPointToWorld(
-    view_local_cursor,
+  Rect tool_menu_bounds = {};
+  tool_menu_bounds.x = 0.f;
+  tool_menu_bounds.y = 0.f;
+  tool_menu_bounds.w = tool_menu_width;
+  tool_menu_bounds.h = ui.getHeight();
+
+  MapViewState view_state;
+  view_state.local_cursor = ui.getLocalCursorPos() - map_view_bounds.pos();
+  view_state.world_cursor = view.viewportPointToWorld(
+    view_state.local_cursor,
     map_view_size);
+  view_state.focus = ui.putFocusableBounds("game-view"_fid, map_view_bounds);
+
+  MapViewResult view_result;
 
   putMapView(
     *this,
     ui,
     map_view_bounds,
-    view_local_cursor,
-    world_cursor,
+    view_state,
+    view_result,
     skin);
 
-  putToolMenu(
-    *this,
-    ui,
-    view_local_cursor,
-    world_cursor,
-    skin);
+  ui.beginPanel("map-editor.tool-menu"_fid, tool_menu_bounds);
+  {
+    putToolMenu(
+      *this,
+      ui,
+      view_state,
+      view_result,
+      skin);
+  }
+  ui.endPanel();
 }
 
-/* ============================================================================
+/* ----------------------------------------------------------------------------
+ *  Computes the size of a pixel on screen in the world. Used to properly
+ *  size things drawn in the map view so that they appear consistently sized on 
+ *  screen.
  */
-struct MapEditorRender : cl::IExternalRender
+static vec2f getWorldPixelSize(MapEditor& self)
 {
-  MapEditor& self;
-
-  MapEditorRender(MapEditor& self) : self(self) {}
-
-  // TODO(sushi) move these to common.h
-
-  void placeGrid()
-  {
-    }
-
-  void preSprites() override
-  {
-    placeGrid(); 
-  }
-
-  void outlineEntityCollider(EntityId id, Color color)
-  {
-    if (isnil(id))
-      return;
-
-    auto* transform = tryComp<Transform>(self, id);
-    auto* collider = tryComp<Collider>(self, id);
-
-    if (collider)
-    {
-      Layer* layer = 
-        self.map_state.getLayerByIndex(transform->placement_layer);
-
-      Rect collider_bounds = collider->def->bounds;
-      collider_bounds.addPos(transform->pos + vec2f(layer->pos));
-
-      gfx::putFilledRect(
-        vp, ip,
-        &draw_counts,
-        collider_bounds.pos(),
-        collider_bounds.size(),
-        color);
-    }
-  }
-
-  void overlay() override
-  {
-    pass->bindTexture(self.editor->l_white_texture.getHandle());
-
-    outlineEntityCollider(self.selected_entity, 0x00ff00ff);
-    outlineEntityCollider(self.hovered_entity, 0x0000ffff);
-  }
-};
+  return self.viewportToWorld(vec2f(1.f, 1.f)) - 
+         self.viewportToWorld(vec2f(0.f, 0.f));
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -474,10 +611,36 @@ static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
 
 /* ----------------------------------------------------------------------------
  */
+static void outlineEntityCollider(
+    MapEditor& self,
+    gfx::BatchRenderer& br,
+    EntityId id, 
+    Color color)
+{
+  if (isnil(id))
+    return;
+
+  auto* transform = tryComp<Transform>(self, id);
+  auto* collider = tryComp<Collider>(self, id);
+
+  if (collider)
+  {
+    Layer* layer = 
+      self.map_state.getLayerByIndex(transform->placement_layer);
+
+    Rect collider_bounds = collider->def->bounds;
+    collider_bounds.addPos(transform->pos + vec2f(layer->pos));
+
+    f32 thickness = getWorldPixelSize(self).x;
+
+    br.drawBorder(collider_bounds, thickness, color);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void MapEditor::render(gfx::Vulkan& vk)
 {
-  MapEditorRender editor_render(*this);
-
   gfx::RenderTarget target = 
   {
     .image = map_render.image,
@@ -492,7 +655,6 @@ void MapEditor::render(gfx::Vulkan& vk)
     .vk = vk,
     .target = target,
     .view = view.getViewMat(),
-    .external = nullptr,
   };
 
   gfx::RenderPass pass;
@@ -532,7 +694,9 @@ void MapEditor::render(gfx::Vulkan& vk)
 
   game_renderer.renderSprites(vk, br, map_state, entity_mgr);
 
-  // game_renderer.render(render_params);
+  br.setTexture(editor->l_white_texture.getHandle());
+  outlineEntityCollider(*this, br, selected_entity, 0x00ff00ff);
+  outlineEntityCollider(*this, br, hovered_entity, 0x0000ffff);
 
   br.end();
 

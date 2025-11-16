@@ -10,9 +10,9 @@ struct IndexedPool
 {
   struct Slot
   {
+    T elem = {};
     Slot* next_free = nullptr;
     u32 salt = 0;
-    T elem = {};
 
     b8 isUsed()
     {
@@ -71,7 +71,8 @@ struct IndexedPool
 
   Slot* getSlotFromElem(T* e) const
   {
-    return (Slot*)((u8*)e - offsetof(Slot, elem));
+    // return (Slot*)((u8*)e - offsetof(Slot, elem));
+    return (Slot*)e;
   }
 
   void remove(T* e)
@@ -102,6 +103,19 @@ struct IndexedPool
 
     assert(slot->isUsed());
     assert(slot->salt == salt);
+
+    return &slot->elem;
+  }
+
+  T* tryGetFromId(u32 value, u32 salt) const
+  {
+    if (value == 0)
+      return nullptr;
+
+    Slot* slot = pool + value - 1;
+
+    if (!slot->isUsed() || slot->salt != salt)
+      return nullptr;
 
     return &slot->elem;
   }

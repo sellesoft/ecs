@@ -36,12 +36,21 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-EntityId loadEntity(Entity* ent, const EntityDefLink& l_def, EntityMgr& entmgr)
+EntityId loadEntity(
+    Entity* ent,
+    String def_name,
+    const EntityDef& def,
+    EntityMgr& entmgr)
 {
   ComponentMgr& cmpmgr = entmgr.cmpmgr;
-  const EntityDef& def = *l_def;
 
-  ent->def_id = l_def.name.hash();
+  if (notnil(ent->def_name))
+  {
+    mem::stl_allocator.free(ent->def_name.ptr);
+    ent->def_name = nil;
+  }
+
+  ent->def_name = def_name.allocateCopy();
 
   for (auto& compdef : def.components)
   {
@@ -70,6 +79,17 @@ $ end)
   }
 
   return entmgr.getEntityId(ent);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+EntityId loadEntity(Entity* ent, const EntityDefLink& l_def, EntityMgr& entmgr)
+{
+  return loadEntity(
+    ent,
+    l_def.name,
+    *l_def,
+    entmgr);
 }
 
 /* ----------------------------------------------------------------------------

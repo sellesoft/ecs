@@ -200,7 +200,7 @@ $ local function maybeCallFieldLinker(field, record)
 $   if not field.metadata.has_links then return end
     if (!$(getTypeLinkerName(field.type))(&data->$(field.name)))
       return @log.error(reflect, 
-        "failed to link field $(field.name) of $(record.qname)\n");
+        "failed to link field $(field.name) of $(record.qname)");
 $ end
 
 $ local function putStructLinker(decl)
@@ -229,7 +229,7 @@ $   local subtype = decl.args[1]
     {
       if (!$(getTypeLinkerName(subtype))(&elem))
         return @log.error(reflect, 
-          "failed to link element ", elem_idx, " of array\n");
+          "failed to link element ", elem_idx, " of array");
 
       elem_idx += 1;
     }
@@ -270,18 +270,22 @@ $   local link_type = decl.metadata.links
 $   if not link_type then
 $      -- NOTE(sushi) spams quite bad.
 $      -- clog.warn("compiled asset link type ", decl.name, " does not specify ",
-$      --           "what asset type it links\n")
+$      --           "what asset type it links")
     @log.warn(reflect, 
       "cannot link $(decl.type.name) because it does not specify what "
-      "asset type it links\n");
+      "asset type it links");
 $   else
+    
+    if (isnil(data->name))
+      return true; // Nothing to link.
+
     // Load the CompiledData as an Asset.
     data->asset = asset_mgr.loadAssetFromDisk(data->name, "$(link_type)"_str);
 
     if (data->asset == nullptr)
       return @log.error(reflect, 
         "failed to link compiled data '", data->name, "' of type "
-        "$(link_type)\n");
+        "$(link_type)");
 
     for (Asset* already_done : loaded_compiled_data_assets)
     {
@@ -305,7 +309,7 @@ $   else
     {
       if (!linkByTypeId(ref.type, ref.ptr.get()))
         return @log.error(reflect, 
-          "failed to link embedded link in compiled data\n");
+          "failed to link embedded link in compiled data");
     }
 $   end
     return true;
@@ -326,7 +330,7 @@ $     -- clog:warn("asset link type ", decl.qname, " does not specify what ",
 $     --          "asset type it links\n")
     @log.warn(reflect, 
       "unable to link asset type $(decl.qname) because it did not specify "
-      "metadata.links\n");
+      "metadata.links");
 $   else
     
     if (isnil(data->name))
@@ -336,7 +340,7 @@ $   else
 
     if (data->asset == nullptr)
       return @log.error(reflect, 
-        "failed to link asset '", data->name, "' of type $(link_type)\n");
+        "failed to link asset '", data->name, "' of type $(link_type)");
 $   end
 
     return true;
@@ -389,11 +393,11 @@ $ end
     
     // Link any internals the Resource may have.
     if (!$(getTypeLinkerName(resource_type))(r))
-      return @log.error(reflect, "failed to link resource $(rname)\n");
+      return @log.error(reflect, "failed to link resource $(rname)");
 
     // Ask the resource manager to load the resource.
     if (!resource_mgr.load$(rname)(r))
-      return @log.error(reflect, "failed to load resource $(rname)\n");
+      return @log.error(reflect, "failed to load resource $(rname)");
 
     return true;
   }

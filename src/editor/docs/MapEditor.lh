@@ -7,6 +7,7 @@ $ require "common"
 @lpp.import "editor/Doc.lh"
 @lpp.import "graphics/View.lh"
 @lpp.import "sdata/SourceDataFile.lh"
+@lpp.import "sdata/SourceDataEditor.lh"
 @lpp.import "reflect/Packing.lh"
 @lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
@@ -32,6 +33,9 @@ struct MapEditor : Doc
   // The size at which the map view should be rendered.
   vec2f map_view_size;
 
+  SourceDataFile sdf_selected_entity_def;
+  SourceDataEditor sd_editor;
+
   enum class ControlState
   {
     None,
@@ -52,8 +56,10 @@ struct MapEditor : Doc
   enum Tool
   {
     None,
-    
+    PaintTile,
   };
+
+  Tool selected_tool;
 
   void onOpen() override { init(); }
 

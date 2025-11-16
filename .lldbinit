@@ -3,3 +3,4 @@ command sc import lldb_ecs
 set set auto-confirm true
 
 set set symbols.load-on-demand true
+set set symbols.enable-external-lookup false

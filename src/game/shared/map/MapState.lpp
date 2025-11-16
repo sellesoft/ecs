@@ -7,6 +7,13 @@ $ require "common"
 
 /* ----------------------------------------------------------------------------
  */
+void Layer::deinit()
+{
+  tiles.destroy();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 vec2f Layer::getTilePos(const Tile& tile) const
 {
   u32 tile_idx = getTileIndex(tile);
@@ -35,6 +42,15 @@ Layer* MapState::getLayerByIndex(u32 index)
     return nullptr;
 
   return &layers[index];
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void MapState::deinit()
+{
+  for (Layer& layer : layers)
+    layer.deinit();
+  layers.destroy();
 }
 
 /* ----------------------------------------------------------------------------

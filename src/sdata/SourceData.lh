@@ -172,6 +172,36 @@ struct SourceData
 
   /* --------------------------------------------------------------------------
    */
+  SourceData* findChildByIndex(u32 idx)
+  {
+    if (hasObjectData())
+    {
+      if (idx < children.len)
+        return children[idx];
+    }
+    return nullptr;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 removeChildByName(String name)
+  {
+    if (hasObjectData())
+    {
+      for (u32 i = 0; i < children.len; ++i)
+      {
+        if (children[i]->name == name)
+        {
+          children.remove(i);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
   SourceData* deepCopy(SourceDataFile* sfile);
 
   /* --------------------------------------------------------------------------
@@ -207,8 +237,6 @@ struct SourceData
   void        setObject(String name);
   SourceData* addObject(SourceDataFile& file, String name);
   SourceData* addObject(SourceDataFile& file, String name, String type);
-
-
 
   void setStringValue(String value)
   {

@@ -35,6 +35,8 @@ void SourceDataFile::deinit()
   if (returned_data != nullptr)
     returned_data->destroy();
 
+  returned_data = nullptr;
+
   data_pool.deinit();
   aux_data_list.deinit();
 }

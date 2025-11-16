@@ -44,45 +44,6 @@ namespace cl
 struct GameRenderer;
 
 /* ============================================================================
- *  An interface that may be implemented and provided to GameRenderer to inject
- *  stuff into the render at various points. 
- *
- *  I REALLY don't care for doing this this sort of way, but there's not 
- *  really a better option atm. What I feel would be nice now is to just make 
- *  each 'render pass' (not in the gfx sense) of the renderer separated and 
- *  moving the api towards explicitly telling the renderer to draw those 
- *  passes. Or something. Idk, I just don't like this, but I want a way to 
- *  render stuff *in* the game from the map editor. Worked fine this way last 
- *  time so whatever.
- */
-struct IExternalRender
-{
-  // Counts of vertexes/indexes drawn this frame by the external render.
-  // This is not maintained internally and is just provided for convenience,
-  // the implementer is expected to count their draws.
-  //
-  // TODO(sushi) should really implement that batch renderer.
-  vec2i draw_counts;
-
-  // Pointers to the mapped vertex/index buffers.
-  gfx::Vertex* vp;
-  gfx::Index* ip;
-
-  // The current render pass.
-  gfx::RenderPass* pass;
-
-  // Called before rendering the map.
-  virtual void preMap() {}
-
-  // Called before drawing any sprites, after the map has been drawn.
-  virtual void preSprites() {}
-
-  // The last call made before GameRenderer ends its render pass. Anything
-  // drawn here will draw overtop of everything.
-  virtual void overlay() {}
-};
-
-/* ============================================================================
  */
 struct VIBuffers
 {
@@ -142,12 +103,6 @@ struct GameRenderer
     //             redone anyways, so we'll deal with this until then.
     gfx::Vulkan& vk;
     gfx::RenderTarget& target;
-
-    // Optional interface called by the renderer at various points to 
-    // allow external things to draw stuff in the game world. 
-    // Would like to get rid of this eventually, see comment on 
-    // IExternalRender.
-    IExternalRender* external;
   };
 
   void mapBuffersAndGetViews(

@@ -85,6 +85,17 @@ struct BatchRenderer
   {
     drawBorder(bounds.pos(), bounds.size(), offsets, color);
   }
+
+  void drawBorder(
+      Rect bounds,
+      f32 thickness,
+      Color color = 0xffffffff)
+  {
+    drawBorder(
+      bounds,
+      vec4f(thickness, thickness, thickness, thickness),
+      color);
+  }
 };
 
 }

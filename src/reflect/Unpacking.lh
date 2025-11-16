@@ -23,7 +23,6 @@ struct UnpackParams
   // from the file. It does not touch the auxillary data list nor the 
   // returned data.
   SourceDataFile* sfile;
-
 };
 
 SourceData* unpackData(const UnpackParams& params);

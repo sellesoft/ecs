@@ -5,6 +5,7 @@ $ require "common"
 @lpp.import "sdata/SourceDataFile.lh"
 @lpp.import "reflect/rtr.lh"
 @lpp.import "reflect/Packing.lh"
+@lpp.import "reflect/Unpacking.lh"
 @lpp.import "reflect/CompiledData.lh"
 
 #include "iro/fs/fs.h"
@@ -718,49 +719,47 @@ Target* BuildSystem::findOrCreateTarget(
  */
 void BuildSystem::writeTargetMetaFile(Target* target)
 {
-  // TODO(sushi) it would be nice to just make a build::TargetMetadata 
-  //             here and fill it out rather than manually constructing 
-  //             the SourceData, but we don't support binary -> SourceData
-  //             yet, and I would like to output plain SourceData for easy 
-  //             debugging for now.
   SourceDataFile mfile;
   if (!mfile.init())
     return;
   defer { mfile.deinit(); };
 
-  SourceData* data = mfile.addReturnData();
+  TargetInfo info = {};
 
-  data->setObject(nil);
-  data->type = "build::TargetMetadata"_str;
+  typedef SmallArray<TargetInfo, 16> InfoArray;
 
-  SourceData* prereqs = data->addObject(
-    mfile, "prereqs"_str, "build::TargetInfoList"_str);
+  InfoArray prereqs;
+  InfoArray linked_targets;
+  InfoArray secondary_outputs;
 
-  SourceData* linked_targets = data->addObject(
-    mfile, "linked_targets"_str, "build::TargetInfoList"_str);
-
-  SourceData* secondary_outputs = data->addObject(
-    mfile, "secondary_outputs"_str, "build::TargetInfoList"_str);
-
-  auto addTargetInfo = [&](Target* target, SourceData* list)
+  auto addTargetInfos = [&](TargetSet* set, InfoArray* arr)
   {
-    SourceData* info = list->addObject(mfile, nil, "build::TargetInfo"_str);
-
-    fs::PathBuffer path_buffer;
-    info->addStringValue(mfile, "name"_str, target->name);
-    info->addStringValue(mfile, "type"_str, target->type);
-    info->addStringValue(
-      mfile, "kind"_str, rtr::getEnumElementName(target->kind));
+    for (Target& t : *set)
+    {
+      arr->push(
+        {
+          .name = t.name,
+          .type = t.type,
+          .kind = t.kind,
+        });
+    }
   };
 
-  for (Target& prereq : target->prerequisites)
-    addTargetInfo(&prereq, prereqs);
+  addTargetInfos(&target->prerequisites, &prereqs);
+  addTargetInfos(&target->linked_targets, &linked_targets);
+  addTargetInfos(&target->secondary_targets, &secondary_outputs);
 
-  for (Target& linked : target->linked_targets)
-    addTargetInfo(&linked, linked_targets);
+  TargetMetadata metadata;
+  setArrayFromSlice(&metadata.prereqs, prereqs.asSlice());
+  setArrayFromSlice(&metadata.linked_targets, linked_targets.asSlice());
+  setArrayFromSlice(&metadata.secondary_outputs, secondary_outputs.asSlice());
 
-  for (Target& secondary : target->secondary_targets)
-    addTargetInfo(&secondary, secondary_outputs);
+  reflect::UnpackParams unpack_params = {};
+  unpack_params.type = "build::TargetMetadata"_typeid;
+  unpack_params.data = bytesOf(metadata);
+  unpack_params.sfile = &mfile;
+
+  mfile.returned_data = unpackData(unpack_params);
 
   fs::PathBuffer meta_path;
   mfile.dumpToDisk(target->formFullMetaPath(&meta_path));

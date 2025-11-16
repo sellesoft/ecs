@@ -10,12 +10,6 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh",
 }
 
-for decl in astctx.type_decls:each() do
-  if decl.qname:find "vec" then
-    clog.infoln(decl)
-  end
-end
-
 $$$
 $(imported)
 
@@ -217,7 +211,7 @@ $     local type = field.type:desugar()
       SourceData* child_data = sdata->addData(
         *sfile,
         "$(field.name)"_str,
-        "$(type.qname)"_str);
+        "$(field.type.qname)"_str);
 
       $(getTypeUnpackerName(field.type))(data.$(field.name), child_data);
     }
@@ -340,7 +334,6 @@ $     end
 $   end
 $
 $   local name = decl.specialized.qname
-$   clog.infoln(name)
 $   if name == "reflect::Array" then
 $     putArrayUnpacker(decl)
 $   elseif name == "reflect::StringMap" then
@@ -436,6 +429,8 @@ SourceData* unpackData(const UnpackParams& params)
   unpacker.sfile = params.sfile;
 
   SourceData* unpacked_data = params.sfile->allocateSourceData();
+
+  unpacked_data->type = rtr::typenameFromTypeId(params.type);
 
   switch (params.type.val)
   {

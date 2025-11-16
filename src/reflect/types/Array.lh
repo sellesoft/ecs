@@ -46,4 +46,16 @@ struct Array
   iro::Slice<T> asSlice() const { return iro::Slice<T>::from(arr, len); }
 };
 
+/* ----------------------------------------------------------------------------
+ *  For use when constructing binary data to be unpacked into SourceData. 
+ *  This should not be used to do something like set Array data that was 
+ *  packed or loaded from CompiledData.
+ */
+template<typename T>
+inline void setArrayFromSlice(Array<T>* arr, iro::Slice<T> slice)
+{
+  arr->arr = slice.ptr;
+  arr->len = slice.len;
+}
+
 }

@@ -1,0 +1,341 @@
+$ local cmn = require "common"
+
+#include "iro/Common.h"
+#include "iro/io/format.h"
+
+// Not a fan of doing this, but whatever.
+#include "cmath"
+
+$$$
+
+local function constype(name, n, t)
+  return { name=name, len=n, t=t }
+end
+
+local vec_types = cmn.List 
+{
+  constype("vec2f", 2, "f32"),
+  constype("vec2u", 2, "u32"),
+  constype("vec2i", 2, "s32"),
+
+  constype("vec3f", 3, "f32"),
+  constype("vec3u", 3, "u32"),
+  constype("vec3i", 3, "s32"),
+
+  constype("vec4f", 4, "f32"),
+  constype("vec4u", 4, "u32"),
+  constype("vec4i", 4, "s32"),
+}
+
+$$$
+
+$ local comps = cmn.List { "x", "y", "z", "w" }
+
+$ -- NOTE(sushi) only support up to vec4 for now as I don't believe we
+$ --             will ever have a reason to support more.
+$ local function makeVec(name, t, n)
+$   n = tonumber(n)
+$   local function eachComp(f)
+$     for i=1,n do
+$       f(comps[i], i == n, i)
+$     end
+$   end
+$   local these_comps = comps:sub(1, n)
+struct $(name)
+{
+  // Alias typenames in C++ to make writing it easier than \$(name).
+  using S = $(name);
+  using T = $(t);
+
+$ eachComp(function(comp)
+  T $(comp) = 0;
+$ end)
+
+  $(name)() = default;
+
+  $(name)(T v)
+  {
+$ eachComp(function(comp)
+    this->$(comp) = v;
+$ end)
+  }
+
+  $(name)($(cmn.joinp(",", "T %", these_comps)))
+  {
+$ eachComp(function(comp)
+    this->$(comp) = $(comp);
+$ end)
+  }
+
+$ for vt in vec_types:each() do
+$   if vt.len == n and vt.t ~= t then
+  explicit operator $(vt.name)();
+$   end
+$ end
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 isZero(this const S self)
+  {
+    return $(cmn.joinp("&&", "self.% == 0", comps:sub(1,n)));
+  }
+
+$ local function binop(op)
+  /* --------------------------------------------------------------------------
+   */
+  S operator $(op) (this const S lhs, S rhs)
+  {
+    S result;
+$   eachComp(function(comp)
+    result.$(comp) = lhs.$(comp) $(op) rhs.$(comp);
+$   end)
+    return result;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  void operator $(op)=(S rhs)
+  {
+    *this = *this $(op) rhs;
+  }
+$ end
+
+  @binop "+"
+  @binop "-"
+  @binop "*"
+  @binop "/"
+
+  /* --------------------------------------------------------------------------
+   */
+  S operator / (this const S self, T rhs)
+  {
+    S result;
+$ eachComp(function(comp)
+    result.$(comp) = self.$(comp) / rhs;
+$ end)
+    return result;
+  }
+
+  friend S operator * (T lhs, S rhs);
+
+  /* --------------------------------------------------------------------------
+   */
+  S operator - (this const S self)
+  {
+    S result;
+$ eachComp(function(comp)
+    result.$(comp) = -self.$(comp);
+$ end)
+    return result;
+  }
+
+$ local set_args = cmn.buffer.new()
+$ eachComp(function(comp, is_last)
+$   set_args:put("T "..comp)
+$   if not is_last then
+$     set_args:put ","
+$   end
+$ end)
+
+  /* --------------------------------------------------------------------------
+   */
+  S& set(this S& self, $(set_args))
+  {
+$ eachComp(function(comp)
+    self.$(comp) = $(comp);
+$ end)
+    return self;
+  }
+
+$ eachComp(function(comp)
+  /* --------------------------------------------------------------------------
+   */
+  S& set$(comp)(this S& self, T v)
+  {
+    self.$(comp) = v;
+    return self;
+  }
+$ end)
+
+  /* --------------------------------------------------------------------------
+   */
+  T dot(this const S self, S rhs)
+  {
+    T r = 0;
+$ eachComp(function(comp)
+    r += self.$(comp) * rhs.$(comp);
+$ end)
+    return r;
+  }
+
+$ if n == 2 then
+  /* --------------------------------------------------------------------------
+   */
+  S perp(this const S self)
+  {
+    return { -self.y, self.x };
+  }
+$ end
+
+  /* --------------------------------------------------------------------------
+   */
+  T magSq(this const S self)
+  {
+    T result = 0;
+$ eachComp(function(comp)
+    result += self.$(comp) * self.$(comp);
+$ end)
+    return result;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  T mag(this const S self)
+  {
+    return sqrt(self.magSq());
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  S normalized(this const S self)
+  {
+$ local non_zero_check = cmn.buffer.new()
+$ eachComp(function(comp, is_last)
+$   non_zero_check:put("self.",comp, " != 0 ")
+$   if not is_last then
+$     non_zero_check:put("||")
+$   end
+$ end)
+    if ($(non_zero_check))
+      return self / self.mag();
+    else
+      return self;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  S& normalize(this S& self)
+  {
+    self = self.normalized();
+    return self;
+  }
+
+  /* --------------------------------------------------------------------------
+  */
+  S clampedMag(this const S self, T min, T max)
+  {
+    T m = self.mag();
+    if (m < min || m > max)
+      return m * self.normalized();
+    return self;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  S& clampMag(this S& self, T min, T max)
+  {
+    self = self.clampedMag(min, max);
+    return self;
+  }
+
+$ eachComp(function(comp)
+  /* --------------------------------------------------------------------------
+   */
+  S $(comp)add(this const S self, T v)
+  {
+    S r = self;
+    r.$(comp) += v;
+    return r;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  S $(comp)neg(this const S self)
+  {
+    S r = self;
+    r.$(comp) = -r.$(comp);
+    return r;
+  }
+$ end)
+
+$ -- Generate swizzling functions via a cartesian product of this vec's 
+$ -- components.
+$ -- Definitely not necessary but its neat.
+
+$ local function cartesianRecur(f, clist, depth)
+$   if depth ~= n then
+$     eachComp(function(comp)
+$       clist[depth + 1] = comp
+$       cartesianRecur(f, clist, depth + 1)
+$     end)
+$   else
+$     f(clist)
+$   end
+$ end
+
+$ local function cartesian(f)
+$   cartesianRecur(f, cmn.List {}, 0)
+$ end
+
+#define swizzler($(cmn.join(",", these_comps))) \
+  S $(cmn.join("##", these_comps))(this S self) \
+  { return {$(cmn.joinp(",", "self.%", these_comps))}; }
+
+$ cartesian(function(list)
+  swizzler($(cmn.join(",", list)));
+$ end)
+  
+};
+
+/* ----------------------------------------------------------------------------
+ */
+$(name) operator * ($(t) lhs, $(name) rhs)
+{
+  $(name) r;
+$ eachComp(function(comp)
+  r.$(comp) = lhs * rhs.$(comp);
+$ end)
+  return r;
+}
+
+namespace iro::io
+{
+static s64 format(WStream* out, $(name) v)
+{
+  return io::formatv(out,
+    '(',
+$ eachComp(function(comp, is_last)
+    v.$(comp),
+$   if not is_last then
+    ',',
+$   end
+$ end)
+    ')');
+}
+}
+
+$ end
+
+$ -- Forward declare types so that we can declare methods that use other 
+$ -- vec types.
+$ for type in vec_types:each() do
+struct $(type.name);
+$ end
+
+$ -- Define the actual vector types.
+$ for type in vec_types:each() do
+$   makeVec(type.name, type.t, type.len)
+$ end
+
+$ -- Generator the explicit conversion operators between vectors of equal
+$ -- size.
+$ for t1 in vec_types:each() do
+$   for t2 in vec_types:each() do
+$     if t1.len == t2.len and t1.t ~= t2.t then
+inline $(t1.name)::operator $(t2.name) ()
+{
+  return $(t2.name)($(cmn.join(",", comps:sub(1,t1.len))));
+}
+$     end
+$   end
+$ end

@@ -1,3 +1,5 @@
+$ require "common"
+
 $ local metadata = require "reflect.Metadata"
 
 @lpp.import "math/vec.lh"

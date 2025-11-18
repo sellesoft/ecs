@@ -39,6 +39,8 @@ local common = {}
 common.buffer = require "string.buffer"
 common.List = require "iro.List"
 
+local is_lh_compile = false
+
 --- Parse the cargs that should have been provided by the lakefile.
 common.cargs = common.List {}
 for _,v in ipairs(lpp.argv) do
@@ -56,6 +58,8 @@ for _,v in ipairs(lpp.argv) do
         end
       end
     end
+  elseif v == "--lh-compile" then
+    is_lh_compile = true
   end
 end
 
@@ -72,7 +76,16 @@ if ECS_CLANG_RESOURCE_DIR then
   -- (probably don't need to, really) we have to explicitly tell clang 
   -- where its resource dir is on linux since its default relative path 
   -- (so dumb) no longer works.
-  common.cargs:push("-resource-dir="..ECS_CLANG_RESOURCE_DIR)
+  -- common.cargs:push("-resource-dir="..ECS_CLANG_RESOURCE_DIR)
+end
+
+local lpp_import = lpp.import
+lpp.import = function(path)
+  local x, y = lpp_import(path)
+  if x then
+    x = '#include "'..path..'.h"\n'
+  end
+  return x, y
 end
 
 common.joinArgs = function(delim, ...)

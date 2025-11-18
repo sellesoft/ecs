@@ -578,7 +578,7 @@ static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
 
   vec2f world_view_size = world_view_extent - world_view_origin;
 
-  f32 grid_sep = max(1.f, roundf(self.view.zoom * 2.f));
+  f32 grid_sep = max(1.f, math::round(self.view.zoom * 2.f));
 
   vec2f grid_start;
   grid_start.x = roundDownTo(world_view_origin.x, grid_sep);

@@ -2,8 +2,7 @@
  *  A representation of an OS window.
  */
 
-#ifndef _ecs_Window_h
-#define _ecs_Window_h
+$ require "common"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -103,5 +102,3 @@ struct Window
   template<typename E>
   void raise(const Engine& eng, E& event);
 };
-
-#endif

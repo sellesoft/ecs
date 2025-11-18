@@ -6,6 +6,8 @@ $ require "common"
 
 @lpp.import "Profiling.lh"
 
+#include "stdlib.h"
+
 namespace editor
 {
 

@@ -1,0 +1,15 @@
+$ require "common"
+
+#include "iro/Common.h"
+
+namespace math
+{
+
+f32 floor(f32 x);
+f32 ceil(f32 x);
+f32 round(f32 x);
+f32 sqrt(f32 x);
+f32 sin(f32 x);
+f32 cos(f32 x);
+
+}

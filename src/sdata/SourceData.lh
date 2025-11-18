@@ -2,6 +2,8 @@
  *  Internal representation of our source data format.
  */
 
+$ require "common"
+
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 #include "iro/containers/Array.h"
@@ -206,17 +208,9 @@ struct SourceData
   /* --------------------------------------------------------------------------
    *  Reading helpers.
    */
-  u64 as_u64()
-  {
-    assert(val.kind == Value::Kind::Number);
-    return atoll((char*)val.str.ptr);
-  }
+  u64 as_u64();
 
-  f32 as_f32()
-  {
-    assert(val.kind == Value::Kind::Number);
-    return atof((char*)val.str.ptr);
-  }
+  f32 as_f32();
 
   vec2f as_vec2f()
   {

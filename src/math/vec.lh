@@ -4,8 +4,7 @@ $ local minfo = require "math.info"
 #include "iro/Common.h"
 #include "iro/io/format.h"
 
-// Not a fan of doing this, but whatever.
-#include "cmath"
+@lpp.import "math/basic.lh"
 
 $ -- See math/info.lua for the definition of what vec types we generate.
 $ local vec_types = minfo.vec_types
@@ -180,7 +179,7 @@ $ end)
    */
   T mag(this const S self)
   {
-    return sqrt(self.magSq());
+    return math::sqrt(self.magSq());
   }
 
   /* --------------------------------------------------------------------------
@@ -311,14 +310,14 @@ $ if t == "f32" then
  */
 static inline $(name) floor($(name) v)
 {
-  return $(name)($(cmn.joinp(",", "floor(v.%)", these_comps)));
+  return $(name)($(cmn.joinp(",", "math::floor(v.%)", these_comps)));
 }
 
 /* ----------------------------------------------------------------------------
  */
 static inline $(name) round($(name) v)
 {
-  return $(name)($(cmn.joinp(",", "round(v.%)", these_comps)));
+  return $(name)($(cmn.joinp(",", "math::round(v.%)", these_comps)));
 }
 $ end
 

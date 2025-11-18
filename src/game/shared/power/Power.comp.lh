@@ -2,6 +2,8 @@
  *  Components related to the PowerSystem
  */
 
+$ require "common"
+
 $ local metadata = require "reflect.Metadata"
 
 @[comp]lpp.import "game/shared/component/Component.lh"

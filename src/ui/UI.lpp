@@ -1391,7 +1391,7 @@ $ end
     // TODO(sushi) this suuuuuuuucks clean this up
     if (clicked)
     {
-      f32 center = text_width + floor(pc.xadvance / 2.f);
+      f32 center = text_width + math::floor(pc.xadvance / 2.f);
 
       if (cursor_pos.x < 0.f)
       {
@@ -1629,7 +1629,7 @@ void UI::endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end)
   if (scroll_to_end)
     *scroll_value = max_scroll;
   else
-    *scroll_value = floor(max(0.f, min(max_scroll, *scroll_value)));
+    *scroll_value = math::floor(max(0.f, min(max_scroll, *scroll_value)));
 
   endGroup();
 }

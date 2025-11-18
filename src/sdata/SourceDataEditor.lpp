@@ -81,7 +81,7 @@ struct DatumUpdateParams
  */
 static inline f32 calcRowCenteredY(f32 height, const DatumUpdateParams& params)
 {
-  return params.y + floor(0.5f * (params.skin.row.height - height));
+  return params.y + math::floor(0.5f * (params.skin.row.height - height));
 }
 
 /* ----------------------------------------------------------------------------

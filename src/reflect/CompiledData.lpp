@@ -6,22 +6,11 @@ $ local dumpValue = require "iro.util".dumpValue
 
 $$$
 
-local AstContext = require "reflect.AstContext"
-
-local imported = require "string.buffer" .new()
-local function importpattern(pattern)
-  glob(pattern):each(function(path)
-    local result = lpp.import(path)
-    if result then
-      imported:put(result:getOutput())
-    end
-  end)
-end
-
-importpattern "src/**/*.defs.lh"
-importpattern "src/**/*.comp.lh"
-
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/**/*.defs.lh",
+  "src/**/*.comp.lh"
+}
 
 -- io.write(ast.dump(astctx.translation_unit), '\n')
 
@@ -31,7 +20,7 @@ local function lookup(name)
 end
 
 $$$
-@imported:get
+$(imported)
 
 @lpp.import "reflect/CompiledData.lh"
 @lpp.import "reflect/Packing.lh"

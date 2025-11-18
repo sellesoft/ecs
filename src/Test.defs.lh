@@ -1,5 +1,9 @@
+$ require "common"
+
 #include "iro/Common.h"
 #include "iro/Unicode.h"
+
+@lpp.import "Color.lh"
 
 @lpp.import "reflect/types/Array.lh"
 @lpp.import "reflect/types/TypedStringMap.lh"

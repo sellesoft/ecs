@@ -2,6 +2,12 @@
  *  Provides an interface for linking assets.
  */
 
+$ require "common"
+
+#include "iro/Common.h"
+
+@lpp.import "reflect/TypeId.lh"
+
 namespace rtr { struct TypeId; }
 namespace gfx { struct ResourceMgr; }
 struct AssetMgr;
@@ -23,7 +29,7 @@ struct Linker
   AssetMgr& asset_mgr;
 
   template<typename T>
-  b8 link(rtr::TypeId type, String name, T* data)
+  b8 link(rtr::TypeId type, iro::String name, T* data)
   {
     data->name = name;
     return link(type, data);

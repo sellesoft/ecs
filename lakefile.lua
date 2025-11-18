@@ -77,7 +77,7 @@ local build_dir = cwd.."/"..cfg.build_dir
 --- Directory in which generated files live. This is separated such that we 
 --- can tell build tools that this is an include, require, import, etc. dir
 --- without the stuff being mixed with other build artifacts.
-local generated_dir = build_dir.."/_generated"
+local generated_dir = build_dir.."/_gen"
 
 local enable_tracy = cfg.tracy.enabled
 local asan = cfg.asan
@@ -105,6 +105,7 @@ include_dirs:push(generated_dir)
 
 local defines = cfg.cpp.defines
 
+local resource_dir_arg
 if lake.os == "windows" then
   defines.ECS_LPPCLANG_LIB = "lib/lppclang.dll"
   defines.ECS_CLANG_EXE = "third_party/bin/win32/clang"
@@ -112,6 +113,7 @@ elseif lake.os == "linux" then
   defines.ECS_LPPCLANG_LIB = "lib/lppclang.so"
   defines.ECS_CLANG_EXE = "third_party/bin/linux/clang"
   defines.ECS_CLANG_RESOURCE_DIR = cwd.."/third_party/lib/clang/22"
+  resource_dir_arg = defines.ECS_CLANG_RESOURCE_DIR
   if enable_tracy then
     defines.ECS_ENABLE_PROFILING = true
   end
@@ -160,6 +162,10 @@ local cpp_params =
   asan = asan,
 
   patchable_function_entry = 16,
+
+  time_trace = true,
+
+  resource_dir = resource_dir_arg,
 }
 
 if cfg.hreload then
@@ -330,18 +336,141 @@ end
 
 -- buildTest "asset-building"
 
+local lh_params = require "iro.tbl" .deepExtend(lpp_params,
+{
+  meta_args = List { "--lh-compile", meta_arg }
+})
+
+local lh_task = lake.task "build lh files"
+
+local pch_paths = List {}
+
+local function pchcmd(header)
+  return
+  {
+    "clang",
+    "-x", "c++-header",
+    header,
+    "-o",
+    header..".pch",
+    "-Iinclude",
+    "-I"..generated_dir,
+    "-I"..generated_dir.."/src",
+    "-Isrc",
+    "-resource-dir="..resource_dir_arg,
+    "-DIRO_LINUX",
+    "-std=c++23",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-fPIC"
+  }
+end
+
+local headers = List {}
+
+for lfile in lake.utils.glob("src/**/*.lh"):each() do
+  local h_output = generated_dir.."/"..lfile..".h"
+  
+  headers:push(h_output)
+
+  local lh = o.Lpp(lfile):preprocess(h_output, lh_params)
+
+  local guard_id = lfile:gsub("[/%-%.]", "_")
+  
+  local guard = 
+    lake.task("guard "..h_output)
+      :cond(function() return false end)
+      :dependsOn(lh.task)
+      :recipe(function()
+        local f = io.open(h_output)
+        local c = f:read("*a")
+        f:close()
+
+        f = io.open(h_output, "w+")
+        f:write(
+          '#ifndef '..guard_id..
+        '\n#define '..guard_id..
+        '\n'..c..
+        '\n#endif')
+        f:close()
+
+        -- lake.flair.writeSuccessOnlyOutput("guarded "..
+        --   lake.utils.getPathBasename(h_output))
+      end)
+
+  lh_task:dependsOn(guard)
+
+  if false then
+    local pch_output = h_output..".pch"
+
+    pch_paths:push(pch_output)
+
+    local pch = 
+      lake.task("gen pch "..h_output)
+        :cond(lake.utils.singleFileTaskCondition(pch_output, h_output))
+        :dependsOn(guard)
+        :recipe(function()
+
+          local result = lake.async.run(pchcmd(h_output))
+
+          if 0 ~= result.exit_code then
+            lake.flair.writeFailure(pch_output)
+            io.write(result.output)
+          else
+            lake.flair.writeSuccessOnlyOutput(
+              lake.utils.getPathBasename(pch_output))
+          end
+        end)
+
+    lh_task:dependsOn(pch)
+  end
+end
+
+-- local bulk_header = assert(io.open(build_dir.."/bulk.h", "w"))
+--
+-- for header in headers:each() do
+--   bulk_header:write('#include "'..header..'"\n')
+-- end
+--
+-- bulk_header:close()
+--
+-- local bulk_pch = lake.task "bulk.pch"
+--   :cond(function() return true end)
+--   :dependsOn(lh_task)
+--   :recipe(function()
+--     local result = lake.async.run(pchcmd "_build/bulk.h")
+--
+--     if result.exit_code ~= 0 then
+--       lake.flair.writeFailure "bulk.pch"
+--       io.write(result.output)
+--     else
+--       lake.flair.writeSuccessOnlyOutput("bulk.pch")
+--     end
+--   end)
+--
+-- cpp_params.extra = List { "-include-pch", "_build/bulk.h.pch" }
+--
+-- for pch in pch_paths:each() do
+--   cpp_params.extra:push "-include-pch"
+--   cpp_params.extra:push(pch)
+-- end
+
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"
   local o_output = cpp_output..".o"
-  objs:push(
-    o.Lpp(lfile)
-      :preprocessToCpp(cpp_output, lpp_params)
-      :compile(o_output, cpp_params))
+
+  local cpp = o.Lpp(lfile):preprocessToCpp(cpp_output, lpp_params)
+  local obj = cpp:compile(o_output, cpp_params)
+
+  cpp.task:dependsOn(lh_task)
+
+  objs:push(obj)
 end
 
 for cfile in lake.utils.glob("src/**/*.cpp"):each() do
   local output = build_dir.."/"..cfile..".o"
-  objs:push(o.Cpp(cfile):compile(output, cpp_params))
+  local obj = o.Cpp(cfile):compile(output, cpp_params)
+  objs:push(obj)
 end
 
 --- For now assume that any obj file depends on log generation.

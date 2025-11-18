@@ -9,6 +9,7 @@
  *              I get to setting the console back up.
  */
 
+$ require "common"
 $ local lpp = require "lpp"
 $ local conf = require "core.logging.conf"
 $ local def = require "tools.loggen.gather"

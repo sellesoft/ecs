@@ -2,6 +2,13 @@
  *  Manager of Component allocation and such.
  */
 
+$ require "common"
+
+#include "iro/Common.h"
+#include "iro/containers/LinkedPool.h"
+
+@lpp.import "game/shared/entity/EntityId.lh"
+
 struct Component;
 
 template<typename T>
@@ -12,7 +19,7 @@ u64 getComponentKind();
 template<typename T>
 struct ComponentIterState
 {
-  typedef DLinkedPool<T>::Node Node;
+  typedef iro::DLinkedPool<T>::Node Node;
 
   Node* node;
 
@@ -43,7 +50,7 @@ struct ComponentIterState
 template<typename T>
 struct ComponentIter
 {
-  typedef DLinkedPool<T>::Node Node;
+  typedef iro::DLinkedPool<T>::Node Node;
   Node* start;
 
   ComponentIterState<T> begin() { return ComponentIterState<T>{start}; }
@@ -74,7 +81,7 @@ struct ComponentMgr
     T* pcomp = allocateComponent<T>();
     // TODO(sushi) this is scuffed and needs to be done better.
     void* node = pcomp->node;
-    mem::copy(pcomp, (void*)&comp, sizeof(T));
+    iro::mem::copy(pcomp, (void*)&comp, sizeof(T));
     pcomp->node = node;
     return pcomp;
   }

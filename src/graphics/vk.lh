@@ -10,6 +10,8 @@ $ require "common"
 
 struct Window;
 struct Color;
+struct vec2i;
+struct vec2u;
 
 namespace gfx
 {

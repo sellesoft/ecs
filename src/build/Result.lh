@@ -23,6 +23,7 @@
 $ require "common"
 
 #include "iro/io/SmallBuffer.h"
+#include "iro/io/format.h"
 
 namespace build
 {
@@ -39,7 +40,7 @@ struct Result
 
   Status status = Status::Success;
 
-  io::SmallBuffer<512> buffer;
+  iro::io::SmallBuffer<512> buffer;
 
   void setError() { status = Status::Error; }
 
@@ -47,7 +48,7 @@ struct Result
   void pushError(Args... args)
   {
     setError();
-    io::formatv(&buffer, args..., '\n');
+    iro::io::formatv(&buffer, args..., '\n');
   }
 
   b8 wasSuccessful() const { return status == Status::Success; }

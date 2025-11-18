@@ -446,7 +446,7 @@ static inline DocTreeNode* insertNode(
     target->split.last = nu;
   }
   
-  nu->size = floor(split_ratio * split_with->size);
+  nu->size = math::floor(split_ratio * split_with->size);
   split_with->size -= nu->size;
 
   return nu;
@@ -510,7 +510,7 @@ static DocTreeNode* splitSingle(
 
     println("split ", target, " into ", nu);
 
-    nu->size = floor(split_ratio * target->size);
+    nu->size = math::floor(split_ratio * target->size);
     target->size -= nu->size;
 
     return nu;
@@ -530,7 +530,7 @@ static DocTreeNode* splitSingle(
       target->split.first = b;
       target->split.last = a;
       b->next = a;
-      b->size = floor(split_ratio * size_to_split);
+      b->size = math::floor(split_ratio * size_to_split);
       a->size = size_to_split - b->size;
     }
     else
@@ -538,7 +538,7 @@ static DocTreeNode* splitSingle(
       target->split.first = a;
       target->split.last = b;
       a->next = b;
-      a->size = floor(split_ratio * size_to_split);
+      a->size = math::floor(split_ratio * size_to_split);
       b->size = size_to_split - a->size;
     }
 
@@ -579,7 +579,7 @@ static inline DocTreeNode* splitSplit(
   DocTreeNode* a = self.tree_nodes.add();
   a->state = target->state;
   a->split = target->split;
-  a->size = floor(split_ratio * size_to_split);
+  a->size = math::floor(split_ratio * size_to_split);
   a->parent = target;
 
   for (DocTreeNode* child = target->split.first; child; child = child->next)
@@ -1098,7 +1098,7 @@ static f32 putDocTreeNodeDivider(
     else
       cursor_offset = local_cursor.x - node_bounds.x;
 
-    cursor_offset = floor(cursor_offset);
+    cursor_offset = math::floor(cursor_offset);
 
     self.drag_desired_size = cursor_offset;
   }
@@ -1238,7 +1238,7 @@ static void putDocTreeNodeSplit(
       f32 remaining = diff;
       for (DocTreeNode* child = node->split.first; child; child = child->next)
       {
-        f32 take = floor((child->size / size_sum) * diff);
+        f32 take = math::floor((child->size / size_sum) * diff);
         child->size -= take;
         remaining -= take;
         if (child->next == nullptr)
@@ -1251,7 +1251,7 @@ static void putDocTreeNodeSplit(
       f32 remaining = diff;
       for (DocTreeNode* child = node->split.first; child; child = child->next)
       {
-        f32 take = floor((child->size / size_sum) * diff);
+        f32 take = math::floor((child->size / size_sum) * diff);
         child->size += take;
         remaining -= take;
         if (child->next == nullptr)

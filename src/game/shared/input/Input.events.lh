@@ -7,6 +7,9 @@ $ local m = require "reflect.Metadata"
 
 #include "iro/Flags.h"
 
+@lpp.import "math/vec.lh"
+@lpp.import "game/shared/entity/EntityId.lh"
+
 using namespace iro;
 
 /* ============================================================================

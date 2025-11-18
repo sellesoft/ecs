@@ -2,6 +2,8 @@
  *  System which manages Editor Docs.
  */
 
+$ require "common"
+
 @lpp.import "editor/Doc.lh"
 @lpp.import "editor/MenuBar.lh"
 @lpp.import "reflect/TypeId.lh"

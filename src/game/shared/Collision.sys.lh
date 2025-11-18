@@ -5,6 +5,8 @@
  *  Will likely be replaced with the proper physics system later on.
  */
 
+$ require "common"
+
 @lpp.import "game/shared/entity/EntitySys.lh"
 @lpp.import "game/shared/Collider.comp.lh"
 @lpp.import "game/shared/Transform.comp.lh"

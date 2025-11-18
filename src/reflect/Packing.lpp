@@ -37,6 +37,7 @@ $(imported)
 @lpp.import "reflect/types/Array.lh"
 
 #include "iro/containers/BitArray.h"
+#include "stdlib.h"
 
 $ local function markHasDefaults(decl)
 $   decl.metadata.has_defaults = true

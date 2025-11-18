@@ -12,19 +12,12 @@ $ local dumpValue = require "iro.util".dumpValue
 
 $$$
 
-local AstContext = require "reflect.AstContext"
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/game/**/*.comp.lh",
+  "src/game/**/*.events.lh",
+}
 
-local imported = require "string.buffer" .new()
-local function importpattern(pattern)
-  glob(pattern):each(function(path)
-    imported:put((lpp.import(path):getOutput()) or "")
-  end)
-end
-
-importpattern "src/game/**/*.comp.lh"
-importpattern "src/game/**/*.events.lh"
-
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
 
 -- io.write(ast.dump(astctx.translation_unit), '\n')
 
@@ -34,7 +27,7 @@ local function lookup(name)
 end
 
 $$$
-@imported:get
+$(imported)
 
 @lpp.import "game/shared/entity/EntityMgr.lh"
 

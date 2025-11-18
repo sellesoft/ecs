@@ -1,5 +1,7 @@
 $ require "common"
 
+#include "iro/Flags.h"
+
 namespace phys
 {
 
@@ -9,7 +11,7 @@ enum class ContactFlag
 
   COUNT,
 };
-typedef Flags<ContactFlag> ContactFlags;
+typedef iro::Flags<ContactFlag> ContactFlags;
 
 struct Contact
 {

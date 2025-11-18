@@ -5,6 +5,7 @@
 $ require "common"
 
 #include "iro/Common.h"
+#include "iro/Unicode.h"
 #include "iro/memory/Allocator.h"
 #include "iro/containers/ArrayFuncs.h"
 

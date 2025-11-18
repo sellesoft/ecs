@@ -17,6 +17,7 @@ local include_dirs = List
   cwd.."/src",
   cwd.."/include",
   cwd.."/third_party/include",
+  cwd.."/_build/_gen/src",
 }
 
 if lake.os == "windows" then
@@ -57,6 +58,8 @@ elseif lake.os == "linux" then
     "shaderc_combined",
     "luajit",
     "hreload",
+    "stdc++",
+    "m",
   }
 
   lib_dirs:push(cwd.."/third_party/lib/luajit/linux")

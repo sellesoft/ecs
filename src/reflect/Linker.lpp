@@ -46,7 +46,6 @@ end
 
 local function searchForLinks(decl)
   if decl:is(ast.TypedefDecl) then
-    clog.infoln(decl)
     if decl:findMetadata "ref" then
       recordLinkDecl(decl)
     end

@@ -16,6 +16,8 @@
  *              behaves that way.
  */
 
+$ require "common"
+
 @lpp.import "math/vec.lh"
 
 /* ============================================================================
@@ -74,7 +76,7 @@ struct Rect
 
   vec4f asVec4f() const { return vec4f(x,y,w,h); }
 
-  void floorPos() { x = floor(x); y = floor(y); }
+  void floorPos() { x = math::floor(x); y = math::floor(y); }
 
   void decompose(vec2f* nn, vec2f* np, vec2f* pn, vec2f* pp)
   {
@@ -138,7 +140,7 @@ struct Rect
 
   f32 getCenteredY(f32 height) const
   {
-    return floor(0.5f * (h - height));
+    return math::floor(0.5f * (h - height));
   }
 
   void expandToContain(const Rect& rhs)
@@ -181,7 +183,7 @@ struct Rect
 
   Rect& alignCenteredYInside(const Rect& rhs)
   {
-    y = rhs.y + floorf(0.5f * (rhs.h - h));
+    y = rhs.y + math::floor(0.5f * (rhs.h - h));
     return *this;
   }
 

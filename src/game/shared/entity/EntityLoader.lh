@@ -1,5 +1,7 @@
 $ local cmn = require "common"
 
+#include "iro/Unicode.h"
+
 struct EntityId;
 struct SourceDataFile;
 struct SourceData;
@@ -8,6 +10,7 @@ struct ComponentMgr;
 struct AssetMgr;
 struct EntityDef;
 struct Entity;
+struct EntityDefLink;
 
 namespace gfx
 {
@@ -18,7 +21,7 @@ struct Renderer;
  */
 EntityId loadEntity(
   Entity* ent,
-  String def_name,
+  iro::String def_name,
   const EntityDef& def,
   EntityMgr& entmgr);
 

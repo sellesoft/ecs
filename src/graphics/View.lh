@@ -5,6 +5,8 @@
  *  TODO(sushi) this isn't a graphics thing, should probably be on Eye.
  */ 
 
+$ require "common"
+
 @lpp.import "math/mat.lh"
 
 namespace gfx

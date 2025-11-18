@@ -67,6 +67,8 @@
  *
  */
 
+$ require "common"
+
 #include "iro/Common.h"
 #include "iro/Unicode.h"
 

@@ -6,7 +6,25 @@ $ local cmn = require "common"
 #include "iro/io/Stream.h"
 #include "iro/fs/fs.h"
 
+#include "stdlib.h"
+
 using namespace iro;
+
+/* ----------------------------------------------------------------------------
+ */
+u64 SourceData::as_u64()
+{
+  assert(val.kind == Value::Kind::Number);
+  return atoll((char*)val.str.ptr);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+f32 SourceData::as_f32()
+{
+  assert(val.kind == Value::Kind::Number);
+  return atof((char*)val.str.ptr);
+}
 
 /* ----------------------------------------------------------------------------
  */

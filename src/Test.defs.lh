@@ -1,10 +1,10 @@
 #include "iro/Common.h"
 #include "iro/Unicode.h"
-#include "Color.h"
 
 @lpp.import "reflect/types/Array.lh"
 @lpp.import "reflect/types/TypedStringMap.lh"
 $ local m = require "reflect.Metadata"
+
 
 struct Fruit 
 {
@@ -35,6 +35,6 @@ struct Orange : Fruit
 @m.def
 struct Basket
 {
-  reflect::TypedPtr<Fruit> fruit;
+  reflect::Array<reflect::TypedPtr<Fruit>> fruit;
 };
 

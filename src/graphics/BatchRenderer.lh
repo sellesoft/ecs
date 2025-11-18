@@ -4,15 +4,13 @@
 
 $ require "common"
 
-@lpp.import "graphics/vi_types.lh"
-
 #include "iro/containers/Slice.h"
 
-@lpp.import "graphics/TextureHandle.lh"
+@lpp.import "Color.lh"
+@lpp.import "math/Rect.lh"
+@lpp.import "graphics/vi_types.lh"
 @lpp.import "graphics/Pipeline.lh"
-
-#include "math/Rect.h"
-#include "Color.h"
+@lpp.import "graphics/TextureHandle.lh"
 
 namespace gfx
 {

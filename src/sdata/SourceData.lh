@@ -8,8 +8,7 @@
 #include "iro/containers/AVL.h"
 #include "iro/io/Stream.h"
 
-// TODO(sushi) this sucks.
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 using namespace iro;
 

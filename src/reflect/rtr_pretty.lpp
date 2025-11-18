@@ -3,8 +3,12 @@ $ local ast = require "reflect.ast"
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 
-$ -- if not ECS_GEN_PRETTY_PRINT or 0 == ECS_GEN_PRETTY_PRINT then
-$ if true then
+$ -- NOTE(sushi) win32 pretty printing is completely disabled for now 
+$ --             as Microsoft of course added a way to prevent doing 
+$ --             #define private public
+$ --             so until I add a way to determine the access of members 
+$ --             of a Record, win32 doesn't get pretty printing.
+$ if IRO_WIN32 or not ECS_GEN_PRETTY_PRINT or 0 == ECS_GEN_PRETTY_PRINT then
 
 @log.import
 @lpp.import "reflect/rtr.lh"
@@ -36,6 +40,8 @@ void prettyPrint(
 }
 
 $ else
+
+#define private public
 
 $$$
 
@@ -244,8 +250,8 @@ $ local function putVec2Printer(name)
   }
 $ end
 
-$ putVec2Printer "vec2<int>"
-$ putVec2Printer "vec2<float>"
+$ putVec2Printer "vec2i"
+$ putVec2Printer "vec2f"
 
 $ -- * ------------------------------------------------------------------------
 

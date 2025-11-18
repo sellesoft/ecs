@@ -2,7 +2,7 @@ $ require "common"
 
 @[comp] lpp.import "game/shared/component/Component.lh"
 
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 @comp.def(Transform,
 {

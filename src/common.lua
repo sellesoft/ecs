@@ -94,6 +94,44 @@ common.joinArgs = function(delim, ...)
   return s
 end
 
+common.join = function(delim, first, ...)
+  if common.List:isTypeOf(first) then
+    return common.join(delim, unpack(first))
+  end
+
+  local buf = common.buffer.new()
+  local function recur(x, y, ...)
+    if x then
+      buf:put(x)
+      if y then
+        buf:put(delim)
+      end
+      recur(y, ...)
+    end
+  end
+  recur(first, ...)
+  return buf:get()
+end
+
+common.joinp = function(delim, pat, first, ...)
+  if common.List:isTypeOf(first) then
+    return common.joinp(delim, pat, unpack(first))
+  end
+
+  local buf = common.buffer.new()
+  local function recur(x, y, ...)
+    if x then
+      buf:put((pat:gsub("%%", x)))
+      if y then
+        buf:put(delim)
+      end
+      recur(y, ...)
+    end
+  end
+  recur(first, ...)
+  return buf:get()
+end
+
 -- Idk how many times I have copy pasted some enumeration of these colors 
 -- in various forms throughout all of the projects I've worked on.
 common.color = 

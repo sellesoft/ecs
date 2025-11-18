@@ -109,7 +109,11 @@ static b8 packSourceData(
     return @logerr(
       "failed to initialize PackedData for source data file '", path, "'");
 
-  reflect::PackParams pack_params = { packed };
+  reflect::PackParams pack_params = 
+  { 
+    path,
+    packed 
+  };
 
   if (!reflect::packSourceDataFromType(*sfile.returned_data, pack_params))
     return @logerr("failed to pack returned source data from '", path, "'");

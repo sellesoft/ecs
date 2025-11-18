@@ -4,8 +4,7 @@
 
 $ require "common"
 
-#include "math/vec.h"
-
+@lpp.import "math/vec.lh"
 @lpp.import "game/physics/Transform.lh"
 
 namespace phys

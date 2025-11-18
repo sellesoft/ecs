@@ -7,9 +7,9 @@
 $ require "common"
 
 #include "iro/memory/Bump.h"
-#include "Color.h"
 
 struct Window;
+struct Color;
 
 namespace gfx
 {

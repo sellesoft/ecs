@@ -5,8 +5,7 @@
  *  TODO(sushi) this isn't a graphics thing, should probably be on Eye.
  */ 
 
-#include "math/vec.h"
-#include "math/mat.h"
+@lpp.import "math/mat.lh"
 
 namespace gfx
 {

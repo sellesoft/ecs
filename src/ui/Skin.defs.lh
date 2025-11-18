@@ -1,11 +1,10 @@
 $ require "common"
 $ local m = require "reflect.Metadata"
 
+@lpp.import "Color.lh"
+@lpp.import "math/Rect.lh"
 @lpp.import "graphics/Texture.resource.lh"
 @lpp.import "graphics/Font.resource.lh"
-
-#include "math/Rect.h"
-#include "Color.h"
 
 namespace ui 
 {

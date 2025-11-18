@@ -10,7 +10,7 @@
 
 #include "input/Keys.h"
 
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 using namespace iro;
 

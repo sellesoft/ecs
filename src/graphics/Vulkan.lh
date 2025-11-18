@@ -23,7 +23,7 @@ $ require "common"
 #include "iro/containers/Pool.h"
 #include "iro/memory/Bump.h"
 
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 @lpp.import "graphics/vk.lh"
 @lpp.import "graphics/TextureParams.lh"

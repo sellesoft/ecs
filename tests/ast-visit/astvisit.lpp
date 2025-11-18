@@ -1,11 +1,3 @@
-/*
- *  Implementation of packing routines for types that come from defs/comp 
- *  headers. 
- *
- *  'Packing' data refers to taking some SourceData and a desired C/C++ type 
- *  and transforming the SourceData into binary data of that type.
- */
-
 $ require "common"
 $ local minfo = require "math.info"
 

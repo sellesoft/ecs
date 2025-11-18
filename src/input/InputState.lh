@@ -7,9 +7,9 @@
 $ require "common"
 
 #include "input/Keys.h"
-#include "math/vec.h"
-
 #include "iro/containers/BitArray.h"
+
+@lpp.import "math/vec.lh"
 
 using namespace iro;
 
@@ -83,7 +83,7 @@ struct InputState
 
   vec2f getCursorPos() const { return cursor_pos; }
   vec2f getCursorDelta() const { return cursor_delta; }
-  b8 didCursorMove() const { return cursor_delta != vec2f(0.f,0.f); }
+  b8 didCursorMove() const { return !cursor_delta.isZero(); }
 
   void setCursorPos(vec2f pos) { cursor_pos = pos; }
 

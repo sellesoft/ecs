@@ -14,12 +14,15 @@ return function(params)
         :compile(cpp..".o", params.cpp_params))
   end
 
-  -- compileLpp "src/reflect/RTR_Pretty.lpp"
+  compileLpp "src/reflect/rtr_pretty.lpp"
+  compileLpp "src/reflect/rtr.lpp"
   compileLpp "src/reflect/Packing.lpp"
+  -- compileLpp "tests/ast-visit/astvisit.lpp"
   compileLpp "src/sdata/SourceDataFile.lpp"
   compileLpp "src/sdata/SourceData.lpp"
   compileLpp "src/sdata/SourceDataParser.lpp"
   compileLpp "tests/packing/main.lpp"
+  compileLpp "src/core/logging/core.lpp"
 
   return objs
 end

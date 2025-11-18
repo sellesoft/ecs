@@ -16,7 +16,7 @@ $ require "common"
 @lpp.import "game/shared/component/Component.lh"
 @lpp.import "game/shared/component/ComponentMgr.lh"
 
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 struct AssetMgr;
 

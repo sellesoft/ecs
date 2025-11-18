@@ -1,4 +1,5 @@
 $ local cmn = require "common"
+$ local minfo = require "math.info"
 
 #include "iro/Common.h"
 #include "iro/io/format.h"
@@ -6,28 +7,8 @@ $ local cmn = require "common"
 // Not a fan of doing this, but whatever.
 #include "cmath"
 
-$$$
-
-local function constype(name, n, t)
-  return { name=name, len=n, t=t }
-end
-
-local vec_types = cmn.List 
-{
-  constype("vec2f", 2, "f32"),
-  constype("vec2u", 2, "u32"),
-  constype("vec2i", 2, "s32"),
-
-  constype("vec3f", 3, "f32"),
-  constype("vec3u", 3, "u32"),
-  constype("vec3i", 3, "s32"),
-
-  constype("vec4f", 4, "f32"),
-  constype("vec4u", 4, "u32"),
-  constype("vec4i", 4, "s32"),
-}
-
-$$$
+$ -- See math/info.lua for the definition of what vec types we generate.
+$ local vec_types = minfo.vec_types
 
 $ local comps = cmn.List { "x", "y", "z", "w" }
 
@@ -41,6 +22,8 @@ $       f(comps[i], i == n, i)
 $     end
 $   end
 $   local these_comps = comps:sub(1, n)
+/* ============================================================================
+ */
 struct $(name)
 {
   // Alias typenames in C++ to make writing it easier than \$(name).
@@ -69,9 +52,14 @@ $ end)
 
 $ for vt in vec_types:each() do
 $   if vt.len == n and vt.t ~= t then
-  explicit operator $(vt.name)();
+  explicit operator $(vt.name)() const;
 $   end
 $ end
+
+$ -- TODO(sushi) we could also generate constructors that take smaller vec
+$ --             types + a scalar at each position like what you can do in 
+$ --             glsl but I think all the swizzling is already a bit much,
+$ --             so won't worry about it for now.
 
   /* --------------------------------------------------------------------------
    */
@@ -262,24 +250,44 @@ $ -- Generate swizzling functions via a cartesian product of this vec's
 $ -- components.
 $ -- Definitely not necessary but its neat.
 
-$ local function cartesianRecur(f, clist, depth)
-$   if depth ~= n then
+$ local function cartesianRecur(f, clist, depth, limit)
+$   if depth ~= limit then
 $     eachComp(function(comp)
 $       clist[depth + 1] = comp
-$       cartesianRecur(f, clist, depth + 1)
+$       cartesianRecur(f, clist, depth + 1, limit)
 $     end)
 $   else
 $     f(clist)
 $   end
 $ end
 
-$ local function cartesian(f)
-$   cartesianRecur(f, cmn.List {}, 0)
+$ -- Wrap swizzler definitions in a macro to help the files not becoming 
+$ -- TOO long.
+$ local function swizzlerMacro(n)
+$   local result_t
+$   for vt in vec_types:each() do
+$     if vt.t == t and vt.len == n then
+$       result_t = vt.name
+$     end
+$   end
+$   if not result_t then
+$     return false
+$   end
+$   local scomps = these_comps:sub(1, n)
+#define swizzler($(cmn.join(",", scomps))) \
+  $(result_t) $(cmn.join("##", scomps))(this S self) \
+  { return {$(cmn.joinp(",", "self.%", scomps))}; }
+$   return true
 $ end
 
-#define swizzler($(cmn.join(",", these_comps))) \
-  S $(cmn.join("##", these_comps))(this S self) \
-  { return {$(cmn.joinp(",", "self.%", these_comps))}; }
+$ local function cartesian(f)
+$   for i=2,n do
+$     if swizzlerMacro(i) then
+$       cartesianRecur(f, cmn.List {}, 0, i)
+#undef swizzler
+$     end
+$   end
+$ end
 
 $ cartesian(function(list)
   swizzler($(cmn.join(",", list)));
@@ -289,7 +297,7 @@ $ end)
 
 /* ----------------------------------------------------------------------------
  */
-$(name) operator * ($(t) lhs, $(name) rhs)
+inline $(name) operator * ($(t) lhs, $(name) rhs)
 {
   $(name) r;
 $ eachComp(function(comp)
@@ -297,6 +305,22 @@ $ eachComp(function(comp)
 $ end)
   return r;
 }
+
+$ if t == "f32" then
+/* ----------------------------------------------------------------------------
+ */
+static inline $(name) floor($(name) v)
+{
+  return $(name)($(cmn.joinp(",", "floor(v.%)", these_comps)));
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline $(name) round($(name) v)
+{
+  return $(name)($(cmn.joinp(",", "round(v.%)", these_comps)));
+}
+$ end
 
 namespace iro::io
 {
@@ -327,12 +351,12 @@ $ for type in vec_types:each() do
 $   makeVec(type.name, type.t, type.len)
 $ end
 
-$ -- Generator the explicit conversion operators between vectors of equal
+$ -- Generate the explicit conversion operators between vectors of equal
 $ -- size.
 $ for t1 in vec_types:each() do
 $   for t2 in vec_types:each() do
 $     if t1.len == t2.len and t1.t ~= t2.t then
-inline $(t1.name)::operator $(t2.name) ()
+inline $(t1.name)::operator $(t2.name) () const
 {
   return $(t2.name)($(cmn.join(",", comps:sub(1,t1.len))));
 }

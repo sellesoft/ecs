@@ -24,14 +24,23 @@ $(imported)
 
 using namespace ui;
 
-#include "math/util.h"
-
 @log.import
 
 @lpp.import "Profiling.lh"
   
 $ local putDeclPlacer
 $ local putTypePlacer
+
+$ print(ast.Struct:is(ast.Decl))
+
+$ local seen = {}
+
+/* ============================================================================
+ */
+struct SDENode
+{
+  String name;
+};
 
 /* ============================================================================
  */
@@ -440,7 +449,10 @@ $(declareDeclDatumByName "iro::utf8::String")
     return true;
   }
 
-
+  b8 hasRowContent() const
+  {
+    return true;
+  }
 
   DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
   {

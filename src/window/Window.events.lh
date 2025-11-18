@@ -1,6 +1,6 @@
 $ local metadata = require "reflect.Metadata"
 
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
 @metadata.event(broadcast)
 struct WindowResized 

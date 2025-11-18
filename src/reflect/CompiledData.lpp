@@ -368,9 +368,9 @@ $ local function putVec2Compiler(name)
 $   putDeclFixPointersNoopFromName(name)
 $ end
 
-$ putVec2Compiler "vec2<int>"
-$ putVec2Compiler "vec2<float>"
-$ putVec2Compiler "vec2<unsigned int>"
+$ putVec2Compiler "vec2i"
+$ putVec2Compiler "vec2f"
+$ putVec2Compiler "vec2u"
 
 $ -- * ------------------------------------------------------------------------
 
@@ -726,10 +726,12 @@ $       -- If this decl has been typedef'd also handle those typenames as
 $       -- well. Note that we have to use the type the typedef declares,
 $       -- not the typedef itself, to preserve namespaces.
 $       for typedef in decl.typedefs:each() do
+$         if not typedef.parent then
     case "$(typedef.type.name)"_typeid_val:
+$         end
 $       end
 $     end
-    case "$(decl.type.name)"_typeid_val:
+    case "$(decl.type.qname)"_typeid_val:
       $(getDeclCompilerName(decl))(*($(decl.type.name)*)data);
       return;
 $   end
@@ -1059,7 +1061,9 @@ $       -- If this decl has been typedef'd also handle those typenames as
 $       -- well. Note that we have to use the type the typedef declares,
 $       -- not the typedef itself, to preserve namespaces.
 $       for typedef in decl.typedefs:each() do
+$         if not typedef.parent then
     case "$(typedef.type.name)"_typeid_val:
+$         end
 $       end
 $     end
     case "$(decl.type.name)"_typeid_val:

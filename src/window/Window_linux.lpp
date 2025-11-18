@@ -7,7 +7,6 @@ $ if IRO_LINUX then
 @lpp.import "window/Window.events.lh"
 @lpp.import "Engine.lh"
 
-#include "math/util.h"
 #include "input/Keys.h"
 
 @lpp.import "window/Window.lh"
@@ -110,10 +109,8 @@ b8 Window::init(Engine& eng, String title, InputMgr& inputmgr)
   for (s32 i = 0; i < n_monitors; ++i)
   {
     XRRMonitorInfo monitor = monitors[i];
-    if (math::pointInRect<s32>(
-          {root_x, root_y}, 
-          {monitor.x, monitor.y},
-          {monitor.width, monitor.height}))
+    if (Rect::from(monitor.x, monitor.y, monitor.width, monitor.height)
+        .containsPoint(root_x, root_y))
     {
       selection = monitor;
       break;

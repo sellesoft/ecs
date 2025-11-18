@@ -8,8 +8,6 @@ $ local cmn = require "common"
 #include "iro/Scanner.h"
 #include "iro/memory/BinaryDataBuilder.h"
 
-#include "math/util.h"
-
 @lpp.import "graphics/CompiledFont.lh"
 @lpp.import "graphics/CompiledTexture.lh"
 @lpp.import "graphics/TextureParams.lh"
@@ -194,7 +192,7 @@ static b8 compileFontBDF(
 
   // Figure out how many codepoints we want per row.
   u64 codepoints_per_row = 
-    math::roundUpToPower2(u64(sqrt((f32)num_codepoints)));
+    roundUpToPower2(u64(sqrt((f32)num_codepoints)));
 
   // And how many rows.
   u64 row_count = 1 + num_codepoints / codepoints_per_row;

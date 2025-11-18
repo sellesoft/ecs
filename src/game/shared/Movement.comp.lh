@@ -3,8 +3,6 @@ $ local metadata = require "reflect.Metadata"
 
 @[comp] lpp.import "game/shared/component/Component.lh"
 
-#include "math/vec.h"
-
 // TODO(sushi) put this in a general location
 enum class Dir { Left, Right, Up, Down, COUNT };
 typedef Flags<Dir> Dirs;

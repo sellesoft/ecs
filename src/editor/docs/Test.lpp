@@ -3,8 +3,6 @@ $ require "common"
 @lpp.import "editor/docs/Test.lh"
 @lpp.import "editor/Editor.lh"
 
-#include "math/util.h"
-
 namespace editor
 {
 

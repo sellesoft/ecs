@@ -1,5 +1,7 @@
 $ require "common"
 
+@lpp.import "Color.lh"
+@lpp.import "math/vec.lh"
 @lpp.import "graphics/vk.lh"
 @lpp.import "graphics/Vulkan.lh"
 @lpp.import "graphics/RenderTarget.lh"

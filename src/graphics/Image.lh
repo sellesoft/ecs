@@ -8,9 +8,9 @@
 $ require "common"
 
 @lpp.import "graphics/TextureParams.lh"
+@lpp.import "math/vec.lh"
 
 #include "iro/io/format.h"
-#include "math/vec.h"
 
 namespace gfx
 {

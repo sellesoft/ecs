@@ -8,6 +8,11 @@ $ local List = require "iro.List"
 @lpp.import "ui/Skin.defs.lh"
 @lpp.import "ui/TextEdit.lh"
 
+@lpp.import "Color.lh"
+@lpp.import "math/Rect.lh"
+@lpp.import "math/mat.lh"
+@lpp.import "reflect/Linker.lh"
+@lpp.import "input/InputState.lh"
 @lpp.import "graphics/Buffer.lh"
 @lpp.import "graphics/CompiledTexture.lh"
 @lpp.import "graphics/Pipeline.lh"
@@ -15,17 +20,10 @@ $ local List = require "iro.List"
 @lpp.import "graphics/TextureHandle.lh"
 @lpp.import "graphics/Pipeline.resource.lh"
 
-@lpp.import "input/InputState.lh"
-
-@lpp.import "reflect/Linker.lh"
-
 #include "iro/containers/StackArray.h"
 #include "iro/containers/EnumArray.h"
 #include "iro/memory/Bump.h"
 #include "iro/memory/LinkedHeap.h"
-#include "math/Rect.h"
-#include "math/mat.h"
-#include "Color.h"
 
 namespace gfx
 {

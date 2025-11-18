@@ -3,9 +3,9 @@
 $ require "common"
 
 #include "iro/Common.h"
-#include "math/vec.h"
 #include "iro/Flags.h"
 
+@lpp.import "math/vec.lh"
 @lpp.import "reflect/TypeId.lh"
 
 namespace ui { struct UI; }

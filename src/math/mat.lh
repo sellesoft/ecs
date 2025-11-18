@@ -1,20 +1,18 @@
 /*
  *  Types for dealing with matrices.
  *
- *  Currently this just defines a 3x2 matrix type used to deal with proj/view
- *  matrix stuff. If we ever need other kinds of matrices they should be put
- *  here.
+ *  Currently this just defines a 3x2 matrix to deal with proj/view stuff.
  *
- *  TODO(sushi) it would be nice to convert this to an lpp file that generates
- *              matrices of whatever dimensions and element type we want.
+ *  If we ever have a use for it, we could define different matrix 
+ *  types like we do for vectors in vec.lh, but atm all we need is this.
  */
 
-#ifndef _ecs_math_mat_h
-#define _ecs_math_mat_h
+$ require "common"
 
-#include "iro/Common.h"
-#include "math/vec.h"
+@lpp.import "math/vec.lh"
 
+/* ============================================================================
+ */
 struct mat3x2
 {
   f32 arr[3*2];
@@ -138,10 +136,10 @@ struct mat3x2
    */
   void toMat4(f32 out[16]) const
   {
-    out[0] = arr[0]; out[1] = arr[1]; out[2] = arr[2]; out[3] = 0.f;
-    out[4] = arr[3]; out[5] = arr[4]; out[6] = arr[5]; out[7] = 0.f;
-    out[8] = 0.f;    out[9] = 0.f;    out[10] = 1.f;   out[11] = 0.f;
-    out[12] = 0.f;   out[13] = 0.f;   out[14] = 0.f;   out[15] = 1.f;
+    out[0]  = arr[0]; out[1]  = arr[1]; out[2]  = arr[2]; out[3]  = 0.f;
+    out[4]  = arr[3]; out[5]  = arr[4]; out[6]  = arr[5]; out[7]  = 0.f;
+    out[8]  = 0.f;    out[9]  = 0.f;    out[10] = 1.f;    out[11] = 0.f;
+    out[12] = 0.f;    out[13] = 0.f;    out[14] = 0.f;    out[15] = 1.f;
   }
 
   /* --------------------------------------------------------------------------
@@ -154,5 +152,3 @@ struct mat3x2
     out[12] = arr[2]; out[13] = arr[5]; out[14] = 0.f; out[15] = 1.f;
   }
 };
-
-#endif

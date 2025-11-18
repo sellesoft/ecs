@@ -8,9 +8,6 @@ $ require "common"
 #include "iro/containers/Array.h"
 #include "iro/containers/StackArray.h"
 #include "iro/Unicode.h"
-#include "math/mat.h"
-#include "math/vec.h"
-#include "math/Rect.h"
 
 @lpp.import "graphics/DescriptorSetLayout.lh"
 @lpp.import "graphics/ResourceMgr.lh"
@@ -18,10 +15,9 @@ $ require "common"
 
 using namespace iro;
 
-struct Client;
-struct WindowResized;
-struct Window;
-struct PostReload;
+struct vec2i;
+struct vec2f;
+struct vec2u;
 struct Color;
 
 namespace gfx

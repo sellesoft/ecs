@@ -164,9 +164,9 @@ $ local function putVec2Unpacker(name, func)
   }
 $ end
 
-@putVec2Unpacker(vec2<int>, setVec2i)
-@putVec2Unpacker(vec2<float>, setVec2f)
-@putVec2Unpacker(vec2<unsigned int>, setVec2u)
+@putVec2Unpacker(vec2i, setVec2i)
+@putVec2Unpacker(vec2f, setVec2f)
+@putVec2Unpacker(vec2u, setVec2u)
 
 $ -- * ------------------------------------------------------------------------
 
@@ -438,7 +438,8 @@ $ for decl in astctx.type_decls:each() do
 $   if decl.user.unpacker_placed then
 $     if decl.typedefs then
 $       for typedef in decl.typedefs:each() do
-$         if not typedef.user.unpacker_placed then
+$         if not typedef.user.unpacker_placed and not 
+$            typedef.parent then
   case "$(typedef.type.qname)"_hashed:
 $         end
 $       end

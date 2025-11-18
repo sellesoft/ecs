@@ -1,16 +1,21 @@
 /*
  *  Definition of Vertex and Index types used for drawing as well as helpers
  *  for drawing primitives.
+ *
+ *  TODO(sushi) pull much more of this into Geo.lpp, or at least forward 
+ *              declare the functions so that they are easier to look 
+ *              through.
  */
 
 $ local cmn = require "common"
 $ local List = require "iro.List"
 
+#include "iro/Unicode.h"
+
+@lpp.import "Color.lh"
+@lpp.import "math/vec.lh"
 @lpp.import "graphics/vi_types.lh"
 
-#include "math/vec.h"
-#include "Color.h"
-#include "iro/Unicode.h"
 
 using namespace iro;
 

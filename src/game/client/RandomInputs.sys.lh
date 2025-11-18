@@ -17,6 +17,7 @@ struct RandomInputSys : EntitySys
 
   void update()
   {
+    return;
     auto since_last_input = time::since(last_input);
 
     if (since_last_input > time_to_hold)

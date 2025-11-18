@@ -6,7 +6,7 @@ $ require "common"
 
 @[comp] lpp.import "game/shared/component/Component.lh"
 
-#include "math/Rect.h"
+@lpp.import "math/Rect.lh"
 
 @comp.def(Collider,
 {

@@ -1,8 +1,16 @@
 
 return Basket
 {
-  fruit = Banana
+  fruit = 
   {
-    color = 0xbb00aacc,
+    Banana
+    {
+      color = 0xbb00aacc,
+    },
+
+    Orange 
+    {
+      moisture = 1,
+    }
   }
 }

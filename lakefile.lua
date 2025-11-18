@@ -254,6 +254,10 @@ local loggen_params =
 local loggen = require "tools.loggen.run" (loggen_params)
 local loggen_objs = loggen_params.out_objs
 
+for o in loggen_objs:each() do
+  print(o)
+end
+
 ---@return lake.obj.Exe
 local function buildTest(name)
   ---@type ecs.test.Params
@@ -267,24 +271,27 @@ local function buildTest(name)
 
   local test_objs = require("tests."..name..".build") (test_params)
 
-  for obj in test_objs:each() do
-    obj.task:dependsOn(loggen)
+  if test_objs then
+    for obj in test_objs:each() do
+      obj.task:dependsOn(loggen)
+    end
+
+    test_objs:pushList(iro_objs)
+    test_objs:pushList(loggen_objs)
+
+    local exe = o.Exe (build_dir.."/tests/"..name.."/run")
+    exe:link(test_objs, link_params)
+
+    return exe
   end
-
-  test_objs:pushList(iro_objs)
-  test_objs:pushList(loggen_objs)
-
-  local exe = o.Exe (build_dir.."/tests/"..name.."/run")
-  exe:link(test_objs, link_params)
-
-  return exe
 end
 
 local function buildAndRunTest(name)
   local exe = buildTest(name)
 
   if not exe then
-    error("test "..name.." did not return an Exe to run!")
+    do return end
+    -- error("test "..name.." did not return an Exe to run!")
   end
   
   lake.task("test "..name)

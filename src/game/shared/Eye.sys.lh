@@ -1,9 +1,8 @@
 $ require "common"
 
 #include "iro/Common.h"
-#include "math/vec.h"
-#include "math/mat.h"
 
+@lpp.import "math/mat.lh"
 @lpp.import "game/shared/entity/EntityId.lh"
 @lpp.import "game/shared/entity/EntitySys.lh"
 

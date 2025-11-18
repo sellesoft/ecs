@@ -19,8 +19,6 @@ $(imported)
 @lpp.import "reflect/CompiledData.lh"
 @lpp.import "reflect/Unpacking.lh"
 
-#include "math/util.h"
-
 $ local TTool = assert(astctx:lookupTypeDecl "editor::MapEditor::Tool")
 
 namespace editor
@@ -225,7 +223,7 @@ static void handleScrollState(
 
     if (ui.frame_input.isKeyDown(Key::LShift))
     {
-      self.view.rotation += scroll * math::degreesToRadians(1.f);
+      self.view.rotation += scroll * degreesToRadians(1.f);
     }
     else
     {

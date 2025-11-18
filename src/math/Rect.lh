@@ -1,11 +1,22 @@
 /*
- *  A rectangle represented by a start and end point.
+ *  A rectangle with some position and size.
+ *
+ *  Provides (probably too many) helpers for manipulation. This type is 
+ *  primarily used to position and size things in UI and thus a lot of its
+ *  helpers are oriented around that use. Most helpers also return a reference
+ *  to the Rect so that method chaining works.
+ *
+ *  TODO(sushi) originally this was implemented as a start and end point 
+ *              but SOMEBODY changed that for some reason. It has worked ok
+ *              like this and is also used extensively so changing it back 
+ *              would be complicated. However, there are some instances where
+ *              working with a start and end point would be simpler than 
+ *              with a start and size as we do now (maybe more efficient
+ *              as well). Maybe implement a `Bounds` type later on that 
+ *              behaves that way.
  */
-#ifndef _ecs_rect_h
-#define _ecs_rect_h
 
-#include "math/vec.h"
-#include "iro/io/Stream.h"
+@lpp.import "math/vec.lh"
 
 /* ============================================================================
  */
@@ -26,6 +37,16 @@ struct Rect
   static Rect from(vec2f pos, vec2f size)
   {
     return { pos.x, pos.y, size.x, size.y };
+  }
+
+  static Rect from(f32 x, f32 y, vec2f size)
+  {
+    return { x, y, size.x, size.y };
+  }
+
+  static Rect from(vec2f pos, f32 w, f32 h)
+  {
+    return { pos.x, pos.y, w, h };
   }
 
   void set(vec2f pos, vec2f size) { setPos(pos); setSize(size); }
@@ -81,9 +102,14 @@ struct Rect
     return contracted(padding.x, padding.y);
   }
 
+  b8 containsPoint(f32 px, f32 py) const
+  {
+    return px >= x && py >= y && px <= x + w && py <= y + h;
+  }
+
   b8 containsPoint(vec2f p) const
   {
-    return p.x >= x && p.y >= y && p.x <= x + w && p.y <= y + h;
+    return containsPoint(p.x, p.y);
   }
 
   b8 containsRect(const Rect& rhs) const
@@ -181,4 +207,3 @@ static s64 format(WStream* io, const Rect& rect)
 }
 }
 
-#endif

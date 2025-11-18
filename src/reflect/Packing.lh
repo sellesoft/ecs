@@ -71,6 +71,8 @@ struct PackedData
  */
 struct PackParams
 {
+  // Name to use for errors that occur during packing. 
+  iro::String name;
   PackedData* packed;
   build::Result* result;
 };

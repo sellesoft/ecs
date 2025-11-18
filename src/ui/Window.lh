@@ -4,9 +4,10 @@
 
 $ require "common"
 
-#include "math/vec.h"
 #include "iro/Unicode.h"
 #include "iro/Flags.h"
+
+@lpp.import "math/vec.lh"
 
 namespace ui
 {

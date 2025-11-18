@@ -3,7 +3,6 @@ $ local cmn = require "common"
 #include "iro/Common.h"
 #include "iro/containers/Array.h"
 #include "iro/Unicode.h"
-#include "math/vec.h"
 
 @lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntitySys.lh"

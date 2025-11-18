@@ -14,8 +14,6 @@ $ local cmn = require "common"
 @lpp.import "game/shared/entity/Entity.defs.lh"
 @lpp.import "game/shared/entity/EntityLoader.lh"
 
-#include "math/util.h"
-
 @log.import
 
 /* ----------------------------------------------------------------------------

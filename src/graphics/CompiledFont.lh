@@ -15,13 +15,15 @@ $ local metadata = require "reflect.Metadata"
 #include "iro/Unicode.h"
 #include "iro/traits/Nil.h"
 #include "iro/containers/Slice.h"
-#include "math/vec.h"
 
 using namespace iro;
 
+@lpp.import "math/vec.lh"
 @lpp.import "asset/Asset.lh"
 @lpp.import "core/OffsetPtr.lh"
 @lpp.import "graphics/Font.defs.lh"
+
+struct vec2f;
 
 namespace build { struct Rule; struct Result; }
 

@@ -10,16 +10,16 @@ $ local cmn = require "common"
 @lpp.import "sdata/SourceDataEditorSkin.defs.lh"
 
 @lpp.import "Test.defs.lh"
-
-#include "math/Rect.h"
-#include "iro/fs/File.h"
+@lpp.import "game/shared/entity/Entity.defs.lh"
 
 @log.import
+
+$ local sfile_path = "assets/entities/locker/Locker.entity"
 
 b8 test()
 {
   SourceDataFile testfile;
-  if (!SourceDataFile::from(&testfile, "tests/packing/test.data"_str))
+  if (!SourceDataFile::from(&testfile, "$(sfile_path)"_str))
     return false;
   defer { testfile.deinit(); };
 
@@ -28,14 +28,18 @@ b8 test()
     return @log.error(test, "failed to initialize PackedData\n");
   defer { packed.deinit(); };
 
-  reflect::PackParams pack_params = { &packed };
+  reflect::PackParams pack_params = 
+  {
+    "$(sfile_path)"_str,
+    &packed 
+  };
 
   if (!reflect::packSourceDataFromType(*testfile.returned_data, pack_params))
     return false;
 
-  auto* result = packed.getDataAs<Basket>();
+  auto* result = packed.getDataAs<EntityDef>();
 
-  @log.info(test, result->fruit.getAs<Banana>()->color, '\n');
+  rtr::prettyPrint(*result);
 
   return true;
 }

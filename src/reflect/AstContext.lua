@@ -80,6 +80,9 @@ AstContext.lookupDecl = function(self, name)
   --              'String' also successfully returning. Don't want to get too
   --              bogged down in that atm, though.
   --              And its probably safer to require canonical names for now.
+  --
+  -- TODO(sushi) get lpeg working on Windows and integrate it into ecs then
+  --             use it here to parse `name`
   return self.decls_by_qualified_name[name]
 end
 
@@ -271,6 +274,21 @@ convfunc.processTranslationUnitDecl = function(self, cdecl)
   end
 end
 
+---@param cns lppclang.Decl
+---@return ast.Namespace
+convfunc.ensureNamespaceRecorded = function(self, cns)
+  cns = assert(cns:getCanonicalNamespaceDecl())
+  local ns = self:findProcessed(cns)
+  if not ns then
+    ns = ast.Namespace.new(cns:getName())
+    local pcns = cns:getNamespace()
+    if pcns then
+      ns.prev = self:ensureNamespaceRecorded(pcns)
+    end
+  end
+  return ns
+end
+
 ---@param cdecl lppclang.Decl
 ---@return ast.Namespace?
 convfunc.processNamespaceDecl = function(self, cns)
@@ -294,8 +312,11 @@ convfunc.processNamespaceDecl = function(self, cns)
 
   self:write("name: ", name)
 
-  local ns = ast.Namespace.new(name, self.ns_stack:last())
+  local ns = self:ensureNamespaceRecorded(cns)
+
   self.ns_stack:push(ns)
+
+  self:recordProcessed(cns, ns)
 
   local iter = cns:getContextIter()
   local cdecl = iter:next()
@@ -314,6 +335,8 @@ convfunc.processNamespaceDecl = function(self, cns)
 
     cdecl = iter:next()
   end
+
+  -- clog.warnln(" <<<< ns: ", name)
 
   self.ns_stack:pop()
   return ns
@@ -456,7 +479,6 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     if decl:is(ast.TagDecl) and cdecl:isAnonymous() then
       decl.is_anonymous = true
     end
-    decl.namespace = self.ns_stack:last()
 
     --- TODO(sushi) document this if it winds up not causing issues. This 
     ---             just allows every decl to have some sort of user data
@@ -465,6 +487,13 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     decl.user = {}
     decl.cdecl = cdecl
     decl.qname = cdecl:getQualifiedName()
+
+    decl.used_in = List {}
+
+    local decl_ns = cdecl:getNamespace()
+    if decl_ns then
+      decl.namespace = self:ensureNamespaceRecorded(decl_ns)
+    end
     
     if not decl:is(ast.TemplateSpec) then
       -- Only record the decl if its not a template specialization, because 
@@ -481,6 +510,8 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
       -- In the case that this is a template spec, set what declaration
       -- it specializes.
       decl.specialized = specialized
+
+      -- clog.infoln(decl.qname, ' ', specialized.namespace)
     end
 
     if decl:is(ast.TypeDecl) then
@@ -501,6 +532,43 @@ end
 ---@return ast.Type
 convfunc.resolveType = function(self, ctype)
   local type
+
+  if ctype:isTypedef() then
+    -- Typedefs can be redeclared, but we don't care about that, so 
+    -- figure out the canonical decl and use its type instead.
+    --
+    -- Also, if this typedef has the same name as the thing it is typedef'ing
+    -- (eg. C style struct declarations) then don't process the typedef. Its 
+    -- likely something we don't care much for anyways.
+
+    -- TODO(sushi) this also doesn't work, specifically for size_t. No idea
+    --             why but clang's ast has 2 different typedefs for size_t.
+    local cdecl = ctype:getTypedefDecl()
+    cdecl = cdecl:getCanonicalTypedefDecl()
+    ctype = cdecl:getTypeDeclType()
+    
+    -- TODO(sushi) maybe get this working. It doesn't need to (as we do
+    --             filtering most of the time) but it would be nice if it
+    --             did. Point is to prevent 2 ast.Types with the same name
+    --             ever existing.
+    --
+    -- if not ctype:isBuiltin() then
+    --   local subtype = cdecl:getTypedefSubType()
+    --
+    --   clog.infoln(ctype:getFullyQualifiedName(), ' ', 
+    --               subtype:getFullyQualifiedName())
+    --
+    --   if subtype:getFullyQualifiedName() == 
+    --      ctype:getFullyQualifiedName() then
+    --     return self:resolveType(subtype)
+    --   end
+    -- end
+  end
+
+  local processed = self:findProcessed(ctype)
+  if processed then
+    return processed
+  end
 
   -- Grab the name ONCE, because lppclang internally has to allocate memory
   -- for the typename.
@@ -551,6 +619,7 @@ convfunc.resolveType = function(self, ctype)
     if ast.builtins[name] then
       return ast.builtins[name]
     end
+
     self:write("is typedef")
     local decl = self:resolveDecl(ctype:getTypedefDecl())
     if not decl then
@@ -607,6 +676,8 @@ convfunc.resolveType = function(self, ctype)
   if type then
     type.name = ctype:getName()
     type.qname = ctype:getFullyQualifiedName()
+
+    self:recordProcessed(ctype, type)
   end
 
   return type
@@ -778,6 +849,15 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
       self:write("!! add member ", field.name)
 
       record:addMember(field.name, field)
+
+      local desugared = type:desugar()
+      if desugared 
+         and desugared:is(ast.TagType) 
+         and desugared.decl:is(ast.Record) 
+         and desugared.decl.used_in
+      then
+        desugared.decl.used_in:push(record)         
+      end
       
       if not last_field then
         field.is_first = true
@@ -801,6 +881,14 @@ convfunc.processRecordMembers = function(self, cdecl, ctype, record)
     elseif cmember:isFunction() then
       local name = cmember:getName()
       record:addMember(name, ast.Function.new(name))
+    elseif cmember:isTypedef() then
+      local subtype = cmember:getTypedefSubType()
+      if not subtype:isFunctionProtoType() then
+        local name = cmember:getName()
+        local member_decl = self:resolveDecl(cmember)
+        record:addMember(name, member_decl)
+        member_decl.parent = record
+      end
     end
 
     cmember = memiter:next()

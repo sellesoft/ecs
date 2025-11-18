@@ -324,6 +324,13 @@ Reference.__tostring = function(self)
   return qstr("Reference(", self.subtype, ")")
 end
 
+Reference.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  self.subtype:formCSafeName(out)
+  out:put '_ref'
+  return out
+end
+
 Reference.dump = function(self, dump)
   dump:typenode("Reference", function()
     self.subtype:dump(dump)
@@ -344,6 +351,12 @@ end
 
 FunctionPointer.__tostring = function(self)
   return qstr("FunctionPointer()")
+end
+
+FunctionPointer.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  out:put '_fptr'
+  return out
 end
 
 FunctionPointer.dump = function(self, dump)
@@ -440,6 +453,12 @@ end
 
 TypedefType.__tostring = function(self)
   return qstr("TypedefType(", self.decl, ")")
+end
+
+TypedefType.formCSafeName = function(self, out)
+  out = out or buffer.new()
+  out:put(self.decl:formCSafeName())
+  return out
 end
 
 TypedefType.dump = function(self, dump)
@@ -567,14 +586,15 @@ end
 ---@param name string
 ---@return string?
 TypedefDecl.findMetadata = function(self, name)
+  if self.parent then
+    return
+  end
+
   if self.metadata[name] then
     return self.metadata[name]
   end
 
   local subtype = self.subtype
-  if subtype:is(ast.Elaborated) then
-    subtype = subtype.subtype
-  end
 
   if subtype:is(ast.TypedefType) or subtype:is(ast.TagType) then
     return (subtype.decl:findMetadata(name))
@@ -595,6 +615,10 @@ TypedefDecl.formCSafeName = function(self, out)
   out = out or buffer.new()
   if self.namespace then
     self.namespace:formCSafeName(out)
+    out:put '_'
+  end
+  if self.parent then
+    self.parent:formCSafeName(out)
     out:put '_'
   end
   out:put(self.name)
@@ -680,6 +704,14 @@ Record.addMember = function(self, name, decl)
   self.members:push(decl)
 end
 
+Record.findMember = function(self, name)
+  for member in self.members:each() do
+    if member.name == name then
+      return member
+    end
+  end
+end
+
 Record.dumpBase = function(self, name, dump)
   dump:node(name, function()
     dump:inline_name(self.name)
@@ -699,11 +731,12 @@ end
 --- Returns an iterator over this Record's Field members.
 ---
 ---@return function
-Record.eachField = function(self)
-  local iter = self.members:each()
-  return function()
+Record.eachField = function(self, f)
+  local member_iter = self.members:each()
+
+  local iter = function()
     while true do
-      local member = iter()
+      local member = member_iter()
       if not member then
         return
       end
@@ -711,6 +744,14 @@ Record.eachField = function(self)
         return member
       end
     end
+  end
+
+  if f then
+    for field in iter do
+      f(field)
+    end
+  else
+    return iter
   end
 end
 
@@ -783,12 +824,13 @@ end
 --- index of that member.
 ---
 ---@return function
-Record.eachFieldWithIndex = function(self)
-  local iter = self.members:each()
+Record.eachFieldWithIndex = function(self, f)
+  local member_iter = self.members:each()
+
   local i = 0
-  return function()
+  local iter = function()
     while true do
-      local member = iter()
+      local member = member_iter()
       if not member then
         return
       end
@@ -797,6 +839,14 @@ Record.eachFieldWithIndex = function(self)
         return member, i
       end
     end
+  end
+
+  if f then
+    for field, idx in iter do
+      f(field, idx)
+    end
+  else
+    return iter
   end
 end
 
@@ -1039,7 +1089,7 @@ Struct.new = function(name)
 end
 
 Struct.__tostring = function(self)
-  return qstr("Struct(", self.qname, ")")
+  return qstr("Struct(", self.qname or self.name, ")")
 end
 
 Struct.dump = function(self, dump)
@@ -1205,18 +1255,31 @@ end
 
 -- Cheat and call our typedefs of the standard builtins builtin, because
 -- its annoying to deal with having to unwrap them in reflection code.
-Builtin("b8",  1)
-Builtin("u8",  1)
-Builtin("u16", 2)
-Builtin("u32", 4)
-Builtin("u64", 8)
-Builtin("s8",  1)
-Builtin("s16", 2)
-Builtin("s32", 4)
-Builtin("s64", 8)
-Builtin("f32", 4)
-Builtin("f64", 8)
-Builtin("void", 0)
+
+-- NOTE(sushi) these are stored in a special list to help support the use of 
+--             AstVisitor to handle them. So you can do something like 
+--
+--    av:visit(ast.iro_builtins, function(type)
+--      ...
+--    end)
+
+ast.iro_builtins = List {}
+local function iroBuiltin(name, size)
+  ast.iro_builtins:push(Builtin(name, size))  
+end
+
+iroBuiltin("b8",  1)
+iroBuiltin("u8",  1)
+iroBuiltin("u16", 2)
+iroBuiltin("u32", 4)
+iroBuiltin("u64", 8)
+iroBuiltin("s8",  1)
+iroBuiltin("s16", 2)
+iroBuiltin("s32", 4)
+iroBuiltin("s64", 8)
+iroBuiltin("f32", 4)
+iroBuiltin("f64", 8)
+iroBuiltin("void", 0)
 
 -- TODO(sushi) maybe make some kinda special decl type for iro's String.
 --             I'm not really sure how I'd like that to work yet.

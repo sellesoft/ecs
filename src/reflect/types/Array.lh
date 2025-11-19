@@ -34,6 +34,11 @@ struct Array
     return true;
   }
 
+  b8 isEmpty() const
+  {
+    return len == 0;
+  }
+
   T& operator[](u32 i) { assert(i < len); return arr[i]; }
   const T& operator[](u32 i) const { assert(i < len); return arr[i]; }
 

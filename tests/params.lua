@@ -15,4 +15,12 @@
 ---
 --- Parameters for linking the test exe.
 ---@field link_params lake.obj.Exe.LinkParams
+---
+--- Task that all lpp files must declare a dependency on.
+--- TODO(sushi) this sucks. Really need to set up lake to support 
+---             groups of tasks or something. Before then, though, we should
+---             just pass in callbacks to compile different types of files
+---             rather than passing in the params and having the tests 
+---             do that themselves.
+---@field lh_task lake.Task
 

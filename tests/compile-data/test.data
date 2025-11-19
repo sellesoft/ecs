@@ -1,8 +1,11 @@
 return Basket 
 {
-  fruit = Banana 
-  { 
-    color = 0xff00ff00,
-    size = 2,
+  fruit = 
+  {
+    Banana 
+    { 
+      color = 0xff00ff00,
+      name = "banana",
+    }
   }
 }

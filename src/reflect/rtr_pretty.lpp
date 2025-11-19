@@ -45,32 +45,17 @@ $ else
 
 $$$
 
-local AstContext = require "reflect.AstContext"
-
-ECS_REFLECTION_IMPORT = true
-
-local imported = require "string.buffer" .new()
-local function importpattern(pattern)
-  glob(pattern):each(function(path)
-    if not path:find "ServerAllocator" and
-       not path:find "server" and
-       not path:find "Window_linux" and
-       not path:find "Profiling.lh"
-    then
-      local result = lpp.import(path)
-
-      if result then
-        imported:put((result:getOutput()) or "")
-      end
-    end
-  end)
-end
-
-importpattern "src/**/*.lh"
-
-local astctx = require "reflect.AstContext".fromString(tostring(imported))
-
--- io.write(ast.dump(astctx.translation_unit), '\n')
+local astctx, imported = require "reflect.AstContext" .fromGlobs(
+{
+  "src/**/*.defs.lh",
+  "src/**/*.comp.lh",
+},
+function(path)
+  return   not path:find "ServerAllocator"
+       and not path:find "server"
+       and not path:find "Window_linux"
+       and not path:find "Profiling.lh"
+end)
 
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
@@ -78,9 +63,11 @@ local function lookup(name)
 end
 
 $$$
-@imported:get
+$(imported)
 
 $ local reflect_types = require "reflect.types.get" (astctx)
+
+#include "iro/containers/StackArray.h"
 
 namespace rtr
 {
@@ -355,6 +342,19 @@ $     end
     // $(tostring(type):gsub('\n', ' '))
     $(getTypePrinterName(type))($(valaccess));
 $   end
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ local function putUnionPrinter(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareDeclPrinter(decl))
+  {
+    @scopedIndent
+    indent();
+    io::format(out, "union\n");
+  }
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -728,6 +728,8 @@ $   elseif decl:is(ast.TemplateSpec) then
 $     putTemplateSpecPrinter(decl)
 $   elseif decl:is(ast.Struct) then
 $     putStructPrinter(decl)
+$   elseif decl:is(ast.Union) then
+$     putUnionPrinter(decl)
 $   end
 $ end
 

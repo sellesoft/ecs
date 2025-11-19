@@ -1,7 +1,6 @@
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
 $ local List = require "iro.List"
-$ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue
 
 $$$
@@ -12,12 +11,11 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.comp.lh"
 }
 
--- io.write(ast.dump(astctx.translation_unit), '\n')
-
--- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
-  return astctx:lookupTypeDecl(name)
+  return astctx:lookupDecl(name)
 end
+
+local av = require "reflect.AstVisitor" .new(astctx)
 
 $$$
 $(imported)
@@ -62,18 +60,18 @@ struct CompiledString
 
 typedef SmallArray<CompiledString, 64> CompiledStrings;
 
-struct CompiledRef
+struct CompiledLink
 {
-  // The offset of the ref in the data buffer.
+  // The offset of the link in the data buffer.
   u64 offset;
-  // The type of the ref.
+  // The type of the link.
   rtr::TypeId type;
   // Index into the compiled strings array that represents the target
-  // of the ref.
-  u64 string_index;
+  // of the link.
+  u64 compiled_string_index;
 };
 
-typedef SmallArray<CompiledRef, 64> CompiledRefs;
+typedef SmallArray<CompiledLink, 64> CompiledLinks;
 
 /* ----------------------------------------------------------------------------
  */
@@ -83,28 +81,14 @@ b8 buildError(build::Result* result, Args... args)
   if (result != nullptr)
     result->pushError(args...);
   else
-    @log.error(reflect, args..., '\n');
+    @log.error(reflect, args...);
   return false;
 }
 
+
 /* ============================================================================
- *  Data compiler state and interface, this provides the actual implementations
- *  of compilation of different types. Compiled data is written incrementally
- *  to 'data_buffer', strings are stored in 'string_buffer' to be indexed as 
- *  as a table in the resulting output. 'strings' and 'pointers' are small
- *  arrays storing pointers and strings to be handled after root/pointer 
- *  data have been compiled.
- *
- *  This also unfortunately doubles as a handler for fixing pointers and 
- *  finding references. Primarily because otherwise I would need to duplicate
- *  a lot of the ast walking code and declaration naming helpers to have 
- *  that be separate. 
- *
- *  TODO(sushi) pass the pointers here as separate context structs OR set 
- *              up an AST visitor api like clang as for walking our ast.
- *              The latter is probably a better approach and I can't believe
- *              I never thought of handling this problem (which has been a 
- *              problem FOREVER) like that until now.
+ *  Data compiler state and interface. This contains the actual implementations
+ *  of data compilation functions.
  */
 struct Compiler
 {
@@ -112,638 +96,374 @@ struct Compiler
   mem::BinaryDataBuilder* strings;
   CompiledStrings* compiled_strings;
   CompiledPtrs* compiled_pointers;
-  CompiledRefs* compiled_refs;
-
-$ -- Forward declared such that these may be called back into from within 
-$ -- compiler placing functions, eg. a Struct calls this for the type of 
-$ -- each of its fields.
-$ local putDeclCompiler
-$ local putTypeCompiler
+  CompiledLinks* compiled_links;
 
 $ -- * ------------------------------------------------------------------------
+$ --
+$ -- Function declaration and call generation helper.
+$ --
+$ -- The name of a function is compile_<c-safe-typename> where 
+$ -- <c-safe-typename> is generated from the decl or type we pass to `comp`s
+$ -- methods. See formCSafeName() on the types in ast.lua.
 
-$ local function recordPlaced(decl)
-$   decl.user.compiler_placed = true
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getDeclCompilerName(decl)
-$   return "compile_"..decl:formCSafeName()
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeCompilerName(type)
-$   type = type:desugar()
-$   if type:is(ast.TagType) then
-$     return (getDeclCompilerName(type.decl))
-$   elseif type:is(ast.Builtin) then
-$     return "compile_"..type:formCSafeName()
-$   elseif type:is(ast.Pointer) then
-$     return "compile_voidptr"
-$   else
-$     error("unhandled type passed to getTypeCompilerName: "..
-$           tostring(type)..'\n')
-$   end
-$ end
+@[comp] av:funcgen(
+  compile_,
+  void,
+  this Compiler& self,
+  const %& data)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Our typedefs of builtins get written out directly.
 
-$ local function getDeclCompilerSig(decl)
-$   return getDeclCompilerName(decl).."(const "..decl.type.name.."& data)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclCompiler(decl)
-$   recordPlaced(decl)
-$   return "void "..getDeclCompilerSig(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclCompilerFromName(name)
-$   local decl = lookup(name)
-$   if not decl then
-$     error("could not find declaration with name "..name)
-$   end
-$   return declareDeclCompiler(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getDeclFixPointersName(decl)
-$   return "fixPointers_"..decl:formCSafeName()
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeFixPointersName(type)
-$   type = type:desugar()
-$   if type:is(ast.TagType) then
-$     return (getDeclFixPointersName(type.decl))
-$   elseif type:is(ast.Builtin) then
-$     return "fixPointers_"..type:formCSafeName()
-$   elseif type:is(ast.Pointer) then
-$     return "fixPointers_voidptr"
-$   else
-$     error("unhandled type passed to getTypeFixPointersName: "..
-$           tostring(type)..'\n')
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getDeclFixPointersSig(decl)
-$   return getDeclFixPointersName(decl).."("..decl.type.name.."* data)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclFixPointers(decl)
-$   recordPlaced(decl)
-$   return "void "..getDeclFixPointersSig(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclFixPointersFromName(name)
-$   local decl = lookup(name)
-$   if not decl then
-$     error("could not find declaration with name "..name)
-$   end
-$   return declareDeclFixPointers(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putDeclFixPointersNoop(decl)
-  /* --------------------------------------------------------------------------
-   *  Fix pointers noop case.
-   */
-  $(declareDeclFixPointers(decl))
-  {
-  }
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putDeclFixPointersNoopFromName(name)
-$   local decl = lookup(name)
-$   if not decl then
-$     error("could not find declaration with name "..name)
-$   end
-$   return putDeclFixPointersNoop(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putNumberCompiler(name)
+$ av:previsit(ast.iro_builtins, function(type)
   /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompilerFromName(name))
+  $(comp.declare(type))
   {
-    buffer->writeT(data);
+    self.buffer->writeT(data);
   }
-$  putDeclFixPointersNoopFromName(name)
-$ end
-
-$ putNumberCompiler "b8"
-$ putNumberCompiler "u8"
-$ putNumberCompiler "u16"
-$ putNumberCompiler "u32"
-$ putNumberCompiler "u64"
-$ putNumberCompiler "s8"
-$ putNumberCompiler "s16"
-$ putNumberCompiler "s32"
-$ putNumberCompiler "s64"
-$ putNumberCompiler "f32"
-$ putNumberCompiler "f64"
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Typedefs simply passthrough to their underlying type's compiler func.
 
+$ av:visit(ast.TypedefDecl, function(decl)
   /* -------------------------------------------------------------------------
-   *  Strings are specially handled since we need to compile them into their 
-   *  own table that data points into using OffsetStrings. 
-   * 
-   *  TODO(sushi) once data size becomes a concern (hopefully never) we should 
-   *              optimize strings by only storing them once. Should be quite 
-   *              easy to just store a mapping of string hashes to their
-   *              offset in the string table. Or something.
    */
-  $(declareDeclCompilerFromName "iro::utf8::String")
+  $(comp.declare(decl))
   {
-    // Record the string if its not nil.
+    self.$(comp.call(decl.subtype))(data);
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+$ -- Strings get special handling since we need to emit compiled data in 
+$ -- such a way that we can load it directly (eg. the output size is the 
+$ -- same size we load). To do this we construct a string table, and Strings
+$ -- become OffsetStrings that point into that table.
+
+$ av:visit(lookup "iro::utf8::String", function(decl)
+  /* -------------------------------------------------------------------------
+   */
+  $(comp.declare(decl))
+  {
+    // If the String has content, then record it.
     if (notnil(data))
     {
-      compiled_strings->push(
+      self.compiled_strings->push(
       {
         // Mark where this String will appear in the compiled data.
-        .buffer_offset = buffer->currentOffset(),
-        // Mark where this String will appear in the string table.
-        .table_offset = strings->currentOffset(),
+        .buffer_offset = self.buffer->currentOffset(),
+        // Mark where this String's content will appear in the string table.
+        .table_offset = self.strings->currentOffset(),
       });
 
       // Copy the contents into the String table.
-      strings->writeString(data);
+      self.strings->writeString(data);
 
       // Null-terminate the String. Even though we don't care for 
       // null-termination of strings throughout the project, things we have
       // to use unfortunately do (eg. OS functions). Doing this helps make 
-      // writing tools easier, eg. the build system doesn't have to 
+      // writing tools easier. For example, the build system doesn't have to 
       // null-terminate every path in data before asking something to compile 
       // something.
-      strings->writeByte(0);
+      self.strings->writeByte(0);
     }
-    
-    // Write a String with a null ptr and its length in the table.
-    buffer->writeT<String>({nullptr, data.len});
-  }
 
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclFixPointersFromName "iro::utf8::String")
-  {
-    *data = OffsetString::getStringAsOffsetString(data);
+    // Write a String to the buffer with a nullptr and its length in the table.
+    self.buffer->writeT<String>({nullptr, data.len});
   }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Colors are special because they contain a union, which we do not handle
+$ -- in the reflection system since their use is ambiguous.
 
-  /* --------------------------------------------------------------------------
-   *  Colors are handled specifically since they are a union, and we do not 
-   *  handle those in reflected data for now (since their usage is ambiguous,
-   *  similar to plain void*).
+$ av:visit(lookup "Color", function(decl)
+  /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompilerFromName "Color")
+  $(comp.declare(decl))
   {
-    buffer->writeT(data);
+    self.buffer->writeT(data);
   }
-
-$ putDeclFixPointersNoopFromName "Color"
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Structs are built from their fields, as well as any fields from its bases.
 
-  /* --------------------------------------------------------------------------
-   *  void pointers are a special case as they may have use in reflected data
-   *  such as Component and ResourceRef. These should never show up as 
-   *  something specifyable in data, though! Eventually, these types should 
-   *  probably try to eliminate usage of void* (Component) or use a type with
-   *  better semantics (ResourceRef).
-   *
-   *  We simply write out a nullptr when we come across these.
+$ av:visit(ast.Struct, function(decl)
+  /* -------------------------------------------------------------------------
    */
-  void compile_voidptr(const void* data)
+  $(comp.declare(decl))
   {
-    buffer->writeZeroedT<void*>();
-  }
+    u64 start_offset = self.buffer->currentOffset();
 
-  void fixPointers_voidptr(void*)
-  {
-    // Noop 
-  }
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putVec2Compiler(name)
-  /* --------------------------------------------------------------------------
-   *  Special handling because vec2's use unions.
-   */
-  $(declareDeclCompilerFromName(name))
-  {
-    buffer->writeT(data);
-  }
-
-$   putDeclFixPointersNoopFromName(name)
-$ end
-
-$ putVec2Compiler "vec2i"
-$ putVec2Compiler "vec2f"
-$ putVec2Compiler "vec2u"
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putStructCompiler(decl)
-$   for field in decl:eachField() do
-$     putTypeCompiler(field.type)
-$   end
-$ 
-$   for nested in decl:eachNestedRecord() do
-$     putDeclCompiler(nested)
+$   -- For link types, we need track where their name appears in the 
+$   -- `compiled_strings` array. See the end of this function.
+$   local is_link = decl:findMetadata "ref"
+$   if is_link then
+    u64 compiled_link_name_idx = -1;
 $   end
 
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclCompiler(decl))
-  {
-    // Record what offset we're compiling this struct to, so that at the 
-    // end we may assert that the resulting data is the same size as this 
-    // type.
-    u64 start_offset = buffer->currentOffset();
-
-    @log.trace(reflect, "compile $(decl.type.name)\n");
-
-$ local is_ref = decl:findMetadata "ref"
-
-$ if is_ref then
-    // This is a ref type, so we want to store the index of the 'name' field
-    // as it will appear in the compiled_strings array once it is compiled.
-    // We do this so that we may reference it in the CompiledRef we will be 
-    // pushing after all the fields have been compiled.
-    u64 compiled_ref_name_index = -1;
-$ end
-
-$ -- Write out each field of this struct, keeping track of the last field
-$ -- we compiled such that we may insert whatever padding may be there.
-$   local last_field
-$   for field, record in decl:allFields() do
-$     if last_field then
-$       -- Compute possible padding of the last field and insert it if needed.
-$       local diff = field.offset - last_field.offset
-$       if diff > last_field.type.size then
-    // Allocate padded space from previous field.
-    buffer->writeZeroed($(diff - last_field.type.size));
+$   local function checkPrevFieldPadding(prev_field, curr_field)
+$     if prev_field then
+$       local diff = curr_field.offset - prev_field.offset
+$       local padding_size = diff - prev_field.type.size
+$       if padding_size > 0 then
+    // Allocate padded space from the previous field.
+    self.buffer->writeZeroed($(padding_size));
 $       end
 $     end
-$     last_field = field
-    // Fine grained asserts!
-    assert(buffer->currentOffset() - start_offset == $(field.offset));
-$   if is_ref and field.name == "name" then
-    // Mark the index in the compiled_strings array where this ref type's 
-    // target will appear.
-    compiled_ref_name_index = compiled_strings->len;
-$   end
-    // field '$(field.name)'
-    //   offset: $(field.offset)
-    //     size: $(field.type.size)
-    //     type: $(field.type.name)
-    $(getTypeCompilerName(field.type))(data.$(field.name));
 $   end
 
-$   if last_field then
-$     local this_size = decl.type.size 
-$     local last_extent = last_field.type.size + last_field.offset
-$     if this_size > last_extent then
-    // Trailing padding.
-    buffer->writeZeroed($(this_size - last_extent));
+$   -- In debug builds, assert that our current offset matches that of the 
+$   -- field.
+$   local function assertProperOffset(field, record)
+$     if ECS_DEBUG then
+    assert($(field.offset) == self.buffer->currentOffset() - start_offset);
 $     end
 $   end
 
-$ if 0 ~= decl:countFields() then
-$   -- Check that the size of data we wrote matches the size of this type,
-$   -- to catch improper compilation at runtime. Note that we do not do this
-$   -- for empty structs as for whatever reason in C++ sizeof an empty type
-$   -- results in 1, not 0. C++ is so fucking stupid!!!
-    assert(
-      buffer->currentOffset() - start_offset == sizeof($(decl.type.name)));
-$ end
+$   -- For link types, record the index at which its name string will appear
+$   -- in the `compiled_strings` array. This is used later to generate the 
+$   -- list of embedded refs stored elsewhere.
+$   local function recordLinkNameIndex(field)
+$     if is_link and field.name == "name" then
+    compiled_link_name_idx = self.compiled_strings->len;
+$     end
+$   end
 
-$ if decl:findMetadata "ref" then
-$   -- If this is a ref type, we want to record the compiled ref's target,
-$   -- type, and its address so that we can compile it into a table for 
-$   -- easier iteration when this data is eventually loaded. Note that we 
-$   -- also only do this when the ref actually has a target, to make iterating
-$   -- them easier later (can assume all refs are valid) and to save on some
-$   -- memory.
+$   -- Call the field's compiler function. Also, detect if this field is a 
+$   -- pointer. We don't allow raw pointers in data because their use is 
+$   -- ambiguous (like unions), however they appear in link types since those
+$   -- need to point at the underlying asset/resource they are linking to.
+$   --
+$   -- TODO(sushi) we can probably make this more general and allow pointers
+$   --             only when they are marked 'hidden'. They just aren't 
+$   --             allowed to have meaning in data.
+$   --             Really, though, we should be validating these kinds of 
+$   --             things in some central location. These kinds of checks 
+$   --             are all around the reflection code and it'll likely get
+$   --             to a point where fixing them all gets quite annoying.
+$   local function callFieldCompiler(field)
+$     if field.type:is(ast.Pointer) then
+$       if not is_link then
+$          error("reflected data type "..decl.type.qname.." contains a "..
+$                "raw pointer!")
+$       end
+    // Link pointer.
+    self.buffer->writeZeroedT<void*>();
+$     else
+    self.$(comp.call(field.type))(data.$(field.name));
+$     end
+$   end
+
+$   -- Iterate over the fields of this struct AND its bases (if any).
+$   -- We track the prev field because its possible we may need to insert
+$   -- padding after it.
+$   local prev_field
+$   for field, record in decl:allFields() do
+$     checkPrevFieldPadding(prev_field, field)
+$     prev_field = field
+$     assertProperOffset(field, record)
+$     recordLinkNameIndex(field)
+$     callFieldCompiler(field)
+$   end
+
+$   -- After compiling each field, we need to check if there's any padding
+$   -- at the end of this struct, and in debug we perform the final check
+$   -- that the amount of data we wrote matches the size of the struct.
+$   -- Note that we do not do the final assert for empty structs, primarily
+$   -- because there's no reason to, but also because in C++ the size of an
+$   -- empty struct is 1, so the assert would always fail.
+$   if prev_field then
+$     local this_size = decl.type.size
+$     local last_extent = prev_field.type.size + prev_field.offset
+$     local padding_size = this_size - last_extent
+$     if padding_size > 0 then
+    // Trailing padding.
+    self.buffer->writeZeroed($(padding_size));
+$     end
+$     if ECS_DEBUG then
+    u64 final_offset = self.buffer->currentOffset() - start_offset;
+    assert(final_offset == sizeof($(decl.type.qname)));
+$     end
+$   end
+
+$   -- Finally, if this is a link type, record the compiled link's target
+$   -- type and address so that we can compile it into a table for easier 
+$   -- iteration when this data is eventually loaded. Also only do this 
+$   -- when the link actually links something, so that we can always assume
+$   -- embedded links are valid in iteration.
+$   if is_link then
     if (notnil(data.name))
     {
-      assert(compiled_ref_name_index != -1);
-      compiled_refs->push(
-        {start_offset, "$(decl.type.name)"_typeid, compiled_ref_name_index});
+      self.compiled_links->push(
+      {
+        .offset = start_offset,
+        .type = "$(decl.type.qname)"_typeid,
+        .compiled_string_index = compiled_link_name_idx,
+      });
     }
-$ end
-
+$   end
   }
-
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclFixPointers(decl))
-  {
-$ if decl.base then
-    $(getDeclFixPointersName(decl.base))(data);
-$ end
-
-$ for field in decl:eachField() do
-    $(getTypeFixPointersName(field.type))(&data->$(field.name));
-$ end
-  }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Arrays report what they point to and how many elements they contain
+$ -- so that we can compile them separately.
 
-$ local function putArrayDefCompiler(decl)
+$ av:visit(lookup "reflect::Array", function(decl)
 $   local subtype = decl.args[1]
-$   putTypeCompiler(subtype)
-  /* --------------------------------------------------------------------------
+  /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompiler(decl))
+  $(comp.declare(decl))
   {
-    @log.trace(reflect, "compile array $(decl.type.name)\n");
-
-    // Record the pointer to the array's contents to be compiled after 
-    // we finish compiling this data.
-    compiled_pointers->push(
+    // If this array is not empty, report where its contents are.
+    if (!data.isEmpty())
     {
-      // Record where in the output this pointer will appear.
-      .offset = buffer->currentOffset(),
-      // Record how many elements the pointer points to.
-      .count = data.len,
-      // Record the size of the subtype.
-      // Note that we use sizeof here to ensure the size is not subject to 
-      // any BUGS in the reflection code.
-      .size = sizeof($(subtype.name)),
-      // Record the typeid of the subtype.
-      .type = "$(subtype.name)"_typeid,
-    });
-
-    buffer->writeT(data);
-  }
-  
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclFixPointers(decl))
-  {
-    data->arr = OffsetPtr<void>::getPtrAsOffsetPtr(&data->arr);
-    for (auto& elem : *data)
-      $(getTypeFixPointersName(subtype))(&elem);
-  }
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putStringMapCompiler(decl)
-$   putDeclCompiler(decl:findNestedRecord "Slot")
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclCompiler(decl))
-  {
-    compiled_pointers->push(
-    {
-      .offset = buffer->currentOffset(),
-      .count = (u64)data.len,
-      .size = sizeof($(decl.type.name)::Slot),
-      .type = "$(decl.type.name)::Slot"_typeid,
-    });
-
-    buffer->writeT(data);
-  }
-  
-  /* --------------------------------------------------------------------------
-   */
-  $(declareDeclFixPointers(decl))
-  {
-    data->slots = OffsetPtr<void>::getPtrAsOffsetPtr(&data->slots);
-    for (auto& elem : *data)
-    {
-      $(getDeclFixPointersName(decl:findNestedRecord "Slot"))(&elem);
+      self.compiled_pointers->push(
+      {
+        // Record where in the output buffer this pointer will appear.
+        .offset = self.buffer->currentOffset(),
+        // Record how many elements this pointer points to.
+        .count = data.len,
+        // Record the size of the subtype.
+        .size = sizeof($(subtype.qname)),
+        // Record the typeid of the subtype.
+        .type = "$(subtype.qname)"_typeid,
+      });
     }
+
+    // Write the raw data of the array.
+    self.buffer->writeT(data);
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- StringMaps report where the slots they point to are. At the moment, we 
+$ -- also have to explicitly ask the AstVisitor to handle its Slot type,
+$ -- as it does not automatically handled nested records.
 
-$ local function putTypedStringMapCompiler(decl)
-  /* --------------------------------------------------------------------------
+$ av:visit(lookup "reflect::StringMap", function(decl)
+$   av:handleDecl(decl:findNestedRecord "Slot")
+  /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompiler(decl))
+  $(comp.declare(decl))
   {
-    assert(!"typed string map compilation not implemented yet");
+    if (!data.isEmpty())
+    {
+      self.compiled_pointers->push(
+      {
+        .offset = self.buffer->currentOffset(),
+        .count = (u64)data.len,
+        .size = sizeof($(decl.type.qname)::Slot),
+        .type = "$(decl.type.qname)::Slot"_typeid,
+      });
+    }
+
+    self.buffer->writeT(data);
   }
-$   putDeclFixPointersNoop(decl)
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- TypedPtrs just record what they point to, if anything. Also, we need to
+$ -- explicitly ask the AstVisitor to handle all derived types of the TypePtr's
+$ -- subtype.
 
-$ local function putTypedPtrCompiler(decl)
-$   local subtype = decl.args[1]
+$ av:visit(lookup "reflect::TypedPtr", function(decl)
+$   local subtype = decl.args[1]:desugar()
 $   local subdecl = subtype.decl
-$   
 $   for derived in subdecl:allDerived() do
-$     putDeclCompiler(derived)
+$     av:handleDecl(derived)
 $   end
-
-  $(declareDeclCompiler(decl))
+  /* -------------------------------------------------------------------------
+   */
+  $(comp.declare(decl))
   {
-    compiled_pointers->push(
+    if (data.ptr != nullptr && notnil(data.type))
     {
-      .offset = buffer->currentOffset(),
-      .count = 1,
-      .size = rtr::typeSizeFromTypeId(data.type),
-      .type = data.type,
-    });
-
-    buffer->writeT(data);
-  }
-  
-  $(declareDeclFixPointers(decl))
-  {
-    data->ptr = OffsetPtr<void>::getPtrAsOffsetPtr(&data->ptr);
-
-    switch (data->type.val)
-    {
-$ for derived in subdecl:allDerived() do
-    case "$(derived.qname)"_typeid_val:
-      $(getDeclFixPointersName(derived))(($(derived.qname)*)data->ptr);
-      break;
-$ end
-    default:
-      assert(!"invalid type id in TypedPtr data");
+      self.compiled_pointers->push(
+      {
+        .offset = self.buffer->currentOffset(),
+        .count = 1,
+        .size = rtr::typeSizeFromTypeId(data.type),
+        .type = data.type,
+      });
     }
+
+    self.buffer->writeT(data);
   }
-$ end
+$ end)
+
 
 $ -- * ------------------------------------------------------------------------
+$ -- Flags just write their raw value.
 
-$ local function putFlagsCompiler(decl)
-  /* --------------------------------------------------------------------------
+$ av:visit(lookup "iro::Flags", function(decl)
+  /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompiler(decl))
+  $(comp.declare(decl))
   {
-    // Just write out the raw enum value.
-    buffer->writeT(data);
+    self.buffer->writeT(data);
   }
-$   putDeclFixPointersNoop(decl)
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Enums just write their raw value.
 
-$ local function putTemplateSpecCompiler(decl)
-$   for arg in decl.args:each() do
-$     if arg:is(ast.Type) then
-$       putTypeCompiler(arg)
-$     end
-$   end
-$
-$   local name = decl.specialized.qname
-$   if name == "reflect::Array" then
-$     putArrayDefCompiler(decl)
-$   elseif name == "reflect::StringMap" then
-$     putStringMapCompiler(decl)
-$   elseif name == "reflect::TypedStringMap" then
-$     putTypedStringMapCompiler(decl)
-$   elseif name == "iro::Flags" then
-$     putFlagsCompiler(decl)
-$   elseif name == "reflect::TypedPtr" then
-$     putTypedPtrCompiler(decl)
-$   else
-$     io.write("warn: unhandled template spec (compiler): ", tostring(decl), 
-$              "\n")
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putRecordCompiler(decl)
-$   if decl.base then
-$     putDeclCompiler(decl.base)
-$   end
-$  
-$   if decl:findMetadata "ref" then
-$     -- NOTE(sushi) trying out just compiling refs as structs for now 
-$     --             as I believe that should handle them given how simple
-$     --             they are at the moment.
-$     putStructCompiler(decl)
-$   elseif decl:is(ast.TemplateSpec) then
-$     putTemplateSpecCompiler(decl)
-$   elseif decl:is(ast.Struct) then
-$     putStructCompiler(decl)
-$   else
-$     io.write("warn: ******* unhandled record type *********\n", 
-$              ast.dump(decl), "\n")
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putEnumCompiler(decl)
-  /* --------------------------------------------------------------------------
+$ av:visit(ast.Enum, function(decl)
+  /* -------------------------------------------------------------------------
    */
-  $(declareDeclCompiler(decl))
+  $(comp.declare(decl))
   {
-    // Just write out the raw enum value.
-    buffer->writeT(data);
+    self.buffer->writeT(data);
   }
-$   putDeclFixPointersNoop(decl)
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Tell the AstVisitor to begin and only handle all top-level declarations 
+$ -- marked with 'def' metadata.
 
-$ putDeclCompiler = function(decl)
-$   decl.user = decl.user or {}
-$   if decl.user.compiler_placed then
-$     return
-$   end
-$  
-$   if decl:is(ast.TagDecl) then
-$     if decl:is(ast.Record) then
-$       putRecordCompiler(decl)
-$     elseif decl:is(ast.Enum) then
-$       putEnumCompiler(decl)
-$     end
-$   end
-$ end
+$ av:begin(function(decl)
+$   return decl.metadata.def ~= nil
+$ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- Once we've visited everything, generate the runtime typeid dispatcher.
 
-$ putTypeCompiler = function(type)
-$   type = type:desugar() 
-$   if type:is(ast.TagType) then
-$     putDeclCompiler(type.decl)
-$   elseif not type:is(ast.Builtin) and not type:is(ast.Pointer) then
-$     io.write("warn: unhandled type: ", type, '\n')
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ for decl in astctx.type_decls:each() do
-$   if decl.metadata.def then
-$     putDeclCompiler(decl)
-$   end
-$ end
-
-  // Define the runtime typeid compile handler.
+  /* -------------------------------------------------------------------------
+   */
   void compileTypeId(rtr::TypeId type, const void* data)
   {
     switch (type.val)
     {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user.compiler_placed then
-$     -- ast.dumpout(decl)
-$     if decl.typedefs then
-$       -- If this decl has been typedef'd also handle those typenames as 
-$       -- well. Note that we have to use the type the typedef declares,
-$       -- not the typedef itself, to preserve namespaces.
-$       for typedef in decl.typedefs:each() do
-$         if not typedef.parent then
-    case "$(typedef.type.name)"_typeid_val:
-$         end
-$       end
-$     end
-    case "$(decl.type.qname)"_typeid_val:
-      $(getDeclCompilerName(decl))(*($(decl.type.name)*)data);
+$ av:eachVisited(function(decl)
+$   local name = decl.type.qname
+    case "$(name)"_typeid_val:
+      $(comp.call(decl))(*($(name)*)data);
       return;
-$   end
-$ end
+$ end)
     }
 
     assert(!"unhandled typeid given to data compiler");
   }
+
 };
 
 /* ----------------------------------------------------------------------------
  */
 b8 CompiledData::compile(const CompileParams& params)
 {
+  assert(notnil(params.type));
+  assert(notnil(params.output_path));
+  assert(params.dataptr != nullptr);
+
 $ local function err(...)
 $   return [[buildError(params.result, "while compiling '", ]]..
 $     [[params.output_path, "': ", ]]..
 $     cmn.joinArgs(',',...)..[[)]]
 $ end
-
-  assert(notnil(params.type));
-  assert(notnil(params.output_path));
-  assert(params.dataptr != nullptr);
 
   // Attempt to open (and lock) the specified output file early such that 
   // any error with doing so is caught quickly.
@@ -757,14 +477,9 @@ $ end
     fs::unlink(params.output_path);
   };
 
-  // TODO(sushi) should take an allocator for this eventually. Prob when we 
-  //             get to multithreading this where we'd prob wanna dedicate
-  //             an allocator to each of those threads to avoid any sorta
-  //             stl_allocator thread-safe internals (maybe they handle 
-  //             that well, I don't know, but I am NOT looking over stl 
-  //             code!!!).
-
   // Create the buffer we will incrementally compile data into.
+  // Remember, the memory of this moves. Do not attempt to keep a pointer 
+  // to anything inside of this long term.
   mem::BinaryDataBuilder buffer;
   if (!buffer.init(1024))
     return @err("failed to initialize BinaryDataBuilder");
@@ -785,20 +500,26 @@ $ end
     return @err("failed to initialize BinaryDataBuilder for string table");
   defer { string_table.deinit(); };
 
-  // Small arrays for storing pointers and strings while compiling each blob
-  // of data.
-  // Pointers are stored such that we may compile each blob of memory in 
-  // succession while strings are stored so we may point all Strings found 
-  // data to their location in the string table after all data has been 
-  // compiled.
-  // Refs are stored so that we may compile a table of references made in
-  // compiled data for easier interation of them once this data is 
-  // eventually loaded. We used to provide a getRefs() function for this,
-  // but that complicated the internals a bit. So, we sacrifice a little 
-  // bit of memory by storing a table of them instead.
+  // Create the arrays used to track special things found while compiling 
+  // units of the data. These things are:
+  // 
+  // * Pointers. Since we need to compile each unit of data separately, we
+  //   need to track what other units of data they point to so that we can
+  //   compile them after we have finished the unit pointing to them.
+  // 
+  // * Strings. Similar to pointers, we need to store the content of Strings
+  //   we find elsewhere. We store all string data in its own table.
+  // 
+  // * Links. Links to other assets are stored in their own array. This allows
+  //   easy iteration of them once something loads the data we are compiling.
   CompiledStrings strings;
   CompiledPtrs pointers;
-  CompiledRefs refs;
+  CompiledLinks links;
+
+  // On top of all of that, we want to keep all the pointers we find around.
+  // Similar to links, we embed an array of pointers in the data so that 
+  // we may automatically fix them on load.
+  CompiledPtrs all_pointers;
 
   // Store the offset at which we are going to start writing the actual data.
   u64 data_start_offset = buffer.currentOffset();
@@ -809,195 +530,280 @@ $ end
   compiler.strings = &string_table;
   compiler.compiled_strings = &strings;
   compiler.compiled_pointers = &pointers;
-  compiler.compiled_refs = &refs;
+  compiler.compiled_links = &links;
 
   // Compile the root data.
   compiler.compileTypeId(params.type, params.dataptr);
-  
+
   // Store the size of the root data.
-  // TODO(sushi) we eventually need to add checks for if this matches the 
-  //             type's size, but atm rtr does not provide a function 
-  //             for getting size from a typeid. I will get to that once 
-  //             other stuff is properly reimplemented (or if it winds up
-  //             needed).
   u64 root_size = buffer.currentOffset() - data_start_offset;
 
   // Process each layer of pointers following the root data.
   for (;;)
   {
-    // Gather the next set of pointers into a separate buffer.
+    // Collect the pointers we currently have into `all_pointers`.
+    // TODO(sushi) we could probably be more clever about this and always 
+    //             collect pointers into `all_pointers`, and segement it 
+    //             into current/next via offsets into it.
+    for (auto& ptr : pointers)
+      all_pointers.push(ptr);
+
+    // Gather the next set of pointers into a separate array.
     CompiledPtrs next_pointers;
     compiler.compiled_pointers = &next_pointers;
 
-    // Compile data that is pointed to by this type into their own blobs.
-    for (auto& ptr : pointers)
+    // Compile data that is pointed to by this type into their own units.
+    for (auto& compiled_ptr : pointers)
     {
       // Get the address of the pointer and what it points to.
-      void** ptrptr = (void**)(buffer.data.ptr + ptr.offset);
-      void* ptrdata = *ptrptr;
+      void** pointer_addr = (void**)(buffer.data.ptr + compiled_ptr.offset);
+      void* data_pointed_to = *pointer_addr;
 
       // Set the pointer to be an offset to the data we're about to write.
       OffsetPtr<void>::setPtrAsOffsetPtr(
-        ptrptr, 
+        pointer_addr,
         (void*)(buffer.data.ptr + buffer.currentOffset()));
 
       // Compile each pointee.
-      for (s32 i = 0; i < ptr.count; ++i)
+      for (s32 i = 0; i < compiled_ptr.count; ++i)
       {
-        void* pointee = (u8*)ptrdata + i * ptr.size;
-        compiler.compileTypeId(ptr.type, pointee);
+        void* pointee = (u8*)data_pointed_to + i * compiled_ptr.size;
+        compiler.compileTypeId(compiled_ptr.type, pointee);
       }
     }
 
-    // If didn't retrieve any more pointers, then we're done compiling the 
+    // If we didn't find anymore pointers, then we're done compiling the 
     // data.
     if (next_pointers.isEmpty())
       break;
-
+    
     // Otherwise, swap the new pointers into the current.
     next_pointers.move(&pointers);
   }
 
-  // Store where the string table will be in data.
+  // Store where in the data we're going to place the string table.
   u64 string_table_offset = buffer.currentOffset();
 
-  // Repoint all Strings we found in data to point at their location in 
-  // the string table.
+  // Set all Strings we found to be an offset to their location in the 
+  // table.
   for (auto& str : strings)
   {
-    // Get the String that we wrote into the buffer.
-    auto* strptr = (String*)(buffer.data.ptr + str.buffer_offset);
+    auto* str_addr = (String*)(buffer.data.ptr + str.buffer_offset);
 
-    // Pun it as an OffsetString and point to its content. This will break
-    // if String ever becomes smaller than OffsetString but I believe that
-    // should never happen. If for whatever reason it does, we'll probably
-    // need a special String type used in data we expect to be compiled.
-    // TODO(sushi) once I move the current reflect types out of asset/ into
-    //             reflect/, we should make a String type specifically for 
-    //             use in reflected data to avoid the above possibility.
-    OffsetString::setStringAsOffsetString(strptr, 
-      String::from(
-        buffer.data.ptr + string_table_offset + str.table_offset,
-        strptr->len));
+    // Get a String over the content we wrote to the table.
+    auto content_in_table = String::from(
+      buffer.data.ptr + string_table_offset + str.table_offset,
+      str_addr->len);
+
+    // Pun the String as an OffsetString and offset to its content.
+    OffsetString::setStringAsOffsetString(str_addr, content_in_table);
   }
 
-  // Store where the ref table will be in data.
-  u64 ref_table_offset = string_table_offset + string_table.data.len;
-  b8 has_refs = !refs.isEmpty();
+  // Store where the link table might be in data.
+  u64 link_table_offset = string_table_offset + string_table.data.len;
+  b8 has_links = !links.isEmpty();
 
-  // Build the ref table if any references were compiled.
-  mem::BinaryDataBuilder ref_table;
-  defer 
+  // Build the link table.
+  mem::BinaryDataBuilder link_table;
+  if (!link_table.init(1024))
+    return @err("failed to initialize BinaryDataBuilder for link table");
+  defer { link_table.deinit(); };
+
+  link_table.writeZeroedArrayT<Link>(links.len);
+
+  for (s32 i = 0; i < links.len; ++i)
   {
-    if (has_refs)
-      ref_table.deinit();
-  };
+    // Compute where this Link will appear in the table.
+    u64 link_offset_in_table = i * sizeof(Link);
 
-  if (has_refs)
+    // Compute its absolute offset in the final data.
+    u64 link_abs_offset = link_offset_in_table + link_table_offset;
+
+    CompiledLink* compiled_link = &links[i];
+    auto* link = (Link*)(link_table.data.ptr + link_offset_in_table);
+
+    link->type = compiled_link->type;
+
+    // Compute the offset from the link ptr's position in the compiled data
+    // BACK to the actual data as it will be placed in the result.
+    //
+    // This may be visualized like so, given:
+    //   d is the data buffer
+    //   x is the data we want the link's pointer to offset to
+    //   s is the string table
+    //   r is the link table
+    //   p is the link's pointer
+    // 
+    //  d    x     s       r  p
+    //  |    |     |       |  |
+    //       \________________/
+    //
+    // So, the link pointer's offset in the resulting link table, minus the 
+    // offset of the data it wants to point to the in the data buffer.
+    
+    // The offset of the `ptr` field of `CompiledData::Link`.
+    u64 link_ptr_offset = (u8*)&link->ptr - (u8*)link;
+
+    // The offset of the `ptr` field in the final data.
+    u64 link_ptr_abs_offset = link_abs_offset + link_ptr_offset;
+
+    // The offset from the `ptr` field BACK to the data it wants to point at.
+    u64 link_ptr_offset_to_data = link_ptr_abs_offset - compiled_link->offset;
+
+    link->ptr.set((u8*)&link->ptr - link_ptr_offset_to_data);
+
+    // Get the CompiledString who's content is the target of this link and
+    // set the CompiledData::Link's target to point at it. 
+    // This avoids needing to use runtime type info to figure out where the
+    // `name` field of the Link type is. Ideally this is uniform among 
+    // link types, but we no longer have them all inheriting from a common
+    // base struct so we cannot guarantee that. 
+    // 
+    // At one point having all link types inherit from a base struct was a 
+    // problem because it did not define the `name` field. I initially didn't
+    // think that all link types (then called 'ref's) would use a String name
+    // to identify their target. It wound up being that way though, so to make
+    // things easier we should probably return to that eventually.
+    CompiledString* compiled_name = 
+      &strings[compiled_link->compiled_string_index];
+
+    u64 compiled_name_offset = 
+      compiled_name->table_offset + string_table_offset;
+    
+    // Similar to the above logic computing the offset from the `ptr` member
+    // back to the link in data, we now compute the offset from the `target`
+    // field back to the target name in the STRING TABLE.
+
+    // The offset of the `target` field in `CompiledData::Link`.
+    u64 link_target_offset = (u8*)&link->target - (u8*)link;
+
+    // The offset of the `target` field in the final data.
+    u64 link_target_abs_offset = link_abs_offset + link_target_offset;
+
+    // The offset from the `target` field BACK to the target string in the 
+    // STRING TABLE.
+    u64 link_target_offset_to_string = 
+      link_target_abs_offset - compiled_name_offset;
+    
+    // Get the String written to the buffer, since that is where its length
+    // is stored.
+    auto* str = (String*)(buffer.data.ptr + compiled_name->buffer_offset);
+
+    // Finally, set the link's target to point at the target string in the 
+    // string table.
+    link->target.setSlice(
+      (u8*)&link->target - link_target_offset_to_string,
+      str->len);
+  }
+
+  // Store where we are going to write the pointer table in the data.
+  u64 ptr_table_offset = link_table_offset + link_table.data.len;
+
+  // Build the pointer table.
+  mem::BinaryDataBuilder ptr_table;
+  if (!ptr_table.init(256))
+    return @err("failed to initialize BinaryDataBuilder for ptr table");
+  defer { ptr_table.deinit(); };
+  
+  // We need to store the compiled pointers and String pointers.
+  ptr_table.writeZeroedArrayT<Ptr>(
+    all_pointers.len + strings.len);
+
+  // Write compiled pointers.
+  for (s32 i = 0; i < all_pointers.len; ++i)
   {
-    if (!ref_table.init(1024))
-      return @err("failed to initialize BinaryDataBuilder");
+    // Compute where this Ptr will appear in the table.
+    u64 ptr_offset_in_table = i * sizeof(Ptr);
 
-    // Prep the table with the refs.
-    ref_table.writeZeroedArrayT<Ref>(refs.len);
+    // Compute its absolute offset in the final data.
+    u64 ptr_abs_offset = ptr_offset_in_table + ptr_table_offset;
 
-    for (s32 i = 0; i < refs.len; ++i)
-    {
-      u64 ref_offset_in_table = sizeof(Ref) * i;
-      u64 ref_abs_offset = ref_offset_in_table + ref_table_offset;
+    CompiledPtr* compiled_ptr = &all_pointers[i];
+    auto* ptr = (Ptr*)(ptr_table.data.ptr + ptr_offset_in_table);
 
-      CompiledRef* compiled_ref = &refs[i];
-      Ref* ref = (Ref*)(ref_table.data.ptr + ref_offset_in_table);
+    // Similar calculations as above. Should make a helper.
+    u64 ptr_ptr_offset = (u8*)&ptr->ptr - (u8*)ptr;
+    u64 ptr_ptr_abs_offset = ptr_abs_offset + ptr_ptr_offset;
+    u64 ptr_ptr_offset_to_ptr = ptr_ptr_abs_offset - compiled_ptr->offset;
 
-      ref->type = compiled_ref->type;
+    // Sorry.
+    ptr->ptr.set((void**)((u8*)&ptr->ptr - ptr_ptr_offset_to_ptr));
+  }
 
-      // Compute the offset from the ref ptr's position in the compiled data
-      // BACK to the actual data as it will be placed in the result.
-      //
-      // This may be visualized like so, given:
-      //   d is the data buffer
-      //   x is the data we want the ref's pointer to offset to
-      //   s is the string table
-      //   r is the ref table
-      //   p is the ref's pointer
-      // 
-      //  d    x     s       r  p
-      //  |    |     |       |  |
-      //       \________________/
-      // So, the ref pointer's offset in the resulting ref table, minus the 
-      // offset of the data it wants to point to the in the data buffer.
-      u64 ref_ptr_offset = (u8*)&ref->ptr - (u8*)ref;
-      u64 ref_ptr_abs_offset = ref_abs_offset + ref_ptr_offset;
-      u64 ref_ptr_offset_to_data = ref_ptr_abs_offset - compiled_ref->offset;
-      ref->ptr.set((u8*)&ref->ptr - ref_ptr_offset_to_data);
+  // Write String pointers.
+  for (s32 i = all_pointers.len; i < all_pointers.len + strings.len; ++i)
+  {
+    // Compute where this Ptr will appear in the table.
+    u64 ptr_offset_in_table = i * sizeof(Ptr);
 
-      // Get the CompiledString representing the target of the ref as it 
-      // will be written to the string table such that we can point to
-      // it from the Ref. This isn't necessary I don't think, but it is 
-      // useful for how Refs are not inheriting a common thing anymore.
-      // As in, this avoids needing to use the typeid of the ref at runtime
-      // to determine where the 'name' member actually is in the ref's data.
-      // TODO(sushi) decide if it would be better (memory-wise) to just store
-      //             an OffsetPtr<String> to the actual String in the buffer.
-      //             The way it is now avoids needing to fixPointers to get 
-      //             the target, since we are just pointing at the string 
-      //             table, but we also have to store the string's length
-      //             twice to do it this way.
-      CompiledString* compiled_name = &strings[compiled_ref->string_index];
+    // Compute its absolute offset in the final data.
+    u64 ptr_abs_offset = ptr_offset_in_table + ptr_table_offset;
 
-      // Get the string written to the buffer, since that is where it's 
-      // length is actually stored.
-      auto* str = (String*)(buffer.data.ptr + compiled_name->buffer_offset);
+    s32 compiled_string_idx = i - all_pointers.len;
 
-      u64 ref_target_offset = (u8*)&ref->target - (u8*)ref;
-      u64 ref_target_abs_offset = ref_abs_offset + ref_target_offset;
-      u64 ref_target_offset_to_string = 
-        ref_target_abs_offset - 
-        (compiled_name->table_offset + string_table_offset);
+    CompiledString* compiled_str = &strings[compiled_string_idx];
+    auto* ptr = (Ptr*)(ptr_table.data.ptr + ptr_offset_in_table);
 
-      ref->target.setSlice(
-        (u8*)&ref->target - ref_target_offset_to_string,
-        str->len);
-    }
+    // Similar calculations as above. Should make a helper.
+    u64 ptr_ptr_offset = (u8*)&ptr->ptr - (u8*)ptr;
+    u64 ptr_ptr_abs_offset = ptr_abs_offset + ptr_ptr_offset;
+    u64 ptr_ptr_offset_to_str = 
+      ptr_ptr_abs_offset - compiled_str->buffer_offset;
+
+    auto* str = (String*)(buffer.data.ptr + compiled_str->buffer_offset);
+
+    // Offset to the `ptr` member of String. Likely 0, but just incase its 
+    // ever moved.
+    u64 str_ptr_offset = (u8*)&str->ptr - (u8*)str;
+
+    u64 ptr_ptr_offset_to_str_ptr = ptr_ptr_offset_to_str + str_ptr_offset;
+
+    // Sorry.
+    ptr->ptr.set((void**)((u8*)&ptr->ptr - ptr_ptr_offset_to_str_ptr));
   }
 
   // Set the offset header data.
   auto* header = (CompiledData*)buffer.data.ptr;
-
-  // Root data is the first block we place.
-  header->root.setSlice(buffer.data.ptr + data_start_offset, root_size);
-
-  // Set the slice spanning all compiled data (remember this includes root).
-  header->data.setSlice(
+  
+  // Set the root slice, which is the compiled bytes spanning the data that
+  // we were originally requested to compile.
+  header->root.setSlice(
     buffer.data.ptr + data_start_offset, 
+    root_size);
+
+  // Set the slice spanning all data that we compiled (remember this includes
+  // the root data).
+  header->data.setSlice(
+    buffer.data.ptr + data_start_offset,
     buffer.currentOffset() - data_start_offset);
 
-  // The string table will be placed directly after the binary data, so
-  // point its slice there.
+  // The string table will be placed directly after the binary data.
   header->strings.setSlice(
     buffer.data.ptr + string_table_offset,
     string_table.data.len);
 
-  if (has_refs)
-  {
-    header->refs.setSlice(
-      (Ref*)(buffer.data.ptr + ref_table_offset),
-      refs.len);
-  }
+  // If we found any links, they are placed after the string table.
+  header->links.setSlice(
+    (Link*)(buffer.data.ptr + link_table_offset),
+    links.len);
 
-  // Finally, write out the data to the output file.
+  // And finally write out the pointers we found, including the strings
+  // pointers.
+  header->pointers.setSlice(
+    (Ptr*)(buffer.data.ptr + ptr_table_offset),
+    all_pointers.len + strings.len);
+
+  // Finally output all of the data to the output file.
   out_file.write(buffer.data);
   out_file.write(string_table.data);
-  if (has_refs)
-    out_file.write(ref_table.data);
+  out_file.write(link_table.data);
+  out_file.write(ptr_table.data);
 
   failsafe_delete_outfile.cancel();
   return true;
 }
 
 /* ----------------------------------------------------------------------------
- *  Take an allocator or provide a function for getting the size required 
- *  for compiled data at a given path (which is just its file size but yeah).
  */
 CompiledData* CompiledData::load(
     String path, 
@@ -1015,7 +821,7 @@ $ end
   auto file = fs::File::openForRead(path);
   if (isnil(file))
     return @err("failed to open file");
-  defer { file.close(); }; 
+  defer { file.close(); };
 
   fs::Stat stat;
   if (!fs::stat(path, &stat))
@@ -1023,10 +829,11 @@ $ end
 
   auto* data = (CompiledData*)allocator->allocate(stat.byte_size);
   file.read({(u8*)data, stat.byte_size});
-
-  // Assert that the pointers were compiled as offsets.
-  // Otherwise this is not valid data.
-  assert(data->pointer_state == PointerState::Offset);
+  
+  // If for some reason the loaded pointer state is not Offset, then
+  // this must be corrupt data.
+  if (data->pointer_state != PointerState::Offset)
+    return @err("loaded data pointer state is not Offset");
 
   return data;
 }
@@ -1038,35 +845,8 @@ void CompiledData::fixPointers()
   if (pointer_state == PointerState::Absolute)
     return;
 
-  // TODO(sushi) really need to come up with a way to separate these.
-  Compiler compiler;
-
-  switch (type.val)
-  {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user.compiler_placed then
-$     if decl.typedefs then
-$       -- If this decl has been typedef'd also handle those typenames as 
-$       -- well. Note that we have to use the type the typedef declares,
-$       -- not the typedef itself, to preserve namespaces.
-$       for typedef in decl.typedefs:each() do
-$         if not typedef.parent then
-    case "$(typedef.type.name)"_typeid_val:
-$         end
-$       end
-$     end
-    case "$(decl.type.name)"_typeid_val:
-      compiler.$(getDeclFixPointersName(decl))(
-        ($(decl.type.name)*)data.ptr.get());
-      break;
-$   end
-$ end
-  default:
-    @log.error(reflect, 
-          "CompiledData::fixPointers not implemented for type ",
-          rtr::typenameFromTypeId(type), '\n');
-    assert(!"unhandled type in CompiledData::fixPointers");
-  }
+  for (Ptr& ptr : pointers.getSlice())
+    *ptr.ptr.get() = OffsetPtr<void*>::getPtrAsOffsetPtr(ptr.ptr.get());
 
   pointer_state = PointerState::Absolute;
 }
@@ -1085,7 +865,6 @@ static void compiledDataGetPrereqs(const build::RuleParams_GetPrereqs& params)
   // Note the source target as a prereq.
   params.prereqs->insert(source_target);
 }
-
 
 /* ----------------------------------------------------------------------------
  */
@@ -1131,6 +910,7 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
 
   PackParams pack_params = 
   {
+    .name = source_target->name,
     .packed = &packed,
     .result = params.result,
   };
@@ -1159,9 +939,9 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
 
   compiled->fixPointers();
 
-  for (CompiledData::Ref& ref : compiled->refs.getSlice())
+  for (CompiledData::Link& link : compiled->links.getSlice())
   {
-    String def_links = rtr::getMetadataValue(ref.type, "links"_str);
+    String def_links = rtr::getMetadataValue(link.type, "links"_str);
 
     if (isnil(def_links))
       continue;
@@ -1171,7 +951,7 @@ static void compiledDataBuild(const build::RuleParams_Build& params)
     for (;;)
     {
       build::Target* links_target = params.build_system->findOrCreateTarget(
-        ref.target.getString(),
+        link.target.getString(),
         split.first,
         build::TargetKind::Unknown);
 

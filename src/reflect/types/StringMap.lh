@@ -45,6 +45,11 @@ struct StringMap
     return true;
   }
 
+  b8 isEmpty() const
+  {
+    return len == 0;
+  }
+
   /* --------------------------------------------------------------------------
    */
   TElem* find(u64 hash) const

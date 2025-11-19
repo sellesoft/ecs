@@ -148,7 +148,7 @@ end
 ---
 ---@param patterns table | iro.List
 ---@return reflect.AstContext, string
-AstContext.fromGlobs = function(patterns)
+AstContext.fromGlobs = function(patterns, filter)
   ECS_REFLECTION_IMPORT = true
 
   local import_source = sbuf.new()
@@ -157,8 +157,10 @@ AstContext.fromGlobs = function(patterns)
   for pattern in List(patterns):each() do
     glob(pattern):each(function(path)
       if not path:find "Window_win32" then
-        glob_matched = true
-        import_source:put('@lpp.import "', path, '"\n')
+        if not filter or filter(path) then
+          glob_matched = true
+          import_source:put('@lpp.import "', path, '"\n')
+        end
       end
     end)
   end

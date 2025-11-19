@@ -305,9 +305,9 @@ $   else
     compiled->fixPointers();
 
     // Link any embedded links.
-    for (CompiledData::Ref& ref : compiled->refs.getSlice())
+    for (CompiledData::Link& link : compiled->links.getSlice())
     {
-      if (!linkByTypeId(ref.type, ref.ptr.get()))
+      if (!linkByTypeId(link.type, link.ptr.get()))
         return @log.error(reflect, 
           "failed to link embedded link in compiled data");
     }

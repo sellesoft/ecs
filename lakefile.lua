@@ -260,8 +260,42 @@ local loggen_params =
 local loggen = require "tools.loggen.run" (loggen_params)
 local loggen_objs = loggen_params.out_objs
 
-for o in loggen_objs:each() do
-  print(o)
+local lh_params = require "iro.tbl" .deepExtend(lpp_params,
+{
+  meta_args = List { "--lh-compile", meta_arg }
+})
+
+local lh_task = lake.task "build lh files"
+
+for lfile in lake.utils.glob("src/**/*.lh"):each() do
+  local h_output = generated_dir.."/"..lfile..".h"
+  
+  local lh = o.Lpp(lfile):preprocess(h_output, lh_params)
+
+  local guard_id = lfile:gsub("[/%-%.]", "_")
+  
+  local guard = 
+    lake.task("guard "..h_output)
+      :cond(function() return false end)
+      :dependsOn(lh.task)
+      :recipe(function()
+        local f = io.open(h_output)
+        local c = f:read("*a")
+        f:close()
+
+        f = io.open(h_output, "w+")
+        f:write(
+          '#ifndef '..guard_id..
+        '\n#define '..guard_id..
+        '\n'..c..
+        '\n#endif')
+        f:close()
+
+        -- lake.flair.writeSuccessOnlyOutput("guarded "..
+        --   lake.utils.getPathBasename(h_output))
+      end)
+
+  lh_task:dependsOn(guard)
 end
 
 ---@return lake.obj.Exe
@@ -273,6 +307,7 @@ local function buildTest(name)
     lpp_params = lpp_params,
     cpp_params = cpp_params,
     link_params = link_params,
+    lh_task = lh_task,
   }
 
   local test_objs = require("tests."..name..".build") (test_params)
@@ -280,6 +315,7 @@ local function buildTest(name)
   if test_objs then
     for obj in test_objs:each() do
       obj.task:dependsOn(loggen)
+      obj.task:dependsOn(lh_task)
     end
 
     test_objs:pushList(iro_objs)
@@ -320,6 +356,7 @@ local function buildAndRunTest(name)
     end)
 end
 
+
 if lake.cliargs[1] == "test" then
   local testname = lake.cliargs[2]
 
@@ -336,124 +373,7 @@ end
 
 -- buildTest "asset-building"
 
-local lh_params = require "iro.tbl" .deepExtend(lpp_params,
-{
-  meta_args = List { "--lh-compile", meta_arg }
-})
 
-local lh_task = lake.task "build lh files"
-
-local pch_paths = List {}
-
-local function pchcmd(header)
-  return
-  {
-    "clang",
-    "-x", "c++-header",
-    header,
-    "-o",
-    header..".pch",
-    "-Iinclude",
-    "-I"..generated_dir,
-    "-I"..generated_dir.."/src",
-    "-Isrc",
-    "-resource-dir="..resource_dir_arg,
-    "-DIRO_LINUX",
-    "-std=c++23",
-    "-fno-exceptions",
-    "-fno-rtti",
-    "-fPIC"
-  }
-end
-
-local headers = List {}
-
-for lfile in lake.utils.glob("src/**/*.lh"):each() do
-  local h_output = generated_dir.."/"..lfile..".h"
-  
-  headers:push(h_output)
-
-  local lh = o.Lpp(lfile):preprocess(h_output, lh_params)
-
-  local guard_id = lfile:gsub("[/%-%.]", "_")
-  
-  local guard = 
-    lake.task("guard "..h_output)
-      :cond(function() return false end)
-      :dependsOn(lh.task)
-      :recipe(function()
-        local f = io.open(h_output)
-        local c = f:read("*a")
-        f:close()
-
-        f = io.open(h_output, "w+")
-        f:write(
-          '#ifndef '..guard_id..
-        '\n#define '..guard_id..
-        '\n'..c..
-        '\n#endif')
-        f:close()
-
-        -- lake.flair.writeSuccessOnlyOutput("guarded "..
-        --   lake.utils.getPathBasename(h_output))
-      end)
-
-  lh_task:dependsOn(guard)
-
-  if false then
-    local pch_output = h_output..".pch"
-
-    pch_paths:push(pch_output)
-
-    local pch = 
-      lake.task("gen pch "..h_output)
-        :cond(lake.utils.singleFileTaskCondition(pch_output, h_output))
-        :dependsOn(guard)
-        :recipe(function()
-
-          local result = lake.async.run(pchcmd(h_output))
-
-          if 0 ~= result.exit_code then
-            lake.flair.writeFailure(pch_output)
-            io.write(result.output)
-          else
-            lake.flair.writeSuccessOnlyOutput(
-              lake.utils.getPathBasename(pch_output))
-          end
-        end)
-
-    lh_task:dependsOn(pch)
-  end
-end
-
--- local bulk_header = assert(io.open(build_dir.."/bulk.h", "w"))
---
--- for header in headers:each() do
---   bulk_header:write('#include "'..header..'"\n')
--- end
---
--- bulk_header:close()
---
--- local bulk_pch = lake.task "bulk.pch"
---   :cond(function() return true end)
---   :dependsOn(lh_task)
---   :recipe(function()
---     local result = lake.async.run(pchcmd "_build/bulk.h")
---
---     if result.exit_code ~= 0 then
---       lake.flair.writeFailure "bulk.pch"
---       io.write(result.output)
---     else
---       lake.flair.writeSuccessOnlyOutput("bulk.pch")
---     end
---   end)
---
--- cpp_params.extra = List { "-include-pch", "_build/bulk.h.pch" }
---
--- for pch in pch_paths:each() do
---   cpp_params.extra:push "-include-pch"
---   cpp_params.extra:push(pch)
--- end
 
 for lfile in lake.utils.glob("src/**/*.lpp"):each() do
   local cpp_output = build_dir.."/"..lfile..".cpp"

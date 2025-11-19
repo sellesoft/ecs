@@ -12,13 +12,12 @@ $ local cmn = require "common"
 @lpp.import "game/shared/entity/Entity.defs.lh"
 @lpp.import "game/shared/map/Map.defs.lh"
 
-#include "math/Rect.h"
 #include "iro/fs/File.h"
 
 @log.import
 
-$ local source_data_file = "assets/maps/Test.map"
-$ local expected_typename = "MapDef"
+$ local source_data_file = "tests/compile-data/test.data"
+$ local expected_typename = "Basket"
 $ local output_path = "tests/compile-data/result.data"
 
 $ local source_data_file_str = '"'..source_data_file..'"_str'
@@ -27,29 +26,33 @@ $ local expected_typeid = '"'..expected_typename..'"_typeid'
 
 b8 test()
 {
-  @log.info(test, "loading source data from $(source_data_file)\n");
+  @log.info(test, "loading source data from $(source_data_file)");
 
   SourceDataFile sfile;
   if (!SourceDataFile::from(&sfile, $(source_data_file_str)))
-    return @log.error(test, "failed to load SourceDataFile\n");
+    return @log.error(test, "failed to load SourceDataFile");
 
   @log.info(test, "got:\n");
 
   rtr::prettyPrint(fs::stdout(), "SourceData"_typeid, sfile.returned_data);
 
-  @log.info(test, "packing source data\n");
+  @log.info(test, "packing source data");
 
   reflect::PackedData packed;
   if (!packed.init())
-    return @log.error(test, "failed to initialize PackedData\n");
+    return @log.error(test, "failed to initialize PackedData");
 
-  reflect::PackParams pack_params = { &packed };
+  reflect::PackParams pack_params = 
+  { 
+    "$(source_data_file)"_str,
+    &packed 
+  };
   if (!reflect::packSourceDataFromType(*sfile.returned_data, pack_params))
     return false;
 
   auto* packed_data = packed.getDataAs<$(expected_typename)>();
 
-  @log.info(test, "got:\n");
+  @log.info(test, "got:");
 
   rtr::prettyPrint($(expected_typeid), packed_data);
 
@@ -61,9 +64,9 @@ b8 test()
   };
 
   if (!reflect::CompiledData::compile(compile_params))
-    return @log.error(test, "failed to compile packed data\n");
+    return @log.error(test, "failed to compile packed data");
 
-  @log.info(test, "loading compiled data\n");
+  @log.info(test, "loading compiled data");
 
   auto* result = reflect::CompiledData::load(
     compile_params.output_path,
@@ -73,7 +76,7 @@ b8 test()
 
   auto* compiled_data = result->getRootAs<$(expected_typename)>();
 
-  @log.info(test, "got:\n");
+  @log.info(test, "got:");
 
   rtr::prettyPrint($(expected_typeid), compiled_data);
 

@@ -9,7 +9,6 @@ $ require "common"
 @lpp.import "reflect/types/TypedStringMap.lh"
 $ local m = require "reflect.Metadata"
 
-
 struct Fruit 
 {
   u8 size;
@@ -29,6 +28,7 @@ struct Apple : Fruit
 struct Banana : Fruit
 {
   Color color;
+  String name;
 };
 
 struct Orange : Fruit

@@ -9,6 +9,13 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.defs.lh",
   "src/**/*.comp.lh",
 }
+
+local av = require "reflect.AstVisitor" .new(astctx)
+
+local function lookup(name)
+  return astctx:lookupDecl(name)
+end
+
 $$$
 $(imported)
 
@@ -27,1015 +34,614 @@ using namespace ui;
 @log.import
 
 @lpp.import "Profiling.lh"
+
+#include "iro/io/StaticBuffer.h"
+
+/* ============================================================================
+ */
+enum class NodeFlag
+{
+  // The type of this node displays content 'inline', i.e. in the same row
+  // as its name.
+  InlineContent,
+
+  // The type of this node displays content in its 'body', i.e. below the 
+  // row containing its name. 
+  BodyContent,
   
-$ local putDeclPlacer
-$ local putTypePlacer
+  // No SourceData for this node exists in the input yet.
+  MissingData,
+  
+  // For nodes with children, if they are open or not.
+  Open,
 
-$ print(ast.Struct:is(ast.Decl))
+  COUNT
+};
 
-$ local seen = {}
+typedef Flags<NodeFlag> NodeFlags;
 
 /* ============================================================================
+ *  Arbitrary state that a Node can allocate.
  */
-struct SDENode
+struct NodeState
 {
-  String name;
+  void* ptr = nullptr;
+
+  template<typename T>
+  T* as()
+  {
+    assert(ptr != nullptr);
+    return (T*)ptr;
+  }
 };
 
 /* ============================================================================
  */
-struct DatumInitParams
+struct Node
 {
-  String name;
-  SourceDataFile& default_data;
-  SourceDataEditor& editor;
+  String name = nil;
+
+  Node* next = nullptr;
+  Node* first_child = nullptr;
+  Node* last_child = nullptr;
+
+  SourceData* data = nullptr;
+
+  NodeFlags flags = {};
+
+  rtr::TypeId type = nil;
+
+  NodeState state;
+
+  b8 hasChildren() const
+  {
+    return first_child != nullptr;
+  }
+
+  b8 isOpen() const
+  {
+    return flags.test(NodeFlag::Open);
+  }
 };
 
 /* ============================================================================
  */
-struct DatumUpdateResult
+struct NodeIterState
 {
-  f32 height = 0.f;
+  Node* current;
 
-  Rect name_bounds;
+  Node* operator ++ ()
+  {
+    current = current->next;
+    return current;
+  }
 
-  // Incremental collection of child name extents.
-  Rect name_extents;
+  bool operator != (const NodeIterState& rhs) const
+  {
+    return current != rhs.current;
+  }
+
+  Node* operator -> ()
+  {
+    return current;
+  }
+
+  Node& operator * ()
+  {
+    return *current;
+  }
 };
 
-/* ============================================================================
- */
-struct DatumUpdateParams
+struct NodeIter
 {
-  f32 x;
-  f32 y;
-  String name;
-  u32 idx;
-  f32 name_column_width;
-  const SourceDataEditorSkinDef& skin;
-  SourceDataEditor& editor;
-  b8 embedded;
+  Node* node;
+
+  NodeIterState begin() 
+  {
+    return NodeIterState { node };
+  }
+
+  NodeIterState end()
+  {
+    return NodeIterState { nullptr };
+  }
 };
 
 /* ----------------------------------------------------------------------------
  */
-static inline f32 calcRowCenteredY(f32 height, const DatumUpdateParams& params)
+NodeIter eachChild(Node* node)
 {
-  return params.y + math::floor(0.5f * (params.skin.row.height - height));
-}
-
-/* ----------------------------------------------------------------------------
- */
-static inline f32 calcRowTextY(const DatumUpdateParams& params)
-{
-  return calcRowCenteredY(params.skin.text.font_height, params);
-}
-
-/* ----------------------------------------------------------------------------
- */
-static inline f32 calcWidthToFill(
-    ui::UI& ui, 
-    f32 start_x, 
-    const DatumUpdateParams& params)
-{
-  return (ui.getWidth() - params.skin.row.right_padding) - start_x;
+  return NodeIter { node->first_child };
 }
 
 /* ============================================================================
  */
-struct Datum
+struct Ctx
 {
-  Datum* parent;
-  SourceData* data;
+  SourceDataEditor* sde;
 
-  b8 init(Datum* parent, SourceData* data)
-  {
-    assert(data != nullptr && 
-      "all Datum types must provide some SourceData to Datum::init");
-
-    this->parent = parent;
-    this->data = data;
-    return true;
-  }
-
-  f32 putName(
-      ui::UI& ui, 
-      DatumUpdateResult* result,
-      const DatumUpdateParams& params)
-  {
-    auto text_pos = vec2f(
-      params.x + params.skin.row.name_padding,
-      calcRowTextY(params));
-
-    auto text_size = ui.putText(
-      Rect::from(text_pos, {100.f, 100.f}),
-      params.name,
-      params.skin.text);
-
-    setNameBounds(result, Rect::from(text_pos, text_size));
-
-    return params.name_column_width + params.skin.row.name_value_spacing;
-  }
-
-  void setNameBounds(DatumUpdateResult* result, Rect bounds)
-  {
-    result->name_bounds = bounds;
-    result->name_extents.expandToContain(bounds);
-  }
-
-  void computeHeight(
-      f32 height, 
-      DatumUpdateResult* result,
-      const DatumUpdateParams& params)
-  {
-    if (params.embedded)
-      result->height = height;
-    else
-      result->height = max<f32>(height, params.skin.row.height);
-  }
-
-  void mergeChildNameExtents(
-      DatumUpdateResult* result, 
-      const DatumUpdateResult& child_result)
-  {
-    result->name_extents.expandToContain(child_result.name_extents);
-  }
-
-  void putBackground(
-      ui::UI& ui, 
-      f32 height,
-      const DatumUpdateParams& params)
-  {
-    ui.pushCmdList();
-
-    Color row_color = params.idx % 2 
-      ? params.skin.row.odd_color
-      : params.skin.row.even_color;
-
-    auto bg_bounds = Rect::from(
-      params.x,
-      params.y,
-      ui.getWidth() - params.x,
-      max(height, params.skin.row.height));
-
-    ui.putQuad(bg_bounds, row_color);
-
-    ui.popCmdListToFront();
-  }
+  mem::Bump* bump = nullptr;
 };
 
+/* ----------------------------------------------------------------------------
+ *  Formats the given args and returns a String cached in the bump buffer.
+ */
+static String fmt(Ctx& self, auto&&... args)
+{
+  io::SmallBuffer<512> buf;
+  io::formatv(&buf, args...);
+  return String(buf).allocateCopy(self.bump);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Node* addChild(
+    Ctx& self, 
+    String name, 
+    Node* parent,
+    SourceData* data,
+    rtr::TypeId type)
+{
+  auto* child = self.bump->construct<Node>();
+
+  child->name = name;
+  child->data = data;
+  child->type = type;
+
+  if (parent->first_child == nullptr)
+  {
+    parent->first_child = child;
+    parent->last_child = child;
+  }
+  else
+  {
+    parent->last_child->next = child;
+    parent->last_child = child;
+  }
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Node* addChildAndSearchName(
+    Ctx& self, 
+    String name, 
+    Node* parent,
+    rtr::TypeId type)
+{
+  assert(parent->data != nullptr);
+
+  Node* child = addChild(
+    self, 
+    name, 
+    parent, 
+    parent->data->findChildByName(name),
+    type);
+
+  if (child->data == nullptr)
+  {
+    // Expected data is missing (this happens with structs), 
+    // so create a placeholder and mark node as missing.
+    child->data = self.sde->default_data.allocateSourceData();
+    child->data->name = name;
+    child->flags.set(NodeFlag::MissingData);
+  }
+
+  return child;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static Node* addChildFromIdx(
+    Ctx& self, 
+    String name, 
+    Node* parent,
+    rtr::TypeId type,
+    u32 idx)
+{
+  assert(parent->data != nullptr);
+
+  SourceData* child_data = parent->data->findChildByIndex(idx);
+  assert(child_data != nullptr);
+
+  return addChild(
+    self,
+    name,
+    parent,
+    child_data,
+    type);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+template<typename T>
+static T* allocNodeState(Ctx& self, Node* node)
+{
+  assert(node->state.ptr == nullptr);
+  node->state.ptr = self.bump->construct<T>();
+  return node->state.as<T>();
+}
+
 /* ============================================================================
  */
-enum class DatumPart
+enum class DataPart
 {
   Name,
   Type,
-  Value,
+  Value
 };
 
-static String getDatumPartString(SourceData* data, DatumPart part)
+/* ----------------------------------------------------------------------------
+ */
+static inline String getPartString(SourceData* data, DataPart part)
 {
   switch (part)
   {
-  case DatumPart::Name: return data->name;
-  case DatumPart::Type: return data->type;
-  case DatumPart::Value: return data->val.str;
+  case DataPart::Name:
+    return data->name;
+  case DataPart::Type:
+    return data->type;
+  case DataPart::Value:
+    return data->val.str;
   }
-
-  assert(false);
   return nil;
 }
 
 /* ============================================================================
  */
-struct DatumTextField
+struct TextField
 {
-  io::StaticBuffer<255> buffer;
-
   ui::TextFieldState state;
+  
+  io::StaticBuffer<256> buffer;
 
-  b8 init(SourceData* data, DatumPart part)
+  void init(SourceData* data, DataPart part)
   {
-    state.edit.setBuffer({buffer.arr, &buffer.len, s32(buffer.capacity())});
+    state.edit.setBuffer(
+    {
+      .ptr = buffer.arr,
+      .len = &buffer.len,
+      .space = buffer.capacity(),
+    });
 
-    String val = getDatumPartString(data, part);
+    String init = getPartString(data, part);
+    if (init.len > buffer.capacity())
+    {
+      @log.error(sdata, 
+        "source data string is too long to store in a text field");
+      return;
+    }
 
-    if (isnil(val))
-      return true;
-
-    if (val.len > buffer.capacity())
-      @log.warn(editor, "source data val too long for DatumTextField\n");
-
-    buffer.len = min<u64>(val.len, buffer.capacity());
-    mem::copy(buffer.arr, val.ptr, buffer.len);
-    return true;
+    io::format(&buffer, init);
   }
 
-  ui::TextFieldResult put(
+  void put(
       ui::UI& ui, 
+      ui::ItemId id,
       Rect bounds,
-      SourceData* data, 
-      DatumPart part,
-      const TextFieldSkin& skin)
+      DataPart part, 
+      SourceData* data,
+      const SourceDataEditorSkinDef& skin)
   {
-    return ui.putTextField(
-      ui.generateIdFromPointer(this),
+    ui::TextFieldResult result = ui.putTextField(
+      id,
       bounds,
       &state,
+      skin.text_field);
+    
+    if (result.test(ui::TextFieldFlag::Commit))
+    {
+      println("commit");
+    }
+  }
+};
+
+$ -- * ------------------------------------------------------------------------
+
+@[init_tree] av:funcgen(
+  sde_initTree_,
+  static void,
+  Ctx& self,
+  Node* node)
+
+$ -- * ------------------------------------------------------------------------
+
+@[put_inline] av:funcgen(
+  sde_putInlineContent_,
+  static void,
+  SourceDataEditor& self,
+  ui::UI& ui,
+  Rect bounds,
+  Node* node,
+  const SourceDataEditorSkinDef& skin)
+
+$ local inline_nodes = List {}
+
+$ local function declareInline(node)
+$   inline_nodes:push(node)
+$   return put_inline.declare(node)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:previsit(ast.iro_builtins, function(type)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.stub(type)) 
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(type))
+  {
+    
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:visit(lookup "iro::utf8::String", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    allocNodeState<TextField>(self, node)->init(
+      node->data,
+      DataPart::Value);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    node->state.as<TextField>()->put(
+      ui,
+      "string-field"_fid,
+      bounds,
+      DataPart::Value,
+      node->data,
       skin);
   }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+struct RectState
+{
+  TextField x;
+  TextField y;
+  TextField w;
+  TextField h;
 };
 
-/* ============================================================================
- */
-struct ObjectDatum
+static void initRectTextField(
+    Ctx& self, 
+    Node* node,
+    String name,
+    TextField* field)
 {
-  b8 is_open;
-
-  f32 putName(
-      ui::UI& ui, 
-      Datum* datum,
-      DatumUpdateResult* result,
-      const DatumUpdateParams& params)
-  {
-    if (notnil(params.name))
-    {
-      auto text_pos = vec2f(
-        params.x + params.skin.row.name_padding,
-        calcRowTextY(params));
-
-      io::StaticBuffer<128> name_buffer;
-      io::formatv(&name_buffer, (is_open? "- " : "+ "), params.name);
-
-      auto text_size = ui.putText(
-        Rect::from(text_pos, {100.f, 100.f}),
-        String(name_buffer),
-        params.skin.text);
-
-      auto name_bounds = Rect::from(text_pos, text_size);
-
-      datum->setNameBounds(result, name_bounds);
-
-      ui::Focus focus = ui.putFocusableBounds(
-        "obj-name-hit"_fid, 
-        name_bounds);
-
-      if (focus.wasPrimaryReleased())
-        is_open = !is_open;
-    }
-
-    return params.name_column_width + params.skin.row.name_value_spacing;
-  }
-};
-
-/* ============================================================================
- */
-struct Datum_vec2
-{
-  Datum datum;
+  SourceData* comp = node->data->findChildByName(name);
+  if (comp == nullptr)
+    comp = node->data->addNumberValue(self.sde->default_data, name, 0.f);
   
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
+  field->init(comp, DataPart::Value);
+}
+
+$ av:visit(lookup "Rect", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
   {
-    if (data == nullptr)
+    auto* state = allocNodeState<RectState>(self, node);
+    initRectTextField(self, node, "x"_str, &state->x);
+    initRectTextField(self, node, "y"_str, &state->y);
+    initRectTextField(self, node, "w"_str, &state->w);
+    initRectTextField(self, node, "h"_str, &state->h);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    auto* state = node->state.as<RectState>();
+
+    Rect comp_bounds = {};
+    comp_bounds.x = bounds.x;
+    comp_bounds.y = bounds.y;
+    comp_bounds.w = math::floor(bounds.w / 4.f);
+    comp_bounds.h = bounds.h;
+
+$   local function placeNameAndField(name)
     {
-      data = params.default_data.allocateSourceData();
-      data->setVec2f(params.default_data, {0.f, 0.f});
-    }
+      f32 comp_offset = ui.putText(comp_bounds, "$(name)"_str, skin.text).x;
+      Rect field_bounds = comp_bounds
+        .contractedLeft(comp_offset)
+        .contractedX(2.f);
 
-    return datum.init(parent, data);
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    datum.putName(ui, &result, params);
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putBuiltinPlacer(name)
-
-/* ============================================================================
- */
-struct Datum_$(name)
-{
-  Datum datum;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setNumberValue(params.default_data, 0.f);
-    }
-
-    return datum.init(parent, data);
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    datum.putName(ui, &result, params);
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ end
-
-$ putBuiltinPlacer "u8"
-$ putBuiltinPlacer "u16"
-$ putBuiltinPlacer "u32"
-$ putBuiltinPlacer "u64"
-$ putBuiltinPlacer "s8"
-$ putBuiltinPlacer "s16"
-$ putBuiltinPlacer "s32"
-$ putBuiltinPlacer "s64"
-$ putBuiltinPlacer "f32"
-$ putBuiltinPlacer "f64"
-
-/* ============================================================================
- */
-struct Datum_b8
-{
-  Datum datum;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setBooleanValue(false);
-    }
-    return datum.init(parent, data);
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    datum.putName(ui, &result, params);
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getDeclDatumName(decl)
-$   return "Datum_"..decl:formCSafeName()
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeDatumName(type)
-$   type = type:desugar()
-$   if type:is(ast.Builtin) then
-$     return "Datum_"..type:formCSafeName()
-$   elseif type:is(ast.TagType) then
-$     local decl = type.decl
-$     if decl:is(ast.TemplateSpec) then
-$       if decl.specialized.name == "vec2" then
-$         return "Datum_vec2"
-$       end
-$     end
-$     return getDeclDatumName(decl)
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclDatum(decl)
-$   decl.user = decl.user or {}
-$   decl.user.datum_placed = true 
-$   return "struct "..getDeclDatumName(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function declareDeclDatumByName(name)
-$   local decl = astctx:lookupTypeDecl(name)
-$   assert(decl, "declareDeclDatumByName got null decl: "..name)
-$   return declareDeclDatum(decl)
-$ end
-
-/* ============================================================================
- */
-$(declareDeclDatumByName "iro::utf8::String")
-{
-  Datum datum;
-
-  DatumTextField text;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setStringValue(""_str);
-    }
-
-    if (!datum.init(parent, data))
-      return false;
-
-    if (!text.init(data, DatumPart::Value))
-      return false;
-
-    return true;
-  }
-
-  b8 hasRowContent() const
-  {
-    return true;
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-
-    f32 val_x = datum.putName(ui, &result, params);
-
-    Rect field_bounds = {};
-    field_bounds.x = val_x;
-    field_bounds.h = result.name_bounds.h + 4.f;
-    field_bounds.w = calcWidthToFill(ui, val_x, params);
-    field_bounds.y = calcRowCenteredY(field_bounds.h, params);
-    
-    text.put(
-      ui,
-      field_bounds,
-      datum.data,
-      DatumPart::Value,
-      params.skin.text_field);
-
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putStructPlacer(decl)
-$   for field in decl:eachField() do
-$     putTypePlacer(field.type)
-$   end
-$   local name = getDeclDatumName(decl)
-
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
-  ObjectDatum object;
-
-$ for field in decl:eachField() do
-  $(getTypeDatumName(field.type) or "int") datum_$(field.name);
-$ end
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setObject(nil);
-    }
-
-    if (!datum.init(parent, data))
-      return false;
-
-$ for field in decl:eachField() do
-    {
-      SourceData* child = nullptr;
-      if (data != nullptr)
-        child = data->findChildByName("$(field.name)"_str);
-      if (!datum_$(field.name).init(&datum, child, params))
-        return false;
-    }
-$ end
-
-    return true;
-  }
-
-  void placeFields(
-      ui::UI& ui,
-      f32 child_offset,
-      f32 y,
-      u64 datum_idx,
-      const DatumUpdateParams& params,
-      DatumUpdateResult* result)
-  {
-$ for field in decl:eachField() do
-    {
-      DatumUpdateParams sub_params = params;
-      sub_params.x += child_offset;
-      sub_params.y = y;
-      sub_params.name = "$(field.name)"_str;
-      sub_params.idx = datum_idx;
-      sub_params.embedded = false;
-
-      DatumUpdateResult sub_result = 
-        datum_$(field.name).update(ui, sub_params);
-
-      datum.mergeChildNameExtents(result, sub_result);
-
-      y += sub_result.height;
-      datum_idx += 1;
-    }
-$ end
-  }
-
-
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-
-    if (datum.parent != nullptr && !params.embedded)
-      object.putName(ui, &datum, &result, params);
-
-    f32 child_offset = 0.f;
-    if (datum.parent != nullptr && !params.embedded)
-      child_offset = params.skin.children_indent;
-
-    f32 y = params.y;
-    u64 datum_idx = params.idx + 1;
-    if (datum.parent != nullptr && !params.embedded)
-      y += params.skin.row.height;
-
-    if (object.is_open || datum.parent == nullptr)
-      placeFields(
+      state->$(name).put(
         ui, 
-        child_offset,
-        y,
-        datum_idx,
-        params, 
-        &result);
+        "rect-$(name)"_fid, 
+        field_bounds,
+        DataPart::Value,
+        node->data->findChildByName("$(name)"_str),
+        skin);
 
-    datum.computeHeight(y - params.y, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putEnumPlacer(decl)
-
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setStringValue(""_str);
+      comp_bounds.x += comp_bounds.w;
     }
+$   end
 
-    return datum.init(parent, data);
+    @placeNameAndField "x"
+    @placeNameAndField "y"
+    @placeNameAndField "w"
+    @placeNameAndField "h"
   }
 
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    datum.putName(ui, &result, params);
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putLinkPlacer(decl)
+$ av:visit(ast.Enum, function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.stub(decl)) // no children, edited inline.
+$ end)
 
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
+$ -- * ------------------------------------------------------------------------
 
-  DatumTextField text;
+$ av:visit(lookup "iro::Flags", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.stub(decl))
+$ end)
 
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
+$ -- * ------------------------------------------------------------------------
+  
+$ av:visit(ast.Struct, function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
   {
-    if (data == nullptr)
+$ for field in decl:eachField() do
     {
-      data = params.default_data.allocateSourceData();
-      data->setObject(nil);
+      Node* child = addChildAndSearchName(
+        self, 
+        "$(field.name)"_str, 
+        node,
+        "$(field.type.qname)"_typeid);
+
+      $(init_tree.call(field.type))(self, child);
     }
-    if (!datum.init(parent, data))
-      return false;
-
-    if (!text.init(data, DatumPart::Value))
-      return false;
-
-    return true;
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-
-    f32 val_x = datum.putName(ui, &result, params);
-
-    Rect field_bounds = {};
-    field_bounds.x = val_x;
-    field_bounds.w = calcWidthToFill(ui, val_x, params);
-    field_bounds.h = result.name_bounds.h + 4.f;
-    field_bounds.y = calcRowCenteredY(field_bounds.h, params);
-
-    text.put(
-      ui, 
-      field_bounds,
-      datum.data,
-      DatumPart::Value,
-      params.skin.text_field);
-
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
 $ end
+  }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putArrayPlacer(decl)
+$ av:visit(lookup "reflect::Array", function(decl)
 $   local subtype = decl.args[1]
-$   putTypePlacer(subtype)
-
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
-  ObjectDatum object;
-
-  Array<$(getTypeDatumName(subtype))> children;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
   {
-    if (data == nullptr)
+    for (s32 i = 0; i < node->data->children.len; ++i)
     {
-      data = params.default_data.allocateSourceData();
-      data->setObject(nil);
+      Node* child = addChildFromIdx(
+        self,
+        fmt(self, '[', i, ']'),
+        node,
+        "$(subtype.qname)"_typeid,
+        i);
+
+      $(init_tree.call(subtype))(self, child);
     }
-
-    if (!datum.init(parent, data))
-      return false;
-
-    if (!children.init(data->children.len))
-      return false;
-
-    io::StaticBuffer<16> name;
-    for (s32 i = 0; i < data->children.len; ++i)
-    {
-      name.clear();
-      io::format(&name, i);
-      auto* child = children.push();
-
-      if (!child->init(&datum, data->children[i], params))
-        return false;
-    }
-
-    return true;
   }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    object.putName(ui, &datum, &result, params);
-
-    f32 y = params.y + params.skin.row.height;
-    u32 datum_idx = params.idx + 1;
-
-    if (object.is_open)
-    {
-      for (s32 i = 0; i < children.len; ++i)
-      {
-        auto& child = children[i];
-
-        io::StaticBuffer<16> name;
-        io::format(&name, i);
-
-        DatumUpdateParams child_params = params;
-        child_params.name = String(name);
-        child_params.y = y;
-        child_params.x = params.x + params.skin.children_indent;
-        child_params.idx = datum_idx;
-    
-        DatumUpdateResult child_result = child.update(ui, child_params);
-
-        datum.mergeChildNameExtents(&result, child_result);
-    
-        assert(child_result.height > 0.f);
-
-        y += child_result.height;
-        datum_idx += 1;
-      }
-    }
-
-    datum.computeHeight(y - params.y, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putTypedPtrPlacer(decl)
+$ av:visit(lookup "reflect::StringMap", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:visit(lookup "reflect::TypedPtr", function(decl)
 $   local subtype = decl.args[1]:desugar()
 $   local subdecl = subtype.decl
-$   assert(subdecl, "TypedPtr contains a type that has no decl")
-$ 
 $   for derived in subdecl:allDerived() do
-$     putDeclPlacer(derived)
+$     av:handleDecl(derived)
 $   end
-
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
-  ObjectDatum object;
-
-  rtr::TypeId subdatum_type;
-  Datum* subdatum;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
   {
-    if (data == nullptr)
+    switch (node->data->type.hash())
     {
-      data = params.default_data.allocateSourceData();
-      data->setObject(nil);
-    }
-
-    if (!datum.init(parent, data))
-      return false;
-
-    allocateSubDatum(data, params.editor);
-    return true;
-  }
-
-  void allocateSubDatum(SourceData* data, SourceDataEditor& editor)
-  {
-    if (data == nullptr || isnil(data->type))
-    {
-      // TODO(sushi) delete subdatum here and on change.
-    }
-
-    auto datatype = rtr::TypeId::fromString(data->type);
-    subdatum_type = datatype;
-
-    switch (datatype.val)
-    {
-$ for derived in subdecl:allDerived() do
-    case "$(derived.qname)"_typeid_val:
-      subdatum = editor.allocateAndInitDatum(datatype, data);
-      (($(getDeclDatumName(derived))*)subdatum)->datum.parent = &datum;
+$   for derived in subdecl:allDerived() do
+    case "$(derived.type.qname)"_typeid_val:
+      $(init_tree.call(derived))(self, node);
       break;
-$ end
+$   end
     }
   }
 
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
   {
-    ui.pushId(ui.generateIdFromPointer(&datum));
-    defer { ui.popId(); };
-
-    DatumUpdateResult result = {};
-
-    f32 val_x = object.putName(ui, &datum, &result, params);
-
-    Rect dropdown_bounds = {};
-    dropdown_bounds.x = val_x;
-    dropdown_bounds.h = params.skin.row.height - 6.f;
-    dropdown_bounds.y = calcRowCenteredY(dropdown_bounds.h, params);
-    dropdown_bounds.w = calcWidthToFill(ui, dropdown_bounds.x, params);
-
-    if (ui.beginDropDown(
-          "type-id-select"_fid,
-          dropdown_bounds,
-          999.f,
-          rtr::typenameFromTypeId(subdatum_type),
-          params.skin.dropdown))
+    if (ui.beginDropDown("typed-ptr-dropdown"_fid,
+          bounds,
+          100.f,
+          node->data->type,
+          skin.dropdown))
     {
-      Rect option_bounds = {};
-      option_bounds.x = 0.f;
-      option_bounds.y = 0.f;
-      option_bounds.w = ui.getWidth();
-      option_bounds.h = 20.f;
+      Rect button_bounds = {};
+      button_bounds.x = 0.f;
+      button_bounds.y = 0.f;
+      button_bounds.w = ui.getWidth();
+      button_bounds.h = 14.f;
 
-$ for derived in subdecl:allDerived() do
+$   for derived in subdecl:allDerived() do
+      if (ui.putButton("typed-ptr-select-$(derived.qname)"_fid,
+            button_bounds,
+            "$(derived.qname)"_str,
+            skin.button))
       {
-        const rtr::TypeId type = "$(derived.qname)"_typeid;
-
-        if (ui.putButton(
-              "$(derived.qname) selection"_fid,
-              option_bounds,
-              "$(derived.qname)"_str,
-              params.skin.dropdown_option))
-        {
-          println("select $(derived.qname)");
-          ui.closePopup();
-        }
-
-        option_bounds.y += option_bounds.h;
+        println("select $(derived.qname)");
+        ui.closePopup();        
       }
-$ end
+      button_bounds.y += button_bounds.h;
+$   end
 
       ui.endDropDown();
     }
-
-    f32 child_h = 0.f;
-    f32 child_y = params.y + params.skin.row.height;
-    if (subdatum != nullptr && object.is_open)
-    {
-      DatumUpdateResult child_result;
-
-      DatumUpdateParams child_params = params;
-      child_params.x += params.skin.children_indent;
-      child_params.y = child_y;
-      child_params.name = nil;
-      child_params.embedded = true;
-      child_params.idx = params.idx + 1;
-
-      switch (subdatum_type.val)
-      {
-$ for derived in subdecl:allDerived() do
-      case "$(derived.qname)"_typeid_val:
-        child_result = 
-          (($(getDeclDatumName(derived))*)subdatum)->update(ui, child_params);
-        break;
-$ end
-      }
-        
-      child_h = child_result.height;
-      datum.mergeChildNameExtents(&result, child_result);
-    }
-
-    datum.computeHeight(child_h + params.skin.row.height, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
   }
-};
+$ end)
 
-$ end
+$ -- * ------------------------------------------------------------------------
+$ -- Typedefs just passthrough to their subtype for now. Eventually though 
+$ -- we should be checking for metadata applied to them that may alter 
+$ -- their behavior in the editor.
+
+$ av:visit(ast.TypedefDecl, function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    $(init_tree.call(decl.subtype))(self, node);
+  }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putTemplateSpecPlacer(decl)
-$   if decl.specialized.qname == "reflect::Array" then
-$     return (putArrayPlacer(decl))
-$   elseif decl.specialized.qname == "reflect::TypedPtr" then
-$     return (putTypedPtrPlacer(decl))
+$ av:begin(function(decl)
+$   return decl.metadata.def ~= nil
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:eachVisited(function(decl)
+$   if decl.user.has_inline then
+$     print(decl)
 $   end
-
-/* ============================================================================
- */
-$(declareDeclDatum(decl))
-{
-  Datum datum;
-
-  b8 init(Datum* parent, SourceData* data, const DatumInitParams& params)
-  {
-    if (data == nullptr)
-    {
-      data = params.default_data.allocateSourceData();
-      data->setObject(nil);
-    }
-
-    return datum.init(parent, data);
-  }
-
-  DatumUpdateResult update(ui::UI& ui, const DatumUpdateParams& params)
-  {
-    DatumUpdateResult result = {};
-    f32 val_x = datum.putName(ui, &result, params);
-  
-    ui::TextSkin text_skin = params.skin.text;
-    text_skin.color = 0xff0000ff;
-
-    Rect text_bounds = {};
-    text_bounds.x = val_x;
-    text_bounds.y = calcRowTextY(params);
-    text_bounds.w = calcWidthToFill(ui, val_x, params);
-    text_bounds.h = params.skin.row.height; // wrong
-
-    ui.putText(text_bounds, "unhandled template spec"_str, text_skin);
-
-    datum.computeHeight(0.f, &result, params);
-    datum.putBackground(ui, result.height, params);
-    return result;
-  }
-};
-
-$ end
-
-$ local function putRecordPlacer(decl)
-$   if decl:findMetadata "ref" then
-$     putLinkPlacer(decl)
-$   elseif decl:is(ast.TemplateSpec) then
-$     putTemplateSpecPlacer(decl)
-$   elseif decl:is(ast.Struct) then
-$     putStructPlacer(decl)
-$   else
-$       print(decl)
-$   end
-$ end
-
-$ putDeclPlacer = function(decl)
-$   decl.user = decl.user or {}
-$   if decl.user.datum_placed then return end
-$ 
-$   decl.user.datum_placed = true
-$ 
-$   if decl:is(ast.TagDecl) then
-$     if decl:is(ast.Record) then
-$       putRecordPlacer(decl)
-$     elseif decl:is(ast.Enum) then
-$       putEnumPlacer(decl)
-$     else
-$     end
-$   elseif decl:is(ast.TypedefDecl) then
-$     local subtype = decl.subtype:desugar()
-$     putDeclPlacer(subtype.decl)
-typedef $(getDeclDatumName(subtype.decl)) $(getDeclDatumName(decl));
-$   end
-$ end
-
-$ putTypePlacer = function(type)
-$   type = type:desugar()
-$   if type:is(ast.TagType) then
-$     putDeclPlacer(type.decl)
-$   end
-$ end
-
-$ for decl in astctx.type_decls:each() do
-$   if decl.metadata.def then
-$     putDeclPlacer(decl)
-$   end
-$ end
+$ end)
 
 /* ----------------------------------------------------------------------------
  */
 b8 SourceDataEditor::init()
 {
-  if (!datum_allocator.init())
+  if (!node_allocator.init())
     return false;
 
   if (!default_data.init())
     return false;
 
   return true;
-}
-
-/* ----------------------------------------------------------------------------
- */
-Datum* SourceDataEditor::allocateAndInitDatum(
-    rtr::TypeId type, 
-    SourceData* data)
-{
-  switch (type_id.val)
-  {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user and decl.user.datum_placed then
-  case "$(decl.type.name)"_typeid_val:
-    {
-      DatumInitParams init_params = 
-      {
-        .default_data = default_data,
-        .editor = *this,
-      };
-
-      auto* new_datum = 
-        mem::stl_allocator.construct<$(getDeclDatumName(decl))>();
-      new_datum->init(nullptr, data, init_params);
-      return (Datum*)new_datum;
-    }
-    break;
-$   end
-$ end
-  }
-
-  return nullptr;
 }
 
 /* ----------------------------------------------------------------------------
@@ -1049,12 +655,185 @@ void SourceDataEditor::setSourceData(
   this->sfile = sfile;
   this->type_id = type_id;
 
-  current_datum = allocateAndInitDatum(type_id, sdata);
+  node_allocator.clear();
+
+  Node* root = node_allocator.construct<Node>();
+  root->type = type_id;
+  root->data = sdata;
+
+  root_node = root;
+
+  Ctx ctx;
+  ctx.sde = this;
+  ctx.bump = &node_allocator;
+
+  switch (type_id.val)
+  {
+$ av:eachVisited(function(decl)
+  case "$(decl.type.qname)"_typeid_val:
+    $(init_tree.call(decl))(ctx, root);
+    break;
+$ end)
+  }
+}
+
+/* ============================================================================
+ */
+struct PutParams
+{
+  u32 depth = 0;
+  f32 y = 0.f;
+  f32 max_name_extent = 0.f;
+  u32 node_idx = 0;
+};
+
+/* ============================================================================
+ */
+struct PutResult
+{
+  f32 height = 0.f;
+};
+
+/* ----------------------------------------------------------------------------
+ */
+static void putInlineContent(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Node& node,
+    PutParams& params,
+    const SourceDataEditorSkinDef& skin)
+{
+  Rect bounds = {};
+  bounds.x = params.max_name_extent + skin.row.name_value_spacing;
+  bounds.y = params.y;
+  bounds.w = ui.getWidth() - bounds.x - skin.row.right_padding;
+  bounds.h = skin.row.height;
+  bounds.contractY(2.f);
+  
+  switch (node.type.val)
+  {
+$ for node in inline_nodes:each() do
+$   local qname
+$   if node:is(ast.Type) then
+$     qname = node.qname
+$   else
+$     qname = node.type.qname
+$   end
+$   if node:is(ast.Decl) then
+$     if node.typedefs then
+$       for typedef in node.typedefs:each() do
+  case "$(typedef.type.qname)"_typeid_val:
+$       end
+$     end
+$   end
+  case "$(qname)"_typeid_val:
+    $(put_inline.call(node))(
+      self, 
+      ui, 
+      bounds, 
+      &node,
+      skin);
+    break;
+$ end
+  }
 }
 
 /* ----------------------------------------------------------------------------
  */
-void SourceDataEditor::update(
+static inline String getNodeNamePrefix(Node& node)
+{
+  if (node.hasChildren())
+    return node.isOpen()? "- "_str : "+ "_str;
+  return nil;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static PutResult putNode(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Node& node,
+    PutParams& params,
+    const SourceDataEditorSkinDef& skin)
+{
+  ui.pushId(ui.generateIdFromPointer(&node));
+  defer { ui.popId(); };
+
+  auto name_bounds = Rect::from(
+    params.depth * skin.children_indent,
+    params.y,
+    999.f,
+    skin.row.height);
+
+  String prefix = getNodeNamePrefix(node);
+  f32 prefix_offset = 0.f;
+  if (notnil(prefix))
+    name_bounds.x += ui.putText(name_bounds, prefix, skin.text).x;
+
+  vec2f name_size = ui.putText(name_bounds, node.name, skin.text);
+
+  putInlineContent(
+    self,
+    ui,
+    node,
+    params,
+    skin);
+
+  PutParams child_params = params;
+  child_params.depth += 1;
+  child_params.y += max(name_size.y, skin.row.height);
+
+  for (Node& child : eachChild(&node))
+  {
+    PutResult result = putNode(self, ui, child, child_params, skin);
+    child_params.y += max(result.height, skin.row.height);
+  }
+
+  PutResult result = {};
+  result.height = child_params.y - params.y;
+
+  return result;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static f32 computeNodeNameExtent(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Node& node,
+    u32 depth,
+    const SourceDataEditorSkinDef& skin)
+{
+  auto name_bounds = Rect::from(0, 0, 999.f, 999.f);
+
+  vec2f name_size = ui.measureText(name_bounds, node.name, skin.text);
+
+  if (node.hasChildren())
+  {
+    String prefix = node.isOpen()? "- "_str : "+ "_str;
+    name_size.x += ui.measureText(name_bounds, prefix, skin.text).x;
+  }
+
+  f32 name_extent = name_size.x + skin.children_indent * depth;
+
+  for (Node& child : eachChild(&node))
+  {
+    f32 child_extent = computeNodeNameExtent(
+      self,
+      ui,
+      child,
+      depth + 1,
+      skin);
+
+    name_extent = max(name_extent, child_extent);
+  }
+
+  return name_extent;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceDataEditor::put(
     UI& ui,
     Rect bounds,
     const SourceDataEditorSkinDef& skin)
@@ -1063,31 +842,32 @@ void SourceDataEditor::update(
 
   ui.beginScrollGroup("sde-scroll"_fid, bounds, skin.scroll_bar);
 
-  switch (type_id.val)
+  if (root_node != nullptr)
   {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user and decl.user.datum_placed then
-  case "$(decl.type.name)"_typeid_val:
+    auto* root = (Node*)root_node;
+
+    f32 max_name_extent = 0.f;
+    for (Node& child : eachChild(root))
     {
-      DatumUpdateParams params = 
-      {
-        .x = 0.f,
-        .y = 0.f,
-        .name = nil,
-        .skin = skin,
-        .name_column_width = name_column_width,
-        .editor = *this,
-      };
-      auto* casted = (($(getDeclDatumName(decl))*)current_datum);
-
-      DatumUpdateResult result = 
-        casted->update(ui, params);
-
-      name_column_width = result.name_extents.extent().x;
+      f32 child_extent = computeNodeNameExtent(*this, ui, child, 0, skin);
+      max_name_extent = max(child_extent, max_name_extent);
     }
-    break;
-$   end
-$ end
+
+    max_name_extent = max(max_name_extent, skin.row.min_name_width);
+
+    ui.putQuad(Rect::from(0, 0, max_name_extent, 10.f), 0xff0000ff);
+
+    PutParams params = {};
+    params.depth = 0;
+    params.y = 0.f;
+    params.max_name_extent = max_name_extent;
+
+    for (Node& child : eachChild(root))
+    {
+      PutResult result = putNode(*this, ui, child, params, skin);
+
+      params.y += max(result.height, skin.row.height);
+    }
   }
 
   ui.endScrollGroup(skin.scroll_bar);

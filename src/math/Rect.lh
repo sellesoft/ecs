@@ -104,6 +104,8 @@ struct Rect
     return contracted(padding.x, padding.y);
   }
 
+  Rect contractedLeft(f32 v) const { return { x + v, y, w - v, h }; }
+
   b8 containsPoint(f32 px, f32 py) const
   {
     return px >= x && py >= y && px <= x + w && py <= y + h;

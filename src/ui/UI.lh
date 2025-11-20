@@ -255,7 +255,7 @@ struct CmdList
  */ 
 struct Panel
 {
-  Item item = {}; // NOTE(sushi) this is largely unused I believe.
+  Item item = {}; 
   
   Group* groups = nullptr;
   Group* current_group = nullptr;
@@ -482,9 +482,6 @@ struct UI
     GroupScissor scissoring);
 
   void popLayer();
-
-  void beginCmdFrontInjection();
-  void endCmdFrontInjection();
 
   void pushCmdList();
   void popCmdListToFront();

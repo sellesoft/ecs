@@ -98,39 +98,23 @@ struct Packer
   b8 error(const SourceData& data, Args... args)
   {
     return buildError(result, 
-      name, ':', data.line, ':', data.column, ": ",
+      tcolor::red, name, tcolor::reset, 
+      ':', data.line, ':', data.column, ": ",
       args...);
   }
 
   /* --------------------------------------------------------------------------
-   *  Helper that validates that some source data does not contain a mix 
-   *  of named and unnamed children. Even though the source data parser 
-   *  already checks this, its possible that the SourceData passed here 
-   *  was constructed some other way, so we still want to check this.
-   *
-   *  This is primarily for types that support nameless initialization, eg.
-   *  vec2, Rect and Color.
    */
-  b8 hasNamedAndUnnamedData(const SourceData& data)
+  b8 hasUnnamedData(const SourceData& data)
   {
     assert(data.hasObjectData());
 
     if (data.hasChildren())
     {
-      b8 first_named = notnil(data.children[0]->name);
-
       for (u32 i = 1; i < data.children.len; ++i)
       {
-        if (first_named)
-        {
-          if (isnil(data.children[i]->name))
-            return true;
-        }
-        else
-        {
-          if (notnil(data.children[i]->name))
-            return true;
-        }
+        if (isnil(data.children[i]->name))
+          return true;
       }
     }
 
@@ -231,34 +215,28 @@ $   local subtype = decl:findMember "T"
       return error(data, 
         "expected 2 components to pack vec2 (got ", data.children.len, ")");
 
-    if (hasNamedAndUnnamedData(data))
-      return error(data, "vec2 has named and unnamed data");
-
     const SourceData* x = nullptr;
     const SourceData* y = nullptr;
 
-    if (isnil(data.children[0]->name))
+    for (SourceData* child : data.children)
     {
-      x = data.children[0];
-      y = data.children[1];
-    }
-    else
-    {
-      x = data.findChildByName("x"_str);
-      y = data.findChildByName("y"_str);
+      if (isnil(child->name))
+        return error(*child, "vec2 fields must be named");
 
-      if (x == nullptr || y == nullptr)
+      if (child->name == "x"_str)
       {
-        // Data must contain some invalid name, so scan over and call out 
-        // anything that's not x or y.
-        for (const SourceData* child : data.children)
-        {
-          if (child->name != "x"_str || child->name != "y"_str)
-            error(*child, child->name, " does not name a vec2 field");
-        }
-
-        return false;
+        if (x != nullptr)
+          return error(*child, "vec2::x specified twice");
+        x = child;
       }
+      else if (child->name == "y"_str)
+      {
+        if (y != nullptr)
+          return error(*child, "vec2::y specified twice");
+        y = child;
+      }
+      else
+        return error(*child, "no field named '", child->name, "' in vec2");
     }
 
     if (!$(f.call(subtype))(*x, &out->x))
@@ -286,40 +264,21 @@ $   markNoDefaults(decl)
       return error(data, 
         "expected 4 components to pack Rect (got ", data.children.len, ")");
 
-    if (hasNamedAndUnnamedData(data))
-      return error(data, "Rect has named and unnamed data");
+    const SourceData* x = data.findChildByName("x"_str);
+    const SourceData* y = data.findChildByName("y"_str);
+    const SourceData* w = data.findChildByName("w"_str);
+    const SourceData* h = data.findChildByName("h"_str);
 
-    const SourceData* x = nullptr;
-    const SourceData* y = nullptr;
-    const SourceData* w = nullptr;
-    const SourceData* h = nullptr;
-
-    if (isnil(data.children[0]->name))
+    if (matchAny(nullptr, x, y, w, h))
     {
-      x = data.children[0];
-      y = data.children[1];
-      w = data.children[2];
-      h = data.children[3];
-    }
-    else
-    {
-      x = data.findChildByName("x"_str);
-      y = data.findChildByName("y"_str);
-      w = data.findChildByName("w"_str);
-      h = data.findChildByName("h"_str);
-
-      if (matchAny(nullptr, x, y, w, h))
+      for (SourceData* child : data.children)
       {
-        // Data must contain some invalid name, so scan over and call out 
-        // anything that's not x or y.
-        for (const SourceData* child : data.children)
-        {
-          if (!matchAny(child->name, "x"_str, "y"_str, "w"_str, "h"_str))
-            error(*child, child->name, " does not name a vec2 field");
-        }
-
-        return false;
+        if (isnil(child->name))
+          error(*child, "Rect fields must be named");
+        else if (!matchAny(child->name, "x"_str, "y"_str, "w"_str, "h"_str))
+          error(*child, child->name, " is not a field of Rect");
       }
+      return false;
     }
 
     if (!pack_f32(*x, &out->x))
@@ -357,52 +316,28 @@ $   markNoDefaults(decl)
     if (!data.hasObjectData())
       return error(data, "expected object data or hex number to pack Color");
 
-    if (hasNamedAndUnnamedData(data))
-      return error(data, "Color data has named and unnamed children");
-
-    const SourceData* r = nullptr;
-    const SourceData* g = nullptr;
-    const SourceData* b = nullptr;
-    const SourceData* a = nullptr;
-
-    if (data.children.len < 3)
-      return error(data, 
-        "Color components must specify at least rgb");
-
     if (data.children.len > 4)
       return error(data,
         "too many Color components (can specify up to 4, got ",
         data.children.len, ")");
 
-    if (isnil(data.children[0]->name))
-    {
-      r = data.children[0];
-      g = data.children[1];
-      b = data.children[2];
-      if (data.children.len == 4)
-        a = data.children[3];
-    }
-    else
-    {
-      r = data.findChildByName("r"_str);
-      g = data.findChildByName("g"_str);
-      b = data.findChildByName("b"_str);
-      a = data.findChildByName("a"_str);
+    const SourceData* r = data.findChildByName("r"_str);
+    const SourceData* g = data.findChildByName("g"_str);
+    const SourceData* b = data.findChildByName("b"_str);
+    const SourceData* a = data.findChildByName("a"_str);
 
-      if (matchAny(nullptr, r, g, b))
+    if (matchAny(nullptr, r, g, b))
+    {
+      for (SourceData* child : data.children)
       {
-        // Data must contain some invalid name, so scan over and call out 
-        // anything that's not x or y.
-        for (const SourceData* child : data.children)
-        {
-          if (!matchAny(child->name, "r"_str, "g"_str, "b"_str, "a"_str))
-            error(*child, child->name, " does not name a vec2 field");
-        }
-
-        return false;
+        if (isnil(child->name))
+          error(*child, "Color fields must be named");
+        else
+          error(*child, child->name, " is not a field of Color");
       }
+      return error(data, "Color data must specify at least r, g, and b");
     }
-    
+
 $ local function checkval(c)
     s64 $(c)_val = strtoll((char*)$(c)->val.str.ptr, nullptr, 10);
     if ($(c)_val < 0 || $(c)_val > 255)

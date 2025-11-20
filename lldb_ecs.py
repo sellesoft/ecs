@@ -15,11 +15,15 @@ def summary_String(val: lldb.SBValue, dont_touch):
     ptr: lldb.SBValue = val.GetChildMemberWithName("ptr")
     len: lldb.SBValue = val.GetChildMemberWithName("len")
     content: lldb.SBValue = ptr.deref
+    print(content.addr.GetOffset())
     err = lldb.SBError()
     try:
-        mem = process.ReadMemory(content.addr.GetOffset(), len.unsigned, err)
+        mem = process.ReadMemory(ptr.unsigned, len.unsigned, err)
     except Exception as e:
         return '{invalid}'
+    if not err.Success():
+        print("error: ", err.description)
+
     return f'"{mem.decode()}"'
 
 cmd("type summary add -F lldb_ecs.summary_String iro::utf8::String")

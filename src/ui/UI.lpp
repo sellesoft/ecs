@@ -596,31 +596,6 @@ void UI::popLayer()
 
 /* ----------------------------------------------------------------------------
  */
-void UI::beginCmdFrontInjection()
-{
-  // auto* cmd_list = frame_allocator.construct<CmdList>();
-  //
-  // cmd_list->prev = current_layer->cmd_list_stack;
-  // current_layer->cmd_list_stack = cmd_list;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void UI::endCmdFrontInjection()
-{
-  // CmdList* list = current_layer->cmd_list_stack;
-  // assert(list != nullptr);
-  //
-  // Cmd* old_first = current_layer->cmd_list.first;
-  //
-  // current_layer->cmd_list.first = list->first;
-  // list->last->next = old_first;
-  //
-  // current_layer->cmd_list_stack = list->prev;
-}
-
-/* ----------------------------------------------------------------------------
- */
 void UI::pushCmdList()
 {
   auto* cmd_list = frame_allocator.construct<CmdList>();

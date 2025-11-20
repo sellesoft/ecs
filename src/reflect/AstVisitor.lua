@@ -433,6 +433,11 @@ AstVisitor.funcgen = function(self, prefix, ret, ...)
     end
   end
 
+  local function stub(decl_or_type)
+    local declaration = declare(decl_or_type)
+    return declaration.." {/* stub */}"
+  end
+
   -- lpp takes the first return as the string to place from a macro and the
   -- second is given to the macro capture. Should maybe make a way to either
   -- specify that a function is only meant to return a lua value or some 
@@ -442,6 +447,7 @@ AstVisitor.funcgen = function(self, prefix, ret, ...)
   {
     declare = declare,
     call = call,
+    stub = stub,
   }
 end
 

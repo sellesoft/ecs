@@ -8,6 +8,6 @@ return EntityDef
     {  
     },
     MovementDef { speed = 0.02, },
-    ColliderDef { bounds = { 0,0,1,1 }, static_pos = false },
+    ColliderDef { bounds = { x=0,y=0,w=1,h=1 }, static_pos = false },
   }
 }

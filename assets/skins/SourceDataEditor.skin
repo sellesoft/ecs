@@ -85,7 +85,7 @@ return SourceDataEditorSkinDef
 
   row = 
   {
-    height = 16,
+    height = 14,
     name_padding = 4,
     min_name_width = 30,
     name_value_spacing = 4,

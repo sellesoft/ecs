@@ -488,7 +488,7 @@ static void putToolMenu(
   sde_bounds.w = ui.getWidth() - 2.f * sde_bounds.x;
   sde_bounds.h = sde_height;
 
-  self.sd_editor.update(ui, sde_bounds, skin.sdata_edit);
+  self.sd_editor.put(ui, sde_bounds, skin.sdata_edit);
 
   y += sde_height + 4.f;
 

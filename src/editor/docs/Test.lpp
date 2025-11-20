@@ -10,6 +10,10 @@ namespace editor
  */
 b8 Test::init()
 {
+  sde.init();
+  SourceDataFile::from(&file, "assets/skins/Editor.skin"_str);
+  sde.setSourceData(file.returned_data, &file, "EditorSkinDef"_typeid);
+
   return true;
 }
 
@@ -17,10 +21,12 @@ b8 Test::init()
  */
 void Test::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
-  ui::TextSkin text = skin.text;
-  text.align = vec2f(0.5, 0.5);
+  // ui::TextSkin text = skin.text;
+  // text.align = vec2f(0.5, 0.5);
+  //
+  // ui.putText(ui.getBounds(), "your test here!"_str, text);
 
-  ui.putText(ui.getBounds(), "your test here!"_str, text);
+  sde.put(ui, ui.getBounds(), skin.sdata_edit);
 }
 
 /* ----------------------------------------------------------------------------

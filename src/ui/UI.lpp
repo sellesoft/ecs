@@ -24,6 +24,15 @@ static const CombinedItemId c_root_id = {"_ui_root_"_fid.val};
 
 /* ----------------------------------------------------------------------------
  */
+b8 Focus::hasBeenIdleHoveredFor(UI& ui, TimeSpan span)
+{
+  if (isHovered())
+    return time::since(ui.last_cursor_move_time) > span;
+  return false;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 b8 UI::init(InitParams& params)
 {
   white_texture = params.white_texture;
@@ -191,6 +200,9 @@ void UI::beginFrame(const FrameParams& params)
 
   frame_input = params.input;
   viewport = params.viewport;
+
+  if (frame_input.didCursorMove())
+    last_cursor_move_time = TimePoint::monotonic();
 
   draw_counts = {};
 

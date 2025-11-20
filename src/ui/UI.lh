@@ -95,6 +95,8 @@ $   end
     return flags.test(FocusFlag::$(flag));
   }
 $ end
+
+  b8 hasBeenIdleHoveredFor(UI& ui, TimeSpan span);
 };
 
 /* ============================================================================
@@ -612,6 +614,9 @@ struct UI
   // The input state of an update. Inputs may be consumed from this 
   // state by either UI or Items.
   InputState frame_input;
+
+  // Last point in time UI noticed the cursor move.
+  TimePoint last_cursor_move_time;
 
   // Because I'm tired of accessing `frame_input` everytime I need to check
   // if a mouse button was released globally, I'm adding these. HOWEVER I 

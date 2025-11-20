@@ -374,13 +374,48 @@ $ av:previsit(ast.iro_builtins, function(type)
    */
   $(declareInline(type))
   {
-    
+$ if type == ast.builtins.b8 then
+    // TODO(sushi) proper checkbox art.
+    b8 val = node->data->testBooleanValue();
+    Color col = val? 0xffffffff : 0x444444ff;
+    Rect button_bounds = Rect::from(bounds.x,bounds.y,bounds.h,bounds.h);
+    ui.putQuad(button_bounds, col);
+    ui::Focus focus = ui.putFocusableBounds("checkbox"_fid, button_bounds);
+    if (focus.wasPrimaryPressed())
+      node->data->setBooleanValue(!val);
+$ end
   }
 $ end)
 
 $ -- * ------------------------------------------------------------------------
 
 $ av:visit(lookup "iro::utf8::String", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    allocNodeState<TextField>(self, node)->init(
+      node->data,
+      DataPart::Value);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    node->state.as<TextField>()->put(
+      ui,
+      "string-field"_fid,
+      bounds,
+      DataPart::Value,
+      node->data,
+      skin);
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:visit(lookup "StringHash", function(decl)
   /* --------------------------------------------------------------------------
    */
   $(init_tree.declare(decl))
@@ -432,6 +467,9 @@ $ av:visit(lookup "Rect", function(decl)
    */
   $(init_tree.declare(decl))
   {
+    if (!node->data->hasObjectData())
+      node->data->setObject(nil);
+
     auto* state = allocNodeState<RectState>(self, node);
     initRectTextField(self, node, "x"_str, &state->x);
     initRectTextField(self, node, "y"_str, &state->y);
@@ -456,7 +494,7 @@ $   local function placeNameAndField(name)
       f32 comp_offset = ui.putText(comp_bounds, "$(name)"_str, skin.text).x;
       Rect field_bounds = comp_bounds
         .contractedLeft(comp_offset)
-        .contractedX(2.f);
+        .contractedX(6.f);
 
       state->$(name).put(
         ui, 
@@ -684,7 +722,17 @@ struct PutParams
   u32 depth = 0;
   f32 y = 0.f;
   f32 max_name_extent = 0.f;
-  u32 node_idx = 0;
+  u32* node_idx = 0;
+
+  void bumpidx()
+  {
+    *node_idx += 1;
+  }
+
+  Color getRowColor(const SourceDataEditorSkinDef& skin)
+  {
+    return *node_idx % 2? skin.row.odd_color : skin.row.even_color;
+  }
 };
 
 /* ============================================================================
@@ -744,7 +792,7 @@ static inline String getNodeNamePrefix(Node& node)
 {
   if (node.hasChildren())
     return node.isOpen()? "- "_str : "+ "_str;
-  return nil;
+  return "  "_str;
 }
 
 /* ----------------------------------------------------------------------------
@@ -759,38 +807,70 @@ static PutResult putNode(
   ui.pushId(ui.generateIdFromPointer(&node));
   defer { ui.popId(); };
 
+  Color row_color = params.getRowColor(skin);
+
+  ui.putQuad(
+    Rect::from(0.f, params.y, ui.getWidth(), skin.row.height), 
+    row_color);
+
+  params.bumpidx();
+
   auto name_bounds = Rect::from(
     params.depth * skin.children_indent,
     params.y,
     999.f,
     skin.row.height);
 
+  ui::Focus name_hit = ui.putFocusableBounds("name"_fid, name_bounds);
+  if (name_hit.wasPrimaryReleased())
+    node.flags.toggle(NodeFlag::Open);
+
   String prefix = getNodeNamePrefix(node);
-  f32 prefix_offset = 0.f;
   if (notnil(prefix))
     name_bounds.x += ui.putText(name_bounds, prefix, skin.text).x;
 
   vec2f name_size = ui.putText(name_bounds, node.name, skin.text);
 
-  putInlineContent(
-    self,
-    ui,
-    node,
-    params,
-    skin);
+  putInlineContent(self, ui, node, params, skin);
 
-  PutParams child_params = params;
-  child_params.depth += 1;
-  child_params.y += max(name_size.y, skin.row.height);
+  f32 y = params.y + max(name_size.y, skin.row.height);
 
-  for (Node& child : eachChild(&node))
+  if (node.hasChildren() && node.isOpen())
   {
-    PutResult result = putNode(self, ui, child, child_params, skin);
-    child_params.y += max(result.height, skin.row.height);
+    PutParams child_params = params;
+    child_params.depth += 1;
+
+    for (Node& child : eachChild(&node))
+    {
+      child_params.y = y;
+      PutResult result = putNode(self, ui, child, child_params, skin);
+      y += max(result.height, skin.row.height);
+    }
+  }
+
+  if (name_hit.hasBeenIdleHoveredFor(ui, TimeSpan::fromSeconds(1.f)))
+  {
+    String type_name = rtr::typenameFromTypeId(node.type);
+
+    auto tooltip_bounds = Rect::from(name_bounds)
+      .alignBottomOutside(name_bounds, 4.f)
+      .setSize(ui.measureText(Rect::inf(), type_name, skin.text))
+      .expanded(5.f);
+
+    TextItemSkin tooltip_skin = {};
+    tooltip_skin.text = skin.text;
+    tooltip_skin.text.align = vec2f(0.5, 0.5);
+    tooltip_skin.item.color = 0x111111ff;
+    tooltip_skin.item.border = Rect::from(10.f);
+    tooltip_skin.item.border_color = 0xaaaaaaff;
+
+    ui.pushLayer("type-tooltip"_fid, tooltip_bounds, {});
+    ui.putTextItem(ui.getBounds(), type_name, tooltip_skin);
+    ui.popLayer();
   }
 
   PutResult result = {};
-  result.height = child_params.y - params.y;
+  result.height = y - params.y;
 
   return result;
 }
@@ -808,11 +888,8 @@ static f32 computeNodeNameExtent(
 
   vec2f name_size = ui.measureText(name_bounds, node.name, skin.text);
 
-  if (node.hasChildren())
-  {
-    String prefix = node.isOpen()? "- "_str : "+ "_str;
-    name_size.x += ui.measureText(name_bounds, prefix, skin.text).x;
-  }
+  String prefix = node.isOpen()? "- "_str : "+ "_str;
+  name_size.x += ui.measureText(name_bounds, prefix, skin.text).x;
 
   f32 name_extent = name_size.x + skin.children_indent * depth;
 
@@ -855,12 +932,13 @@ void SourceDataEditor::put(
 
     max_name_extent = max(max_name_extent, skin.row.min_name_width);
 
-    ui.putQuad(Rect::from(0, 0, max_name_extent, 10.f), 0xff0000ff);
+    u32 node_idx = 0;
 
     PutParams params = {};
     params.depth = 0;
     params.y = 0.f;
     params.max_name_extent = max_name_extent;
+    params.node_idx = &node_idx;
 
     for (Node& child : eachChild(root))
     {

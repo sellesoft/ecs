@@ -31,6 +31,11 @@ struct Rect
     return {0,0,0,0};
   }
 
+  static Rect from(const Rect& rhs)
+  {
+    return from(rhs.pos(), rhs.size());
+  }
+
   static Rect from(f32 x, f32 y, f32 w, f32 h)
   {
     return { x, y, w, h };
@@ -49,6 +54,16 @@ struct Rect
   static Rect from(vec2f pos, f32 w, f32 h)
   {
     return { pos.x, pos.y, w, h };
+  }
+
+  static Rect from(f32 v)
+  {
+    return { v,v,v,v };
+  }
+
+  static Rect inf()
+  {
+    return { 0.f, 0.f, MAX_F32, MAX_F32 }; 
   }
 
   void set(vec2f pos, vec2f size) { setPos(pos); setSize(size); }
@@ -98,6 +113,10 @@ struct Rect
   Rect contracted(f32 vx, f32 vy) const 
     { return contractedX(vx).contracted(vy); }
   void contract(f32 vx, f32 vy) { *this = contracted(vx, vy); }
+
+  Rect expandedX(f32 v) const { return { x - v, y, w + 2.f * v, h }; }
+  Rect expandedY(f32 v) const { return { x, y + v, w, h + 2.f * v }; }
+  Rect expanded(f32 v) const { return expandedX(v).expandedY(v); }
 
   Rect contracted(vec2f padding) const
   {

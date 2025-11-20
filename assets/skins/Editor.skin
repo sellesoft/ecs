@@ -155,7 +155,7 @@ sdata_edit = SourceDataEditorSkinDef
 
   children_indent = 12,
 
-  text = text : {},
+  text = text : { align = { x=0, y=0.5 } },
 
   padding = {x=0, y=0},
 
@@ -194,10 +194,10 @@ sdata_edit = SourceDataEditorSkinDef
 
   row = 
   {
-    height = 16,
+    height = 18,
     name_padding = 4,
     min_name_width = 30,
-    name_value_spacing = 4,
+    name_value_spacing = 8,
     even_color = grey,
     odd_color = black,
     right_padding = 5,

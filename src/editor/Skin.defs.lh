@@ -103,8 +103,8 @@ struct EditorCursors
  */
 struct EditorFileExplSkin
 {
-  ui::ButtonSkin file_button;
-  ui::ButtonSkin dir_button;
+  ui::TextButtonSkin file_button;
+  ui::TextButtonSkin dir_button;
 
   ui::ItemSkin file_icon;
   ui::ItemSkin dir_icon;
@@ -119,8 +119,11 @@ struct EditorSkinDef
   Color tool_panel_bg_color;
 
   ui::ButtonSkin button;
+  ui::TextButtonSkin text_button;
+
   ui::DropDownSkin dropdown;
-  ui::ButtonSkin dropdown_option;
+  ui::TextButtonSkin dropdown_option;
+
   ui::ScrollBarSkin scroll_bar;
 
   ui::TextFieldSkin text_field;

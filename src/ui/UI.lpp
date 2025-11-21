@@ -1168,10 +1168,41 @@ void UI::putTextItem(Rect bounds, String text, const TextItemSkin& skin)
 /* ----------------------------------------------------------------------------
  */
 b8 UI::putButton(
+    ItemId id,
+    Rect bounds,
+    const ButtonSkin& skin)
+{
+  Focus focus = putFocusableBounds(id, bounds);
+
+  const ItemSkin* state_skin = &skin.normal;
+
+  b8 clicked = false;
+
+  if (focus.isHovered())
+  {
+    state_skin = &skin.hovered;
+
+    if (focus.wasPrimaryReleased())
+      clicked = true;
+  }
+
+  if (focus.isPrimaryDown())
+    state_skin = &skin.pressed;
+
+  putItem(bounds, *state_skin);
+
+  expandCurrentGroupExtents(bounds); // maybe not needed due to previous call
+
+  return clicked;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 UI::putButton(
     ItemId id, 
     Rect bounds, 
     String text,
-    const ButtonSkin& skin)
+    const TextButtonSkin& skin)
 {
   Focus focus = putFocusableBounds(id, bounds);
 
@@ -1589,7 +1620,7 @@ void UI::endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end)
 
     static const ItemId button_id = "scroll_thumb"_fid;
 
-    putButton(button_id, thumb_bounds, nil, skin.thumb);
+    putButton(button_id, thumb_bounds, skin.thumb);
 
     if (isFocusedItem(button_id))
     {

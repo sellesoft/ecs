@@ -355,7 +355,7 @@ void ClientInstance::putUI(ui::UI& ui, const EditorSkinDef& skin)
         "reset"_fid, 
         Rect::from(bar_x, 0.f, 30.f, 15.f),
         "reset"_str,
-        skin.button))
+        skin.text_button))
   {
     resetClient();
   }
@@ -366,7 +366,7 @@ void ClientInstance::putUI(ui::UI& ui, const EditorSkinDef& skin)
       "toggle-pause"_fid,
       Rect::from(bar_x, 0.f, 60.f, 15.f),
       (thread.isPaused()? "play"_str : "pause"_str),
-      skin.button))
+      skin.text_button))
   {
     if (thread.isPaused())
       thread.unpause();

@@ -298,6 +298,11 @@ $   markNoDefaults(decl)
 $ end)
 
 $ -- * ------------------------------------------------------------------------
+$ -- TODO(sushi) once editing SourceData in the editor works well, remove 
+$ --             the ability to use hex values for Colors like nameless
+$ --             stuff was removed for vec/Rect. SourceData needs to be 
+$ --             consistent to make dealing with it everywhere else not
+$ --             so annoying.
 
 $ av:visit(ld "Color", function(decl)
 $   markNoDefaults(decl)

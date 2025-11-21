@@ -1,6 +1,7 @@
 $ local cmn = require "common"
 $ local glob = require "iro.fs.glob"
 $ local List = require "iro.List"
+$ local minfo = require "math.info"
 $ local ast = require "reflect.ast"
 
 $$$
@@ -102,6 +103,11 @@ struct Node
   {
     return flags.test(NodeFlag::Open);
   }
+
+  b8 isMissingData() const
+  {
+    return flags.test(NodeFlag::MissingData);
+  }
 };
 
 /* ============================================================================
@@ -154,35 +160,26 @@ NodeIter eachChild(Node* node)
   return NodeIter { node->first_child };
 }
 
-/* ============================================================================
- */
-struct Ctx
-{
-  SourceDataEditor* sde;
-
-  mem::Bump* bump = nullptr;
-};
-
 /* ----------------------------------------------------------------------------
  *  Formats the given args and returns a String cached in the bump buffer.
  */
-static String fmt(Ctx& self, auto&&... args)
+static String fmt(SourceDataEditor& self, auto&&... args)
 {
   io::SmallBuffer<512> buf;
   io::formatv(&buf, args...);
-  return String(buf).allocateCopy(self.bump);
+  return String(buf).allocateCopy(&self.bump);
 }
 
 /* ----------------------------------------------------------------------------
  */
 static Node* addChild(
-    Ctx& self, 
+    SourceDataEditor& self, 
     String name, 
     Node* parent,
     SourceData* data,
     rtr::TypeId type)
 {
-  auto* child = self.bump->construct<Node>();
+  auto* child = self.bump.construct<Node>();
 
   child->name = name;
   child->data = data;
@@ -205,7 +202,7 @@ static Node* addChild(
 /* ----------------------------------------------------------------------------
  */
 static Node* addChildAndSearchName(
-    Ctx& self, 
+    SourceDataEditor& self, 
     String name, 
     Node* parent,
     rtr::TypeId type)
@@ -223,7 +220,7 @@ static Node* addChildAndSearchName(
   {
     // Expected data is missing (this happens with structs), 
     // so create a placeholder and mark node as missing.
-    child->data = self.sde->default_data.allocateSourceData();
+    child->data = self.default_data.allocateSourceData();
     child->data->name = name;
     child->flags.set(NodeFlag::MissingData);
   }
@@ -234,7 +231,7 @@ static Node* addChildAndSearchName(
 /* ----------------------------------------------------------------------------
  */
 static Node* addChildFromIdx(
-    Ctx& self, 
+    SourceDataEditor& self, 
     String name, 
     Node* parent,
     rtr::TypeId type,
@@ -255,11 +252,60 @@ static Node* addChildFromIdx(
 
 /* ----------------------------------------------------------------------------
  */
+static void clearChildren(SourceDataEditor& self, Node* node)
+{
+  // TODO(sushi) actually clean up the children. We use a bump allocator 
+  //             atm though so not really possible. I feel like this shouldn't
+  //             happen much, though, so maybe not a huuuuge deal.
+  node->first_child = nullptr;
+  node->last_child = nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void removeChild(
+    SourceDataEditor& self, 
+    Node* parent,
+    Node* child)
+{
+  if (child == parent->first_child)
+  {
+    if (child == parent->last_child)
+    {
+      parent->first_child = nullptr;
+      parent->last_child = nullptr;
+    }
+    else
+    {
+      parent->first_child = child->next;
+    }
+  }
+  else
+  {
+    Node* preceeding = nullptr;
+    for (Node& other_child : eachChild(parent))
+    {
+      if (other_child.next == child)
+      {
+        preceeding = &other_child;
+        break;
+      }
+    }
+    assert(preceeding != nullptr);
+
+    preceeding->next = child->next;
+    if (child == parent->last_child)
+      parent->last_child = preceeding;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 template<typename T>
-static T* allocNodeState(Ctx& self, Node* node)
+static T* allocNodeState(SourceDataEditor& self, Node* node)
 {
   assert(node->state.ptr == nullptr);
-  node->state.ptr = self.bump->construct<T>();
+  node->state.ptr = self.bump.construct<T>();
   return node->state.as<T>();
 }
 
@@ -342,7 +388,7 @@ $ -- * ------------------------------------------------------------------------
 @[init_tree] av:funcgen(
   sde_initTree_,
   static void,
-  Ctx& self,
+  SourceDataEditor& self,
   Node* node)
 
 $ -- * ------------------------------------------------------------------------
@@ -364,27 +410,80 @@ $   return put_inline.declare(node)
 $ end
 
 $ -- * ------------------------------------------------------------------------
+$ -- Implement for types that need to place some inline UI before their 
+$ -- children do, eg. reflect::Array's buttons.
+
+@[put_inline_pre_child] av:funcgen(
+  sde_putInlinePreChildContent_,
+  static f32,
+  SourceDataEditor& self,
+  ui::UI& ui,
+  Rect bounds,
+  Node* node,
+  Node* child,
+  const SourceDataEditorSkinDef& skin)
+
+$ local inline_pre_child_nodes = List {}
+
+$ local function declareInlinePreChild(node)
+$   inline_pre_child_nodes:push(node)
+$   return put_inline_pre_child.declare(node)
+$ end
+
+$ -- * ------------------------------------------------------------------------
 
 $ av:previsit(ast.iro_builtins, function(type)
+$   if type == ast.builtins.b8 then
   /* --------------------------------------------------------------------------
    */
-  $(init_tree.stub(type)) 
+  $(init_tree.declare(type))
+  {
+    if (node->isMissingData())
+    {
+      node->data->setBooleanValue(false);
+    }
+  }
 
   /* --------------------------------------------------------------------------
    */
   $(declareInline(type))
   {
-$ if type == ast.builtins.b8 then
-    // TODO(sushi) proper checkbox art.
     b8 val = node->data->testBooleanValue();
-    Color col = val? 0xffffffff : 0x444444ff;
+    
     Rect button_bounds = Rect::from(bounds.x,bounds.y,bounds.h,bounds.h);
-    ui.putQuad(button_bounds, col);
-    ui::Focus focus = ui.putFocusableBounds("checkbox"_fid, button_bounds);
-    if (focus.wasPrimaryPressed())
-      node->data->setBooleanValue(!val);
-$ end
+
+    if (ui.putCheckbox(
+          "checkbox"_fid,
+          button_bounds,
+          &val,
+          skin.checkbox))
+    {
+      node->data->setBooleanValue(val);
+    }
   }
+$   else -- Not b8
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(type)) 
+  {
+    allocNodeState<TextField>(self, node)->init(
+      node->data,
+      DataPart::Value);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(type))
+  {
+    node->state.as<TextField>()->put(
+      ui,
+      "number-field"_fid,
+      bounds,
+      DataPart::Value,
+      node->data,
+      skin);
+  }
+$   end
 $ end)
 
 $ -- * ------------------------------------------------------------------------
@@ -441,28 +540,19 @@ $ end)
 
 $ -- * ------------------------------------------------------------------------
 
-struct RectState
+$ local function visitVectorLikeType(decl, comps)
+$   local comps = List(comps)
+$   local TState = "VectorLike_"..decl:formCSafeName().."_State"
+/* ============================================================================
+ */
+struct $(TState)
 {
-  TextField x;
-  TextField y;
-  TextField w;
-  TextField h;
+$ for comp in comps:each() do
+  TextField $(comp);
+$ end
 };
 
-static void initRectTextField(
-    Ctx& self, 
-    Node* node,
-    String name,
-    TextField* field)
-{
-  SourceData* comp = node->data->findChildByName(name);
-  if (comp == nullptr)
-    comp = node->data->addNumberValue(self.sde->default_data, name, 0.f);
-  
-  field->init(comp, DataPart::Value);
-}
-
-$ av:visit(lookup "Rect", function(decl)
+$ av:visit(decl, function(decl)
   /* --------------------------------------------------------------------------
    */
   $(init_tree.declare(decl))
@@ -470,23 +560,32 @@ $ av:visit(lookup "Rect", function(decl)
     if (!node->data->hasObjectData())
       node->data->setObject(nil);
 
-    auto* state = allocNodeState<RectState>(self, node);
-    initRectTextField(self, node, "x"_str, &state->x);
-    initRectTextField(self, node, "y"_str, &state->y);
-    initRectTextField(self, node, "w"_str, &state->w);
-    initRectTextField(self, node, "h"_str, &state->h);
+    auto* state = allocNodeState<$(TState)>(self, node);
+
+$ for comp in comps:each() do
+    {
+      SourceData* comp_data = node->data->findChildByName("$(comp)"_str);
+      if (comp_data == nullptr)
+        comp_data = node->data->addNumberValue(
+          self.default_data, 
+          "$(comp)"_str, 
+          0.f);
+    
+      state->$(comp).init(comp_data, DataPart::Value);
+    }
+$ end
   }
 
   /* --------------------------------------------------------------------------
    */
   $(declareInline(decl))
   {
-    auto* state = node->state.as<RectState>();
+    auto* state = node->state.as<$(TState)>();
 
     Rect comp_bounds = {};
     comp_bounds.x = bounds.x;
     comp_bounds.y = bounds.y;
-    comp_bounds.w = math::floor(bounds.w / 4.f);
+    comp_bounds.w = math::floor(bounds.w / $(#comps).f);
     comp_bounds.h = bounds.h;
 
 $   local function placeNameAndField(name)
@@ -498,7 +597,7 @@ $   local function placeNameAndField(name)
 
       state->$(name).put(
         ui, 
-        "rect-$(name)"_fid, 
+        "veclike-comp-$(name)"_fid, 
         field_bounds,
         DataPart::Value,
         node->data->findChildByName("$(name)"_str),
@@ -508,12 +607,123 @@ $   local function placeNameAndField(name)
     }
 $   end
 
-    @placeNameAndField "x"
-    @placeNameAndField "y"
-    @placeNameAndField "w"
-    @placeNameAndField "h"
+$   for comp in comps:each() do
+$     placeNameAndField(comp)
+$   end
+  }
+  
+$ end)
+
+$ end
+
+$$$ 
+-- Note that colors are not handled here, since they can be specified as 
+-- a hex number or object data.
+visitVectorLikeType(lookup "Rect", { "x", "y", "w", "h" })
+
+local vec_comps = List { "x", "y", "z", "w" }
+for vec_type in minfo.vec_types:each() do
+  visitVectorLikeType(lookup(vec_type.name), vec_comps:sub(1, vec_type.len))
+end
+$$$
+
+$ -- * ------------------------------------------------------------------------
+
+/* ============================================================================
+ */
+struct ColorState
+{
+  TextField r;
+  TextField g;
+  TextField b;
+  TextField a;
+};
+
+$ av:visit(lookup "Color", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    if (node->data->val.kind == SourceData::Value::Kind::NumberHex)
+    {
+      Color val = node->data->as_Color();
+
+      node->data->setObject(nil);
+
+      node->data->addUIntValue(self.default_data, "r"_str, val.r);
+      node->data->addUIntValue(self.default_data, "g"_str, val.g);
+      node->data->addUIntValue(self.default_data, "b"_str, val.b);
+      node->data->addUIntValue(self.default_data, "a"_str, val.a);
+    }
+    else if (!node->data->hasChildren())
+    {
+      node->data->setObject(nil);
+    }
+
+    auto* state = allocNodeState<ColorState>(self, node);
+
+$ local function initCompState(comp)
+    {
+      SourceData* comp_data = node->data->findChildByName("$(comp)"_str);
+      if (comp_data == nullptr)
+        comp_data = node->data->addUIntValue(
+          self.default_data, 
+          "$(comp)"_str, 
+          $(comp == "a" and "255" or "0"));
+    
+      state->$(comp).init(comp_data, DataPart::Value);
+    }
+$ end
+    
+    @initCompState "r"
+    @initCompState "g"
+    @initCompState "b"
+    @initCompState "a"
   }
 
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    auto* state = node->state.as<ColorState>();
+
+    f32 preview_width = skin.row.height;
+    f32 comps_width = bounds.w - preview_width - 5.f;
+
+    ui.putQuad(
+      Rect::from(bounds.x, bounds.y, preview_width, preview_width),
+      node->data->as_Color());
+
+    Rect comp_bounds = {};
+    comp_bounds.x = bounds.x + preview_width + 5.f;
+    comp_bounds.y = bounds.y;
+    comp_bounds.w = math::floor(comps_width / 4.f);
+    comp_bounds.h = bounds.h;
+
+$   local function placeNameAndField(name)
+    {
+      f32 comp_offset = ui.putText(comp_bounds, "$(name)"_str, skin.text).x;
+      Rect field_bounds = comp_bounds
+        .contractedLeft(comp_offset)
+        .contractedX(6.f);
+
+      state->$(name).put(
+        ui, 
+        "color-comp-$(name)"_fid, 
+        field_bounds,
+        DataPart::Value,
+        node->data->findChildByName("$(name)"_str),
+        skin);
+
+      comp_bounds.x += comp_bounds.w;
+    }
+$   end
+
+    @placeNameAndField "r"
+    @placeNameAndField "g"
+    @placeNameAndField "b"
+    @placeNameAndField "a"
+  }
 $ end)
 
 $ -- * ------------------------------------------------------------------------
@@ -555,8 +765,16 @@ $ end)
 
 $ -- * ------------------------------------------------------------------------
 
+static const f32 array_button_size = 14.f;
+
+struct ArrayState
+{
+  Node* to_remove = nullptr;
+};
+
 $ av:visit(lookup "reflect::Array", function(decl)
 $   local subtype = decl.args[1]
+
   /* --------------------------------------------------------------------------
    */
   $(init_tree.declare(decl))
@@ -572,6 +790,83 @@ $   local subtype = decl.args[1]
 
       $(init_tree.call(subtype))(self, child);
     }
+
+    allocNodeState<ArrayState>(self, node);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    auto* state = node->state.as<ArrayState>();
+
+    if (state->to_remove != nullptr)
+    {
+      // If we need to remove a node (see the inline pre-child func below)
+      // find its index, remove it from our SourceData child list, and 
+      // fix the names of Node children following it.
+      Node* to_remove = state->to_remove;
+      state->to_remove = nullptr;
+
+      u32 child_idx = 0;
+      b8 passed = false;
+      for (Node& child : eachChild(node))
+      {
+        defer { child_idx += 1; };
+
+        if (&child == to_remove)
+        {
+          passed = true;
+          node->data->children.remove(child_idx);
+        }
+        else if (passed)
+        {
+          child.name = fmt(self, '[', child_idx - 1, ']');
+        }
+      }
+
+      removeChild(self, node, to_remove);
+    }
+
+    auto add_bounds = Rect::from(bounds.pos(), vec2f(array_button_size));
+
+    if (ui.putButton("array-add"_fid,
+          add_bounds,
+          skin.array_add))
+    {
+      SourceData* child_data = self.default_data.allocateSourceData();
+
+      Node* child = addChild(
+        self,
+        fmt(self, '[', node->data->children.len, ']'),
+        node,
+        child_data,
+        "$(subtype.qname)"_typeid);
+
+      node->data->children.push(child_data);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInlinePreChild(decl))
+  {
+    auto* state = node->state.as<ArrayState>();
+
+    auto remove_bounds = Rect::from(bounds.pos(), vec2f(array_button_size));
+
+    ui::ScopedId id(ui, ui.generateIdFromPointer(child));
+
+    if (ui.putButton("array-remove"_fid,
+          remove_bounds,
+          skin.array_remove))
+    {
+      // Defer removal of the child. We can't just remove it here, because
+      // this function is called while putNode() is interating our children.
+      state->to_remove = child;
+    }
+
+    return remove_bounds.w + 5.f;
   }
 $ end)
 
@@ -628,8 +923,15 @@ $   for derived in subdecl:allDerived() do
       if (ui.putButton("typed-ptr-select-$(derived.qname)"_fid,
             button_bounds,
             "$(derived.qname)"_str,
-            skin.button))
+            skin.dropdown_option))
       {
+        node->data->type = "$(derived.qname)"_str;
+        node->data->children.clear();
+
+        clearChildren(self, node);
+
+        $(init_tree.call(derived))(self, node);
+
         println("select $(derived.qname)");
         ui.closePopup();        
       }
@@ -639,6 +941,38 @@ $   end
       ui.endDropDown();
     }
   }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+$ -- For now, link types behave just like strings, but eventually they should
+$ -- show a dropdown of assets matching the linked type.
+
+$ av:previsit(ast.Record, function(decl)
+$   if not decl:findMetadata "ref" then
+$     return
+$   end
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl))
+  {
+    allocNodeState<TextField>(self, node)->init(
+      node->data,
+      DataPart::Value);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    node->state.as<TextField>()->put(
+      ui,
+      "link-field"_fid,
+      bounds,
+      DataPart::Value,
+      node->data,
+      skin);
+  }
+$   return av.handled
 $ end)
 
 $ -- * ------------------------------------------------------------------------
@@ -661,19 +995,11 @@ $ av:begin(function(decl)
 $   return decl.metadata.def ~= nil
 $ end)
 
-$ -- * ------------------------------------------------------------------------
-
-$ av:eachVisited(function(decl)
-$   if decl.user.has_inline then
-$     print(decl)
-$   end
-$ end)
-
 /* ----------------------------------------------------------------------------
  */
 b8 SourceDataEditor::init()
 {
-  if (!node_allocator.init())
+  if (!bump.init())
     return false;
 
   if (!default_data.init())
@@ -693,23 +1019,19 @@ void SourceDataEditor::setSourceData(
   this->sfile = sfile;
   this->type_id = type_id;
 
-  node_allocator.clear();
+  bump.clear();
 
-  Node* root = node_allocator.construct<Node>();
+  Node* root = bump.construct<Node>();
   root->type = type_id;
   root->data = sdata;
 
   root_node = root;
 
-  Ctx ctx;
-  ctx.sde = this;
-  ctx.bump = &node_allocator;
-
   switch (type_id.val)
   {
 $ av:eachVisited(function(decl)
   case "$(decl.type.qname)"_typeid_val:
-    $(init_tree.call(decl))(ctx, root);
+    $(init_tree.call(decl))(*this, root);
     break;
 $ end)
   }
@@ -722,6 +1044,11 @@ struct PutParams
   u32 depth = 0;
   f32 y = 0.f;
   f32 max_name_extent = 0.f;
+
+  // x offset applied to the inline contents of the node we are placing,
+  // likely due to its parent injecting some UI.
+  f32 inline_offset = 0.f;
+
   u32* node_idx = 0;
 
   void bumpidx()
@@ -742,25 +1069,9 @@ struct PutResult
   f32 height = 0.f;
 };
 
-/* ----------------------------------------------------------------------------
- */
-static void putInlineContent(
-    SourceDataEditor& self,
-    ui::UI& ui,
-    Node& node,
-    PutParams& params,
-    const SourceDataEditorSkinDef& skin)
-{
-  Rect bounds = {};
-  bounds.x = params.max_name_extent + skin.row.name_value_spacing;
-  bounds.y = params.y;
-  bounds.w = ui.getWidth() - bounds.x - skin.row.right_padding;
-  bounds.h = skin.row.height;
-  bounds.contractY(2.f);
-  
-  switch (node.type.val)
-  {
-$ for node in inline_nodes:each() do
+$ -- * ------------------------------------------------------------------------
+
+$ local function putNodeCases(node)
 $   local qname
 $   if node:is(ast.Type) then
 $     qname = node.qname
@@ -775,6 +1086,22 @@ $       end
 $     end
 $   end
   case "$(qname)"_typeid_val:
+$ end
+
+/* ----------------------------------------------------------------------------
+ */
+static void putInlineContent(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Rect bounds,
+    Node& node,
+    PutParams& params,
+    const SourceDataEditorSkinDef& skin)
+{
+  switch (node.type.val)
+  {
+$ for node in inline_nodes:each() do
+$   putNodeCases(node)
     $(put_inline.call(node))(
       self, 
       ui, 
@@ -788,11 +1115,64 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static f32 putInlineContentPreChild(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Rect bounds,
+    Node& node,
+    Node& child,
+    PutParams& params,
+    const SourceDataEditorSkinDef& skin)
+{
+  f32 width = 0.f;
+  switch (node.type.val)
+  {
+$ for node in inline_pre_child_nodes:each() do
+$   putNodeCases(node)
+  width = $(put_inline_pre_child.call(node))(
+    self,
+    ui,
+    bounds,
+    &node,
+    &child,
+    skin);
+$ end
+  }
+  return width;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static inline String getNodeNamePrefix(Node& node)
 {
   if (node.hasChildren())
     return node.isOpen()? "- "_str : "+ "_str;
   return "  "_str;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline Rect computeInlineBounds(
+    ui::UI& ui,
+    PutParams& params,
+    f32 y,
+    b8 use_inline_offset,
+    const SourceDataEditorSkinDef& skin)
+{
+  Rect inline_bounds = {};
+  
+  inline_bounds.x = params.max_name_extent + skin.row.name_value_spacing;
+  if (use_inline_offset)
+    inline_bounds.x += params.inline_offset;
+
+  inline_bounds.y = y;
+
+  inline_bounds.w = ui.getWidth() - inline_bounds.x - skin.row.right_padding;
+  inline_bounds.h = skin.row.height;
+
+  inline_bounds.contractY(2.f);
+
+  return inline_bounds;
 }
 
 /* ----------------------------------------------------------------------------
@@ -807,18 +1187,18 @@ static PutResult putNode(
   ui.pushId(ui.generateIdFromPointer(&node));
   defer { ui.popId(); };
 
-  Color row_color = params.getRowColor(skin);
-
-  ui.putQuad(
-    Rect::from(0.f, params.y, ui.getWidth(), skin.row.height), 
-    row_color);
-
-  params.bumpidx();
+  // Color row_color = params.getRowColor(skin);
+  //
+  // ui.putQuad(
+  //   Rect::from(0.f, params.y, ui.getWidth(), skin.row.height), 
+  //   row_color);
+  //
+  // params.bumpidx();
 
   auto name_bounds = Rect::from(
     params.depth * skin.children_indent,
     params.y,
-    999.f,
+    params.max_name_extent,
     skin.row.height);
 
   ui::Focus name_hit = ui.putFocusableBounds("name"_fid, name_bounds);
@@ -831,7 +1211,14 @@ static PutResult putNode(
 
   vec2f name_size = ui.putText(name_bounds, node.name, skin.text);
 
-  putInlineContent(self, ui, node, params, skin);
+  Rect inline_bounds = computeInlineBounds(
+    ui,
+    params,
+    params.y,
+    true,
+    skin);
+
+  putInlineContent(self, ui, inline_bounds, node, params, skin);
 
   f32 y = params.y + max(name_size.y, skin.row.height);
 
@@ -843,6 +1230,24 @@ static PutResult putNode(
     for (Node& child : eachChild(&node))
     {
       child_params.y = y;
+      
+      // TODO(sushi) should probably reuse this.
+      Rect child_inline_bounds = computeInlineBounds(
+        ui,
+        params,
+        child_params.y,
+        false,
+        skin);
+
+      child_params.inline_offset = putInlineContentPreChild(
+        self,
+        ui,
+        child_inline_bounds,
+        node,
+        child,
+        params,
+        skin);
+
       PutResult result = putNode(self, ui, child, child_params, skin);
       y += max(result.height, skin.row.height);
     }

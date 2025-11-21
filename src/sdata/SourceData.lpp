@@ -3,12 +3,24 @@ $ local cmn = require "common"
 @lpp.import "sdata/SourceData.lh"
 @lpp.import "sdata/SourceDataFile.lh"
 
+@lpp.import "Color.lh"
+
 #include "iro/io/Stream.h"
 #include "iro/fs/fs.h"
 
 #include "stdlib.h"
 
 using namespace iro;
+
+/* ----------------------------------------------------------------------------
+ */
+u8 SourceData::as_u8()
+{
+  assert(val.kind == Value::Kind::Number);
+  s64 v = atoll((char*)val.str.ptr);
+  assert(v > 0 && v <= 255);
+  return v;
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -24,6 +36,31 @@ f32 SourceData::as_f32()
 {
   assert(val.kind == Value::Kind::Number);
   return atof((char*)val.str.ptr);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Color SourceData::as_Color()
+{
+  Color result = {};
+  if (hasObjectData())
+  {
+    if (SourceData* r = findChildByName("r"_str))
+      result.r = r->as_u8();
+    if (SourceData* g = findChildByName("g"_str))
+      result.g = g->as_u8();
+    if (SourceData* b = findChildByName("b"_str))
+      result.b = b->as_u8();
+    if (SourceData* a = findChildByName("a"_str))
+      result.a = a->as_u8();
+    else
+      result.a = 255;
+  }
+  else if (val.kind == Value::Kind::NumberHex)
+    result = u32(strtoll((char*)val.str.ptr, nullptr, 16));
+  else
+    assert(!"invalid SourceData for Color");
+  return result;
 }
 
 /* ----------------------------------------------------------------------------

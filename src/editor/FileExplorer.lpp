@@ -155,7 +155,7 @@ void FileExplorer::putUI(ui::UI& ui, const EditorSkinDef& skin)
       continue;
 
     const ui::ItemSkin* icon_skin = nullptr;
-    const ui::ButtonSkin* button_skin = nullptr;
+    const ui::TextButtonSkin* button_skin = nullptr;
     if (ent.kind == DirEntry::Kind::Directory)
     {
       button_skin = &skin.filex.dir_button;

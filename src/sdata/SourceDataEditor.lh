@@ -24,7 +24,7 @@ struct SourceDataEditor
 
   SourceDataFile default_data = {};
 
-  mem::Bump node_allocator;
+  mem::Bump bump;
 
   rtr::TypeId type_id = nil;
 

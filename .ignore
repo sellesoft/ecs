@@ -1,4 +1,7 @@
 # _build/*
+_build/**/*.d
+_build/**/*.o
+_build/**/*.json
 _data/*
 tmp/*
 .clangd/*

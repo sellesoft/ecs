@@ -29,13 +29,11 @@ rich_black = 0x13212bff
 // Eerie black
 grey = 0x201d1dff
 
-button_base = { text = text : { align = {x=0.5, y=0.5} } }
-
 button = 
 {
-  normal = button_base : { item = { color = dark_blue,  } },
-  hovered = button_base : { item = { color = blue, } },
-  pressed = button_base : { item = { color = light_blue, } },
+  normal  = { color = dark_blue,  },
+  hovered = { color = blue,       },
+  pressed = { color = light_blue, },
 }
 
 return ui::DebugSkinDef

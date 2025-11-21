@@ -15,6 +15,7 @@ $ require "common"
 using namespace iro;
 
 struct SourceDataFile;
+struct Color;
 
 /* ============================================================================
  */
@@ -208,6 +209,7 @@ struct SourceData
   /* --------------------------------------------------------------------------
    *  Reading helpers.
    */
+  u8 as_u8();
   u64 as_u64();
 
   f32 as_f32();
@@ -218,6 +220,8 @@ struct SourceData
     assert(children.len == 2);
     return vec2f(children[0]->as_f32(), children[1]->as_f32());
   }
+
+  Color as_Color();
 
   /* --------------------------------------------------------------------------
    *  Editing helpers.

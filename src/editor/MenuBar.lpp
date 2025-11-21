@@ -41,7 +41,7 @@ void MenuBar::putUI(ui::UI& ui, const EditorSkinDef& skin)
           "tab-button"_fid,
           tab_bounds,
           tab.name,
-          skin.button))
+          skin.text_button))
       ui.openPopup("tab-popup"_fid);
 
     Rect popup_bounds = {};
@@ -55,7 +55,7 @@ void MenuBar::putUI(ui::UI& ui, const EditorSkinDef& skin)
     for (const MenuBarTab::Option& opt : tab.options)
     {
       max_name_len = max(max_name_len, 
-        ui.measureText({}, opt.name, skin.button.normal.text).x);
+        ui.measureText({}, opt.name, skin.text_button.normal.text).x);
     }
 
     popup_bounds.w = max_name_len;
@@ -81,7 +81,7 @@ void MenuBar::putUI(ui::UI& ui, const EditorSkinDef& skin)
               ui.generateIdFromInteger(iopt),
               opt_bounds,
               opt.name,
-              skin.button))
+              skin.text_button))
         {
           editor->cmd_bus.exec(opt.command);
         }

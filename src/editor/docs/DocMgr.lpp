@@ -793,7 +793,6 @@ static void putDocTreeNodeSingle(
   if (ui.putButton(
         "doc-close"_fid,
         close_button_bounds,
-        nil,
         skin.doc.header.close_button))
   {
     node->doc->flags.set(Doc::Flag::ToBeClosed);
@@ -847,7 +846,7 @@ $ for derived in TDoc:allDerived() do
             "type-$(derived.name)"_fid,
             type_button_bounds,
             "$(derived.name)"_str,
-            skin.button))
+            skin.text_button))
       {
         requestReplaceDoc(self, node, "$(derived.qname)"_typeid);
       }

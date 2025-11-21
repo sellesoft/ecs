@@ -552,6 +552,11 @@ struct UI
     ItemId id, 
     Rect bounds, 
     String text, 
+    const TextButtonSkin& skin);
+
+  b8 putButton(
+    ItemId id,
+    Rect bounds,
     const ButtonSkin& skin);
 
   b8 putCheckbox(
@@ -771,6 +776,21 @@ $ end
   void expandCurrentGroupExtents(Rect bounds)
   {
     getCurrentGroup()->extents.expandToContain(bounds);
+  }
+};
+
+/* ============================================================================
+ */
+struct ScopedId
+{
+  ui::UI& ui;
+  ScopedId(ui::UI& ui, ui::ItemId id) : ui(ui) 
+  {
+    ui.pushId(id);
+  }
+  ~ScopedId()
+  {
+    ui.popId();
   }
 };
 

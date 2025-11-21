@@ -441,7 +441,7 @@ $ for elem in TTool.elems:each() do
       if (ui.putButton("map_editor.tool_select.$(elem.name)"_fid,
             button_bounds,
             "$(elem.name)"_str,
-            skin.button))
+            skin.text_button))
       {
         self.selected_tool = Tool::$(elem.name);
         ui.closePopup();

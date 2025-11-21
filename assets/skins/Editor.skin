@@ -31,13 +31,20 @@ text =
   color = white,
 }
 
-button_base = { text = text : { align = {x=0.5, y=0.5} } }
+text_button_base = { text = text : { align = {x=0.5, y=0.5} } }
+
+text_button = 
+{
+  normal  = text_button_base : { item = { color = dark_blue,  } },
+  hovered = text_button_base : { item = { color = blue,       } },
+  pressed = text_button_base : { item = { color = light_blue, } },
+}
 
 button = 
 {
-  normal = button_base : { item = { color = dark_blue,  } },
-  hovered = button_base : { item = { color = blue, } },
-  pressed = button_base : { item = { color = light_blue, } },
+  normal = { color = dark_blue },
+  hovered = { color = blue },
+  pressed = { color = light_blue },
 }
 
 dropdown_button_base =
@@ -163,6 +170,60 @@ sdata_edit = SourceDataEditorSkinDef
 
   button = button,
 
+  array_add = 
+  {
+    normal = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=1,y=81,w=14,h=14 },
+    },
+    hovered = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=1,y=97,w=14,h=14 },
+    },
+    pressed = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=1,y=113,w=14,h=14 },
+    },
+  },
+
+  array_remove = 
+  {
+    normal = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=17,y=81,w=14,h=14 },
+    },
+    hovered = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=17,y=97,w=14,h=14 },
+    },
+    pressed = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=17,y=113,w=14,h=14 },
+    },
+  },
+
+  checkbox = 
+  {
+    enabled = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=0,y=64,w=16,h=16 },
+      color = 0xffffffff
+    },
+    disabled = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=16,y=64,w=16,h=16 },
+      color = 0xffffffff
+    },
+  },
+
   text_field = 
   {
     box = 
@@ -231,30 +292,21 @@ doc = EditorDocSkin
     {
       normal = 
       {
-        item = 
-        {
-          texture = "assets/editor/icons",
-          color = 0xffffffff,
-          uv = { x=0, y=0, w=16, h=16 },
-        }
+        texture = "assets/editor/icons",
+        color = 0xffffffff,
+        uv = { x=0, y=0, w=16, h=16 },
       },
       hovered = 
       {
-        item = 
-        {
-          texture = "assets/editor/icons",
-          color = 0xffffffff,
-          uv = { x=16, y=0, w=16, h=16 },
-        }
+        texture = "assets/editor/icons",
+        color = 0xffffffff,
+        uv = { x=16, y=0, w=16, h=16 },
       },
       pressed = 
       {
-        item = 
-        {
-          texture = "assets/editor/icons",
-          color = 0xffffffff,
-          uv = { x=32, y=0, w=16, h=16 },
-        }
+        texture = "assets/editor/icons",
+        color = 0xffffffff,
+        uv = { x=32, y=0, w=16, h=16 },
       }
     },
 
@@ -346,6 +398,7 @@ return EditorSkinDef
   tool_panel_bg_color = rich_black,
 
   button = button,
+  text_button = text_button,
 
   dropdown = 
   {

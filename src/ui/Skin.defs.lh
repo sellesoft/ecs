@@ -15,6 +15,7 @@ struct ItemSkin
 {
   gfx::TextureLink texture;
   Rect uv;
+  @m.default({ r=255,g=255,b=255,a=255 })
   Color color;
   Rect border;
   Color border_color;
@@ -58,6 +59,16 @@ struct TextItemSkin
  */
 struct ButtonSkin
 {
+  ItemSkin normal;
+  ItemSkin hovered;
+  ItemSkin pressed;
+  ItemSkin disabled;
+};
+
+/* ============================================================================
+ */
+struct TextButtonSkin
+{
   TextItemSkin normal;
   TextItemSkin hovered;
   TextItemSkin pressed;
@@ -99,8 +110,6 @@ struct CheckboxSkin
 {
   ItemSkin enabled;
   ItemSkin disabled;
-
-  TextSkin name;
 };
 
 /* ============================================================================

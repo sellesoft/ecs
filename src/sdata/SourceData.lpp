@@ -18,7 +18,7 @@ u8 SourceData::as_u8()
 {
   assert(val.kind == Value::Kind::Number);
   s64 v = atoll((char*)val.str.ptr);
-  assert(v > 0 && v <= 255);
+  assert(v >= 0 && v <= 255);
   return v;
 }
 

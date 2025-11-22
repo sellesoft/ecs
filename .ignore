@@ -2,6 +2,7 @@
 _build/**/*.d
 _build/**/*.o
 _build/**/*.json
+include/lppclang
 _data/*
 tmp/*
 .clangd/*

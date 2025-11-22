@@ -1071,6 +1071,37 @@ vec2f UI::getLocalCursorPos() const
 
 /* ----------------------------------------------------------------------------
  */
+vec2f UI::getGroupLocalCursorPos() const
+{
+  Group* curgroup = getCurrentGroup();
+  return frame_input.getCursorPos() - curgroup->transform.getTranslation();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void clipGlyphToBounds(Rect bounds, Rect* glyph, Rect* uv)
+{
+  Rect clipped_glyph = glyph->clipTo(bounds);
+
+  vec2f diff = glyph->size() - clipped_glyph.size();
+
+  if (diff.x != 0.f)
+  {
+    f32 ratio = clipped_glyph.w / glyph->w;
+    uv->w *= ratio;
+  }
+
+  if (diff.y != 0.f)
+  {
+    f32 ratio = clipped_glyph.h / glyph->h;
+    uv->h *= ratio;
+  }
+
+  *glyph = clipped_glyph;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
 {
   // TODO(sushi) add a null font 
@@ -1121,6 +1152,19 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
         
         vec4f uv = { pc.u0, pc.v0, pc.u1, pc.v1 };
 
+        auto glyph_rect = Rect::from(
+          cursor,
+          pc.x1 - pc.x0,
+          pc.y1 - pc.y0);
+
+        auto uv_rect = Rect::from(
+          pc.u0,
+          pc.v0,
+          pc.u1 - pc.u0,
+          pc.v1 - pc.v0);
+
+        clipGlyphToBounds(bounds, &glyph_rect, &uv_rect);
+
         auto glyph_size = vec2f(pc.x1 - pc.x0, pc.y1 - pc.y0);
 
         f32 cursor_viewport_y = cursor.y + group_screen_pos.y;
@@ -1130,9 +1174,9 @@ vec2f UI::putText(Rect bounds, String text, const TextSkin& skin)
           // TODO(sushi) group quad commands so we aren't storing 
           //             the same texture and color over and over again.
           putQuad(
-            Rect::from(cursor, glyph_size), 
+            glyph_rect,
             skin.font.getTextureHandle(),
-            uv,
+            vec4f(uv_rect.x, uv_rect.y, uv_rect.extentX(), uv_rect.extentY()),
             skin.color);
         }
 
@@ -1786,7 +1830,7 @@ void LineDrawCmd::execute(UI& ui, gfx::BatchRenderer& br)
  */
 Focus UI::putFocusableBounds(CombinedItemId id, Rect bounds)
 {
-  @log.trace(ui, "UI::putFocusableBounds(", id.val, ")\n");
+  @log.trace(ui, "UI::putFocusableBounds(", id.val, ")");
 
   Panel* current_panel = current_layer->current_panel;
 

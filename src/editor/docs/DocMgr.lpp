@@ -974,12 +974,12 @@ static void handleDocTreeNodeSplitting(
   if (ui.frame_input.wasMouseButtonReleased(MouseButton::Left))
   {
     openDoc(
-        self,
-        node->doc->type,
-        node,
-        split,
-        SplitSide::A,
-        cursor_ratio);
+      self,
+      node->doc->type,
+      node,
+      split,
+      SplitSide::A,
+      cursor_ratio);
 
     node->splitting = false;
   }
@@ -1195,19 +1195,18 @@ static void putDocTreeNodeSplit(
   
     if (child->next != nullptr)
     {
-      pos = 
-        putDocTreeNodeDivider(
-          self,
-          ui,
-          bounds,
-          child,
-          child_bounds,
-          node->state,
-          local_cursor,
-          divider_size,
-          is_h_split,
-          pos,
-          skin);
+      pos = putDocTreeNodeDivider(
+        self,
+        ui,
+        bounds,
+        child,
+        child_bounds,
+        node->state,
+        local_cursor,
+        divider_size,
+        is_h_split,
+        pos,
+        skin);
      }
   }
 

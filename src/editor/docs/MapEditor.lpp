@@ -639,6 +639,9 @@ static void outlineEntityCollider(
  */
 void MapEditor::render(gfx::Vulkan& vk)
 {
+  if (map_view_size.x <= 0.f || map_view_size.y <= 0.f)
+    return;
+
   gfx::RenderTarget target = 
   {
     .image = map_render.image,

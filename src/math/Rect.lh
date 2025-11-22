@@ -154,8 +154,8 @@ struct Rect
     Rect result = {};
     result.x = max(rhs.x, x);
     result.y = max(rhs.y, y);
-    result.w = min(rhs.x + rhs.w, x + w) - result.x;
-    result.h = min(rhs.y + rhs.h, y + h) - result.y;
+    result.w = max(0.f, min(rhs.x + rhs.w, x + w) - result.x);
+    result.h = max(0.f, min(rhs.y + rhs.h, y + h) - result.y);
     return result;
   }
 

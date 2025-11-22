@@ -11,6 +11,7 @@ struct UI;
 }
 
 struct SourceData;
+struct SDETreeState;
 
 /* ============================================================================
  */
@@ -28,10 +29,7 @@ struct SourceDataEditor
 
   rtr::TypeId type_id = nil;
 
-  f32 name_column_width = 0.f;
-  f32 max_name_extent = 0.f;
-
-  void* root_node = nullptr;
+  SDETreeState* state = nullptr;
 
   // An interface for recieving notifications when the source data editor does
   // certain things.

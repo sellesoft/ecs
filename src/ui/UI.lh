@@ -83,7 +83,7 @@ typedef Flags<FocusFlag> FocusFlags;
  */
 struct Focus
 {
-  FocusFlags flags;
+  FocusFlags flags = {};
 
 $ for flag in focus_flags:each() do
 $   local prefix = "is"
@@ -534,8 +534,13 @@ struct UI
 
   // Places a basic 'item', a decorated rect basically.
   void putItem(Rect bounds, const ItemSkin& skin);
-
+ 
+  // `getLocalCursorPos` gets the position of the cursor relative to the last
+  // item that was created in the current Group, eg. any focusable bounds.
+  // `getGroupLocalCursorPos` ignores any items.
+  // TODO(sushi) this is kinda unintuitive.
   vec2f getLocalCursorPos() const;
+  vec2f getGroupLocalCursorPos() const;
 
   // Places undecorated text.
   // TODO(sushi) basic text functions that don't require a skin
@@ -801,6 +806,11 @@ consteval ui::ItemId operator ""_fid(const char* c, size_t s)
   return ui::ItemId{operator ""_hashed(c,s)};
 }
 
-
-
+namespace iro::io
+{
+static s64 format(WStream* out, ui::CombinedItemId id)
+{
+  return formatv(out, "CombinedId(", Hex(id.val), ")");
+}
+}
 

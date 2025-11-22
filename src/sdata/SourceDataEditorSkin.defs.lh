@@ -75,6 +75,9 @@ struct SourceDataEditorSkinDef
   vec2f padding;
 
   f32 children_indent;
+
+  f32 divider_width;
+  f32 divider_margin;
 };
 
 struct SourceDataEditorSkinDefRef : 

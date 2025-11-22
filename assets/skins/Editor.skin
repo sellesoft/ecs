@@ -162,6 +162,9 @@ sdata_edit = SourceDataEditorSkinDef
 
   children_indent = 12,
 
+  divider_width = 2,
+  divider_margin = 3,
+
   text = text : { align = { x=0, y=0.5 } },
 
   padding = {x=0, y=0},
@@ -175,17 +178,17 @@ sdata_edit = SourceDataEditorSkinDef
     normal = 
     {
       texture = "assets/editor/icons",
-      uv = { x=1,y=81,w=14,h=14 },
+      uv = { x=2,y=82,w=12,h=12 },
     },
     hovered = 
     {
       texture = "assets/editor/icons",
-      uv = { x=1,y=97,w=14,h=14 },
+      uv = { x=2,y=98,w=12,h=12 },
     },
     pressed = 
     {
       texture = "assets/editor/icons",
-      uv = { x=1,y=113,w=14,h=14 },
+      uv = { x=2,y=114,w=12,h=12 },
     },
   },
 
@@ -194,17 +197,17 @@ sdata_edit = SourceDataEditorSkinDef
     normal = 
     {
       texture = "assets/editor/icons",
-      uv = { x=17,y=81,w=14,h=14 },
+      uv = { x=18,y=82,w=12,h=12 },
     },
     hovered = 
     {
       texture = "assets/editor/icons",
-      uv = { x=17,y=97,w=14,h=14 },
+      uv = { x=18,y=98,w=12,h=12 },
     },
     pressed = 
     {
       texture = "assets/editor/icons",
-      uv = { x=17,y=113,w=14,h=14 },
+      uv = { x=18,y=114,w=12,h=12 },
     },
   },
 
@@ -258,7 +261,6 @@ sdata_edit = SourceDataEditorSkinDef
     height = 18,
     name_padding = 4,
     min_name_width = 30,
-    name_value_spacing = 8,
     even_color = grey,
     odd_color = black,
     right_padding = 5,

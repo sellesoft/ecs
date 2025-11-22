@@ -160,6 +160,18 @@ NodeIter eachChild(Node* node)
   return NodeIter { node->first_child };
 }
 
+/* ============================================================================
+ */
+struct SDETreeState
+{
+  Node root_node;
+  f32 divider_x;
+  f32 max_name_extent;
+  b8 first_frame;
+
+  b8 dragging_divider;
+};
+
 /* ----------------------------------------------------------------------------
  *  Formats the given args and returns a String cached in the bump buffer.
  */
@@ -393,6 +405,25 @@ $ -- * ------------------------------------------------------------------------
 
 $ -- * ------------------------------------------------------------------------
 
+@[put_child_name] av:funcgen(
+  sde_putChildName_,
+  static f32,
+  SourceDataEditor& self,
+  ui::UI& ui,
+  Rect bounds,
+  Node* node,
+  Node* child,
+  u32 child_idx,
+  const SourceDataEditorSkinDef& skin)
+
+$ local child_name_placers = List {}
+$ local function declarePutChildName(node)
+$   child_name_placers:push(node)
+$   return put_child_name.declare(node)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
 @[put_inline] av:funcgen(
   sde_putInlineContent_,
   static void,
@@ -415,7 +446,7 @@ $ -- children do, eg. reflect::Array's buttons.
 
 @[put_inline_pre_child] av:funcgen(
   sde_putInlinePreChildContent_,
-  static f32,
+  static void,
   SourceDataEditor& self,
   ui::UI& ui,
   Rect bounds,
@@ -587,6 +618,10 @@ $ end
     comp_bounds.y = bounds.y;
     comp_bounds.w = math::floor(bounds.w / $(#comps).f);
     comp_bounds.h = bounds.h;
+    
+    // TODO(sushi) fix how these are placed. Need to properly compute the 
+    //             space occupied by names then size fields appropriately
+    //             to fill in the row width completely.
 
 $   local function placeNameAndField(name)
     {
@@ -805,6 +840,10 @@ $   local subtype = decl.args[1]
       // If we need to remove a node (see the inline pre-child func below)
       // find its index, remove it from our SourceData child list, and 
       // fix the names of Node children following it.
+      // 
+      // TODO(sushi) add a way for types to override name behavior so we 
+      //             can just generate it each frame rather than needing 
+      //             to allocate Strings into the bump allocator.
       Node* to_remove = state->to_remove;
       state->to_remove = nullptr;
 
@@ -849,24 +888,30 @@ $   local subtype = decl.args[1]
 
   /* --------------------------------------------------------------------------
    */
-  $(declareInlinePreChild(decl))
+  $(declarePutChildName(decl))
   {
     auto* state = node->state.as<ArrayState>();
 
-    auto remove_bounds = Rect::from(bounds.pos(), vec2f(array_button_size));
+    io::StaticBuffer<32> name;
+    io::formatv(&name, '[', child_idx, ']');
 
-    ui::ScopedId id(ui, ui.generateIdFromPointer(child));
+    ui.putText(bounds, String(name), skin.text);
+
+    Rect remove_bounds = Rect::from(bounds)
+      .setSize(vec2f(array_button_size))
+      .alignRightInside(bounds, 2.f)
+      .alignCenteredYInside(bounds);
 
     if (ui.putButton("array-remove"_fid,
           remove_bounds,
           skin.array_remove))
-    {
+    {      
       // Defer removal of the child. We can't just remove it here, because
       // this function is called while putNode() is interating our children.
       state->to_remove = child;
     }
 
-    return remove_bounds.w + 5.f;
+    return bounds.w;
   }
 $ end)
 
@@ -995,55 +1040,12 @@ $ av:begin(function(decl)
 $   return decl.metadata.def ~= nil
 $ end)
 
-/* ----------------------------------------------------------------------------
- */
-b8 SourceDataEditor::init()
-{
-  if (!bump.init())
-    return false;
-
-  if (!default_data.init())
-    return false;
-
-  return true;
-}
-
-/* ----------------------------------------------------------------------------
- */
-void SourceDataEditor::setSourceData(
-    SourceData* sdata, 
-    SourceDataFile* sfile, 
-    rtr::TypeId type_id)
-{
-  this->sdata = sdata;
-  this->sfile = sfile;
-  this->type_id = type_id;
-
-  bump.clear();
-
-  Node* root = bump.construct<Node>();
-  root->type = type_id;
-  root->data = sdata;
-
-  root_node = root;
-
-  switch (type_id.val)
-  {
-$ av:eachVisited(function(decl)
-  case "$(decl.type.qname)"_typeid_val:
-    $(init_tree.call(decl))(*this, root);
-    break;
-$ end)
-  }
-}
-
 /* ============================================================================
  */
 struct PutParams
 {
-  u32 depth = 0;
+  f32 x = 0.f;
   f32 y = 0.f;
-  f32 max_name_extent = 0.f;
 
   // x offset applied to the inline contents of the node we are placing,
   // likely due to its parent injecting some UI.
@@ -1068,6 +1070,15 @@ struct PutResult
 {
   f32 height = 0.f;
 };
+
+/* ----------------------------------------------------------------------------
+ */
+static inline String getNodeNamePrefix(Node& node)
+{
+  if (node.hasChildren())
+    return node.isOpen()? "- "_str : "+ "_str;
+  return "  "_str;
+}
 
 $ -- * ------------------------------------------------------------------------
 
@@ -1143,16 +1154,75 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-static inline String getNodeNamePrefix(Node& node)
+static f32 putChildName(
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Node& node,
+    Node& child,
+    u32 child_idx,
+    PutParams& params,
+    const SourceDataEditorSkinDef& skin)
 {
+  auto name_bounds = Rect::from(
+    params.x, 
+    params.y, 
+    self.state->divider_x - params.x - skin.divider_margin,
+    skin.row.height);
+
+  f32 prefix_width = 0.f;
   if (node.hasChildren())
-    return node.isOpen()? "- "_str : "+ "_str;
-  return "  "_str;
+  {
+    String prefix = getNodeNamePrefix(child);
+
+    prefix_width = ui.putText(
+      name_bounds,
+      prefix,
+      skin.text).x;
+
+    ui::Focus open_hit = ui.putFocusableBounds(
+      "open-hit"_fid,
+      name_bounds);
+
+    if (open_hit.wasPrimaryReleased())
+      child.flags.toggle(NodeFlag::Open);
+  }
+
+  f32 name_width = 0.f;
+  switch (node.type.val)
+  {
+$ for node in child_name_placers:each() do
+$   putNodeCases(node)
+    name_width = $(put_child_name.call(node))(
+      self,
+      ui,
+      name_bounds.contractedLeft(prefix_width),
+      &node,
+      &child,
+      child_idx,
+      skin);
+    break;
+$ end
+  default:
+    name_width = ui.putText(
+      name_bounds.contractedLeft(prefix_width),
+      child.name,
+      skin.text).x;
+    break;
+  }
+
+  f32 total_width = name_width + prefix_width;
+
+  self.state->max_name_extent = max(
+    self.state->max_name_extent, 
+    total_width);
+
+  return total_width;
 }
 
 /* ----------------------------------------------------------------------------
  */
 static inline Rect computeInlineBounds(
+    SourceDataEditor& self,
     ui::UI& ui,
     PutParams& params,
     f32 y,
@@ -1161,7 +1231,10 @@ static inline Rect computeInlineBounds(
 {
   Rect inline_bounds = {};
   
-  inline_bounds.x = params.max_name_extent + skin.row.name_value_spacing;
+  inline_bounds.x = self.state->divider_x 
+                  + skin.divider_width 
+                  + skin.divider_margin;
+
   if (use_inline_offset)
     inline_bounds.x += params.inline_offset;
 
@@ -1184,34 +1257,9 @@ static PutResult putNode(
     PutParams& params,
     const SourceDataEditorSkinDef& skin)
 {
-  ui.pushId(ui.generateIdFromPointer(&node));
-  defer { ui.popId(); };
-
-  // Color row_color = params.getRowColor(skin);
-  //
-  // ui.putQuad(
-  //   Rect::from(0.f, params.y, ui.getWidth(), skin.row.height), 
-  //   row_color);
-  //
-  // params.bumpidx();
-
-  auto name_bounds = Rect::from(
-    params.depth * skin.children_indent,
-    params.y,
-    params.max_name_extent,
-    skin.row.height);
-
-  ui::Focus name_hit = ui.putFocusableBounds("name"_fid, name_bounds);
-  if (name_hit.wasPrimaryReleased())
-    node.flags.toggle(NodeFlag::Open);
-
-  String prefix = getNodeNamePrefix(node);
-  if (notnil(prefix))
-    name_bounds.x += ui.putText(name_bounds, prefix, skin.text).x;
-
-  vec2f name_size = ui.putText(name_bounds, node.name, skin.text);
 
   Rect inline_bounds = computeInlineBounds(
+    self,
     ui,
     params,
     params.y,
@@ -1220,19 +1268,43 @@ static PutResult putNode(
 
   putInlineContent(self, ui, inline_bounds, node, params, skin);
 
-  f32 y = params.y + max(name_size.y, skin.row.height);
+  f32 y = params.y + skin.row.height;
 
   if (node.hasChildren() && node.isOpen())
   {
     PutParams child_params = params;
-    child_params.depth += 1;
+    child_params.x = params.x + skin.children_indent;
 
+    u32 child_idx = 0;
     for (Node& child : eachChild(&node))
     {
+      defer { child_idx += 1; };
+
+      ui.pushId(ui.generateIdFromPointer(&child));
+      defer { ui.popId(); };
+
       child_params.y = y;
+
+      Color row_color = params.getRowColor(skin);
+
+      ui.putQuad(
+          Rect::from(0.f, y, ui.getWidth(), skin.row.height), 
+          row_color);
+
+      params.bumpidx();
+
+      putChildName(
+        self,
+        ui,
+        node,
+        child,
+        child_idx,
+        child_params,
+        skin);
       
       // TODO(sushi) should probably reuse this.
       Rect child_inline_bounds = computeInlineBounds(
+        self,
         ui,
         params,
         child_params.y,
@@ -1253,64 +1325,10 @@ static PutResult putNode(
     }
   }
 
-  if (name_hit.hasBeenIdleHoveredFor(ui, TimeSpan::fromSeconds(1.f)))
-  {
-    String type_name = rtr::typenameFromTypeId(node.type);
-
-    auto tooltip_bounds = Rect::from(name_bounds)
-      .alignBottomOutside(name_bounds, 4.f)
-      .setSize(ui.measureText(Rect::inf(), type_name, skin.text))
-      .expanded(5.f);
-
-    TextItemSkin tooltip_skin = {};
-    tooltip_skin.text = skin.text;
-    tooltip_skin.text.align = vec2f(0.5, 0.5);
-    tooltip_skin.item.color = 0x111111ff;
-    tooltip_skin.item.border = Rect::from(10.f);
-    tooltip_skin.item.border_color = 0xaaaaaaff;
-
-    ui.pushLayer("type-tooltip"_fid, tooltip_bounds, {});
-    ui.putTextItem(ui.getBounds(), type_name, tooltip_skin);
-    ui.popLayer();
-  }
-
   PutResult result = {};
   result.height = y - params.y;
 
   return result;
-}
-
-/* ----------------------------------------------------------------------------
- */
-static f32 computeNodeNameExtent(
-    SourceDataEditor& self,
-    ui::UI& ui,
-    Node& node,
-    u32 depth,
-    const SourceDataEditorSkinDef& skin)
-{
-  auto name_bounds = Rect::from(0, 0, 999.f, 999.f);
-
-  vec2f name_size = ui.measureText(name_bounds, node.name, skin.text);
-
-  String prefix = node.isOpen()? "- "_str : "+ "_str;
-  name_size.x += ui.measureText(name_bounds, prefix, skin.text).x;
-
-  f32 name_extent = name_size.x + skin.children_indent * depth;
-
-  for (Node& child : eachChild(&node))
-  {
-    f32 child_extent = computeNodeNameExtent(
-      self,
-      ui,
-      child,
-      depth + 1,
-      skin);
-
-    name_extent = max(name_extent, child_extent);
-  }
-
-  return name_extent;
 }
 
 /* ----------------------------------------------------------------------------
@@ -1324,34 +1342,146 @@ void SourceDataEditor::put(
 
   ui.beginScrollGroup("sde-scroll"_fid, bounds, skin.scroll_bar);
 
-  if (root_node != nullptr)
+  if (state != nullptr)
   {
-    auto* root = (Node*)root_node;
+    state->divider_x = max(skin.row.min_name_width, state->divider_x);
 
-    f32 max_name_extent = 0.f;
-    for (Node& child : eachChild(root))
-    {
-      f32 child_extent = computeNodeNameExtent(*this, ui, child, 0, skin);
-      max_name_extent = max(child_extent, max_name_extent);
-    }
-
-    max_name_extent = max(max_name_extent, skin.row.min_name_width);
+    auto* root = &state->root_node;
 
     u32 node_idx = 0;
 
     PutParams params = {};
-    params.depth = 0;
-    params.y = 0.f;
-    params.max_name_extent = max_name_extent;
+    params.x = skin.padding.x;
+    params.y = skin.padding.y;
     params.node_idx = &node_idx;
-
+    
+    u32 child_idx = 0;
     for (Node& child : eachChild(root))
     {
+      defer { child_idx += 1; };
+
+      ui.pushId(ui.generateIdFromPointer(&child));
+      defer { ui.popId(); };
+
+      Color row_color = params.getRowColor(skin);
+
+      ui.putQuad(
+          Rect::from(0.f, params.y, ui.getWidth(), skin.row.height), 
+          row_color);
+
+      params.bumpidx();
+
+      putChildName(
+        *this,
+        ui,
+        *root,
+        child,
+        child_idx,
+        params,
+        skin);
+
       PutResult result = putNode(*this, ui, child, params, skin);
 
       params.y += max(result.height, skin.row.height);
     }
+
+    f32 group_height = ui.getHeight();
+    while (params.y < group_height)
+    {
+      Color fill_color = params.getRowColor(skin);
+
+      f32 fill_height = min(group_height - params.y, skin.row.height);
+
+      ui.putQuad(
+        Rect::from(
+          0.f, 
+          params.y, 
+          ui.getWidth(), 
+          fill_height),
+        fill_color);
+
+      params.y += fill_height;
+
+      params.bumpidx();
+    }
+
+    if (state->first_frame)
+    {
+      state->divider_x = state->max_name_extent + skin.divider_margin;
+      state->first_frame = false;
+    }
+  
+    auto divider_bounds = Rect::from(
+      state->divider_x, 
+      0.f,
+      skin.divider_width,
+      params.y);
+
+    ui::Focus divider_focus = ui.putFocusableBounds(
+      "sde-divider"_fid,
+      divider_bounds);
+
+    Color divider_color = 0x444444ff;
+    if (state->dragging_divider || divider_focus.isHovered())
+      divider_color = 0xddddddff;
+
+    ui.putQuad(divider_bounds, divider_color);
+
+    if (state->dragging_divider)
+    {
+      state->divider_x = ui.getGroupLocalCursorPos().x;
+
+      if (ui.wasPrimaryReleasedGlobally())
+        state->dragging_divider = false;
+    }
+    else if (divider_focus.wasPrimaryPressed())
+      state->dragging_divider = true;
   }
 
   ui.endScrollGroup(skin.scroll_bar);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 SourceDataEditor::init()
+{
+  if (!bump.init())
+    return false;
+
+  if (!default_data.init())
+    return false;
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void SourceDataEditor::setSourceData(
+    SourceData* sdata, 
+    SourceDataFile* sfile, 
+    rtr::TypeId type_id)
+{
+  this->sdata = sdata;
+  this->sfile = sfile;
+  this->type_id = type_id;
+
+  bump.clear();
+
+  state = bump.construct<SDETreeState>();
+
+  state->first_frame = true;
+  state->dragging_divider = false;
+
+  Node* root = &state->root_node;
+  root->type = type_id;
+  root->data = sdata;
+
+  switch (type_id.val)
+  {
+$ av:eachVisited(function(decl)
+  case "$(decl.type.qname)"_typeid_val:
+    $(init_tree.call(decl))(*this, root);
+    break;
+$ end)
+  }
 }

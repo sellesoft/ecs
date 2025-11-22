@@ -487,21 +487,6 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   if (window_result.size_changed)
     gfx::vk::onWindowResized(vk);
 
-  if (input.real_state.wasKeyPressed(Key::V))
-  {
-    if (input.real_state.isKeyDown(Key::LCtrl))
-      cmd_bus.exec("Editor.DocMgr.open Test vl"_str);
-    else
-      cmd_bus.exec("Editor.DocMgr.open Test vr"_str);
-  }
-  if (input.real_state.wasKeyPressed(Key::H))
-  {
-    if (input.real_state.isKeyDown(Key::LCtrl))
-      cmd_bus.exec("Editor.DocMgr.open Test ht"_str);
-    else
-      cmd_bus.exec("Editor.DocMgr.open Test hb"_str);
-  }
-
   {
     ZoneScopedN("Doc update");
     doc_mgr.update();
@@ -510,7 +495,7 @@ Editor::UpdateResult Editor::update(const UpdateParams& params)
   InputState ui_input;
   input.cloneInputState(&ui_input);
 
-  Rect ui_viewport = Rect::from(vec2f(0,0), vec2f(window.size));
+  Rect ui_viewport = Rect::from(0, 0, vec2f(window.size));
 
   ui::UI::FrameParams ui_frame_params = 
   {
@@ -576,7 +561,22 @@ $ end
     }
     ui.popLayer();
   }
-  ui.endFrame();
+  ui.endFrame(&ui_input);
+
+  if (ui_input.tryConsumePressedKey(Key::V))
+  {
+    if (input.real_state.isKeyDown(Key::LCtrl))
+      cmd_bus.exec("Editor.DocMgr.open Test vl"_str);
+    else
+      cmd_bus.exec("Editor.DocMgr.open Test vr"_str);
+  }
+  if (ui_input.tryConsumePressedKey(Key::H))
+  {
+    if (input.real_state.isKeyDown(Key::LCtrl))
+      cmd_bus.exec("Editor.DocMgr.open Test ht"_str);
+    else
+      cmd_bus.exec("Editor.DocMgr.open Test hb"_str);
+  }
 
   if (input.real_state.wasKeyPressed(Key::F3))
   {
@@ -593,7 +593,7 @@ $ end
   if (!window_result.size_changed)
     render();
 
-  if (input.real_state.wasKeyPressed(Key::B) &&
+  if (ui_input.tryConsumePressedKey(Key::B) &&
       input.real_state.isKeyDown(Key::LCtrl))
   {
     log.info("---------------------------------------------------\n",
@@ -660,12 +660,6 @@ $ end
       }
     }
   }
-
-  if (input.real_state.wasKeyPressed(Key::O))
-    doc_mgr.cacheDocState();
-
-  if (input.real_state.wasKeyPressed(Key::I))
-    doc_mgr.loadCachedDocState();
 
   return result;
 }

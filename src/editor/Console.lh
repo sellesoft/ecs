@@ -45,6 +45,9 @@ struct Console
 
   iro::mem::LenientBump string_buffer;
 
+  // TODO(sushi) we should store the parsed data for these rather than the 
+  //             raw message so that we aren't performing that on each message
+  //             every frame the console is open.
   iro::Array<ConsoleEntry> entries;
 
   io::StaticBuffer<256> command_buffer;

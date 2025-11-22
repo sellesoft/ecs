@@ -110,6 +110,8 @@ struct Rect
   Rect contracted(f32 v) const { return contractedX(v).contractedY(v); }
   void contract(f32 v) { *this = contracted(v); }
 
+  void contract(vec2f v) { *this = contractedX(v.x).contractedY(v.y); }
+
   Rect contracted(f32 vx, f32 vy) const 
     { return contractedX(vx).contracted(vy); }
   void contract(f32 vx, f32 vy) { *this = contracted(vx, vy); }

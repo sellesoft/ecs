@@ -611,6 +611,46 @@ $ end
 
   link_table.writeZeroedArrayT<Link>(links.len);
 
+  // NOTE(sushi) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  //             A lot of the below logic is quite complicated, maybe too 
+  //             complicated. I had at some point realized that this could
+  //             be simplified by instead storing on Link/Ptr an offset from
+  //             the beginning of CompiledData directly to the thing(s) its 
+  //             referencing. I had tried this when implementing the embedded
+  //             Ptr table, but actually found it to be more confusing, because
+  //             in that case you must do:
+  //
+  //                (ThingIWant*)(((u8*)compiled_data_ptr) + link_ptr->offset)
+  //
+  //             rather than:
+  //
+  //                link_ptr->ptr.get();
+  //
+  //             When I initially tried setting up Ptrs that way, I was trying
+  //             to use the offset as if it were from CompiledData::data rather
+  //             than as an offset from the beginning of CompiledData itself
+  //             (because I'm an idiot). However, due to that, and the 
+  //             requirement of offsetting a pointer manually feeling 
+  //             unintuitive, I've decided that those things will just store
+  //             OffsetPtr's to what they are referencing. Its also more 
+  //             consistent with how the `root`/`data`/etc. things on 
+  //             CompiledData itself work. 
+  //
+  //             To sum up what the below logic is doing (even though I've
+  //             already typed paragraphs about it): we are computing what the
+  //             offset to the referenced thing (a String, Link type, or 
+  //             embedded pointer to fix) from the *field* of Link/Ptr *will*
+  //             be once we actually write all of this out to disk. We can't
+  //             use the simple helper methods of the Offset* types yet because
+  //             the memory is still segmented by each part and is only joined
+  //             together at the very end of this function in the file
+  //             we are writing to.
+  //
+  //             It would be good to try and simplify this later, but for now 
+  //             it works and manages to keep the usage of CompiledData simple
+  //             which is preferrable over complicating its usage to make its 
+  //             internals simple.
+
   for (s32 i = 0; i < links.len; ++i)
   {
     // Compute where this Link will appear in the table.
@@ -787,7 +827,7 @@ $ end
     (Link*)(buffer.data.ptr + link_table_offset),
     links.len);
 
-  // And finally write out the pointers we found, including the strings
+  // And finally write out the pointers we found, including the string
   // pointers.
   header->pointers.setSlice(
     (Ptr*)(buffer.data.ptr + ptr_table_offset),

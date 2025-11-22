@@ -2,7 +2,7 @@
 BasedOnStyle: Microsoft
 BinPackArguments: 'true'
 BinPackParameters: 'OnePerLine'
-ColumnLimit: '80'
+ColumnLimit: '79'
 UseTab: 'Never'
 TabWidth: '2'
 IndentWidth: '2'

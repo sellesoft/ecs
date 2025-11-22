@@ -18,9 +18,9 @@ struct TextEdit
 {
   struct Buffer
   {
-    u8*  ptr;
-    s32* len;
-    s32  space;
+    u8*  ptr = nullptr;
+    s32* len = nullptr;
+    s32  space = 0;
   };
 
   Buffer buffer;
@@ -28,10 +28,10 @@ struct TextEdit
   struct Cursor
   {
     // Byte offset into buffer.
-    s32 pos;
+    s32 pos = 0;
 
     // Selection size in bytes in either direction starting at the cursor.
-    s32 len;
+    s32 len = 0;
   } cursor;
 
   void setBuffer(Buffer buffer);

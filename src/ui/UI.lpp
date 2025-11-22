@@ -1309,6 +1309,9 @@ TextFieldResult UI::putTextField(
 
   TextFieldResult result = {};
 
+  if (bounds.w <= 0.f || bounds.y <= 0.f)
+    return result;
+
   using enum TextFieldFlag;
 
   @log.trace(ui, "UI::putTextField\n");
@@ -1404,6 +1407,14 @@ $ end
     if (frame_input.wasKeyPressed(Key::Enter))
       result.set(Commit);
   }
+  
+  // Always ensure that the cursor's position is clamped to the length of the
+  // edit buffer. Its possible someone is passing in uninitialized data in
+  // here which causes the text to be positioned incorrectly, likely outside
+  // of the visual range.
+  // TODO(sushi) there is probably a better place to do this, or maybe just 
+  //             assert on this case so we aren't checking this in release?
+  edit->cursor.pos = max(0, min(*edit->buffer.len, edit->cursor.pos));
 
   b8 clicked = focus.wasPrimaryPressed();
   vec2f cursor_pos = getLocalCursorPos().xadd(-skin.padding.x);
@@ -1441,8 +1452,9 @@ $ end
     // TODO(sushi) text box
     if (codepoint == '\n')
     {
-      @log.warn(ui, "newline encountered in a UI text field buffer! these are not ",
-           "handled in this widget\n");
+      @log.warn(ui, 
+        "newline encountered in a UI text field buffer! these are not "
+        "handled in this widget");
     }
   
     gfx::PackedChar pc;
@@ -1498,10 +1510,14 @@ $ end
   //             or, more generally, offset state for each Group and idk
   //             if I wanna do that.
   // Begin a group for the bounds we want to scissor the text in.
+  // TODO(sushi) pretty sure this can be cleaned up now that putText 
+  //             properly clips to the provided bounds.
   beginGroup(
     bounds.contracted(skin.padding.x, skin.padding.y),
     GroupScissor::Self);
   {
+    drawLocalDebugBorder(text_bounds);
+
     // Begin a group for the text such that we can pan it.
     beginGroup(text_bounds, GroupScissor::Parent);
     {
@@ -1884,6 +1900,26 @@ void BorderDrawCmd::execute(UI& ui, gfx::BatchRenderer& br)
 void UI::drawDebugBorder(Rect bounds, Color color)
 {
   auto* border_cmd = frame_allocator.construct<BorderDrawCmd>();
+
+  border_cmd->bounds = bounds;
+  border_cmd->offsets = { -1, -1, -1, -1 };
+  border_cmd->color = color;
+
+  border_cmd->next = debug_cmds;
+  debug_cmds = border_cmd;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void UI::drawLocalDebugBorder(Rect bounds, Color color)
+{
+  auto* border_cmd = frame_allocator.construct<BorderDrawCmd>();
+  
+  auto* group = getCurrentGroup();
+  bounds.addPos(group->transform.getTranslation());
+
+  if (Item* item = group->items)
+    bounds.addPos(item->bounds.pos());
 
   border_cmd->bounds = bounds;
   border_cmd->offsets = { -1, -1, -1, -1 };

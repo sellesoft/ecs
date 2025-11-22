@@ -269,12 +269,11 @@ void Console::putUI(ui::UI& ui, const EditorSkinDef& editor_skin)
   bar_bounds.w = ui.getWidth();
   bar_bounds.h = bar_height;
 
-  ui::TextFieldResult result = 
-    ui.putTextField(
-      "console-input"_fid,
-      bar_bounds,
-      &text_field,
-      skin.command_field);
+  ui::TextFieldResult result = ui.putTextField(
+    "console-input"_fid,
+    bar_bounds,
+    &text_field,
+    skin.command_field);
 
   using enum ui::TextFieldFlag;
 
@@ -302,7 +301,7 @@ void Console::putUI(ui::UI& ui, const EditorSkinDef& editor_skin)
     text_field.edit.clear();
   }
 
-  if (ui.frame_input.wasKeyPressed(Key::Backquote))
+  if (ui.frame_input.tryConsumePressedKey(Key::Backquote))
     is_open = !is_open;
 
   if (is_open)

@@ -707,6 +707,8 @@ $ end
   void drawDebugBorder(Rect rect, Color color = 0xff0000ff);
   void drawDebugLine(vec2f start, vec2f end, Color color = 0xff0000ff);
 
+  void drawLocalDebugBorder(Rect rect, Color color = 0xff0000ff);
+
   Cmd* debug_cmds = nullptr;
 
   // The initial Layer created on frame start.

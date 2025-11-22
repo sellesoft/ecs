@@ -415,7 +415,11 @@ if lake.cliargs[1] == "patch" then
   o.SharedLib("_build/ecs_patch"..lake.cliargs[2])
     :link(objs, link_params)
 else
-  o.Exe "_build/ecs" :link(objs, link_params)
+  if lake.os == "windows" then
+    o.Exe "_build/ecs.exe" :link(objs, link_params)
+  else
+    o.Exe "_build/ecs" :link(objs, link_params)
+  end
 end
 
 local hrf = build_dir.."/ecs.hrf"

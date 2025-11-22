@@ -4,11 +4,17 @@ $ if IRO_WIN32 then
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 #include "Windowsx.h"
-#include "hidusage.h"
 #undef ERROR
 #undef max
 #undef min
 #undef interface
+
+@lpp.import "window/Window.lh"
+
+#define HID_USAGE_PAGE_GENERIC 0x01
+#define HID_USAGE_GENERIC_MOUSE 0x02
+#define HID_USAGE_GENERIC_GAMEPAD 0x05
+#define HID_USAGE_GENERIC_KEYBOARD 0x06
 
 struct InputMgr;
 
@@ -20,6 +26,7 @@ struct Win32Stuff
   HDC  dummy_window_device_handle;
 
   InputMgr* input;
+  Window::UpdateResult update_result;
 };
 
 extern Win32Stuff win32;

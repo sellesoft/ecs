@@ -28,8 +28,12 @@ if lake.os == "windows" then
     "gdi32",
     "Ws2_32",
     "vulkan-1",
-    "shaderc_combined"
+    "shaderc_combined",
+    "luajit",
+    "lua51",
   }
+
+  os.setEnvVar("PATH", cwd.."\\third_party\\bin\\win32;"..os.getEnvVar("PATH"))
 
   local vksdk = os.getEnvVar "VK_SDK_PATH"
 
@@ -44,7 +48,11 @@ if lake.os == "windows" then
     vksdk = vksdk:sub(1,-2)
   end
 
+  lib_dirs:push(cwd.."/third_party/lib/luajit/win32")
+  lib_dirs:push(cwd.."/third_party/lib/shaderc")
   lib_dirs:push(vksdk.."/Lib")
+
+  include_dirs:push(cwd.."/third_party/lib/clang/22/include")
   include_dirs:push(vksdk.."/Include")
 
 elseif lake.os == "linux" then

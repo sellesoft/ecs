@@ -1,9 +1,11 @@
-$ if IRO_WIN32 then
 $ require "common"
+$ if IRO_WIN32 then
 
 @lpp.import "graphics/Vulkan.lh"
-
+@lpp.import "window/Window.lh"
 @lpp.import "window/Window_win32.lh"
+@log.import
+
 #include "vulkan/vulkan_win32.h"
 
 namespace gfx
@@ -22,8 +24,9 @@ b8 Vulkan::initSurface(Window& window)
     .hwnd = (HWND)window.handle,
   };
 
-  vkCreateWin32SurfaceKHR(
-    instance, &create_info, &allocator_callbacks, &surface);
+  if(VK_SUCCESS != vkCreateWin32SurfaceKHR(instance, &create_info,
+                                           &allocator_callbacks, &surface))
+    return @log.error(vk, "failed to initialize win32 surface\n");
 
   return true;
 }
@@ -35,6 +38,6 @@ VkFormat Vulkan::getPlatformDesiredSurfaceFormat()
   return VK_FORMAT_B8G8R8A8_SRGB;
 }
 
-}
+} // namespace gfx
 
-$ end
+$ end -- if IRO_WIN32

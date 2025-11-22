@@ -1,21 +1,14 @@
 $ local cmn = require "common"
-
 $ if IRO_WIN32 then
-
-#include "iro/Platform_Win32.h"
-
-using Win32ErrMsg = iro::platform::Win32ErrMsg;
-
-using namespace iro;
 
 @lpp.import "window/Window.lh"
 @lpp.import "window/Window_win32.lh"
 @lpp.import "window/Window.events.lh"
 @lpp.import "Engine.lh"
 
-#include "iro/Logger.h"
+#include "iro/os/Helpers_Win32.h"
 
-@cmn.defFileLogger(window, Info)
+@log.import
 
 Win32Stuff win32;
 
@@ -24,7 +17,7 @@ Win32Stuff win32;
 template<typename E>
 void Window::raise(const Engine& eng, E& event)
 {
-  eng.eventbus.broadcast.raise<E>(event);
+  eng.broadcast_eventbus.raise<E>(event);
 }
 
 /* ----------------------------------------------------------------------------
@@ -103,7 +96,7 @@ $ end
   @vkcase(RETURN,     NPEnter,  Enter)
   @vkcase(SHIFT,      RShift,   LShift)
   default:
-    WARN("unhandled vkey: ", (u64)rawkb.VKey, "\n");
+    @log.warn(window, "unhandled vkey: ", (u64)rawkb.VKey, "\n");
   }
   return {};
 }
@@ -123,13 +116,21 @@ LRESULT CALLBACK win32WindowCallback(
 
   switch (msg)
   {
-  case WM_CREATE: // TODO
-    return 0;
+  case WM_ACTIVATE:
+  {
+    win32.update_result.focus_changed = true;
+    window->focused = wparam == WA_ACTIVE || wparam == WA_CLICKACTIVE;
+    window->raise<WindowFocusChange>(*window->eng,
+      {.has_focus = window->focused});
+  }
+  return 0;
 
-  case WM_CLOSE: // TODO
-    return 0;
-
-  case WM_DESTROY: // TODO
+  case WM_CLOSE:
+    DestroyWindow((HWND)window->handle);
+    break;
+  
+  case WM_DESTROY:
+    win32.update_result.closed = true;
     return 0;
 
   case WM_SIZE:
@@ -140,8 +141,9 @@ LRESULT CALLBACK win32WindowCallback(
       ClientToScreen((HWND)window->handle, (LPPOINT)&rect.right);
       window->size.x = rect.right - rect.left;
       window->size.y = rect.bottom - rect.top;
+      win32.update_result.size_changed = true;
       window->raise<WindowResized>(*window->eng, {vec2f(window->size)});
-      INFO("window resized to ", window->size, "\n");
+      @log.info(window, "window resized to ", window->size, "\n");
     }
     return 0;
 
@@ -206,14 +208,14 @@ LRESULT CALLBACK win32WindowCallback(
           NULL,
           &raw_input_size,
           sizeof(RAWINPUTHEADER)))
-        return ERROR_WIN32("failed to get size of raw input data");
+        return reportErrMsg("failed to get size of raw input data");
 
       const u64 buffer_size = 1000;
       u8 buffer[buffer_size];
       if (buffer_size < raw_input_size)
       {
-        ERROR("buffer allocated for raw input is too small (", buffer_size,
-              " < ", raw_input_size, ")\n");
+        @log.error(window, "buffer allocated for raw input is too small (",
+                   buffer_size, " < ", raw_input_size, ")\n");
         assert(false);
       }
 
@@ -223,7 +225,7 @@ LRESULT CALLBACK win32WindowCallback(
           &buffer,
           &raw_input_size,
           sizeof(RAWINPUTHEADER)))
-        return ERROR_WIN32("failed to get raw input data");
+        return reportErrMsg("failed to get raw input data");
 
       auto p_raw_input = (RAWINPUT*)buffer;
 
@@ -289,7 +291,7 @@ b8 Window::initializeBackend()
   dummy_window_class.lpszClassName = g_win32_dummy_window_classname;
 
   if (!RegisterClassEx(&dummy_window_class))
-    return ERROR_WIN32("failed to register dummy window class");
+    return reportErrMsg("failed to register dummy window class");
 
   WNDCLASSEXA window_class = {};
   window_class.cbSize        = sizeof(WNDCLASSEXW);
@@ -299,7 +301,7 @@ b8 Window::initializeBackend()
   window_class.lpszClassName = g_win32_window_classname;
 
   if (!RegisterClassEx(&window_class))
-    return ERROR_WIN32("failed to register window class");
+    return reportErrMsg("failed to register window class");
 
   // Create dummy window.
   win32.dummy_window_handle =
@@ -318,7 +320,7 @@ b8 Window::initializeBackend()
       NULL);                    // User data?
 
   if (win32.dummy_window_handle == NULL)
-    return ERROR_WIN32("failed to dummy create window");
+    return reportErrMsg("failed to dummy create window");
 
   win32.dummy_window_device_handle = GetDC(win32.dummy_window_handle);
 
@@ -350,7 +352,7 @@ b8 Window::init(Engine& eng, String name, InputMgr& inputmgr)
       NULL);
 
   if (handle == nullptr)
-    return ERROR_WIN32("failed to spawn window ", title);
+    return reportErrMsg("failed to spawn window ", title);
 
   context = GetDC((HWND)handle);
 
@@ -383,7 +385,7 @@ b8 Window::init(Engine& eng, String name, InputMgr& inputmgr)
   devices[1].hwndTarget = (HWND)handle;
 
   if (!RegisterRawInputDevices(devices, 2, sizeof(RAWINPUTDEVICE)))
-    return ERROR_WIN32("failed to register raw input devices");
+    return reportErrMsg("failed to register raw input devices");
 
   win32.input = &inputmgr;
 
@@ -392,16 +394,46 @@ b8 Window::init(Engine& eng, String name, InputMgr& inputmgr)
 
 /* ----------------------------------------------------------------------------
  */
-b8 Window::update(InputMgr& input)
+void Window::deinit()
 {
+  if (handle == nullptr)
+    return;
+
+  ReleaseDC((HWND)handle, (HDC)context);
+  DestroyWindow((HWND)handle);
+
+  handle = nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Window::hideCursor()
+{
+  SetCursor(NULL);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void Window::showCursor()
+{
+  SetCursor(LoadCursor(NULL, IDC_ARROW));
+}
+
+/* ----------------------------------------------------------------------------
+ */
+Window::UpdateResult Window::update(InputMgr& input)
+{
+  mem::zeroStruct(&win32.update_result);
+
   MSG msg;
   while (PeekMessage(&msg, (HWND)handle, 0, 0, PM_REMOVE))
   {
+    win32.update_result.got_event = true;
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
 
-  return true;
+  return win32.update_result;
 }
 
 $ end -- if IRO_WIN32

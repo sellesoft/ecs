@@ -460,22 +460,22 @@ convfunc.resolveDecl = function(self, cdecl, resolving_forward)
     -- those functions to cascade down the class hierarchy of clang such that
     -- this stuff is set more appropriately.
 
-    local loc = cdecl:getSourceLoc()
-    
-    if loc.filename == "lppclang-inputs" then
-      if self.source then
-        local origin, line = self.source:mapOutputLineToOrigin(loc.line)
-        if origin then
-          decl.loc = {}
-          decl.loc.source = origin:getName()
-          decl.loc.line = line
-        end
-      end
-    else
-      decl.loc = {}
-      decl.loc.source = loc.filename
-      decl.loc.line = loc.line
-    end
+    -- local loc = cdecl:getSourceLoc()
+    --
+    -- if loc.filename == "lppclang-inputs" then
+    --   if self.source then
+    --     local origin, line = self.source:mapOutputLineToOrigin(loc.line)
+    --     if origin then
+    --       decl.loc = {}
+    --       decl.loc.source = origin:getName()
+    --       decl.loc.line = line
+    --     end
+    --   end
+    -- else
+    --   decl.loc = {}
+    --   decl.loc.source = loc.filename
+    --   decl.loc.line = loc.line
+    -- end
 
     decl.comment = cdecl:getComment()
     if decl:is(ast.TagDecl) and cdecl:isAnonymous() then

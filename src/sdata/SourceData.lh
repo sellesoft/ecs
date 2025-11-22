@@ -204,6 +204,21 @@ struct SourceData
 
   /* --------------------------------------------------------------------------
    */
+  b8 removeChildByIdx(u32 idx)
+  {
+    if (hasObjectData())
+    {
+      if (children.len > idx)
+      {
+        children.remove(idx);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* --------------------------------------------------------------------------
+   */
   SourceData* deepCopy(SourceDataFile* sfile);
 
   /* --------------------------------------------------------------------------

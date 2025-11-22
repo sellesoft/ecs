@@ -9,6 +9,7 @@
 // break some of the reflection code. So, do NOT try to import this into 
 // any headers and then use Tracy in them (not like there's any reason to..
 // hopefully) because this prevents that from happening.
+$ require "common"
 $ if not ECS_REFLECTION_IMPORT then
 $ if ECS_ENABLE_PROFILING then
 #include "tracy/Tracy.hpp"

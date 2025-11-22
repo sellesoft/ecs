@@ -11,8 +11,8 @@ namespace editor
 b8 Test::init()
 {
   sde.init();
-  SourceDataFile::from(&file, "assets/skins/Editor.skin"_str);
-  sde.setSourceData(file.returned_data, &file, "EditorSkinDef"_typeid);
+  SourceDataFile::from(&file, "assets/maps/Test.map"_str);
+  sde.setSourceData(file.returned_data, &file, "MapDef"_typeid);
 
   return true;
 }

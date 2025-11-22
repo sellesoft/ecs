@@ -298,6 +298,8 @@ for lfile in lake.utils.glob("src/**/*.lh"):each() do
   lh_task:dependsOn(guard)
 end
 
+-- do return end
+
 ---@return lake.obj.Exe
 local function buildTest(name)
   ---@type ecs.test.Params

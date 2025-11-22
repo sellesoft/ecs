@@ -54,7 +54,7 @@ for _,v in ipairs(lpp.argv) do
       if define then
         local name, val = define:match "(.-)=(.*)"
         if name and val then
-          _G[name] = val
+          _G[name] = tonumber(val) or val
         end
       end
     end

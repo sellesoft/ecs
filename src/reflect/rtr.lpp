@@ -6,7 +6,7 @@ $ local ast = require "reflect.ast"
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs
 {
-  "src/**/*.lh",
+  "src/**/*.defs.lh",
 }
 $$$
 $(imported)

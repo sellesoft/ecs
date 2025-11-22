@@ -321,6 +321,20 @@ static T* allocNodeState(SourceDataEditor& self, Node* node)
   return node->state.as<T>();
 }
 
+/* ----------------------------------------------------------------------------
+ */
+static u32 findChildIdx(Node* node, Node* child)
+{
+  u32 child_idx = 0;
+  for (Node& other_child : eachChild(node))
+  {
+    if (&other_child == child)
+      return child_idx;
+    child_idx += 1;
+  }
+  assert(!"improper child search");
+}
+
 /* ============================================================================
  */
 enum class DataPart
@@ -434,10 +448,27 @@ $ -- * ------------------------------------------------------------------------
   const SourceDataEditorSkinDef& skin)
 
 $ local inline_nodes = List {}
-
 $ local function declareInline(node)
 $   inline_nodes:push(node)
 $   return put_inline.declare(node)
+$ end
+
+$ -- * ------------------------------------------------------------------------
+
+@[put_body] av:funcgen(
+  sde_putBody_,
+  static f32,
+  SourceDataEditor& self,
+  ui::UI& ui,
+  vec2f pos,
+  f32 width,
+  Node* node,
+  const SourceDataEditorSkinDef& skin)
+
+$ local body_nodes = List {}
+$ local function declareBody(node)
+$   body_nodes:push(node)
+$   return put_body.declare(node)
 $ end
 
 $ -- * ------------------------------------------------------------------------
@@ -455,7 +486,6 @@ $ -- children do, eg. reflect::Array's buttons.
   const SourceDataEditorSkinDef& skin)
 
 $ local inline_pre_child_nodes = List {}
-
 $ local function declareInlinePreChild(node)
 $   inline_pre_child_nodes:push(node)
 $   return put_inline_pre_child.declare(node)
@@ -767,14 +797,107 @@ $ av:visit(ast.Enum, function(decl)
   /* --------------------------------------------------------------------------
    */
   $(init_tree.stub(decl)) // no children, edited inline.
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    String selected_text = node->data->val.str;
+
+    if (ui.beginDropDown("enum-dropdown-$(decl.type.qname)"_fid,
+          bounds,
+          90.f,
+          selected_text,
+          skin.dropdown))
+    {
+      Rect button_bounds;
+      button_bounds.x = 0.f;
+      button_bounds.y = 0.f;
+      button_bounds.w = ui.getWidth();
+      button_bounds.h = 20.f;
+
+$   for elem in decl.elems:each() do
+      if (selected_text != "$(elem.name)"_str)
+      {
+        if (ui.putButton("enum-select-$(elem.name)"_fid,
+              button_bounds,
+              "$(elem.name)"_str,
+              skin.dropdown_option))
+        {
+          node->data->val.str = "$(elem.name)"_str;
+          ui.closePopup();
+        }
+
+        button_bounds.y += button_bounds.h;
+      }
+$   end
+
+      ui.endDropDown();
+    }
+  }
 $ end)
 
 $ -- * ------------------------------------------------------------------------
 
 $ av:visit(lookup "iro::Flags", function(decl)
+$   local subdecl = decl.args[1].decl
   /* --------------------------------------------------------------------------
    */
-  $(init_tree.stub(decl))
+  $(init_tree.declare(decl))
+  {
+    if (!node->data->hasObjectData())
+      node->data->setObject(nil);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareBody(decl))
+  {
+    Rect button_bounds = Rect::from(pos.x,pos.y,14.f,14.f);
+
+    SourceData* data = node->data;
+
+$ for elem in subdecl.elems:each() do
+$   if not elem.metadata.hidden then
+    {
+      b8 enabled = false;
+      u32 idx = 0;
+      
+      // Kinda sucks but whatever.
+      for (s32 child_idx = 0; child_idx < data->children.len; ++child_idx)
+      {
+        if (data->children[child_idx]->val.str == "$(elem.name)"_str)
+        {
+          enabled = true;
+          idx = child_idx;
+        }
+      }
+
+      if (ui.putCheckbox("flag-$(elem.name)"_fid,
+            button_bounds,
+            &enabled,
+            skin.checkbox))
+      {
+        if (!enabled)
+          data->removeChildByIdx(idx);
+        else
+          data->addStringValue(self.default_data, "$(elem.name)"_str);
+      }
+
+      Rect name_bounds = Rect::zero()
+        .setSize(width, 14.f)
+        .alignRightOutside(button_bounds, 4.f)
+        .alignCenteredYInside(button_bounds);
+
+      ui.putText(name_bounds, "$(elem.name)"_str, skin.text);
+
+      button_bounds.y += button_bounds.h;
+    }
+$   end
+$ end
+
+    return button_bounds.y - pos.y + 2.f;
+  }
 $ end)
 
 $ -- * ------------------------------------------------------------------------
@@ -818,7 +941,7 @@ $   local subtype = decl.args[1]
     {
       Node* child = addChildFromIdx(
         self,
-        fmt(self, '[', i, ']'),
+        nil,
         node,
         "$(subtype.qname)"_typeid,
         i);
@@ -837,34 +960,8 @@ $   local subtype = decl.args[1]
 
     if (state->to_remove != nullptr)
     {
-      // If we need to remove a node (see the inline pre-child func below)
-      // find its index, remove it from our SourceData child list, and 
-      // fix the names of Node children following it.
-      // 
-      // TODO(sushi) add a way for types to override name behavior so we 
-      //             can just generate it each frame rather than needing 
-      //             to allocate Strings into the bump allocator.
-      Node* to_remove = state->to_remove;
+      removeChild(self, node, state->to_remove);
       state->to_remove = nullptr;
-
-      u32 child_idx = 0;
-      b8 passed = false;
-      for (Node& child : eachChild(node))
-      {
-        defer { child_idx += 1; };
-
-        if (&child == to_remove)
-        {
-          passed = true;
-          node->data->children.remove(child_idx);
-        }
-        else if (passed)
-        {
-          child.name = fmt(self, '[', child_idx - 1, ']');
-        }
-      }
-
-      removeChild(self, node, to_remove);
     }
 
     auto add_bounds = Rect::from(bounds.pos(), vec2f(array_button_size));
@@ -877,7 +974,7 @@ $   local subtype = decl.args[1]
 
       Node* child = addChild(
         self,
-        fmt(self, '[', node->data->children.len, ']'),
+        nil,
         node,
         child_data,
         "$(subtype.qname)"_typeid);
@@ -899,7 +996,7 @@ $   local subtype = decl.args[1]
 
     Rect remove_bounds = Rect::from(bounds)
       .setSize(vec2f(array_button_size))
-      .alignRightInside(bounds, 2.f)
+      .alignRightInside(bounds, 0.f)
       .alignCenteredYInside(bounds);
 
     if (ui.putButton("array-remove"_fid,
@@ -917,12 +1014,118 @@ $ end)
 
 $ -- * ------------------------------------------------------------------------
 
+struct StringMapState
+{
+  Node* to_remove;
+
+  // TODO(sushi) need to manage these better. Would be nice if parent nodes
+  //             could associate some state with their children, but that
+  //             sounds too complicated to implement atm. The memory management
+  //             of all of this is quite bad anyways.
+  Array<TextField> key_fields;
+};
+
 $ av:visit(lookup "reflect::StringMap", function(decl)
+$   local subtype = decl.args[1]
   /* --------------------------------------------------------------------------
    */
   $(init_tree.declare(decl))
   {
-    
+    auto* state = allocNodeState<StringMapState>(self, node);
+
+    state->key_fields.init(node->data->children.len, &self.bump);
+  
+    for (s32 i = 0; i < node->data->children.len; ++i)
+    {
+      Node* child = addChildFromIdx(
+        self,
+        nil,
+        node,
+        "$(subtype.qname)"_typeid,
+        i);
+
+      $(init_tree.call(subtype))(self, child);
+
+      TextField* key_field = state->key_fields.push();
+      key_field->init(child->data, DataPart::Name);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declareInline(decl))
+  {
+    auto* state = node->state.as<StringMapState>();
+
+    if (state->to_remove != nullptr)
+    {
+      u32 idx = findChildIdx(node, state->to_remove);
+      state->key_fields.remove(idx);
+
+      removeChild(self, node, state->to_remove);
+      state->to_remove = nullptr;
+    }
+
+    auto add_bounds = Rect::from(bounds.pos(), vec2f(array_button_size));
+
+    if (ui.putButton("array-add"_fid,
+          add_bounds,
+          skin.array_add))
+    {
+      SourceData* child_data = self.default_data.allocateSourceData();
+
+      Node* child = addChild(
+        self,
+        nil,
+        node,
+        child_data,
+        "$(subtype.qname)"_typeid);
+
+      $(init_tree.call(subtype))(self, child);
+
+      node->data->setObject(nil);
+      node->data->children.push(child_data);
+
+      TextField* key_field = state->key_fields.push();
+      key_field->init(child_data, DataPart::Name);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  $(declarePutChildName(decl))
+  {
+    auto* state = node->state.as<StringMapState>();
+
+    TextField* key_field = &state->key_fields[child_idx];
+
+    Rect remove_bounds = Rect::from(bounds)
+      .setSize(vec2f(array_button_size))
+      .alignRightInside(bounds, 0.f)
+      .alignCenteredYInside(bounds);
+
+    Rect key_bounds = bounds;
+    // Using divider margin so the spacing appears consistent.
+    key_bounds.w = remove_bounds.x - bounds.x - skin.divider_margin;
+
+    key_field->put(
+      ui,
+      "name-field"_fid,
+      key_bounds,
+      DataPart::Name,
+      child->data,
+      skin);
+
+    if (ui.putButton("array-remove"_fid,
+          remove_bounds,
+          skin.array_remove))
+    {      
+      // Defer removal of the child. We can't just remove it here, because
+      // this function is called while putNode() is interating our children.
+      state->to_remove = child;
+    }
+
+    return bounds.w;
   }
 $ end)
 
@@ -962,7 +1165,7 @@ $   end
       button_bounds.x = 0.f;
       button_bounds.y = 0.f;
       button_bounds.w = ui.getWidth();
-      button_bounds.h = 14.f;
+      button_bounds.h = 20.f;
 
 $   for derived in subdecl:allDerived() do
       if (ui.putButton("typed-ptr-select-$(derived.qname)"_fid,
@@ -1140,13 +1343,13 @@ static f32 putInlineContentPreChild(
   {
 $ for node in inline_pre_child_nodes:each() do
 $   putNodeCases(node)
-  width = $(put_inline_pre_child.call(node))(
-    self,
-    ui,
-    bounds,
-    &node,
-    &child,
-    skin);
+    width = $(put_inline_pre_child.call(node))(
+      self,
+      ui,
+      bounds,
+      &node,
+      &child,
+      skin);
 $ end
   }
   return width;
@@ -1167,7 +1370,8 @@ static f32 putChildName(
     params.x, 
     params.y, 
     self.state->divider_x - params.x - skin.divider_margin,
-    skin.row.height);
+    skin.row.height)
+    .contractedY(2.f);
 
   f32 prefix_width = 0.f;
   if (node.hasChildren())
@@ -1221,6 +1425,33 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static f32 putBody( 
+    SourceDataEditor& self,
+    ui::UI& ui,
+    Node& node,
+    vec2f pos,
+    f32 width,
+    const SourceDataEditorSkinDef& skin)
+{
+  switch (node.type.val)
+  {
+$ for node in body_nodes:each() do
+$   putNodeCases(node)
+    return $(put_body.call(node))(
+      self,
+      ui,
+      pos,
+      width,
+      &node,
+      skin);
+$ end
+  }
+
+  return 0.f;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static inline Rect computeInlineBounds(
     SourceDataEditor& self,
     ui::UI& ui,
@@ -1248,6 +1479,7 @@ static inline Rect computeInlineBounds(
   return inline_bounds;
 }
 
+
 /* ----------------------------------------------------------------------------
  */
 static PutResult putNode(
@@ -1257,7 +1489,6 @@ static PutResult putNode(
     PutParams& params,
     const SourceDataEditorSkinDef& skin)
 {
-
   Rect inline_bounds = computeInlineBounds(
     self,
     ui,
@@ -1269,6 +1500,17 @@ static PutResult putNode(
   putInlineContent(self, ui, inline_bounds, node, params, skin);
 
   f32 y = params.y + skin.row.height;
+
+  // TODO(sushi) AGAIN we have ordering issues here. Need to figure out some 
+  //             way to emit commands into some list that can be injected 
+  //             later. Current setup doesn't work well for that.
+  y += putBody(
+    self,
+    ui,
+    node,
+    vec2f(inline_bounds.x, y),
+    inline_bounds.w,
+    skin);
 
   if (node.hasChildren() && node.isOpen())
   {

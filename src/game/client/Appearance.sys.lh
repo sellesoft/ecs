@@ -42,7 +42,7 @@ struct AppearanceSys : SharedAppearanceSys
     return true; 
   }
 
-  void onStartup(EntComp<Appearance>, ComponentStartup&);
+  void onStartup(Appearance&, ComponentStartup&);
 
   void queueUpdate(EntityId id, Appearance& comp) override;
 

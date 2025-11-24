@@ -1,0 +1,21 @@
+/*
+ *  API for loading Entities from a scene def.
+ */
+
+$ require "common"
+
+#include "iro/Common.h"
+
+struct SceneDef;
+struct EntityMgr;
+namespace logging { struct Channel; }
+ 
+/* ============================================================================
+ */
+struct SceneLoadParams
+{
+  EntityMgr& entmgr;
+  logging::Channel* log;
+};
+
+b8 loadScene(const SceneDef& def, const SceneLoadParams& params);

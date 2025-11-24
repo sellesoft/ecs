@@ -11,6 +11,8 @@ $ require "common"
 
 struct EntityMgr;
 
+$ do return end
+
 /* ============================================================================
  */
 struct Tile

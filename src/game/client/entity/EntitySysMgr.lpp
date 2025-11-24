@@ -18,8 +18,6 @@ local astctx, imported = require "reflect.AstContext".fromGlobs
   "src/game/shared/**/*.sys.lh"
 }
 
--- io.write(ast.dump(astctx.translation_unit), '\n')
-
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
   return astctx:lookupTypeDecl(name)

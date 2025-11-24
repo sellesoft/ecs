@@ -1,0 +1,27 @@
+/*
+ *  Currently just applies a TransformDef to Transform components, 
+ *  but likely will handle interpolation of Transforms later.
+ */
+
+$ require "common"
+
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/component/Component.events.lh"
+@lpp.import "game/shared/Transform.comp.lh"
+
+/* ============================================================================
+ */
+struct TransformSys : EntitySys
+{
+  b8 init() 
+  {
+    subscribeTo<Transform, ComponentInit>(&TransformSys::onInit);
+    return true;
+  }
+
+  void onInit(Transform& transform, ComponentInit&)
+  {
+    transform.pos = transform.def->pos;
+    transform.rotation = transform.def->rotation;
+  }
+};

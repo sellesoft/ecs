@@ -1516,8 +1516,6 @@ $ end
     bounds.contracted(skin.padding.x, skin.padding.y),
     GroupScissor::Self);
   {
-    drawLocalDebugBorder(text_bounds);
-
     // Begin a group for the text such that we can pan it.
     beginGroup(text_bounds, GroupScissor::Parent);
     {

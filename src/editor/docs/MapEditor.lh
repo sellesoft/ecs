@@ -12,6 +12,7 @@ $ require "common"
 @lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
+@lpp.import "game/client/entity/EntitySysMgr.lh"
 
 namespace editor
 {
@@ -22,16 +23,17 @@ struct MapEditor : Doc
 {
   cl::GameRenderer game_renderer;
   EntityMgr entity_mgr;
+  cl::EntitySysMgr entity_sys_mgr;
   gfx::View view;
+  GameLog game_log;
 
-  gfx::Texture map_render;
+  gfx::Texture scene_render;
 
-  MapState map_state;
-  reflect::PackedData map_def_packed;
-  SourceDataFile sdf_map_def;
+  reflect::PackedData scene_def_packed;
+  SourceDataFile sdf_scene_def;
 
   // The size at which the map view should be rendered.
-  vec2f map_view_size;
+  vec2f view_size;
 
   SourceDataFile sdf_selected_entity_def;
   SourceDataEditor sd_editor;
@@ -71,7 +73,7 @@ struct MapEditor : Doc
 
   vec2f viewportToWorld(vec2f point)
   {
-    return view.viewportPointToWorld(point, map_view_size);
+    return view.viewportPointToWorld(point, view_size);
   }
 };
 

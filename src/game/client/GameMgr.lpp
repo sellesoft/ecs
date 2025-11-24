@@ -20,6 +20,7 @@ $ local cmn = require "common"
 @lpp.import "game/shared/map/Map.defs.lh"
 
 @lpp.import "window/Window.events.lh"
+@lpp.import "game/shared/SceneLoader.lh"
 
 @log.import
 
@@ -54,17 +55,31 @@ b8 GameMgr::init(const InitParams& params)
     .linker = params.linker,
   };
   if (!game_renderer.init(render_params))
-    return log->error("failed to initialize rendersys");
+    return log->error("failed to initialize GameRenderer");
 
-  params.linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &loaded_map);
+  params.linker.link(
+    "SceneDefLink"_typeid, 
+    "assets/scenes/Test"_str,
+    &loaded_scene);
 
-  MapLoadParams map_load_params = 
+  SceneLoadParams scene_load_params = 
   {
     .entmgr = entmgr,
+    .log = &params.log,
   };
 
-  if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
-    return false;
+  if (!loadScene(*loaded_scene, scene_load_params))
+    return log->error("failed to load Test scene");
+
+  // params.linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &loaded_map);
+  //
+  // MapLoadParams map_load_params = 
+  // {
+  //   .entmgr = entmgr,
+  // };
+  //
+  // if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
+  //   return false;
 
   return true;
 }
@@ -101,13 +116,11 @@ GameMgr::RenderResult GameMgr::render(const RenderParams& params)
   RenderResult result = {};
 
   EyeSys& eye = entsysmgr.get<EyeSys>();
-  MapSys& map = entsysmgr.get<MapSys>();
-
+  // MapSys& map = entsysmgr.get<MapSys>();
+  //
   GameRenderer::RenderParams render_params =
   {
-    .map = &map.state,
     .entmgr = &entmgr,
-
     .target = params.target,
     .viewport_size = eye.viewport_size,
     .vk = params.vk,

@@ -14,7 +14,7 @@ $ require "common"
 struct EntityId
 {
   u32 value = 0;
-  u32 salt = 0;
+  u32 generation = 0;
 
   bool operator == (const EntityId& rhs) const { return value == rhs.value; }
 
@@ -37,6 +37,6 @@ static s64 format(WStream* io, EntityId& id)
   if (isnil(id))
     return formatv(io, "EntityId(nil)");
   else
-    return formatv(io, "EntityId(", id.value, ':', id.salt, ')');
+    return formatv(io, "EntityId(", id.value, ':', id.generation, ')');
 }
 } 

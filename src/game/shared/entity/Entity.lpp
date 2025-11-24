@@ -4,6 +4,8 @@ $ local cmn = require "common"
 
 #include "iro/memory/Allocator.h"
 
+$ do return end
+
 @log.import
 
 /* ----------------------------------------------------------------------------

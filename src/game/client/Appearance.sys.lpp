@@ -8,9 +8,9 @@ namespace cl
 
 /* ----------------------------------------------------------------------------
  */
-void AppearanceSys::onStartup(EntComp<Appearance> ec, ComponentStartup&)
+void AppearanceSys::onStartup(Appearance& comp, ComponentStartup&)
 {
-  queueUpdate(ec.ent, ec.comp);
+  queueUpdate(comp.owner, comp);
 }
 
 /* ----------------------------------------------------------------------------

@@ -18,28 +18,37 @@ $ local cmn = require "common"
 
 /* ----------------------------------------------------------------------------
  */
-b8 MapSys::init()
-{
-  return true;
-}
-
-/* ----------------------------------------------------------------------------
- */
 void MapSys::deinit()
 {
 }
 
 /* ----------------------------------------------------------------------------
  */
-b8 MapSys::load(const MapDef& def, const MapLoadParams& params)
+void MapSys::onLayerInit(MapLayer& layer, ComponentInit&)
 {
-  raise(MapPreLoad{});
+  vec2u dimensions = layer.def->dimensions;
 
-  if (!loadMap(&state, def, params))
-    return log->error("failed to load map");
+  u64 num_tiles = dimensions.x * dimensions.y;
 
-  raise(MapPostLoad{});
+  // TODO(sushi) properly allocate these somewhere.
+  layer.tiles.init(num_tiles);
+  layer.tiles.resize(num_tiles);
 
-  return true;
+  for (u64 i = 0; i < num_tiles; ++i)
+    layer.tiles[i].kind = layer.def->tiles[i];
 }
+
+// /* ----------------------------------------------------------------------------
+//  */
+// b8 MapSys::load(const MapDef& def, const MapLoadParams& params)
+// {
+//   // raise(MapPreLoad{});
+//   //
+//   // if (!loadMap(&state, def, params))
+//   //   return log->error("failed to load map");
+//   //
+//   // raise(MapPostLoad{});
+//
+//   return true;
+// }
 

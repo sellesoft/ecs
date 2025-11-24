@@ -12,6 +12,7 @@ $ local m = require "reflect.Metadata"
 struct Fruit 
 {
   u8 size;
+  @m.default "22"
   u8 nutrients; 
 };
 

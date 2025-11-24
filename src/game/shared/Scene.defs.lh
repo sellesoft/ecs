@@ -1,0 +1,55 @@
+/*
+ *  Definition of a Scene, a collection of entities.
+ */
+
+$ require "common"
+$ local metadata = require "reflect.Metadata"
+
+@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "reflect/CompiledData.lh"
+
+struct SceneEntity;
+typedef reflect::TypedPtr<SceneEntity> SceneEntityPtr;
+typedef reflect::Array<SceneEntityPtr> SceneEntityArray;
+
+/* ============================================================================
+ *  An Entity to be placed in a Scene.
+ */
+@metadata.hidden
+struct SceneEntity
+{
+  // Unique id identifying this Entity in the Scene.
+  u32 uid;
+  
+  // Children of this Entity.
+  SceneEntityArray children;
+};
+
+/* ============================================================================
+ */
+struct SceneEntity_External : SceneEntity
+{
+  EntityDefLink def;
+
+  // A set of Components to apply to the Entity as its loaded. If the def 
+  // already contains a Component provided here, then its overridden.
+  ComponentDefArray components;
+};
+
+/* ============================================================================
+ */
+struct SceneEntity_Embedded : SceneEntity
+{
+  EntityDef def;
+};
+
+/* ============================================================================
+ */
+@metadata.def
+struct SceneDef
+{
+  SceneEntityArray entities;
+};
+
+@metadata.links(scene.data)
+struct SceneDefLink : reflect::TypedCompiledDataLink<SceneDef> {};

@@ -10,15 +10,24 @@ $ local metadata = require "reflect.Metadata"
 
 /* ============================================================================
  */
+enum class PlacementMode
+{
+  Free,
+  SnapToCenter,
+};
+
+/* ============================================================================
+ */
 @metadata.def
 @metadata.source_data_type(entity)
 struct EntityDef
 {
   String name;
-  reflect::Array<reflect::TypedPtr<ComponentDef>> components;
+  ComponentDefArray components;
+
+  PlacementMode placement;
 };
 
-@metadata.def_type(EntityDef)
 @metadata.links(entity.data)
 struct EntityDefLink : reflect::TypedCompiledDataLink<EntityDef> {};
 

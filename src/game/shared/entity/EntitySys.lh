@@ -59,6 +59,18 @@ struct EntitySys
     subscribeTo<TComp, typename TComp::Init, TSys>(cb);
   }
 
+  template<typename TComp, typename TCompEvent, typename TSys>
+  void subscribeTo(void (TSys::*cb)(TComp&, TCompEvent&))
+  {
+    static union
+    {
+      void (TSys::* x)(TComp&, TCompEvent&);
+      void (*y)(void*, TComp&, TCompEvent&);
+    } x { cb };
+
+    entmgr->eventbus.subscribeTo<TComp, TCompEvent>(this, x.y);
+  }
+
   // Raises the event TEvent on the given entity.
   template<typename TEvent>
   IRO_FORCE_INLINE void raise(EntityId id, TEvent& event)
@@ -89,12 +101,12 @@ struct EntitySys
 
   Entity* getEntity(EntityId id) { return entmgr->getEntity(id); }
 
-  // Iterates all Components of type TComp, for use in entity systems 
-  // that manage certain types of components in their update function.
+  // Returns a Slice over all components of the given type, for use in systems
+  // which iterate all components of some kind.
   template<typename TComp>
-  ComponentIter<TComp> iterateComp()
+  Slice<TComp> eachComp()
   {
-    return entmgr->cmpmgr.iterate<TComp>();
+    return entmgr->eachComp<TComp>();
   }
 
   // Because entity systems may use virtual functions, this struct must

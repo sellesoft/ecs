@@ -10,6 +10,8 @@ $ require "common"
 
 @log.import
 
+$ do return end
+
 namespace cl
 {
 
@@ -73,6 +75,7 @@ static u8 constructStructureNeighborMask(
     MapState& map)
 {
   u8 mask = 0;
+$ if false then
 
   for (auto& other_comp : entmgr.iterateComp<ExtendableStructure>())
   {
@@ -108,6 +111,7 @@ static u8 constructStructureNeighborMask(
         mask |= B;
     }
   }
+$ end
 
   return mask;
 }

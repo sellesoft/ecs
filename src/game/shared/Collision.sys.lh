@@ -22,6 +22,7 @@ struct CollisionSys : EntitySys
 
   void update()
   {
+$ if false then
     for (auto& c0 : iterateComp<Collider>())
     {
       auto* c0t = tryComp<Transform>(c0.owner);
@@ -96,5 +97,6 @@ struct CollisionSys : EntitySys
         }
       }
     }
+$ end
   }
 };

@@ -24,29 +24,29 @@ void InteractionSys::onUsePrimary(UsePrimaryInputEvent& ev)
   if (ev.released)
     return;
 
-  Layer* cursor_layer;
-  Tile*  cursor_tile;
-  if (!map->state.getTileAndLayerAtPos(&cursor_layer, &cursor_tile, ev.pos))
-    return;
-
-  for (auto& interactable : iterateComp<Interactable>())
-  {
-    auto* transform = tryComp<Transform>(interactable.owner);
-
-    const Layer& transform_layer = 
-      map->state.layers[transform->placement_layer];
-    vec2f interactable_pos =
-      vec2f(transform_layer.pos) +
-      transform->pos;
-
-    Layer* layer;
-    Tile* tile;
-    if (map->state.getTileAndLayerAtPos(&layer, &tile, interactable_pos))
-    {
-      // TODO(sushi) we need to properly choose the topmost item and
-      //             also hit test the visual size of the thing and yeah 
-      if (tile == cursor_tile)
-        raise(interactable.owner, Interact{});
-    }
-  }
+  // Layer* cursor_layer;
+  // Tile*  cursor_tile;
+  // if (!map->state.getTileAndLayerAtPos(&cursor_layer, &cursor_tile, ev.pos))
+  //   return;
+  //
+  // for (auto& interactable : iterateComp<Interactable>())
+  // {
+  //   auto* transform = tryComp<Transform>(interactable.owner);
+  //
+  //   const Layer& transform_layer = 
+  //     map->state.layers[transform->placement_layer];
+  //   vec2f interactable_pos =
+  //     vec2f(transform_layer.pos) +
+  //     transform->pos;
+  //
+  //   Layer* layer;
+  //   Tile* tile;
+  //   if (map->state.getTileAndLayerAtPos(&layer, &tile, interactable_pos))
+  //   {
+  //     // TODO(sushi) we need to properly choose the topmost item and
+  //     //             also hit test the visual size of the thing and yeah 
+  //     if (tile == cursor_tile)
+  //       raise(interactable.owner, Interact{});
+  //   }
+  // }
 }

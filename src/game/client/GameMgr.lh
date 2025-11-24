@@ -9,6 +9,7 @@ $ local cmn = require "common"
 @lpp.import "game/shared/entity/EntityMgr.lh"
 @lpp.import "game/shared/component/Component.lh"
 @lpp.import "game/shared/map/Map.defs.lh"
+@lpp.import "game/shared/Scene.defs.lh"
 
 @lpp.import "game/client/entity/EntitySysMgr.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
@@ -32,7 +33,7 @@ struct GameMgr
   EntitySysMgr entsysmgr;
   GameRenderer game_renderer;
 
-  MapDefLink loaded_map;
+  SceneDefLink loaded_scene;
 
   Rect viewport;
 

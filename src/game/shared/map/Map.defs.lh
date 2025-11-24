@@ -15,47 +15,4 @@ $ local metadata = require "reflect.Metadata"
 
 using namespace iro;
 
-/* ============================================================================
- */
-@metadata.def
-struct TileKindDef
-{
-  String name;
-  gfx::TextureLink texture;
-};
 
-@metadata.links(tile_kind.data)
-struct TileKindLink : reflect::TypedCompiledDataLink<TileKindDef> {};
-  
-/* ============================================================================
- */
-struct MapTileDef
-{
-  TileKindLink kind;
-  EntityDefLinkArray entities;
-
-  TileKindDef& getKind() { return *kind; }
-};
-
-/* ============================================================================
- */
-struct MapLayerDef
-{
-  vec2i size;
-  vec2i pos;
-  reflect::Array<MapTileDef> tiles;
-};
-
-/* ============================================================================
- */
-@metadata.def
-struct MapDef
-{
-  String name;
-  vec2i size;
-  reflect::Array<MapLayerDef> layers;
-};
-
-@metadata.source_types(map)
-@metadata.links(map.data)
-struct MapDefLink : reflect::TypedCompiledDataLink<MapDef> {};

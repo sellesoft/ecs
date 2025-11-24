@@ -1,0 +1,64 @@
+$ require "common"
+
+@lpp.import "game/shared/SceneLoader.lh"
+@lpp.import "game/shared/Scene.defs.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
+
+@log.import
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 loadSceneEntityArray(
+    const SceneEntityArray& array,
+    EntityId parent,
+    EntityMgr& entmgr,
+    logging::Channel* log)
+{
+  for (const SceneEntityPtr& entity_ptr : array)
+  {
+    EntityId spawned_entity = nil;
+    if (entity_ptr.type == "SceneEntity_Embedded"_typeid)
+    {
+      auto* entity = entity_ptr.getAs<SceneEntity_Embedded>();
+
+      spawned_entity = entmgr.spawnEntity(
+        entity->def,
+        parent);
+    }
+    else if (entity_ptr.type == "SceneEntity_External"_typeid)
+    {
+      auto* entity = entity_ptr.getAs<SceneEntity_External>();
+
+      spawned_entity = entmgr.spawnEntity(
+        entity->def,
+        entity->components,
+        parent);
+    }
+
+    if (isnil(spawned_entity))
+      return false;
+
+    auto* scene_entity = entity_ptr.getAs<SceneEntity>();
+
+    @log.chan.info(log, game, 
+      "spawned scene entity with id ", scene_entity->uid);
+
+    if (!loadSceneEntityArray(
+          scene_entity->children, 
+          spawned_entity, 
+          entmgr,
+          log))
+      return false;
+  }
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 loadScene(const SceneDef& def, const SceneLoadParams& params)
+{
+  EntityMgr& entmgr = params.entmgr;
+  logging::Channel* log = params.log;
+
+  return loadSceneEntityArray(def.entities, nil, entmgr, log);
+}

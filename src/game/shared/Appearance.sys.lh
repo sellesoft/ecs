@@ -22,7 +22,7 @@ struct SharedAppearanceSys : EntitySys
     return true; 
   }
 
-  void onInit(EntComp<Appearance>, ComponentInit&);
+  void onInit(Appearance&, ComponentInit&);
 
   void setData(EntityId id, String key, StringHash val, Appearance& comp);
 

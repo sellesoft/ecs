@@ -3,6 +3,7 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/Common.h"
 #include "iro/Unicode.h"
@@ -20,6 +21,7 @@ struct PipelineDef;
 
 struct Pipeline
 {
+  @metadata.no_link
   void* handle = nullptr;
 
   struct PushConstant

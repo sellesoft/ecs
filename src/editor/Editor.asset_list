@@ -1,4 +1,5 @@
 // Specifies a list of assets required for the Editor to run.
+// TODO(sushi) remove the game asset stuff from here.
 
 return build::AssetList
 {
@@ -6,7 +7,7 @@ return build::AssetList
   "assets/textures/white.texture.compiled",
   "assets/textures/null.texture.compiled",
   "assets/shaders/Quad.pipeline.data",
-  "assets/maps/Test.map.data",
   "assets/floors/tiles/LightGray.texture.compiled",
   "assets/ui/Debug.skin.data",
+  "assets/scenes/Test.scene.data",
 }

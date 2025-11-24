@@ -8,7 +8,7 @@ $ local cmn = require "common"
  */
 b8 MovementSys::update()
 {
-  for (Movement& movement : iterateComp<Movement>())
+  for (Movement& movement : eachComp<Movement>())
   {
     if (auto* transform = tryComp<Transform>(movement.owner))
     {

@@ -14,7 +14,8 @@ $ local cmn = require "common"
 
 @log.import
 
-$ local sfile_path = "assets/entities/locker/Locker.entity"
+$ local sfile_path = "tests/packing/test.data"
+$ local expected_type = "Basket"
 
 b8 test()
 {
@@ -37,7 +38,7 @@ b8 test()
   if (!reflect::packSourceDataFromType(*testfile.returned_data, pack_params))
     return false;
 
-  auto* result = packed.getDataAs<EntityDef>();
+  auto* result = packed.getDataAs<$(expected_type)>();
 
   rtr::prettyPrint(*result);
 

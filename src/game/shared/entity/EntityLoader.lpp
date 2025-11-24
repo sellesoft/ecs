@@ -2,6 +2,8 @@ $ local cmn = require "common"
 $ local List = require "iro.List"
 $ local ast = require "reflect.ast"
 
+$ do return end
+
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs
 {

@@ -802,6 +802,32 @@ Record.allFields = function(self)
   end
 end
 
+--- Returns an iterator over all fields contained in this Record, including
+--- those from base records, with the index of the field. 1 being the first
+--- field found in the root base Record.
+---
+---@return function
+Record.allFieldsWithIndex = function(self, f)
+  local iter = self:allFields()
+  local idx = 0
+
+  local this_iter = function()
+    idx = idx + 1
+    local function cps(field, record)
+      return field, record, idx
+    end
+    return cps(iter())
+  end
+  
+  if f then
+    for field, record, idx in this_iter do
+      f(field, record, idx)
+    end
+  else
+    return this_iter
+  end
+end
+
 --- Returns an iterator over all Records deriving from this one.
 ---
 ---@return function
@@ -934,6 +960,17 @@ Record.countFields = function(self)
     if member:is(ast.Field) then
       sum = sum + 1
     end
+  end
+  return sum
+end
+
+--- Gets the number of fields this Record contains, including base fields.
+---
+---@return number
+Record.countAllFields = function(self)
+  local sum = 0
+  for _ in self:allFields() do
+    sum = sum + 1
   end
   return sum
 end

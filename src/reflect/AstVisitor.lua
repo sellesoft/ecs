@@ -207,6 +207,21 @@ end
 
 ---@param decl ast.TemplateSpec
 AstVisitor.handleTemplateSpec = function(self, decl)
+
+  local previsit_result = tryVisitors(self,
+    self.pre,
+    decl,
+    decl.specialized,
+    ast.TemplateSpec)
+
+  if previsit_result == stop then
+    return stop
+  end
+
+  if previsit_result == handled then
+    return
+  end
+
   for arg in decl.args:each() do
     if type(arg) == "table" and arg:is(ast.Type) then
       if stop == self:handleType(arg) then
@@ -276,6 +291,19 @@ end
 -- * --------------------------------------------------------------------------
 
 AstVisitor.handleTypedefDecl = function(self, decl)
+  local previsit_result = tryVisitors(self,
+    self.pre,
+    decl,
+    ast.TypedefDecl)
+
+  if previsit_result == handled then
+    return
+  end
+
+  if previsit_result == stop then
+    return stop
+  end
+
   if stop == self:handleType(decl.subtype) then
     return stop
   end

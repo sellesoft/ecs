@@ -13,25 +13,15 @@ using namespace iro;
 
 @lpp.import "game/shared/entity/EntityId.lh"
 @lpp.import "reflect/CompiledData.lh"
+@lpp.import "reflect/types/TypedPtr.lh"
+@lpp.import "reflect/types/Array.lh"
 
 /* ============================================================================
  */
 @metadata.hidden
 struct Component
 {
-  u64 kind = 0;
-
-  EntityId owner = nil;
-
-  // TODO(sushi) store Components in a map specifically implemented for them,
-  //             such that we can avoid needing to store this intrinsically.
-  void* node = nullptr;
-  
-  static u64 getAVLKey(const Component& cmp) { return cmp.kind; }
-
-  b8 is(u64 kind) const { return this->kind == kind; }
-
-  DefineNilTrait(Component, {0}, x.kind == 0);
+  EntityId owner;
 };
 
 /* ----------------------------------------------------------------------------
@@ -51,21 +41,12 @@ $ m.def = function(name, def, data)
 struct $(name)Def : ComponentDef
 $(def);
 
-struct $(name)DefLink : reflect::TypedCompiledDataLink<$(name)Def> {};
-
 $ local datavars = data:match "%b{}" :sub(2,-2)
-
-@metadata.event(comp-init)
-struct $(name)Init
-{
-  const $(name)Def& def;
-};
 
 @metadata.component
 struct $(name) : Component
 {
   using Def = $(name)Def;
-  using Init = $(name)Init;
 
   const $(name)Def* def;
 
@@ -73,5 +54,8 @@ struct $(name) : Component
 };
 
 $ end
+
+typedef reflect::TypedPtr<ComponentDef> ComponentDefPtr;
+typedef reflect::Array<ComponentDefPtr> ComponentDefArray;
 
 $ return m

@@ -404,9 +404,9 @@ $ end)
 $ -- * ------------------------------------------------------------------------
 
 $ av:visit(ast.Struct, function(decl)
-$    local TFoundFields = decl:formCSafeName().."_FoundFields"
+$   local TFoundFields = decl:formCSafeName().."_FoundFields"
 
-  typedef BitArray<$(decl:countFields())> $(TFoundFields);
+  typedef BitArray<$(decl:countAllFields())> $(TFoundFields);
 
   @[sdef] av:funcgen(
     _pack_struct_defaults_,
@@ -425,8 +425,8 @@ $    local TFoundFields = decl:formCSafeName().."_FoundFields"
    */
   $(sdef.declare(decl))
   {
-$ local function handleFieldDefault(field)
-$   local default_aux_name = decl.qname.."::"..field.name
+$ local function handleFieldDefault(field, record)
+$   local default_aux_name = record.qname.."::"..field.name
     SourceData* default_data = 
       defaults_cache.findAuxData("$(default_aux_name)"_str);
 
@@ -448,12 +448,12 @@ $   local default_aux_name = decl.qname.."::"..field.name
       return false;
 $ end
 
-$ local function handleNestedDefaults(field, type_decl)
+$ local function handleNestedDefaults(field, record, type_decl)
     if (!$(sdef.call(type_decl))(&out->$(field.name), {}))
       return false;
 $ end
 
-$ decl:eachFieldWithIndex(function(field, i)
+$ decl:allFieldsWithIndex(function(field, record, i)
 $   if field.metadata.hidden then
 $     return
 $   end
@@ -473,7 +473,7 @@ $   end
 $   if handler then
     if (!found_fields.test($(i - 1)))
     {
-$     handler(field, field_type_decl)
+$     handler(field, record, field_type_decl)
     }
 $   end
 $ end)
@@ -491,19 +491,19 @@ $ end)
 
 $ -- Pulled out because its quite an eyesore when this is in the switch
 $ -- below.
-$ local function callFieldPacker(field, i)
+$ local function callFieldPacker(field, record, i)
     if (!$(f.call(field.type))(*child, &out->$(field.name)))
       return error(*child, 
-        "failed to pack field $(decl.qname)::$(field.name)");
+        "failed to pack field $(record.qname)::$(field.name)");
     found_fields->set($(i-1));
 $ end
 
       switch (child->name.hash())
       {
-$   for field, i in decl:eachFieldWithIndex() do
+$   for field, record, i in decl:allFieldsWithIndex() do
       case "$(field.name)"_hashed:
 $     if not field.metadata.hidden then
-$       callFieldPacker(field, i)
+$       callFieldPacker(field, record, i)
         break;
 $     else
         return error(*child, 

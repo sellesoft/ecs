@@ -14,7 +14,6 @@ $ require "common"
 @lpp.import "game/shared/entity/EntityEventBus.lh"
 
 @lpp.import "game/shared/component/Component.lh"
-@lpp.import "game/shared/component/ComponentMgr.lh"
 
 @lpp.import "math/vec.lh"
 
@@ -32,6 +31,7 @@ struct Linker;
 
 struct EntityDef;
 struct EntityDefLink;
+struct EntityWorld;
 
 /* ============================================================================
  */
@@ -42,20 +42,44 @@ struct EntityMgr
     c_max_entities = 4096,
   };
 
-  typedef IndexedPool<Entity, c_max_entities> EntityPool;
-
   EntityEventBus eventbus;
 
-  EntityPool ent_pool;
+  EntityWorld* world = nullptr;
 
-  ComponentMgr cmpmgr;
+  u32 next_slot = 0;
 
   b8 init();
   void deinit();
-
-  EntityId createEntity(String name);
   
-  EntityId spawnEntity(const EntityDefLink& def, vec2f pos, u32 layer);
+  // Reserves an Entity slot with a plain Entity (no components) and returns
+  // its id.
+  EntityId createEntity();
+  
+  // Spawns an Entity using the provided def. 
+  // 
+  // If `components` is not empty, they will be added to the Entity, 
+  // overriding any of the same type that may be specified by the def.
+  // This is primarily for use by the SceneLoader, but could maybe be used
+  // in code, idk though!
+  EntityId spawnEntity(
+    const EntityDef& def,
+    const ComponentDefArray& components,
+    EntityId parent);
+
+  // Similar to the above, but uses a link to an EntityDef. The provided 
+  // link's target will be cached on the created Entity so that systems
+  // like asset hot-reloading and the SceneEditor can identify what def
+  // is relevent to an Entity.
+  EntityId spawnEntity(
+    const EntityDefLink& def,
+    const ComponentDefArray& components,
+    EntityId parent);
+  
+  // Shorthands for not specifying the Component array.
+  EntityId spawnEntity(const EntityDef& def, EntityId parent)
+    { return spawnEntity(def, {}, parent); }
+  EntityId spawnEntity(const EntityDefLink& l_def, EntityId parent)
+    { return spawnEntity(l_def, {}, parent); }
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker);
 
@@ -68,10 +92,7 @@ struct EntityMgr
   IRO_FORCE_INLINE
   Entity* getEntity(EntityId id) const
   {
-    if (isnil(id))
-      return nullptr;
-
-    return ent_pool.getFromId(id.value, id.salt);
+    return nullptr;
   }
  
   // Unlike the above, this doesn't assert. If this returns nullptr for some
@@ -79,34 +100,16 @@ struct EntityMgr
   // entity.
   Entity* tryGetEntity(EntityId id) const
   {
-    if (isnil(id))
-      return nullptr;
-    return ent_pool.tryGetFromId(id.value, id.salt);
+    return nullptr;
   }
 
   EntityId getEntityId(Entity* ent) const
   {
-    if (ent == nullptr)
-      return nil;
-    EntityId id;
-    ent_pool.formId(ent, &id.value, &id.salt);
-    return id;
+    return nil;
   }
   
   template<typename TComp>
-  b8 addComp(Entity* ent, EntityId id, TComp* cmp);
-
-  template<typename TComp>
-  b8 addComp(Entity* ent, TComp* cmp)
-  {
-    return addComp(ent, getEntityId(ent), cmp);
-  }
-
-  template<typename TComp>
-  b8 addComp(EntityId id, TComp* cmp)
-  {
-    return addComp(getEntity(id), id, cmp);
-  }
+  TComp* addComp(EntityId id);
 
   template<typename TComp>
   void removeComp(EntityId id, Entity* ent) const;
@@ -126,11 +129,7 @@ struct EntityMgr
   template<typename T>
   T* tryComp(EntityId id)
   {
-    if (isnil(id))
-      return nullptr;
-    if (!cmpmgr.entHasComp<T>(id))
-      return nullptr;
-    return getEntity(id)->tryComp<T>();
+    return nullptr;
   }
 
   template<typename T, typename X>
@@ -139,45 +138,6 @@ struct EntityMgr
     return tryComp<T>(id.ent);
   }
 
-  template<typename TComp>
-  ComponentIter<TComp> iterateComp()
-  {
-    return cmpmgr.iterate<TComp>();
-  }
-
-  // This sucks massively.
-  struct Iter
-  {
-    EntityPool* pool;
-    EntityPool::Slot* slot;
-
-    b8 isValid() const
-    {
-      return slot != pool->end();
-    }
-
-    void next()
-    {
-      if (!isValid())
-        return;
-
-      slot += 1;
-      while (isValid() && !slot->isUsed())
-        slot += 1;
-    }
-
-    EntityId current()
-    {
-      EntityId id;
-      id.value = slot - pool->pool;
-      id.salt = slot->salt;
-      return id;
-    }
-
-    Iter(EntityMgr& mgr)
-    {
-      pool = &mgr.ent_pool;
-      slot = pool->begin();
-    }
-  };
+  template<typename T>
+  Slice<T> eachComp();
 };

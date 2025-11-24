@@ -4,6 +4,8 @@ $ require "common"
 @lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
 
+$ do return end
+
 /* ----------------------------------------------------------------------------
  */
 void Layer::deinit()

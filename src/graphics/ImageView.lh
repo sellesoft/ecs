@@ -3,6 +3,7 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
 @lpp.import "graphics/Image.lh"
 
@@ -17,6 +18,7 @@ struct Vulkan;
  */
 struct ImageView
 {
+  @metadata.no_link
   void* handle;
 
   struct CreateParams

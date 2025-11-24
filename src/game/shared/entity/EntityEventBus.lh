@@ -21,6 +21,10 @@ struct EntityEventBus
   void subscribeTo(
     void* subscriber, void (*cb)(void*, EntComp<TComp>, TEvent&));
 
+  template<typename TComp, typename TEvent>
+  void subscribeTo(
+    void* subscriber, void (*cb)(void*, TComp&, TEvent&));
+
   template<typename TEvent>
   void subscribeTo(void* subscriber, void (*cb)(void*, TEvent&));
 
@@ -32,6 +36,15 @@ struct EntityEventBus
 
   template<typename TEvent>
   void raise(TEvent& event) const;
+
+  template<typename TComp, typename TCompEvent>
+  void raise(TComp& comp, TCompEvent& event) const;
+
+  template<typename TComp, typename TCompEvent>
+  void raise(TComp& comp, TCompEvent&& event) const
+  {
+    raise<TComp, TCompEvent>(comp, event);
+  }
 
   b8 init(EntityMgr* entmgr);
 };

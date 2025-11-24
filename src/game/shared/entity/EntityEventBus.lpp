@@ -18,9 +18,6 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/game/**/*.events.lh",
 }
 
-
--- io.write(ast.dump(astctx.translation_unit), '\n')
-
 -- Shorthand helper for looking up a declaration by name.
 local function lookup(name)
   return astctx:lookupTypeDecl(name)
@@ -31,17 +28,16 @@ $(imported)
 
 @lpp.import "game/shared/entity/EntityMgr.lh"
 
-$ local TComponent = astctx:lookupTypeDecl "Component"
-
 #include "iro/containers/LinkedPool.h"
 
 @lpp.import "game/shared/entity/EntityEventBus.lh"
 
+$ local TComponent = astctx:lookupTypeDecl "Component"
 $ local comps = cmn.List {} 
 $ local events = cmn.List {}
 
 $ for decl in astctx.type_decls:each() do
-$   if decl.metadata.event == "entity" or decl.metadata.event == "comp-init" 
+$   if decl.metadata.event == "entity" or decl.metadata.event == "component" 
 $   then
 $     events:push(decl)
 $   elseif decl:is(ast.Record) and decl:isDerivedFrom(TComponent) then
@@ -54,7 +50,7 @@ $   for comp in comps:each() do
 $     f
 $     {
 $       name = comp:formCSafeName(),
-$       typename = comp.type.name,
+$       typename = comp.type.qname,
 $       decl = comp,
 $     }
 $   end
@@ -65,8 +61,9 @@ $   for event in events:each() do
 $     f
 $     {
 $       name = event:formCSafeName(),
-$       typename = event.type.name,
+$       typename = event.type.qname,
 $       decl = event,
+$       kind = event.metadata.event,
 $     }
 $   end
 $ end
@@ -89,6 +86,10 @@ $   return getSubTypename(comp, event).."_list"
 $ end
 
 /* ============================================================================
+ *  TODO(sushi) convert this to store flat arrays of subscribers per 
+ *              event component pair. I'm pretty sure we only need to store
+ *              enough subscriber slots such that any system can subscribe to
+ *              each pair.
  */
 struct EntitySubLists
 {
@@ -97,6 +98,8 @@ struct EntitySubLists
 $ eachCombination(function(comp, event)
 $   local subname = getSubTypename(comp, event)
 $   local listname = getSubList(comp, event)
+$   if event.kind == "entity" then
+
   struct $(subname)
   {
     void* subscriber;
@@ -105,9 +108,23 @@ $   local listname = getSubList(comp, event)
     $(subname)* next;
   };
   $(subname)* $(listname);
+
+$   else
+
+  struct $(subname)
+  {
+    void* subscriber;
+    void (*callback)(void*, $(comp.typename)&, $(event.typename)&);
+
+    $(subname)* next;
+  };
+  $(subname)* $(listname);
+
+$   end
 $ end)
 
 $ eachEvent(function(event)
+$   if event.kind == "entity" then
   struct $(event.name)Subscriber
   {
     void* subscriber;
@@ -116,6 +133,7 @@ $ eachEvent(function(event)
     $(event.name)Subscriber* next;
   };
   $(event.name)Subscriber* $(event.name)_list;
+$   end
 $ end)
 
   b8 init()
@@ -126,6 +144,8 @@ $ end)
 };
 
 $ eachCombination(function(comp, event)
+$   if event.kind == "entity" then
+
 /* ----------------------------------------------------------------------------
  */
 template<>
@@ -143,9 +163,33 @@ void EntityEventBus::subscribeTo<$(comp.typename), $(event.typename)>(
   sub_lists->$(getSubList(comp, event)) = sub;
 }
 
+$   elseif event.kind == "component" then
+
+/* ----------------------------------------------------------------------------
+ */
+template<>
+void EntityEventBus::subscribeTo<$(comp.typename), $(event.typename)>(
+    void* subscriber,
+    void (*cb)(void*, $(comp.typename)&, $(event.typename)&))
+{
+  auto* sub = sub_lists->subscriber_arena.
+    allocateType<EntitySubLists::$(getSubTypename(comp, event))>();
+
+  sub->subscriber = subscriber;
+  sub->callback = cb;
+
+  sub->next = sub_lists->$(getSubList(comp, event));
+  sub_lists->$(getSubList(comp, event)) = sub;
+}
+
+$   end
 $ end)
 
 $ eachEvent(function(event)
+$   -- TODO(sushi) make this an explicit entity-broadcast event type or 
+$   --             something 
+$   if event.kind == "entity" then
+
 /* ----------------------------------------------------------------------------
  */
 template<>
@@ -162,9 +206,12 @@ void EntityEventBus::subscribeTo<$(event.typename)>(
   sub->next = sub_lists->$(event.name)_list;
   sub_lists->$(event.name)_list = sub;
 }
+
+$   end
 $ end)
 
 $ eachEvent(function(event)
+$   if event.kind == "entity" then
 /* ----------------------------------------------------------------------------
  */
 template<>
@@ -174,19 +221,17 @@ void EntityEventBus::raise<$(event.typename)>(
 {
   Entity* ent = entmgr->getEntity(id);
 
-  for (auto& comp : ent->components)
+    $ eachComponent(function(comp)
+  if (auto* comp = entmgr->tryComp<$(comp.typename)>(id))
   {
-    switch (comp.kind)
+    for (auto* sub = sub_lists->$(getSubList(comp, event));
+         sub;
+         sub = sub->next)
     {
-$ eachComponent(function(comp)
-    case "$(comp.typename)"_hashed:
-      for (auto* sub = sub_lists->$(getSubList(comp,event)); 
-           sub; sub = sub->next)
-        sub->callback(sub->subscriber, {id, ($(comp.typename)&)comp}, event);
-      break;
-$ end)
+      sub->callback(sub->subscriber, { id, *comp }, event);
     }
   }
+    $ end)
 }
 
 /* ----------------------------------------------------------------------------
@@ -197,6 +242,25 @@ void EntityEventBus::raise<$(event.typename)>($(event.typename)& event) const
   for (auto* sub = sub_lists->$(event.name)_list; sub; sub = sub->next)
     sub->callback(sub->subscriber, event);
 }
+
+$   end
+$ end)
+
+$ eachCombination(function(comp, event)
+$   if event.kind == "component" then
+$     local subname = getSubTypename(comp, event)
+$     local listname = getSubList(comp, event)
+/* ----------------------------------------------------------------------------
+ */
+template<>
+void EntityEventBus::raise<$(comp.typename), $(event.typename)>(
+    $(comp.typename)& comp,
+    $(event.typename)& event) const
+{
+  for (auto* sub = sub_lists->$(listname); sub; sub = sub->next)
+    sub->callback(sub->subscriber, comp, event);
+}
+$   end
 $ end)
 
 /* ----------------------------------------------------------------------------

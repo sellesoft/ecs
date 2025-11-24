@@ -12,7 +12,7 @@ $ require "common"
 
 /* ----------------------------------------------------------------------------
  */
-void SpawnerSys::onInit(EntComp<Spawner> ec, SpawnerInit& init)
+void SpawnerSys::onInit(Spawner& comp, ComponentInit&)
 {
 }
 
@@ -20,6 +20,7 @@ void SpawnerSys::onInit(EntComp<Spawner> ec, SpawnerInit& init)
  */
 void SpawnerSys::onMapLoad(MapPostLoad&)
 {
+$ if false then
   for (auto& spawner : iterateComp<Spawner>())
   {
     auto* spawner_transform = tryComp<Transform>(spawner.owner);
@@ -47,4 +48,5 @@ void SpawnerSys::onMapLoad(MapPostLoad&)
       eye->attach(entid);
     }
   }
+$ end
 }

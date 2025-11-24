@@ -3,6 +3,7 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
 @lpp.import "graphics/TextureParams.lh"
 
@@ -16,7 +17,8 @@ struct Vulkan;
 /* ============================================================================
  */
 struct Sampler
-{
+{ 
+  @metadata.no_link
   void* handle;
 
   struct CreateParams

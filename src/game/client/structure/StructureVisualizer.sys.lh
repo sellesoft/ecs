@@ -28,7 +28,10 @@ struct StructureVisualizerSys : EntitySys
     return true;
   }
 
-  void onAppearanceChange(EntComp<ExtendableStructure>,AppearanceChange&);
+  void onAppearanceChange(EntComp<ExtendableStructure>,AppearanceChange&)
+  {
+
+  }
 };
 
 /* ----------------------------------------------------------------------------

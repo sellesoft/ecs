@@ -4,19 +4,27 @@ $ local cmn = require "common"
 #include "iro/containers/Array.h"
 #include "iro/Unicode.h"
 
-@lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/component/Component.events.lh"
+@lpp.import "game/shared/map/Map.comp.lh"
 
 using namespace iro;
+
+struct EyeSys;
 
 /* ============================================================================
  */
 struct MapSys : EntitySys
 {
-  MapState state;
+  EyeSys* eye;
 
-  b8 init();
+  b8 init()
+  {
+    subscribeTo<MapLayer, ComponentInit>(&MapSys::onLayerInit);
+    return true;
+  }
+
   void deinit();
 
-  b8 load(const MapDef& def, const MapLoadParams& params);
+  void onLayerInit(MapLayer&, ComponentInit&);
 };

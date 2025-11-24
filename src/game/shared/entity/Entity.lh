@@ -1,5 +1,6 @@
 /*
- *  A named bag of components.
+ *  Representation of all things that exist in the game. Has a name, a 
+ *  Transform, and a set of Components that define its behavior.
  */
 
 $ local cmn = require "common"
@@ -21,6 +22,10 @@ struct Entity
   typedef AVL<Component> ComponentMap;
 
   String name; // owned
+  
+  // The Transform of this Entity, ie. its position, rotation, and its parent
+  // if any.
+  Transform transform;
 
   // Any other component 
   ComponentMap components;

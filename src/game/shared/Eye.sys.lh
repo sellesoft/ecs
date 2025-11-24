@@ -26,6 +26,10 @@ struct EyeSys : EntitySys
 
   vec2u viewport_size = {};
 
+  // The map that the Eye is currently viewing.
+  EntityId map_entity = nil;
+
+  // The entity the eye is currently attached to.
   EntityId attached = nil;
 
   void attach(EntityId id) { attached = id; }

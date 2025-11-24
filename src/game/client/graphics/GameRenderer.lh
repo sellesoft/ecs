@@ -109,15 +109,14 @@ struct GameRenderer
     vec2f view_size,
     const mat3x2& view_mat);
 
-  void renderMapState(
+  void renderMapLayers(
     gfx::Vulkan& vk,
     gfx::BatchRenderer& br,
-    MapState& map);
+    EntityMgr& entmgr);
 
   void renderSprites(
     gfx::Vulkan& vk,
     gfx::BatchRenderer& br,
-    MapState& map,
     EntityMgr& entmgr);
 
   // NOTE(sushi) likely to be removed once the splitting up of this function

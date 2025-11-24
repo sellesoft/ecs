@@ -11,6 +11,7 @@ return Basket
     Orange 
     {
       moisture = 1,
+      nutrients = 1,
     }
   }
 }

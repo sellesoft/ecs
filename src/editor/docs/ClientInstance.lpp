@@ -73,8 +73,14 @@ static b8 initClient(ClientInstance& self)
     .linker = linker,
   };
 
-  if (!self.thread.client.init(client_params))
-    return @log.error(editor, "failed to initialize a client instance\n");
+  b8 client_init_success = self.thread.client.init(client_params);
+  
+  // Dump init messages to Console and such.
+  for (logging::Entry& entry : self.thread.client.game_log.entries)
+    self.editor->log.log(entry);
+
+  if (!client_init_success)
+    return self.editor->log.error("failed to initialize a client instance");
 
   self.thread.client.netmgr.registerOfflinePacketHandler(
     &self,

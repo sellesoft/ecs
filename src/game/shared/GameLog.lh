@@ -25,6 +25,11 @@ struct GameLog : public logging::Channel
     return true;
   }
 
+  void clear()
+  {
+    entries.clear();
+  }
+
   void log(const logging::Entry& entry) override
   {
     logging::Entry copy = entry;

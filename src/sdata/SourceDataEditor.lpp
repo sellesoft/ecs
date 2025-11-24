@@ -907,7 +907,7 @@ $ av:visit(ast.Struct, function(decl)
    */
   $(init_tree.declare(decl))
   {
-$ for field in decl:eachField() do
+$ for field in decl:allFields() do
     {
       Node* child = addChildAndSearchName(
         self, 
@@ -937,16 +937,23 @@ $   local subtype = decl.args[1]
    */
   $(init_tree.declare(decl))
   {
-    for (s32 i = 0; i < node->data->children.len; ++i)
+    if (node->data->hasObjectData())
     {
-      Node* child = addChildFromIdx(
-        self,
-        nil,
-        node,
-        "$(subtype.qname)"_typeid,
-        i);
+      for (s32 i = 0; i < node->data->children.len; ++i)
+      {
+        Node* child = addChildFromIdx(
+          self,
+          nil,
+          node,
+          "$(subtype.qname)"_typeid,
+          i);
 
-      $(init_tree.call(subtype))(self, child);
+        $(init_tree.call(subtype))(self, child);
+      }
+    }
+    else
+    {
+      node->data->setObject(nil);
     }
 
     allocNodeState<ArrayState>(self, node);
@@ -980,6 +987,10 @@ $   local subtype = decl.args[1]
         "$(subtype.qname)"_typeid);
 
       node->data->children.push(child_data);
+      
+      // Open on add.
+      // TODO(sushi) scroll to the newly added child.
+      node->flags.set(NodeFlag::Open);
     }
   }
 
@@ -1227,6 +1238,20 @@ $ -- * ------------------------------------------------------------------------
 $ -- Typedefs just passthrough to their subtype for now. Eventually though 
 $ -- we should be checking for metadata applied to them that may alter 
 $ -- their behavior in the editor.
+$ --
+$ -- Also, similar to the TemplateSpec handling below, we previsit typedef 
+$ -- declarations so that we may forward declare them. This handles cases like:
+$ --
+$ --   struct Thing;
+$ --   typedef reflect::Array<Thing> ThingArray;
+$ -- 
+$ --   struct Thing { ThingArray array; };
+
+$ av:previsit(ast.TypedefDecl, function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(init_tree.declare(decl));
+$ end)
 
 $ av:visit(ast.TypedefDecl, function(decl)
   /* --------------------------------------------------------------------------
@@ -1235,6 +1260,19 @@ $ av:visit(ast.TypedefDecl, function(decl)
   {
     $(init_tree.call(decl.subtype))(self, node);
   }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+$ -- Previsit (but do not handle) TemplateSpecs as they are one of the ways 
+$ -- that we may define recursive types. We just forward declare the functions
+$ -- that may be used for them.
+$ -- 
+$ -- Forward declare other funcs if necessary. The only functions called for 
+$ -- other types in a type is init, everything is handled in putNode() and 
+$ -- friends.
+
+$ av:previsit(ast.TemplateSpec, function(decl)
+  $(init_tree.declare(decl));
 $ end)
 
 $ -- * ------------------------------------------------------------------------

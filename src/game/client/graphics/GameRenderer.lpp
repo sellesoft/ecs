@@ -184,62 +184,6 @@ void GameRenderer::drawQuad(
     Rect::from(pos, vec2f(1.f, 1.f)),
     uv,
     color);
-
-  // if (texture != batches[batch_count-1].texture)
-  // {
-  //   if (batches[batch_count-1].quad_count > 0)
-  //   {
-  //     if (batch_count >= GameRenderer::c_MaxBatches)
-  //     {
-  //       // TODO(delle) investigate if this stalls
-  //       drawBatches(*this, pass);
-  //     }
-  //     else
-  //     {
-  //       batch_count++;
-  //     }
-  //   }
-  //
-  //   batches[batch_count-1].quad_count = 0;
-  //   batches[batch_count-1].texture = texture;
-  // }
-  //
-  // static const vec2f offsets[4] = 
-  // {
-  //   vec2f(-0.f,-0.f),
-  //   vec2f( 1.f,-0.f),
-  //   vec2f( 1.f, 1.f),
-  //   vec2f(-0.f, 1.f),
-  // };
-  //
-  // gfx::Vertex quad_verts[4] = {};
-  //
-  // quad_verts[0].pos = pos + offsets[0];
-  // quad_verts[1].pos = pos + offsets[1];
-  // quad_verts[2].pos = pos + offsets[2];
-  // quad_verts[3].pos = pos + offsets[3];
-  //
-  // quad_verts[0].uv = vec2f(uv.x, uv.w);
-  // quad_verts[1].uv = vec2f(uv.z, uv.w);
-  // quad_verts[2].uv = vec2f(uv.z, uv.y);
-  // quad_verts[3].uv = vec2f(uv.x, uv.y);
-  //
-  // quad_verts[0].color = color.rgba;
-  // quad_verts[1].color = color.rgba;
-  // quad_verts[2].color = color.rgba;
-  // quad_verts[3].color = color.rgba;
-  //
-  // auto vp = (gfx::Vertex*)quad_buffers.vertex.mapped_data + 4*quad_count;
-  // mem::copy(vp, quad_verts, sizeof(quad_verts));
-  //
-  // batches[batch_count-1].quad_count++;
-  // quad_count++;
-  //
-  // if (quad_count >= GameRenderer::c_MaxQuads)
-  // {
-  //   // TODO(delle) investigate if this stalls
-  //   drawBatches(*this, pass);
-  // }
 }
 
 /* ----------------------------------------------------------------------------
@@ -295,11 +239,57 @@ void GameRenderer::updateSceneBuffer(
 
 /* ----------------------------------------------------------------------------
  */
-void GameRenderer::renderMapState(
+static vec2f computeEntityWorldPos(EntityMgr& entmgr, EntityId id)
+{
+  auto world_pos = vec2f(0.f);
+  while (notnil(id))
+  {
+    auto* transform = entmgr.tryComp<Transform>(id);
+    world_pos += transform->pos;
+    id = transform->parent;
+  }
+  return world_pos;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void GameRenderer::renderMapLayers(
     gfx::Vulkan& vk,
     gfx::BatchRenderer& br,
-    MapState& map)
+    EntityMgr& entmgr)
 {
+  for (auto& layer : entmgr.eachComp<MapLayer>())
+  { 
+    vec2f world_pos = computeEntityWorldPos(entmgr, layer.owner);
+    for (u32 x = 0; x < layer.def->dimensions.x; ++x)
+    {
+      for (u32 y = 0; y < layer.def->dimensions.y; ++y)
+      {
+        u32 idx = x * y;
+        Tile* tile = &layer.tiles[idx];
+        if (!tile->kind.isValid())
+          continue;
+
+        const TileKindDef& kind = *tile->kind;
+
+        vec2f tile_pos = world_pos + vec2f(x, y);
+
+        gfx::TextureHandle texture = kind.texture.isValid()
+          ? kind.texture.getHandle()
+          : null_texture.getHandle();
+
+        drawQuad(
+          vk, 
+          br, 
+          tile_pos, 
+          texture,
+          { 0.f, 0.f, 1.f, 1.f }, 
+          0xffffffff);
+      }
+    }
+  }
+
+$ if false then
   u32 layer_idx = 0;
   for (const Layer& layer : map.layers)
   {
@@ -323,14 +313,60 @@ void GameRenderer::renderMapState(
 
     layer_idx++;
   }
+$ end
 }
 
+/* ----------------------------------------------------------------------------
+ */
 void GameRenderer::renderSprites(
     gfx::Vulkan& vk,
     gfx::BatchRenderer& br,
-    MapState& map,
     EntityMgr& entmgr)
 {
+  for (Sprite& sprite : entmgr.eachComp<Sprite>())
+  {
+    auto world_pos = vec2f(0.f);
+
+    EntityId ent = sprite.owner;
+    while (notnil(ent))
+    {
+      auto* transform = entmgr.tryComp<Transform>(ent);
+      world_pos += transform->pos;
+      ent = transform->parent;
+    }
+
+    gfx::TextureHandle texture = null_texture.getHandle();
+    vec4f uv = {0.f, 0.f, 1.f, 1.f};
+    Color color = 0xff0000ff;
+    if (sprite.def->states.isValid())
+    {
+      const SpriteTexture* stex =
+        sprite.def->states->map.getAtIndex(sprite.state);
+
+      if (stex != nullptr && stex->texture.isValid())
+      {
+        const gfx::CompiledTexture& tex_data = 
+          stex->texture->compiled_texture.get();
+
+        texture = stex->texture.getHandle();
+        color = stex->color;
+
+        vec2f uv_min = stex->uv.pos();
+        vec2f uv_max = stex->uv.extent();
+
+        // TODO(sushi) we need to set up something during data compiling 
+        //             that caches these somewhere for us.
+        uv.x = uv_min.x / f32(tex_data.width);
+        uv.y = uv_min.y / f32(tex_data.height);
+        uv.z = uv_max.x / f32(tex_data.width);
+        uv.w = uv_max.y / f32(tex_data.height);
+      }
+    }
+
+    drawQuad(vk, br, world_pos, texture, uv, color);
+  }
+
+$ if false then
   ComponentMgr& cmpmgr = entmgr.cmpmgr;
 
   for (Sprite& sprite : cmpmgr.iterate<Sprite>())
@@ -383,6 +419,7 @@ void GameRenderer::renderSprites(
       drawQuad(vk, br, pos, texture, uv, color);
     }
   }
+$ end
 }
 
 /* ----------------------------------------------------------------------------
@@ -458,14 +495,13 @@ b8 GameRenderer::render(const RenderParams& params)
   br.setPipeline(quad_pipeline_link.getHandle());
   pass.bindUniformBuffer(scene_uniform_buffer);
 
-  if (params.map)
-    renderMapState(vk, br, *params.map);
+  renderMapLayers(vk, br, *params.entmgr);
 
   ///////////////////////////////////////////////
   // 3. Draw Sprite Components
 
-  if (params.entmgr && params.map)
-    renderSprites(vk, br, *params.map, *params.entmgr);
+  if (params.entmgr)
+    renderSprites(vk, br, *params.entmgr);
 
   br.end();
 

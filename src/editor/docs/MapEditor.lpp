@@ -10,6 +10,7 @@ $(imported)
 
 @lpp.import "game/client/structure/StructureVisualizer.sys.lh"
 @lpp.import "game/shared/Collider.comp.lh"
+@lpp.import "game/shared/SceneLoader.lh"
 
 @lpp.import "graphics/Geo.lh"
 @lpp.import "graphics/BatchRenderer.lh"
@@ -45,40 +46,61 @@ static inline b8 recreateMapTexture(gfx::Vulkan& vk, gfx::Texture* texture)
 }
 
 /* ----------------------------------------------------------------------------
- *  Reloads the map state (and entity state) of the current source data file 
- *  stored by MapEditor.
  */
-static b8 reloadMapState(MapEditor& self)
+static inline b8 initGameSubSystems(MapEditor& self)
 {
-  self.entity_mgr.destroyAllEntities();
-  self.map_def_packed.deinit();
+  if (!self.game_log.init())
+    return self.editor->log.error("failed init game log");
 
-  self.map_def_packed.init();
+  if (!self.entity_mgr.init())
+    return self.editor->log.error("failed to init entity manager");
+
+  cl::EntitySysMgr::InitParams ent_sys_mgr_params = 
+  {
+    {
+      .entmgr = self.entity_mgr,
+      .log = self.game_log,
+    }
+  };
+
+  if (!self.entity_sys_mgr.init(ent_sys_mgr_params))
+    return self.editor->log.error("failed to init entity system manager");
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 reloadScene(MapEditor& self)
+{
+  self.entity_sys_mgr.deinit();
+  self.entity_mgr.deinit();
+  self.scene_def_packed.deinit();
+
+  initGameSubSystems(self);
+
+  self.scene_def_packed.init();
 
   reflect::PackParams pack_params;
-  pack_params.packed = &self.map_def_packed;
+  pack_params.packed = &self.scene_def_packed;
 
   if (!reflect::packSourceDataFromType(
-        *self.sdf_map_def.returned_data,
+        *self.sdf_scene_def.returned_data,
         pack_params))
     return false;
 
-  auto* def = self.map_def_packed.getDataAs<MapDef>();
+  auto* def = self.scene_def_packed.getDataAs<SceneDef>();
 
-  self.editor->getLinker().link("MapDef"_typeid, def);
+  self.editor->getLinker().link("SceneDef"_typeid, def);
 
-  MapLoadParams map_load_params = 
+  SceneLoadParams load_params = 
   {
     .entmgr = self.entity_mgr,
-    .log = &self.editor->log,
+    .log = &self.game_log,
   };
 
-  if (!loadMap(&self.map_state, *def, map_load_params))
-    return false;
-
-  // Call StructureVisualizer's helper for updating structure sprite states
-  // so that they appear properly in the render.
-  cl::updateAllStructureAppearances(self.map_state, self.entity_mgr);
+  if (!loadScene(*def, load_params))
+    return self.editor->log.error("failed to load scene");
 
   return true;
 }
@@ -86,22 +108,22 @@ static b8 reloadMapState(MapEditor& self)
 /* ----------------------------------------------------------------------------
  *  Loads the map state from the source data file at `path`.
  */
-static b8 loadMapState(MapEditor& self, String path)
+static b8 loadSceneData(MapEditor& self, String path)
 {
-  self.sdf_map_def.deinit();
+  self.sdf_scene_def.deinit();
 
-  if (!SourceDataFile::from(&self.sdf_map_def, path))
+  if (!SourceDataFile::from(&self.sdf_scene_def, path))
     return false;
 
-  return reloadMapState(self);
+  return reloadScene(self);
 }
 
 /* ----------------------------------------------------------------------------
  */
 b8 MapEditor::init()
 {
-  if (!entity_mgr.init())
-    return editor->log.error("failed to init entity manager");
+  if (!initGameSubSystems(*this))
+    return editor->log.error("failed to initialize game subsystems");
 
   reflect::Linker linker = 
   {
@@ -118,9 +140,10 @@ b8 MapEditor::init()
   if (!game_renderer.init(game_renderer_params))
     return editor->log.error("failed to init game renderer");
 
-  loadMapState(*this, "assets/maps/Test.map"_str);
+  if (!loadSceneData(*this, "assets/scenes/Test.scene"_str))
+    return editor->log.error("failed to load scene");
 
-  if (!recreateMapTexture(*editor->vk, &map_render))
+  if (!recreateMapTexture(*editor->vk, &scene_render))
     return editor->log.error("failed to create map texture");
 
   sd_editor.init();
@@ -193,7 +216,7 @@ static void handleDragState(
     {
       vec2f offset = self.view.viewportPointToWorld(
         self.drag_start_viewport, 
-        self.map_view_size);
+        self.view_size);
 
       self.view.pos = self.drag_start_world + offset - state.world_cursor;
 
@@ -233,7 +256,7 @@ static void handleScrollState(
 
       vec2f new_world_cursor = self.view.viewportPointToWorld(
         state.local_cursor, 
-        self.map_view_size);
+        self.view_size);
 
       self.view.pos -= new_world_cursor - state.world_cursor;
     }
@@ -273,6 +296,7 @@ static void reloadEntitySourceDataFile(
 
 /* ----------------------------------------------------------------------------
  */
+$ if false then
 static void handleEntitySelection(
     MapEditor& self,
     ui::UI& ui,
@@ -315,19 +339,20 @@ static void handleEntitySelection(
       reloadEntitySourceDataFile(self, self.selected_entity);
   }
 }
+$ end
 
 /* ----------------------------------------------------------------------------
  */
-static void handlePaintTile(
-    MapEditor& self,
-    ui::UI& ui,
-    const MapViewState& state,
-    MapViewResult& result,
-    Layer* layer,
-    Tile* tile)
-{
-
-}
+// static void handlePaintTile(
+//     MapEditor& self,
+//     ui::UI& ui,
+//     const MapViewState& state,
+//     MapViewResult& result,
+//     Layer* layer,
+//     Tile* tile)
+// {
+//
+// }
 
 /* ----------------------------------------------------------------------------
  */
@@ -337,6 +362,7 @@ static void handleMapAndEntityCursorInteraction(
     const MapViewState& state,
     MapViewResult& result)
 {
+$ if false then
   self.hovered_layer_idx = -1;
   self.hovered_tile_idx = -1;
   self.hovered_entity = nil;
@@ -360,13 +386,14 @@ static void handleMapAndEntityCursorInteraction(
   switch (self.selected_tool)
   {
   case Tool::None:
-    if (got_tile_layer)
-      handleEntitySelection(self, ui, state, *layer, *tile);
+    // if (got_tile_layer)
+      // handleEntitySelection(self, ui, state, *layer, *tile);
     break;
   case Tool::PaintTile:
-    handlePaintTile(self, ui, state, result, layer, tile);
+    // handlePaintTile(self, ui, state, result, layer, tile);
     break;
   }
+$ end
 }
 
 /* ----------------------------------------------------------------------------
@@ -400,7 +427,7 @@ static void putMapView(
   uv.z = bounds.w / c_map_render_w;
   uv.w = bounds.h / c_map_render_h;
 
-  ui.putQuad(bounds, self.map_render.getHandle(), uv, 0xffffffff);
+  ui.putQuad(bounds, self.scene_render.getHandle(), uv, 0xffffffff);
 
   handleControlInputs(self, ui, state, result, skin);
 }
@@ -514,7 +541,7 @@ void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
   map_view_bounds.h = ui.getHeight();
 
   // Save the view size for the next time we go to render.
-  map_view_size = map_view_bounds.size();
+  view_size = map_view_bounds.size();
 
   Rect tool_menu_bounds = {};
   tool_menu_bounds.x = 0.f;
@@ -526,7 +553,7 @@ void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
   view_state.local_cursor = ui.getLocalCursorPos() - map_view_bounds.pos();
   view_state.world_cursor = view.viewportPointToWorld(
     view_state.local_cursor,
-    map_view_size);
+    view_size);
   view_state.focus = ui.putFocusableBounds("game-view"_fid, map_view_bounds);
 
   MapViewResult view_result;
@@ -569,7 +596,7 @@ static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
   // Get where the top-left and top-right of the viewport correspond to 
   // in the world.
   vec2f world_view_origin = self.viewportToWorld(vec2f(0.f, 0.f));
-  vec2f world_view_extent = self.viewportToWorld(self.map_view_size);
+  vec2f world_view_extent = self.viewportToWorld(self.view_size);
 
   // Used to determine thickness of lines as drawn in the world so that 
   // they appear with a consistent thickness on screen.
@@ -615,6 +642,7 @@ static void outlineEntityCollider(
     EntityId id, 
     Color color)
 {
+$ if false then
   if (isnil(id))
     return;
 
@@ -633,29 +661,20 @@ static void outlineEntityCollider(
 
     br.drawBorder(collider_bounds, thickness, color);
   }
+$ end
 }
 
 /* ----------------------------------------------------------------------------
  */
 void MapEditor::render(gfx::Vulkan& vk)
 {
-  if (map_view_size.x <= 0.f || map_view_size.y <= 0.f)
+  if (view_size.x <= 0.f || view_size.y <= 0.f)
     return;
 
   gfx::RenderTarget target = 
   {
-    .image = map_render.image,
-    .view = map_render.view,
-  };
-
-  cl::GameRenderer::RenderParams render_params = 
-  {
-    .entmgr = &entity_mgr,
-    .map = &map_state,
-    .viewport_size = vec2u(map_view_size),
-    .vk = vk,
-    .target = target,
-    .view = view.getViewMat(),
+    .image = scene_render.image,
+    .view = scene_render.view,
   };
 
   gfx::RenderPass pass;
@@ -664,11 +683,11 @@ void MapEditor::render(gfx::Vulkan& vk)
         &pass,
         target,
         vec2i(0,0),
-        vec2u(map_view_size),
+        vec2u(view_size),
         0x000000ff))
     return;
 
-  game_renderer.updateSceneBuffer(vk, map_view_size, view.getViewMat());
+  game_renderer.updateSceneBuffer(vk, view_size, view.getViewMat());
 
   gfx::VertexBufferView vbv;
   gfx::IndexBufferView ibv;
@@ -685,15 +704,15 @@ void MapEditor::render(gfx::Vulkan& vk)
   pass.bindIndexBuffer(game_renderer.quad_buffers.index);
   pass.bindUniformBuffer(game_renderer.scene_uniform_buffer);
 
-  pass.setViewport({0,0}, map_view_size);
-  pass.setScissor({0,0}, vec2u(map_view_size));
+  pass.setViewport({0,0}, view_size);
+  pass.setScissor({0,0}, vec2u(view_size));
   
-  game_renderer.renderMapState(vk, br, map_state);
+  game_renderer.renderMapLayers(vk, br, entity_mgr);
   
   br.setTexture(editor->l_white_texture.getHandle());
   placeGrid(*this, br);
 
-  game_renderer.renderSprites(vk, br, map_state, entity_mgr);
+  game_renderer.renderSprites(vk, br, entity_mgr);
 
   br.setTexture(editor->l_white_texture.getHandle());
   outlineEntityCollider(*this, br, selected_entity, 0x00ff00ff);
@@ -705,7 +724,7 @@ void MapEditor::render(gfx::Vulkan& vk)
 
   gfx::vk::endRenderPass(&vk);
 
-  gfx::vk::prepareImageForSampling(&vk, map_render.image);
+  gfx::vk::prepareImageForSampling(&vk, scene_render.image);
 }
 
 }

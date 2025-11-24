@@ -3,6 +3,7 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
 #include "iro/containers/Slice.h"
 #include "iro/Common.h"
@@ -22,6 +23,7 @@ struct Vulkan;
  */
 struct Shader
 {
+  @metadata.no_link
   void* handle = nullptr;
 
   struct CreateParams

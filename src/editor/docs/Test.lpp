@@ -11,8 +11,8 @@ namespace editor
 b8 Test::init()
 {
   sde.init();
-  SourceDataFile::from(&file, "assets/entities/locker/Locker.entity"_str);
-  sde.setSourceData(file.returned_data, &file, "EntityDef"_typeid);
+  SourceDataFile::from(&file, "assets/scenes/Test.scene"_str);
+  sde.setSourceData(file.returned_data, &file, "SceneDef"_typeid);
 
   return true;
 }

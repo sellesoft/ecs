@@ -6,6 +6,7 @@ $ require "common"
 
 @lpp.import "game/shared/entity/EntitySys.lh"
 @lpp.import "game/shared/spawner/Spawner.comp.lh"
+@lpp.import "game/shared/component/Component.events.lh"
 
 struct EyeSys;
 struct SharedInputSys;
@@ -20,11 +21,11 @@ struct SpawnerSys : EntitySys
 
   b8 init()
   {
-    subscribeToInit<Spawner>(&SpawnerSys::onInit);
+    subscribeTo<Spawner, ComponentInit>(&SpawnerSys::onInit);
     subscribeTo<MapPostLoad>(&SpawnerSys::onMapLoad);
     return true;
   }
 
-  void onInit(EntComp<Spawner>, SpawnerInit&);
+  void onInit(Spawner&, ComponentInit&);
   void onMapLoad(MapPostLoad&);
 };

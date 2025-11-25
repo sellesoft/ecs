@@ -40,16 +40,34 @@ $ end
 
 @log.import
 
+$ -- Generate a struct containing placeholder component defs to handle cases
+$ -- when Components are added to an Entity programatically. Ideally we 
+$ -- shouldn't be storing pointers to defs on every component but it is 
+$ -- simple and I don't have any better ideas atm.
+$ -- TODO(sushi) figure out a better way to handle this, would just rather 
+$ --             systems be able to assed Component::def is never nullptr 
+$ --             so that they don't have to test if its there everytime they
+$ --             use it.
+
+/* ============================================================================
+ */
+struct ComponentDefPlaceholders
+{
+$ eachComp(function(comp)
+  $(comp.qname)Def $(comp.cname) = {};
+$ end)
+};
+
 $$$
 
-local max_entities = 1000000
+local max_entities = 100000
 
 local comp_counts = 
 {
   Transform = max_entities,
 }
 
-local default_comp_count = 0xffff
+local default_comp_count = 0xff
 
 eachComp(function(comp)
   if not comp_counts[comp.cname] then
@@ -147,6 +165,7 @@ struct EntityWorld
 {
   ComponentArrays comp_arrays;
   EntitySlot entities[$(max_entities)];
+  ComponentDefPlaceholders cdef_placeholder;
 };
 
 /* ----------------------------------------------------------------------------
@@ -218,6 +237,8 @@ $(comp.decl.qname)* addComp_$(comp.cname)(
   slot.components.$(comp.cname) = push_result.idx + 1;
 
   self.eventbus.raise(*push_result.comp, ComponentAdd{});
+
+  println("add comp $(comp.qname) to ", id);
   
   return push_result.comp;
 }
@@ -235,6 +256,8 @@ $(comp.decl.qname)* EntityMgr::addComp<$(comp.decl.qname)>(EntityId id)
 template<>
 $(comp.qname)* EntityMgr::tryComp<$(comp.qname)>(EntityId id)
 {
+  if (isnil(id))
+    return nullptr;
   return tryComp_$(comp.cname)(*this, id, *getEntitySlot(*world, id));
 }
 
@@ -250,12 +273,18 @@ $ end)
 
 /* ----------------------------------------------------------------------------
  *  Raises ComponentInit on all components of the given entity.
+ *  Also, if any component does not have a `def`, then it its set to 
+ *  its corresponding placeholder, which needs to be redone.
  */
 static void initializeEntity(EntityMgr& self, EntityId id, EntitySlot& slot)
 {
 $ eachComp(function(comp)
   if (auto* comp = tryComp_$(comp.cname)(self, id, slot))
+  {
+    if (comp->def == nullptr)
+      comp->def = &self.world->cdef_placeholder.$(comp.cname);
     self.eventbus.raise(*comp, ComponentInit{});
+  }
 $ end)
 }
 
@@ -374,6 +403,8 @@ $ end)
   // perform any special initialization or tracking of Components.
   initializeEntity(*this, id, *slot);
   startupEntity(*this, id, *slot);
+
+  assert(tryComp_Transform(*this, id, *slot) != nullptr);
   
   return id;
 }
@@ -398,6 +429,8 @@ EntityId EntityMgr::spawnEntity(
   // TODO(sushi) need to do this better eventually, and also don't need to
   //             support this outside of development builds.
   slot->defname = def.name;
+
+  assert(tryComp_Transform(*this, id, *slot) != nullptr);
 
   return id;
 }

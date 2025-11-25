@@ -296,6 +296,7 @@ $ end
 
   build_system.loadAssetList("src/editor/Editor.asset_list"_str);
   build_system.loadAssetList("src/ui/UI.asset_list"_str);
+  build_system.loadAssetList("src/game/Game.asset_list"_str);
 
   if (!build_system.build())
     return log.error("failed to build required Editor assets");

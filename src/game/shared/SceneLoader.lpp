@@ -41,7 +41,8 @@ static b8 loadSceneEntityArray(
     auto* scene_entity = entity_ptr.getAs<SceneEntity>();
 
     @log.chan.info(log, game, 
-      "spawned scene entity with id ", scene_entity->uid);
+      "spawned scene entity with uid ", scene_entity->uid, " "
+      "entity id ", spawned_entity);
 
     if (!loadSceneEntityArray(
           scene_entity->children, 

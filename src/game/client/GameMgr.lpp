@@ -30,6 +30,38 @@ namespace cl
 {
 
 /* ----------------------------------------------------------------------------
+ *  Temporary helper for getting a ghost into the world. Once networking is 
+ *  setup this should be handled more formally.
+ */
+static void spawnPlayerGhost(GameMgr& self, reflect::Linker& linker)
+{
+  EntityId spawn_parent = nil;
+  for (auto& layer : self.entmgr.eachComp<MapLayer>())
+  {
+    spawn_parent = layer.owner;
+    break;
+  }
+
+  EntityDefLink ghost_def;
+  linker.link(
+    "EntityDefLink"_typeid,
+    "assets/entities/ghost/Ghost"_str,
+    &ghost_def);
+
+  EntityId ghost = self.entmgr.spawnEntity(
+    ghost_def,
+    spawn_parent);
+
+  println("spawned ghost ", ghost);
+
+  auto& eye = self.getSys<EyeSys>();
+  auto& input = self.getSys<InputSys>();
+
+  eye.attach(ghost);
+  input.attach(ghost);
+}
+
+/* ----------------------------------------------------------------------------
  */
 b8 GameMgr::init(const InitParams& params)
 {
@@ -71,15 +103,7 @@ b8 GameMgr::init(const InitParams& params)
   if (!loadScene(*loaded_scene, scene_load_params))
     return log->error("failed to load Test scene");
 
-  // params.linker.link("MapDefLink"_typeid, "assets/maps/Test"_str, &loaded_map);
-  //
-  // MapLoadParams map_load_params = 
-  // {
-  //   .entmgr = entmgr,
-  // };
-  //
-  // if (!entsysmgr.get<MapSys>().load(*loaded_map, map_load_params))
-  //   return false;
+  spawnPlayerGhost(*this, params.linker);
 
   return true;
 }

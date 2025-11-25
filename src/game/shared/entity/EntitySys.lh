@@ -108,6 +108,20 @@ struct EntitySys
   {
     return entmgr->eachComp<TComp>();
   }
+  
+  // Wonder how clang will optimize this one.
+  vec2f computeWorldPos(const Transform& transform)
+  {
+    return transform.pos + computeWorldPos(transform.parent);
+  }
+
+  vec2f computeWorldPos(EntityId id)
+  {
+    if (auto* transform = tryComp<Transform>(id))
+      return computeWorldPos(*transform);
+    else
+      return vec2f(0.f);
+  }
 
   // Because entity systems may use virtual functions, this struct must
   // also be virtual. If not then in methods defined here, 'this' is different

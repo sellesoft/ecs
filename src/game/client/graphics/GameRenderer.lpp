@@ -245,6 +245,7 @@ static vec2f computeEntityWorldPos(EntityMgr& entmgr, EntityId id)
   while (notnil(id))
   {
     auto* transform = entmgr.tryComp<Transform>(id);
+    assert(transform);
     world_pos += transform->pos;
     id = transform->parent;
   }

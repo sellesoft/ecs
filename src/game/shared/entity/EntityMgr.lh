@@ -127,10 +127,7 @@ struct EntityMgr
   }
 
   template<typename T>
-  T* tryComp(EntityId id)
-  {
-    return nullptr;
-  }
+  T* tryComp(EntityId id);
 
   template<typename T, typename X>
   T* tryComp(EntComp<X> id)

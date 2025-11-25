@@ -134,9 +134,9 @@ if cfg.cpp.debug_info then
   defines.ECS_DEBUG = 1
 end
 
-if cfg.cpp.opt == "speed" then
-  defines.NDEBUG = true
-end
+-- if cfg.cpp.opt == "speed" then
+--   defines.NDEBUG = true
+-- end
 
 if cfg.tracy.enabled then
   defines.TRACY_ENABLE = 1

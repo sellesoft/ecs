@@ -74,6 +74,12 @@ struct GameMgr
   {
     entmgr.notifyAssetChanged(name, type, linker);
   }
+
+  template<typename TSys>
+  TSys& getSys()
+  {
+    return entsysmgr.get<TSys>();
+  }
 };
 
 }

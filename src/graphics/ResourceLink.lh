@@ -59,6 +59,9 @@ struct TypedResourceLink : ResourceLink
   TResource& get() { assert(isValid()); return *(TResource*)resource; }
   const TResource& get() const 
     { assert(isValid()); return *(const TResource*)resource; }
+
+  TResource* tryGet() { return isValid()? &get() : nullptr; }
+  const TResource* tryGet() const { return isValid()? &get() : nullptr; }
 };
 
 }

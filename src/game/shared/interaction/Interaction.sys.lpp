@@ -7,6 +7,7 @@ $ require "common"
 @lpp.import "game/shared/Transform.comp.lh"
 @lpp.import "game/shared/map/Map.sys.lh"
 @lpp.import "game/shared/input/Input.events.lh"
+@lpp.import "game/shared/SpriteFuncs.lh"
 
 #include "input/Keys.h"
 
@@ -19,34 +20,71 @@ b8 InteractionSys::update()
 
 /* ----------------------------------------------------------------------------
  */
+static const gfx::CompiledTexture* getSpriteCompiledTexture(
+    const cl::Sprite& sprite)
+{
+  if (const SpriteTexture* tex = getSpriteTexture(sprite))
+  {
+    if (const gfx::TextureResource* r_tex = tex->texture.tryGet())
+    {
+      if (const gfx::CompiledTexture* c_tex = r_tex->compiled_texture.tryGet())
+      {
+        return c_tex;
+      }
+    }
+  }
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Given a texture space `point`, tests if the pixel of the current texture
+ *  displayed by `sprite` is visible. Can probably do this better later.
+ */
+static b8 pixelTestSprite(const cl::Sprite& sprite, vec2f point)
+{
+  const gfx::CompiledTexture* ctex = getSpriteCompiledTexture(sprite);
+  if (ctex == nullptr)
+    return false;
+
+  // Invert y, because we render textures upside down, or something... I don't
+  // remember.
+  u32 pos_x = point.x * ctex->width;
+  u32 pos_y = (1.f - point.y) * ctex->height;
+
+  u64 pixel_offset = pos_x + pos_y * ctex->width;
+
+  if (pixel_offset >= ctex->width * ctex->height)
+    return false;
+
+  auto pixels = (u32*)ctex->pixels.get();
+
+  Color pixel_color = pixels[pixel_offset];
+
+  return pixel_color.a != 0;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void InteractionSys::onUsePrimary(UsePrimaryInputEvent& ev)
 {
   if (ev.released)
     return;
 
-  // Layer* cursor_layer;
-  // Tile*  cursor_tile;
-  // if (!map->state.getTileAndLayerAtPos(&cursor_layer, &cursor_tile, ev.pos))
-  //   return;
-  //
-  // for (auto& interactable : iterateComp<Interactable>())
-  // {
-  //   auto* transform = tryComp<Transform>(interactable.owner);
-  //
-  //   const Layer& transform_layer = 
-  //     map->state.layers[transform->placement_layer];
-  //   vec2f interactable_pos =
-  //     vec2f(transform_layer.pos) +
-  //     transform->pos;
-  //
-  //   Layer* layer;
-  //   Tile* tile;
-  //   if (map->state.getTileAndLayerAtPos(&layer, &tile, interactable_pos))
-  //   {
-  //     // TODO(sushi) we need to properly choose the topmost item and
-  //     //             also hit test the visual size of the thing and yeah 
-  //     if (tile == cursor_tile)
-  //       raise(interactable.owner, Interact{});
-  //   }
-  // }
+  for (auto& interactable : eachComp<Interactable>())
+  {
+    auto* sprite = tryComp<cl::Sprite>(interactable.owner);
+    if (sprite == nullptr)
+      continue;
+  
+    vec2i size = getSpriteTextureSize(*sprite);   
+    
+    vec2f world_pos = computeWorldPos(interactable.owner);
+    vec2f world_size = computeSpriteTextureWorldSize(*sprite, *eye);
+
+    if (Rect::from(world_pos, world_size).containsPoint(ev.pos))
+    {
+      if (pixelTestSprite(*sprite, ev.pos - world_pos))
+        raise(interactable.owner, Interact{});
+    }
+  }
 }

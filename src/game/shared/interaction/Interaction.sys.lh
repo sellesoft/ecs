@@ -6,6 +6,7 @@
 $ require "common"
 
 @lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/Eye.sys.lh"
 
 struct MapSys;
 struct InputSys;
@@ -14,6 +15,7 @@ struct UsePrimaryInputEvent;
 struct InteractionSys : EntitySys
 {
   MapSys* map;
+  EyeSys* eye;
 
   b8 init() 
   { 

@@ -63,7 +63,8 @@ struct AssetLink
 
   void invalidate() { *this = invalid(); }
 
-  Asset* tryGetAsset() const { return isValid()? asset : nullptr; }
+  Asset* tryGetAsset() { return isValid()? asset : nullptr; }
+  const Asset* tryGetAsset() const { return isValid()? asset : nullptr; }
 
   Asset* getAsset() const { assert(isValid()); return asset; }
 };
@@ -84,6 +85,13 @@ struct TypedAssetLink : AssetLink
   T* tryGet()
   {
     if (Asset* asset = tryGetAsset())
+      return (T*)asset->data;
+    return nullptr;
+  }
+
+  const T* tryGet() const
+  {
+    if (const Asset* asset = tryGetAsset())
       return (T*)asset->data;
     return nullptr;
   }

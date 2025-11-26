@@ -53,8 +53,6 @@ namespace cl
   SpriteStatesLink states;
 },
 {
-  vec2f bbx;
-
   $(metadata.default "{255,255,255,255}")
   Color color;
 

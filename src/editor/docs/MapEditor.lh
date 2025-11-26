@@ -75,6 +75,12 @@ struct MapEditor : Doc
   {
     return view.viewportPointToWorld(point, view_size);
   }
+
+  template<typename T>
+  T& getSys()
+  {
+    return entity_sys_mgr.get<T>();
+  }
 };
 
 }

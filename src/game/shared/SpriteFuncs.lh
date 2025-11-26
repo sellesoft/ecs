@@ -1,0 +1,105 @@
+/*
+ *  Helper functions related to the Sprite component.
+ */
+
+$ require "common"
+
+@lpp.import "game/client/graphics/Sprite.comp.lh"
+@lpp.import "graphics/View.lh"
+@lpp.import "game/shared/Eye.sys.lh"
+
+/* ----------------------------------------------------------------------------
+ */
+static inline const SpriteTexture* getSpriteTexture(const cl::Sprite& sprite)
+{
+  if (!sprite.def->states.isValid())
+    return nullptr;
+
+  const SpriteStatesDef& states = *sprite.def->states;
+
+  return states.map.getAtIndex(sprite.state);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static const gfx::CompiledTexture* getSpriteCompiledTexture(
+    const cl::Sprite& sprite)
+{
+  if (const SpriteTexture* tex = getSpriteTexture(sprite))
+  {
+    if (const gfx::TextureResource* r_tex = tex->texture.tryGet())
+    {
+      if (const gfx::CompiledTexture* c_tex = r_tex->compiled_texture.tryGet())
+      {
+        return c_tex;
+      }
+    }
+  }
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline vec2i getSpriteTextureSize(const cl::Sprite& sprite)
+{
+  if (const SpriteTexture* tex = getSpriteTexture(sprite))
+    return vec2i(tex->uv.w, tex->uv.h);
+  return vec2i(0);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline vec2f computeSpriteTextureWorldSize(
+    const cl::Sprite& sprite,
+    const gfx::View& view,
+    vec2f viewport_size)
+{
+  // TODO(sushi) surely this can be done better.
+  // TODO(sushi) properly handle rotated views.
+  vec2f sprite_size = vec2f(getSpriteTextureSize(sprite)) / view.zoom;
+  vec2f origin = view.viewportPointToWorld(vec2f(0.f), viewport_size);
+  vec2f extent = view.viewportPointToWorld(sprite_size, viewport_size);
+
+  return (extent - origin).yneg();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static inline vec2f computeSpriteTextureWorldSize(
+    const cl::Sprite& sprite,
+    const EyeSys& eye)
+{
+  return computeSpriteTextureWorldSize(
+    sprite,
+    eye.view,
+    vec2f(eye.viewport_size));
+}
+
+/* ----------------------------------------------------------------------------
+ *  Given a texture space `point`, tests if the pixel of the current texture
+ *  displayed by `sprite` is visible. Can probably do this better later.
+ */
+static b8 pixelTestSprite(const cl::Sprite& sprite, vec2f point)
+{
+  const gfx::CompiledTexture* ctex = getSpriteCompiledTexture(sprite);
+  if (ctex == nullptr)
+    return false;
+
+  // Invert y, because we render textures upside down, or something... I don't
+  // remember.
+  u32 pos_x = point.x * ctex->width;
+  u32 pos_y = (1.f - point.y) * ctex->height;
+
+  u64 pixel_offset = pos_x + pos_y * ctex->width;
+
+  if (pixel_offset >= ctex->width * ctex->height)
+    return false;
+
+  auto pixels = (u32*)ctex->pixels.get();
+
+  Color pixel_color = pixels[pixel_offset];
+
+  return pixel_color.a != 0;
+}
+
+

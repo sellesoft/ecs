@@ -27,4 +27,6 @@ struct MapSys : EntitySys
   void deinit();
 
   void onLayerInit(MapLayer&, ComponentInit&);
+
+  MapLayer* tryGetLayerAtPos(vec2f pos);
 };

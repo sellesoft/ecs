@@ -238,8 +238,6 @@ $(comp.decl.qname)* addComp_$(comp.cname)(
 
   self.eventbus.raise(*push_result.comp, ComponentAdd{});
 
-  println("add comp $(comp.qname) to ", id);
-  
   return push_result.comp;
 }
 

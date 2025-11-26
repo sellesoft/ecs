@@ -9,6 +9,8 @@ $(imported)
 @lpp.import "editor/Editor.lh"
 
 @lpp.import "game/client/structure/StructureVisualizer.sys.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
+@lpp.import "game/shared/SpriteFuncs.lh"
 @lpp.import "game/shared/Collider.comp.lh"
 @lpp.import "game/shared/SceneLoader.lh"
 
@@ -296,36 +298,33 @@ static void reloadEntitySourceDataFile(
 
 /* ----------------------------------------------------------------------------
  */
-$ if false then
 static void handleEntitySelection(
     MapEditor& self,
     ui::UI& ui,
-    const MapViewState& state,
-    Layer& layer,
-    Tile& tile)
+    const MapViewState& state)
 {
-  u32 layer_idx = self.map_state.getLayerIndex(layer);
+  EyeSys& eye = self.getSys<EyeSys>();
 
-  EntityMgr::Iter ent_iter(self.entity_mgr);
-  for (; ent_iter.isValid(); ent_iter.next())
+  self.hovered_entity = nil;
+  
+  vec2f world_cursor = state.world_cursor;
+
+  for (auto& sprite : self.entity_mgr.eachComp<cl::Sprite>())
   {
-    EntityId id = ent_iter.current();
-    
-    const auto* transform = tryComp<Transform>(self, id);
-    if (transform == nullptr || transform->placement_layer != layer_idx)
-      continue;
+    vec2f world_pos = self.entity_mgr.computeWorldPos(sprite.owner);
 
-    const auto* collider = tryComp<Collider>(self, id);
-    if (collider == nullptr)
-      continue;
+    vec2f world_size = computeSpriteTextureWorldSize(
+      sprite, 
+      self.view,
+      self.view_size);
 
-    Rect collider_bounds = collider->def->bounds;
-    collider_bounds.addPos(transform->pos + vec2f(layer.pos));
-
-    if (collider_bounds.containsPoint(state.world_cursor))
+    if (Rect::from(world_pos, world_size).containsPoint(world_cursor))
     {
-      self.hovered_entity = id;
-      break;
+      if (pixelTestSprite(sprite, world_cursor - world_pos))
+      {
+        self.hovered_entity = sprite.owner;
+        break;
+      }
     }
   }
 
@@ -339,7 +338,6 @@ static void handleEntitySelection(
       reloadEntitySourceDataFile(self, self.selected_entity);
   }
 }
-$ end
 
 /* ----------------------------------------------------------------------------
  */
@@ -362,38 +360,17 @@ static void handleMapAndEntityCursorInteraction(
     const MapViewState& state,
     MapViewResult& result)
 {
-$ if false then
-  self.hovered_layer_idx = -1;
-  self.hovered_tile_idx = -1;
-  self.hovered_entity = nil;
-
-  if (!state.focus.isHovered())
-    return;
-
-  Tile* tile = nullptr;
-  Layer* layer = nullptr;
-  b8 got_tile_layer = self.map_state.getTileAndLayerAtPos(
-      &layer, 
-      &tile, 
-      state.world_cursor);
-
-  if (got_tile_layer)
-  {
-    self.hovered_tile_idx = self.map_state.getLayerIndex(*layer);
-    self.hovered_layer_idx = layer->getTileIndex(*tile);
-  }
+  auto& map = self.getSys<MapSys>();
 
   switch (self.selected_tool)
   {
   case Tool::None:
-    // if (got_tile_layer)
-      // handleEntitySelection(self, ui, state, *layer, *tile);
+    handleEntitySelection(self, ui, state);
     break;
   case Tool::PaintTile:
     // handlePaintTile(self, ui, state, result, layer, tile);
     break;
   }
-$ end
 }
 
 /* ----------------------------------------------------------------------------
@@ -642,26 +619,21 @@ static void outlineEntityCollider(
     EntityId id, 
     Color color)
 {
-$ if false then
   if (isnil(id))
     return;
 
   auto* transform = tryComp<Transform>(self, id);
-  auto* collider = tryComp<Collider>(self, id);
+  auto* sprite    = tryComp<cl::Sprite>(self, id);
 
-  if (collider)
-  {
-    Layer* layer = 
-      self.map_state.getLayerByIndex(transform->placement_layer);
+  vec2f pos = self.entity_mgr.computeWorldPos(*transform);
+  vec2f size = computeSpriteTextureWorldSize(
+    *sprite, self.view, self.view_size);
+  
+  auto bounds = Rect::from(pos, size);
 
-    Rect collider_bounds = collider->def->bounds;
-    collider_bounds.addPos(transform->pos + vec2f(layer->pos));
+  f32 thickness = getWorldPixelSize(self).x;
 
-    f32 thickness = getWorldPixelSize(self).x;
-
-    br.drawBorder(collider_bounds, thickness, color);
-  }
-$ end
+  br.drawBorder(bounds, thickness, color);
 }
 
 /* ----------------------------------------------------------------------------

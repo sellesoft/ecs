@@ -137,4 +137,21 @@ struct EntityMgr
 
   template<typename T>
   Slice<T> eachComp();
+  
+  // God I love C++.
+  template<>
+  Transform* tryComp<Transform>(EntityId id);
+
+  // Wonder how clang will optimize this one.
+  vec2f computeWorldPos(EntityId id)
+  {
+    if (auto* transform = tryComp<Transform>(id))
+      return computeWorldPos(*transform);
+    return vec2f(0.f);
+  }
+
+  vec2f computeWorldPos(const Transform& transform)
+  {
+    return transform.pos + computeWorldPos(transform.parent);
+  }
 };

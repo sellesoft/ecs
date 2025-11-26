@@ -23,9 +23,8 @@ enum class PlacementMode
 struct EntityDef
 {
   String name;
-  ComponentDefArray components;
-
   PlacementMode placement;
+  ComponentDefArray components;
 };
 
 @metadata.links(entity.data)

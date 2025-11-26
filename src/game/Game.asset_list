@@ -1,0 +1,4 @@
+return build::AssetList
+{
+  "assets/entities/ghost/Ghost.entity.data"
+}

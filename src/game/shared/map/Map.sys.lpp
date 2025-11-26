@@ -38,17 +38,20 @@ void MapSys::onLayerInit(MapLayer& layer, ComponentInit&)
     layer.tiles[i].kind = layer.def->tiles[i];
 }
 
-// /* ----------------------------------------------------------------------------
-//  */
-// b8 MapSys::load(const MapDef& def, const MapLoadParams& params)
-// {
-//   // raise(MapPreLoad{});
-//   //
-//   // if (!loadMap(&state, def, params))
-//   //   return log->error("failed to load map");
-//   //
-//   // raise(MapPostLoad{});
-//
-//   return true;
-// }
+/* ----------------------------------------------------------------------------
+ */
+MapLayer* MapSys::tryGetLayerAtPos(vec2f pos)
+{
+  for (auto& layer : eachComp<MapLayer>())
+  {
+    vec2u dimensions = layer.def->dimensions;
+
+    vec2f layer_pos = computeWorldPos(layer.owner);
+    vec2f layer_extent = layer_pos + vec2f(dimensions);
+
+    if (Rect::from(layer_pos, vec2f(dimensions)).containsPoint(pos))
+      return &layer;
+  }
+  return nullptr;
+}
 

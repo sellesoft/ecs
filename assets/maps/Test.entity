@@ -1,0 +1,11 @@
+return EntityDef
+{
+  name = "TestMap",
+  components = 
+  {
+    MapLayer
+    {
+      
+    }
+  }
+}

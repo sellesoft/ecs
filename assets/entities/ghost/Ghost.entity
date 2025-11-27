@@ -1,0 +1,10 @@
+return EntityDef
+{
+  name = "Ghost",
+  components = 
+  {
+    AppearanceDef {},
+    cl::SpriteDef {},
+    MovementDef { speed = 0.2, },
+  } 
+}

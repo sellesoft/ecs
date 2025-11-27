@@ -469,54 +469,6 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
-void EntityMgr::reloadEntity(
-    Entity* ent,
-    String def_name,
-    const EntityDef& def)
-{
-$ if false then
-  EntityId id;
-  ent_pool.formId(ent, &id.value, &id.salt);
-  @log.info(game, "ent ", id, " needs reloaded\n");
-
-  vec2f pos = {};
-  f32 rotation = 0.f;
-  u32 placement_layer = 0;
-  // if (const Transform* transform = ent->tryComp<Transform>())
-  // {
-  //   pos = transform->pos;
-  //   rotation = transform->rotation;
-  //   placement_layer = transform->placement_layer;
-  // }
-
-  for (Component& comp : ent->components)
-  {
-    cmpmgr.deallocateComponent(&comp);
-  }
-
-  ent->components.deinit();
-  ent->components.init();
-
-  loadEntity(
-    ent, 
-    def_name,
-    def, 
-    *this);
-
-  eventbus.raise(id, ComponentInit{});
-  eventbus.raise(id, ComponentStartup{});
-
-  // if (Transform* transform = ent->tryComp<Transform>())
-  // {
-  //   transform->pos = pos;
-  //   transform->rotation = rotation;
-  //   transform->placement_layer = placement_layer;
-  // }
-$ end
-}
-
-/* ----------------------------------------------------------------------------
- */
 void EntityMgr::destroyEntity(EntityId id)
 {
 $ if false then
@@ -559,6 +511,14 @@ $ if false then
     }
   }
 $ end
+}
+
+/* ----------------------------------------------------------------------------
+ */
+String EntityMgr::getDefName(EntityId id) const
+{
+  EntitySlot* slot = getEntitySlot(*world, id);
+  return slot->defname;
 }
 
 

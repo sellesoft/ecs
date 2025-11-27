@@ -8,12 +8,10 @@ $ require "common"
 #include "iro/Common.h"
 #include "iro/containers/LinkedPool.h"
 
-@lpp.import "game/IndexedPool.lh"
-
-@lpp.import "game/shared/entity/Entity.lh"
 @lpp.import "game/shared/entity/EntityEventBus.lh"
 
 @lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/Transform.comp.lh"
 
 @lpp.import "math/vec.lh"
 
@@ -83,48 +81,11 @@ struct EntityMgr
 
   void notifyAssetChanged(String name, String type, reflect::Linker& linker);
 
-  // Reloads the given entity with the provided `def` named `def_name`.
-  void reloadEntity(Entity* ent, String def_name, const EntityDef& def);
-
   void destroyEntity(EntityId id);
   void destroyAllEntities();
-
-  IRO_FORCE_INLINE
-  Entity* getEntity(EntityId id) const
-  {
-    return nullptr;
-  }
- 
-  // Unlike the above, this doesn't assert. If this returns nullptr for some
-  // given id then it should be assumed that it no longer references a valid
-  // entity.
-  Entity* tryGetEntity(EntityId id) const
-  {
-    return nullptr;
-  }
-
-  EntityId getEntityId(Entity* ent) const
-  {
-    return nil;
-  }
   
   template<typename TComp>
   TComp* addComp(EntityId id);
-
-  template<typename TComp>
-  void removeComp(EntityId id, Entity* ent) const;
-
-  template<typename TComp>
-  void removeComp(Entity* ent) const
-  {
-    return removeComp<TComp>(getEntityId(ent), ent);
-  }
-
-  template<typename TComp>
-  void removeComp(EntityId id) const
-  {
-    return removeComp<TComp>(id, getEntity(id));
-  }
 
   template<typename T>
   T* tryComp(EntityId id);
@@ -154,4 +115,9 @@ struct EntityMgr
   {
     return transform.pos + computeWorldPos(transform.parent);
   }
+
+  // Retrieves the name of the def that the Entity was created from. May 
+  // return `nil` if it was created through some other means, eg. a 
+  // embedded SceneEntity or programatically.
+  String getDefName(EntityId id) const;
 };

@@ -99,8 +99,6 @@ struct EntitySys
   template<typename TComp, typename X>
   TComp* tryComp(EntComp<X> id) { return entmgr->tryComp<TComp>(id); }
 
-  Entity* getEntity(EntityId id) { return entmgr->getEntity(id); }
-
   // Returns a Slice over all components of the given type, for use in systems
   // which iterate all components of some kind.
   template<typename TComp>

@@ -219,9 +219,7 @@ void EntityEventBus::raise<$(event.typename)>(
     EntityId id, 
     $(event.typename)& event) const
 {
-  Entity* ent = entmgr->getEntity(id);
-
-    $ eachComponent(function(comp)
+$     eachComponent(function(comp)
   if (auto* comp = entmgr->tryComp<$(comp.typename)>(id))
   {
     for (auto* sub = sub_lists->$(getSubList(comp, event));
@@ -231,7 +229,7 @@ void EntityEventBus::raise<$(event.typename)>(
       sub->callback(sub->subscriber, { id, *comp }, event);
     }
   }
-    $ end)
+$     end)
 }
 
 /* ----------------------------------------------------------------------------

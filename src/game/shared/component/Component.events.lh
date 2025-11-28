@@ -24,7 +24,7 @@ struct ComponentInit { };
 @metadata.event(component)
 struct ComponentStartup { };
 
-// Raised when this Component is removed from an Entity and is about to be 
-// deallocated.
+// Raised when this Component is about to be removed from an Entity. The 
+// Component's data is still valid and is still attached to its owner.
 @metadata.event(component)
 struct ComponentRemove { };

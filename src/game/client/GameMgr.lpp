@@ -17,7 +17,6 @@ $ local cmn = require "common"
 @lpp.import "game/shared/Transform.comp.lh"
 
 @lpp.import "game/shared/map/Map.sys.lh"
-@lpp.import "game/shared/map/Map.defs.lh"
 
 @lpp.import "window/Window.events.lh"
 @lpp.import "game/shared/SceneLoader.lh"

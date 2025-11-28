@@ -1,5 +1,5 @@
 /*
- *  A doc providing an editor for a game map.
+ *  A doc providing an editor for a scene.
  */
 
 $ require "common"
@@ -9,8 +9,8 @@ $ require "common"
 @lpp.import "sdata/SourceDataFile.lh"
 @lpp.import "sdata/SourceDataEditor.lh"
 @lpp.import "reflect/Packing.lh"
-@lpp.import "game/shared/map/MapState.lh"
 @lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
 @lpp.import "game/client/entity/EntitySysMgr.lh"
 
@@ -19,7 +19,7 @@ namespace editor
 
 /* ============================================================================
  */
-struct MapEditor : Doc
+struct SceneEditor : Doc
 {
   cl::GameRenderer game_renderer;
   EntityMgr entity_mgr;
@@ -32,7 +32,7 @@ struct MapEditor : Doc
   reflect::PackedData scene_def_packed;
   SourceDataFile sdf_scene_def;
 
-  // The size at which the map view should be rendered.
+  // The size at which the scene view should be rendered.
   vec2f view_size;
 
   SourceDataFile sdf_selected_entity_def;
@@ -51,9 +51,9 @@ struct MapEditor : Doc
   EntityId selected_entity;
   EntityId hovered_entity;
 
-  // -1 when invalid.
-  s32 hovered_layer_idx;
-  s32 hovered_tile_idx;
+  fs::PathBuffer placement_entity_def_path;
+  EntityDefLink placement_entity_def;
+  EntityId placement_entity;
 
   enum Tool
   {

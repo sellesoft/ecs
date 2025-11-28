@@ -92,6 +92,11 @@ struct EntitySys
   template<typename TEvent>
   IRO_FORCE_INLINE void raise(TEvent&& event) { raise<TEvent>(event); }
 
+  Transform& getTransform(EntityId id)
+  {
+    return entmgr->getTransform(id);
+  }
+
   // Attempts to retrieve a Component of type TComp from the given entity.
   template<typename TComp>
   TComp* tryComp(EntityId id) { return entmgr->tryComp<TComp>(id); }

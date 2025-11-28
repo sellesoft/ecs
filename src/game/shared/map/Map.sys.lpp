@@ -2,7 +2,6 @@ $ local cmn = require "common"
 
 @lpp.import "game/shared/map/Map.sys.lh"
 @lpp.import "game/shared/map/Map.events.lh"
-@lpp.import "game/shared/map/Map.defs.lh"
 
 @lpp.import "Engine.lh"
 

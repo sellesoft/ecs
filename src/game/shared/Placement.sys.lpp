@@ -1,0 +1,107 @@
+
+$ require "common"
+
+@lpp.import "game/shared/Placement.sys.lh"
+
+@lpp.import "game/shared/entity/EntityMgr.lh"
+@lpp.import "game/shared/entity/Entity.defs.lh"
+@lpp.import "game/shared/map/Map.sys.lh"
+
+/* ============================================================================
+ */
+struct EntityPlacement
+{
+  EntityId parent = nil;
+  vec2f position = {};
+};
+
+/* ----------------------------------------------------------------------------
+ */
+static EntityPlacement computeFreePlacement(
+    PlacementSys& self,
+    vec2f desired_point)
+{
+  EntityPlacement placement = {};
+  placement.position = desired_point;
+
+  if (const MapLayer* layer = self.map->tryGetLayerAtPos(desired_point))
+  {
+    Transform& layer_transform = self.getTransform(layer->owner);
+    placement.position -= layer_transform.pos;
+    placement.parent = layer->owner;
+  }
+
+  return placement;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static EntityPlacement computeSnapToGridPlacement(
+    PlacementSys& self, 
+    vec2f desired_point)
+{
+  EntityPlacement placement = {};
+  placement.position = desired_point;
+
+  vec2f translated = desired_point;
+  if (const MapLayer* layer = self.map->tryGetLayerAtPos(desired_point))
+  {
+    Transform& layer_transform = self.getTransform(layer->owner);
+    placement.position -= layer_transform.pos;
+    placement.parent = layer->owner;
+  }
+  
+  placement.position = floor(placement.position);
+  
+  return placement;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static EntityPlacement computePlacement(
+    PlacementSys& self,
+    PlacementMode mode,
+    vec2f desired_point)
+{
+  switch (mode)
+  {
+  case PlacementMode::Free:
+    return computeFreePlacement(self, desired_point);
+  case PlacementMode::SnapToGrid:
+    return computeSnapToGridPlacement(self, desired_point);
+  }
+
+  assert(!"invalid PlacementMode");
+  return {};
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void PlacementSys::placeEntity(
+    EntityId id,
+    PlacementMode mode,
+    vec2f desired_point)
+{
+  EntityPlacement placement = computePlacement(*this, mode, desired_point);
+
+  auto* transform = tryComp<Transform>(id);
+  transform->pos = placement.position;
+
+  // TODO(sushi) we'll probably want to reparent entities more formally, eg.
+  //             through EntityMgr so that it may raise related events and
+  //             handle any other stuff that may come up in the future.
+  transform->parent = placement.parent;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void PlacementSys::placeEntity(
+    EntityId id,
+    const EntityDef& def,
+    vec2f desired_point)
+{
+  return placeEntity(
+    id,
+    def.placement,
+    desired_point);
+}

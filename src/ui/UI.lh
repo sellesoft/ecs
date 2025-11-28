@@ -776,6 +776,11 @@ $ end
     return ItemId{ (u64)i };
   }
 
+  ItemId generateIdFromString(String s) const
+  {
+    return ItemId { s.hash() };
+  }
+
   Layer* getCurrentLayer() const { return current_layer; }
   Panel* getCurrentPanel() const { return getCurrentLayer()->current_panel; }
   Group* getCurrentGroup() const { return getCurrentPanel()->current_group; }

@@ -8,13 +8,7 @@ $ local metadata = require "reflect.Metadata"
 @lpp.import "reflect/types/Array.lh"
 @lpp.import "reflect/types/TypedStringMap.lh"
 
-/* ============================================================================
- */
-enum class PlacementMode
-{
-  Free,
-  SnapToCenter,
-};
+@lpp.import "game/shared/Placement.lh"
 
 /* ============================================================================
  */

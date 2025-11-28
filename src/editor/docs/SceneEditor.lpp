@@ -3,7 +3,7 @@ $ require "common"
 $ -- TODO(sushi) make a reflect.import or something.
 $ local ast = require "reflect.ast"
 $ local astctx, imported = require "reflect.AstContext" 
-$                          .fromGlobs { "src/editor/docs/MapEditor.lh" }
+$                          .fromGlobs { "src/editor/docs/SceneEditor.lh" }
 $(imported)
 
 @lpp.import "editor/Editor.lh"
@@ -13,6 +13,7 @@ $(imported)
 @lpp.import "game/shared/SpriteFuncs.lh"
 @lpp.import "game/shared/Collider.comp.lh"
 @lpp.import "game/shared/SceneLoader.lh"
+@lpp.import "game/shared/Placement.sys.lh"
 
 @lpp.import "graphics/Geo.lh"
 @lpp.import "graphics/BatchRenderer.lh"
@@ -22,12 +23,14 @@ $(imported)
 @lpp.import "reflect/CompiledData.lh"
 @lpp.import "reflect/Unpacking.lh"
 
-$ local TTool = assert(astctx:lookupTypeDecl "editor::MapEditor::Tool")
+#include "iro/fs/Glob.h"
+
+$ local TTool = assert(astctx:lookupTypeDecl "editor::SceneEditor::Tool")
 
 namespace editor
 {
 
-using Tool = MapEditor::Tool;
+using Tool = SceneEditor::Tool;
 
 static const f32 c_map_render_w = 2048;
 static const f32 c_map_render_h = 2048;
@@ -49,7 +52,7 @@ static inline b8 recreateMapTexture(gfx::Vulkan& vk, gfx::Texture* texture)
 
 /* ----------------------------------------------------------------------------
  */
-static inline b8 initGameSubSystems(MapEditor& self)
+static inline b8 initGameSubSystems(SceneEditor& self)
 {
   if (!self.game_log.init())
     return self.editor->log.error("failed init game log");
@@ -73,7 +76,7 @@ static inline b8 initGameSubSystems(MapEditor& self)
 
 /* ----------------------------------------------------------------------------
  */
-static b8 reloadScene(MapEditor& self)
+static b8 reloadScene(SceneEditor& self)
 {
   self.entity_sys_mgr.deinit();
   self.entity_mgr.deinit();
@@ -110,7 +113,7 @@ static b8 reloadScene(MapEditor& self)
 /* ----------------------------------------------------------------------------
  *  Loads the map state from the source data file at `path`.
  */
-static b8 loadSceneData(MapEditor& self, String path)
+static b8 loadSceneData(SceneEditor& self, String path)
 {
   self.sdf_scene_def.deinit();
 
@@ -122,7 +125,7 @@ static b8 loadSceneData(MapEditor& self, String path)
 
 /* ----------------------------------------------------------------------------
  */
-b8 MapEditor::init()
+b8 SceneEditor::init()
 {
   if (!initGameSubSystems(*this))
     return editor->log.error("failed to initialize game subsystems");
@@ -150,7 +153,7 @@ b8 MapEditor::init()
 
   sd_editor.init();
 
-  editor->event_bus->subscribeTo<WindowFocusChange, MapEditor>(this,
+  editor->event_bus->subscribeTo<WindowFocusChange, SceneEditor>(this,
     [](auto& self, auto& ev) -> void
     {
       if (!ev.has_focus)
@@ -163,7 +166,7 @@ b8 MapEditor::init()
 /* ----------------------------------------------------------------------------
  */
 template<typename TComp>
-static TComp* tryComp(MapEditor& self, EntityId id)
+static TComp* tryComp(SceneEditor& self, EntityId id)
 {
   return self.entity_mgr.tryComp<TComp>(id);
 }
@@ -171,7 +174,7 @@ static TComp* tryComp(MapEditor& self, EntityId id)
 /* ----------------------------------------------------------------------------
  */
 template<typename TComp>
-static Slice<TComp> eachComp(MapEditor& self)
+static Slice<TComp> eachComp(SceneEditor& self)
 {
   return self.entity_mgr.eachComp<TComp>();
 }
@@ -204,11 +207,11 @@ struct MapViewResult
 /* ----------------------------------------------------------------------------
  */
 static void handleDragState(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     const MapViewState& state)
 {
-  using enum MapEditor::ControlState;
+  using enum SceneEditor::ControlState;
   using Focus = ui::FocusFlag;
 
   switch (self.control_state)
@@ -242,7 +245,7 @@ static void handleDragState(
 /* ----------------------------------------------------------------------------
  */
 static void handleScrollState(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     const MapViewState& state)
 {
@@ -276,7 +279,7 @@ static void handleScrollState(
 /* ----------------------------------------------------------------------------
  */
 static void reloadEntitySourceDataFile(
-    MapEditor& self,
+    SceneEditor& self,
     EntityId id)
 {
   SourceDataFile* sfile = &self.sdf_selected_entity_def;
@@ -314,7 +317,7 @@ static void reloadEntitySourceDataFile(
 /* ----------------------------------------------------------------------------
  */
 static void handleEntitySelection(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     const MapViewState& state)
 {
@@ -356,42 +359,91 @@ static void handleEntitySelection(
 
 /* ----------------------------------------------------------------------------
  */
-// static void handlePaintTile(
-//     MapEditor& self,
-//     ui::UI& ui,
-//     const MapViewState& state,
-//     MapViewResult& result,
-//     Layer* layer,
-//     Tile* tile)
-// {
-//
-// }
+static void spawnPlacementEntity(SceneEditor& self)
+{
+  if (isnil(self.placement_entity_def_path))
+    return;
+
+  // We must have just selected an entity def to place so try and load 
+  // its def and create a prototype entity to display for placement.
+  reflect::Linker linker = self.editor->getLinker();
+
+  linker.link(
+    "EntityDefLink"_typeid,
+    String(self.placement_entity_def_path),
+    &self.placement_entity_def);
+
+  self.placement_entity = self.entity_mgr.spawnEntity(
+    self.placement_entity_def,
+    nil);
+
+  auto* sprite = tryComp<cl::Sprite>(self, self.placement_entity);
+  sprite->color.a = 100;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Replaces the current placement entity (if any) with a new one.
+ */
+static void replacePlacementEntity(SceneEditor& self)
+{
+  // Check if we already have an active placement entity and destroy it
+  // before spawning another one.
+  if (notnil(self.placement_entity))
+    self.entity_mgr.destroyEntity(self.placement_entity);
+
+  self.placement_entity = nil;
+
+  if (isnil(self.placement_entity_def_path))
+    return;
+
+  spawnPlacementEntity(self);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleEntityPlacement(
+    SceneEditor& self,
+    ui::UI& ui,
+    const MapViewState& state)
+{
+  if (state.focus.isHovered())
+  {
+    auto& placement_sys = self.getSys<PlacementSys>();
+
+    placement_sys.placeEntity(
+      self.placement_entity, 
+      *self.placement_entity_def,
+      state.world_cursor);
+
+    if (state.focus.wasPrimaryPressed())
+      spawnPlacementEntity(self);
+  }
+}
 
 /* ----------------------------------------------------------------------------
  */
 static void handleMapAndEntityCursorInteraction(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     const MapViewState& state,
     MapViewResult& result)
 {
   auto& map = self.getSys<MapSys>();
 
-  switch (self.selected_tool)
+  if (notnil(self.placement_entity_def_path))
   {
-  case Tool::None:
+    handleEntityPlacement(self, ui, state);
+  }
+  else
+  {
     handleEntitySelection(self, ui, state);
-    break;
-  case Tool::PaintTile:
-    // handlePaintTile(self, ui, state, result, layer, tile);
-    break;
   }
 }
 
 /* ----------------------------------------------------------------------------
  */
 static void handleControlInputs(
-    MapEditor& self, 
+    SceneEditor& self, 
     ui::UI& ui, 
     const MapViewState& state,
     MapViewResult& result,
@@ -405,7 +457,7 @@ static void handleControlInputs(
 /* ----------------------------------------------------------------------------
  */
 static void putMapView(
-    MapEditor& self, 
+    SceneEditor& self, 
     ui::UI& ui, 
     Rect bounds,
     const MapViewState& state,
@@ -427,7 +479,7 @@ static void putMapView(
 /* ----------------------------------------------------------------------------
  */
 static void putToolSelect(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     Rect bounds,
     const EditorSkinDef& skin)
@@ -442,7 +494,7 @@ $ for elem in TTool.elems:each() do
 $ end
   }
 
-  if (ui.beginDropDown("map_editor.tool_select"_fid,
+  if (ui.beginDropDown("scene-editor.tool_select"_fid,
         bounds,
         90.f,
         selected_text,
@@ -457,7 +509,7 @@ $ end
 $ for elem in TTool.elems:each() do
     if (self.selected_tool != Tool::$(elem.name))
     {
-      if (ui.putButton("map_editor.tool_select.$(elem.name)"_fid,
+      if (ui.putButton("scene-editor.tool_select.$(elem.name)"_fid,
             button_bounds,
             "$(elem.name)"_str,
             skin.text_button))
@@ -476,8 +528,59 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static void putEntityDefSelection(
+    SceneEditor& self,
+    ui::UI& ui,
+    Rect bounds,
+    const EditorSkinDef& skin)
+{
+  if (ui.beginDropDown("scene-editor.select-entity-def"_fid,
+        bounds,
+        99.f,
+        String(self.placement_entity_def_path),
+        skin.dropdown))
+  {
+    // TODO(sushi) cache this search.
+    auto glob = fs::Globber::create("assets/**/*.entity"_str);
+
+    Rect button_bounds = {};
+    button_bounds.x = 0.f;
+    button_bounds.y = 0.f;
+    button_bounds.w = ui.getWidth();
+    button_bounds.h = 20.f;
+
+    glob.run([&](String path)
+    {
+      if (ui.putButton(ui.generateIdFromString(path),
+            button_bounds,
+            path,
+            skin.dropdown_option))
+      {
+        println("select ", path);
+        self.placement_entity_def_path.clear();
+        io::format(&self.placement_entity_def_path, 
+          fs::path::removeExtension(path));
+
+        replacePlacementEntity(self);
+
+        ui.closePopup();
+      }
+      
+      button_bounds.y += button_bounds.h;
+
+      return true;
+    });
+
+    glob.destroy();
+
+    ui.endDropDown();
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void putToolMenu(
-    MapEditor& self,
+    SceneEditor& self,
     ui::UI& ui,
     const MapViewState& state,
     MapViewResult& result,
@@ -496,6 +599,21 @@ static void putToolMenu(
   vec2f text_size = ui.putText(text_bounds, String(buffer), skin.text);
 
   f32 y = text_size.y + 4.f;
+
+  Rect placement_selection_bounds = {};
+  placement_selection_bounds.x = 2.f;
+  placement_selection_bounds.y = y;
+  placement_selection_bounds.w = 
+    ui.getWidth() - 2.f * placement_selection_bounds.x;
+  placement_selection_bounds.h = 20.f;
+
+  putEntityDefSelection(
+    self,
+    ui, 
+    placement_selection_bounds,
+    skin);
+
+  y = placement_selection_bounds.extentY() + 4.f;
 
   Rect sde_bounds;
   sde_bounds.x = 2.f;
@@ -518,20 +636,7 @@ static void putToolMenu(
 
 /* ----------------------------------------------------------------------------
  */
-static void putEntityList(
-    MapEditor& self,
-    ui::UI& ui,
-    Rect bounds)
-{
-  for (auto& transform : eachComp<Transform>(self))
-  {
-    
-  }
-}
-
-/* ----------------------------------------------------------------------------
- */
-void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
+void SceneEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   const f32 tool_menu_width = 400.f;
 
@@ -584,7 +689,7 @@ void MapEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
  *  size things drawn in the map view so that they appear consistently sized on 
  *  screen.
  */
-static vec2f getWorldPixelSize(MapEditor& self)
+static vec2f getWorldPixelSize(SceneEditor& self)
 {
   return self.viewportToWorld(vec2f(1.f, 1.f)) - 
          self.viewportToWorld(vec2f(0.f, 0.f));
@@ -592,7 +697,7 @@ static vec2f getWorldPixelSize(MapEditor& self)
 
 /* ----------------------------------------------------------------------------
  */
-static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
+static void placeGrid(SceneEditor& self, gfx::BatchRenderer& br)
 {
   // Get where the top-left and top-right of the viewport correspond to 
   // in the world.
@@ -638,7 +743,7 @@ static void placeGrid(MapEditor& self, gfx::BatchRenderer& br)
 /* ----------------------------------------------------------------------------
  */
 static void outlineEntityCollider(
-    MapEditor& self,
+    SceneEditor& self,
     gfx::BatchRenderer& br,
     EntityId id, 
     Color color)
@@ -662,7 +767,7 @@ static void outlineEntityCollider(
 
 /* ----------------------------------------------------------------------------
  */
-void MapEditor::render(gfx::Vulkan& vk)
+void SceneEditor::render(gfx::Vulkan& vk)
 {
   if (view_size.x <= 0.f || view_size.y <= 0.f)
     return;

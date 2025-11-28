@@ -87,6 +87,9 @@ struct EntityMgr
   template<typename TComp>
   TComp* addComp(EntityId id);
 
+  template<typename TComp>
+  void removeComp(EntityId id);
+
   template<typename T>
   T* tryComp(EntityId id);
 
@@ -102,6 +105,13 @@ struct EntityMgr
   // God I love C++.
   template<>
   Transform* tryComp<Transform>(EntityId id);
+  
+  // Very common and guaranteed to exist, so it gets its own helper.
+  Transform& getTransform(EntityId id)
+  {
+    assert(notnil(id));
+    return *tryComp<Transform>(id);
+  }
 
   // Wonder how clang will optimize this one.
   vec2f computeWorldPos(EntityId id)

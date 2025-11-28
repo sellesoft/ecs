@@ -1,0 +1,18 @@
+/*
+ *  Definitions related to Entity placement. Used by EntityDef's and the 
+ *  PlacementSys.
+ */
+
+$ require "common"
+
+/* ============================================================================
+ */
+enum class PlacementMode
+{
+  // Entity is placed w/o constraints.
+  Free,
+
+  // Entity is snapped to the closest MapLayer. Falls back to `Free` if 
+  // no MapLayer is available at the desired placement point.
+  SnapToGrid,
+};

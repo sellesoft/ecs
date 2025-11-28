@@ -1,6 +1,7 @@
 return EntityDef
 {
   name = "Wall",
+  placement = "SnapToGrid",
   components = 
   {
     AppearanceDef {},

@@ -78,15 +78,17 @@ end)
 $$$
 
 $ eachComp(function(comp)
-$   local num = comp_counts[comp.cname]
+$   local capacity = comp_counts[comp.cname]
 struct $(comp.arrname)
 {
-  $(comp.decl.qname) arr[$(num)];
+  static constexpr u64 capacity = $(capacity);
+
+  $(comp.decl.qname) arr[capacity];
   u64 num;
 
   b8 isFull() const
   {
-    return num == $(num);
+    return num == capacity;
   }
 
   struct PushResult
@@ -243,6 +245,62 @@ $(comp.decl.qname)* addComp_$(comp.cname)(
 
 /* ----------------------------------------------------------------------------
  */
+void removeComp_$(comp.cname)(
+    EntityMgr& self,
+    EntityId id,
+    EntitySlot& slot)
+{
+  $(comp.arrname)* parr = &self.world->comp_arrays.$(comp.cname);
+
+  u64 comp_index = slot.components.$(comp.cname) - 1;
+  assert(comp_index < parr->capacity);
+  assert(comp_index < parr->num);
+
+  $(comp.qname)* to_remove = &parr->arr[comp_index];
+  assert(to_remove->owner == id);
+  
+  // Notify systems that this component is going to be removed so they may 
+  // clean up any state related to it.
+  self.eventbus.raise(*to_remove, ComponentRemove{});
+
+  // Unset component's owner.
+  to_remove->owner = nil;
+
+  if (comp_index != parr->num - 1)
+  {
+    $(comp.qname)* last_comp = &parr->arr[parr->num - 1];
+
+    EntitySlot* moved_comp_owner = getEntitySlot(
+      *self.world, last_comp->owner); 
+
+    // Unordered removal. Swap the component at the end of the array with 
+    // this one and update its owner's index into the array.
+    mem::copy(to_remove, last_comp, sizeof($(comp.qname)));
+    moved_comp_owner->components.$(comp.cname) = comp_index;
+  }
+  else
+  {
+    // Just decrement the array's num.
+    parr->num -= 1;
+  }
+
+  // Invalidate component index for the entity.
+  slot.components.$(comp.cname) = 0;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void tryRemoveComp_$(comp.cname)(
+    EntityMgr& self,
+    EntityId id,
+    EntitySlot& slot)
+{
+  if (tryComp_$(comp.cname)(self, id, slot))
+    removeComp_$(comp.cname)(self, id, slot);
+}
+
+/* ----------------------------------------------------------------------------
+ */
 template<>
 $(comp.decl.qname)* EntityMgr::addComp<$(comp.decl.qname)>(EntityId id)
 {
@@ -257,6 +315,14 @@ $(comp.qname)* EntityMgr::tryComp<$(comp.qname)>(EntityId id)
   if (isnil(id))
     return nullptr;
   return tryComp_$(comp.cname)(*this, id, *getEntitySlot(*world, id));
+}
+
+/* ----------------------------------------------------------------------------
+ */
+template<>
+void EntityMgr::removeComp<$(comp.qname)>(EntityId id)
+{
+  return removeComp_$(comp.cname)(*this, id, *getEntitySlot(*world, id));
 }
 
 /* ----------------------------------------------------------------------------
@@ -334,6 +400,9 @@ $ end)
 
   // Bump generation.
   slot->generation += 1;
+
+  @log.debug(game, "allocated entity ", entity_id, ":", slot->generation, " "
+                   "next slot: ", next_slot);
 
   return { entity_id, slot->generation };
 }
@@ -471,33 +540,32 @@ $ end
  */
 void EntityMgr::destroyEntity(EntityId id)
 {
-$ if false then
-  if (isnil(id))
-    return;
+  EntitySlot* slot = getEntitySlot(*world, id);
 
-  Entity* ent = ent_pool.getFromId(id.value, id.salt);
-  if (ent == nullptr)
-    return;
+$ eachComp(function(comp)
+  tryRemoveComp_$(comp.cname)(*this, id, *slot);
+$ end)
+
+  slot->name = nil;
+  slot->defname = nil;
+
+  slot->next_free = next_slot + 1;
+  next_slot = slot - world->entities;
 
   @log.debug(game, 
-    "destroying entity ", ent->name,
-    " (", id.value, ":", id.salt, ")\n");
-
-  for (Component& cmp : ent->components)
-  {
-    cmpmgr.deallocateComponent(&cmp);
-  }
-  
-  ent->deinit();
-
-  ent_pool.remove(ent);
-$ end
+    "destroyed entity ", id, 
+  "\n        next_slot: ", next_slot,
+  "\n  slot->next_free: ", slot->next_free);
 }
 
 /* ----------------------------------------------------------------------------
  */
 void EntityMgr::destroyAllEntities()
 {
+  // TODO(sushi) iterate Transforms in reverse and call `destroyEntity` on
+  //             each.
+
+  assert(!"not implemented (sorry)");
 $ if false then
   for (u32 i = 0; i < c_max_entities; ++i)
   {
@@ -520,8 +588,3 @@ String EntityMgr::getDefName(EntityId id) const
   EntitySlot* slot = getEntitySlot(*world, id);
   return slot->defname;
 }
-
-
-
-
-

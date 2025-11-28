@@ -12,7 +12,6 @@ $ require "common"
 @lpp.import "game/client/GameMgr.lh"
 
 @lpp.import "game/shared/Transform.comp.lh"
-@lpp.import "game/shared/map/Map.defs.lh"
 @lpp.import "game/shared/map/Map.sys.lh"
 @lpp.import "game/shared/Eye.sys.lh"
 
@@ -289,32 +288,6 @@ void GameRenderer::renderMapLayers(
       }
     }
   }
-
-$ if false then
-  u32 layer_idx = 0;
-  for (const Layer& layer : map.layers)
-  {
-    Color tint = Color(0xffffffff) * (1.0f - (layer_idx * 0.25f));
-
-    for (const Tile& tile : layer.tiles)
-    {
-      if (!tile.kind.isValid())
-        continue;
-
-      const TileKindDef& tilekind = *tile.kind;
-
-      gfx::TextureHandle texture = 
-        tilekind.texture.isValid() 
-        ? tilekind.texture.getHandle()
-        : null_texture.getHandle();
-
-      vec2f pos = map.getTilePos(layer, tile);
-      drawQuad(vk, br, pos, texture, {0.f,0.f,1.f,1.f}, tint);
-    }
-
-    layer_idx++;
-  }
-$ end
 }
 
 /* ----------------------------------------------------------------------------

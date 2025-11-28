@@ -87,6 +87,7 @@ lpp.import = function(path)
   end
   return x, y
 end
+lpp.stack_func_filter[lpp.import] = true
 
 common.joinArgs = function(delim, ...)
   delim = delim or " "

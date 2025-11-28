@@ -1,0 +1,32 @@
+/*
+ *  Manages placement of entities based on some PlacementMode. This isn't 
+ *  for placing entities loaded by a Scene, but rather for entities being 
+ *  placed in game or via the SceneEditor.
+ */
+
+$ require "common"
+
+@lpp.import "game/shared/entity/EntitySys.lh"
+@lpp.import "game/shared/Placement.lh"
+
+struct MapSys;
+
+/* ============================================================================
+ */
+struct PlacementSys : EntitySys
+{
+  MapSys* map;
+
+  b8 init() { return true; }
+
+  // Performs placement of entity with `id`. Translates the `desired_point`
+  // to an appropriate value based on the placement `mode`, sets its transform
+  // position and reparents it as necessary.
+  // `desired_point` is expected to be in world space.
+  // TODO(sushi) take in parent relative points at some point (ha).
+  void placeEntity(EntityId id, PlacementMode mode, vec2f desired_point);
+  void placeEntity(EntityId id, const EntityDef& def, vec2f desired_point);
+};
+
+
+

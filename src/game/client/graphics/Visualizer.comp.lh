@@ -13,10 +13,12 @@ $ local metadata = require "reflect.Metadata"
 namespace cl
 {
 
+typedef reflect::StringMap<reflect::StringMap<StringHash>> VisualsMap;
+
 struct Visualizer : Component
 {
   @metadata.data_field
-  reflect::StringMap<reflect::StringMap<StringHash>> visuals;
+  VisualsMap visuals;
 };
 
 }

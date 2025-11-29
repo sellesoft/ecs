@@ -138,7 +138,10 @@ void SourceData::dump(io::WStream* out, u32 depth) const
     {
       io::format(out, "{}");
     }
-    
+  }
+  else if (hasBooleanValue())
+  {
+    io::format(out, testBooleanValue()? "true" : "false");
   }
   else
   {

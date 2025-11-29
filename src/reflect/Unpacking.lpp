@@ -1,6 +1,6 @@
 $ require "common"
 $ local ast = require "reflect.ast"
-$ local List = require "iro.List"
+$ local minfo = require "math.info"
 
 $$$
 
@@ -9,6 +9,12 @@ local astctx, imported = require "reflect.AstContext" .fromGlobs
   "src/**/*.defs.lh",
   "src/**/*.comp.lh",
 }
+
+local av = require "reflect.AstVisitor" .new(astctx)
+
+local function lookup(s)
+  return astctx:lookupDecl(s)
+end 
 
 $$$
 $(imported)
@@ -47,207 +53,188 @@ struct Unpacker
     return buildError(result, args...);
   }
 
-$ -- Forward declared such that these may be called back into from within 
-$ -- packer placing functions, eg. a Struct calls this for the type of 
-$ -- each of its fields.
-$ local putDeclUnpacker
-$ local putTypeUnpacker
+@[unpack] av:funcgen(
+  unpack_,
+  void,
+  const %& data,
+  SourceData* sdata)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function recordPlaced(decl)
-$   decl.user = decl.user or {}
-$   decl.user.unpacker_placed = true
-$ end
+$$$
 
-$ -- * ------------------------------------------------------------------------
+local builtin_setter = 
+{
+  [ast.builtins.u8]  = "setUIntValue",
+  [ast.builtins.u16] = "setUIntValue",
+  [ast.builtins.u32] = "setUIntValue",
+  [ast.builtins.u64] = "setUIntValue",
+  [ast.builtins.s8]  = "setIntValue",
+  [ast.builtins.s16] = "setIntValue",
+  [ast.builtins.s32] = "setIntValue",
+  [ast.builtins.s64] = "setIntValue",
+  [ast.builtins.f32] = "setNumberValue",
+}
 
-$ local function getUnpackerName(decl)
-$   return "unpack_"..decl:formCSafeName()
-$ end
+$$$
 
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeUnpackerName(type)
-$   type = type:desugar()
-$   -- clog:debug("getTypeUnpackerName: ", type, '\n')
-$   if type:is(ast.TagType) then
-$     return (getUnpackerName(type.decl))
-$   elseif type:is(ast.Builtin) then
-$     return "unpack_"..type:formCSafeName()
-$   elseif type:is(ast.Pointer) then
-$     return "unpack_ptr"
-$   else
-$     error("unhandled type passed to getTypeUnpackerName: "..
-$           tostring(type).."\n")
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getUnpackerSig(decl)
-$   return getUnpackerName(decl)..
-$     "(const "..decl.type.qname.."& data, SourceData* sdata)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function getTypeUnpackerSig(type)
-$   return getTypeUnpackerName(type)..
-$     "(const "..type.qname.."& data, SourceData* sdata)"
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function unpackerFuncDecl(decl)
-$   recordPlaced(decl)
-$   return "void "..getUnpackerSig(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function unpackerFuncName(name)
-$   local decl = astctx:lookupTypeDecl(name)
-$   if not decl then
-$     error("failed to get decl for '"..name.."'")
-$   end
-$   return unpackerFuncDecl(decl)
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putNumberUnpacker(name, func)
+$ av:previsit(ast.iro_builtins, function(type)
   /* --------------------------------------------------------------------------
    */
-  void unpack_$(name)($(name) data, SourceData* sdata)
+  $(unpack.declare(type))
   {
-    sdata->$(func)(*sfile, data);
-  }
-$ end
-
-@putNumberUnpacker(u8,  setUIntValue)
-@putNumberUnpacker(u16, setUIntValue)
-@putNumberUnpacker(u32, setUIntValue)
-@putNumberUnpacker(u64, setUIntValue)
-@putNumberUnpacker(s8,  setIntValue)
-@putNumberUnpacker(s16, setIntValue)
-@putNumberUnpacker(s32, setIntValue)
-@putNumberUnpacker(s64, setIntValue)
-@putNumberUnpacker(f32, setNumberValue)
-@putNumberUnpacker(f64, setNumberValue) // TODO(sushi) this is wrong.
-
-$ -- * ------------------------------------------------------------------------
-
-  void unpack_b8(b8 data, SourceData* sdata)
-  {
+$   if type == ast.builtins.b8 then
     sdata->setBooleanValue(data);
+$   else
+    sdata->$(builtin_setter[type])(*sfile, data);
+$   end
   }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
+$ av:visit(lookup "iro::utf8::String", function(decl)
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncName "iro::utf8::String")
+  $(unpack.declare(decl))
   {
     sdata->setStringValue(*sfile, data);
   }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putVec2Unpacker(name, func)
+$$$
+
+local vec_setters = 
+{
+  [lookup "vec2f"] = "setVec2f",
+  [lookup "vec2i"] = "setVec2i",
+  [lookup "vec2u"] = "setVec2u",
+}
+
+$$$
+
+$ av:visit(minfo.getVecDecls(astctx), function(decl)
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncName(name))
-  { 
-    // TODO(sushi) need to handle non-f32 vecs.
-    sdata->$(func)(*sfile, data);
-  }
-$ end
-
-@putVec2Unpacker(vec2i, setVec2i)
-@putVec2Unpacker(vec2f, setVec2f)
-@putVec2Unpacker(vec2u, setVec2u)
-
-$ -- * ------------------------------------------------------------------------
-
-  $(unpackerFuncName "Color")
+  $(unpack.declare(decl))
   {
-    sdata->setHexValue(*sfile, data.rgba);
+    sdata->$(vec_setters[decl])(*sfile, data); 
   }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putEnumUnpacker(decl)
+$ av:visit(lookup "StringHash", function(decl)
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
+  {
+    sdata->setUIntValue(*sfile, data.val);
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:visit(lookup "Color", function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(unpack.declare(decl))
+  {
+    sdata->setObject(nil);
+    sdata->addUIntValue(*sfile, "r"_str, data.r);
+    sdata->addUIntValue(*sfile, "g"_str, data.g);
+    sdata->addUIntValue(*sfile, "b"_str, data.b);
+    sdata->addUIntValue(*sfile, "a"_str, data.a);
+  }
+$ end)
+
+$ -- * ------------------------------------------------------------------------
+
+$ av:visit(ast.Enum, function(decl)
+  /* --------------------------------------------------------------------------
+   */
+  $(unpack.declare(decl))
   {
     switch (data)
     {
 $   for elem in decl.elems:each() do
+$     if not elem.metadata.hidden then
     case $(decl.qname)::$(elem.name):
       sdata->setStringValue(*sfile, "$(elem.name)"_str);
       break;
+$     end
 $   end
     }
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putStructUnpacker(decl)
-$   for field in decl:eachField() do
-$     putTypeUnpacker(field.type)
-$   end
+$ av:visit(ast.Struct, function(decl)
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
     sdata->setObject(nil);
 
-$   for field in decl:eachField() do
-$     local type = field.type:desugar()
+$   local function unpackField(field, record) 
     {
       SourceData* child_data = sdata->addData(
         *sfile,
         "$(field.name)"_str,
         "$(field.type.qname)"_str);
 
-      $(getTypeUnpackerName(field.type))(data.$(field.name), child_data);
+      $(unpack.call(field.type))(data.$(field.name), child_data);
     }
 $   end
+
+$   if decl:findMetadata "fields_hidden_by_default" then
+$     for field, record in decl:allFields() do
+$       if field.metadata.data_field then
+$         unpackField(field, record)
+$       end
+$     end
+$   else
+$     for field, record in decl:allFields() do
+$       if not field.metadata.hidden then
+$         unpackField(field, record)
+$       end
+$     end
+$   end
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putArrayUnpacker(decl)
+$ av:visit(lookup "reflect::Array", function(decl)
 $   local subtype = decl.args[1]
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
     sdata->setObject(nil);
 
     for (auto& elem : data)
     {
       SourceData* elem_data = sdata->addData(
-        *sfile, 
-        nil, 
+        *sfile,
+        nil,
         "$(subtype.qname)"_str);
 
-      $(getTypeUnpackerName(subtype))(elem, elem_data);
+      $(unpack.call(subtype))(elem, elem_data);
     }
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putStringMapUnpacker(decl)
+$ av:visit(lookup "reflect::StringMap", function(decl)
 $   local subtype = decl.args[1]
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
     sdata->setObject(nil);
 
@@ -258,22 +245,22 @@ $   local subtype = decl.args[1]
         slot.key,
         nil);
 
-      $(getTypeUnpackerName(subtype))(slot.elem, slot_data);
+      $(unpack.call(subtype))(slot.elem, slot_data);
     }
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putTypedPtrUnpacker(decl)
+$ av:visit(lookup "reflect::TypedPtr", function(decl)
 $   local subtype = decl.args[1]:desugar()
 $   local subdecl = subtype.decl
 $   for derived in subdecl:allDerived() do
-$     putDeclUnpacker(derived)
+$     av:handleDecl(derived)
 $   end
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
     if (isnil(data.type) || data.ptr == nullptr)
       return;
@@ -283,137 +270,67 @@ $   end
 $   for derived in subdecl:allDerived() do
     case "$(derived.qname)"_typeid_val:
       sdata->type = "$(derived.qname)"_str;
-      $(getUnpackerName(derived))(*(const $(derived.qname)*)data.ptr, sdata);
+      $(unpack.call(derived))(*(const $(derived.qname)*)data.ptr, sdata);
       break;
 $   end
     }
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putLinkUnpacker(decl)
-  /* --------------------------------------------------------------------------
-   */
-  $(unpackerFuncDecl(decl))
+$ av:previsit(ast.Record, function(decl)
+$   if not decl:findMetadata "ref" then
+$     return
+$   end
+  $(unpack.declare(decl))
   {
     if (isnil(data.name))
       return;
 
     sdata->setStringValue(*sfile, data.name);
   }
-$ end
+$   return av.handled
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putFlagsUnpacker(decl)
+$ av:visit(lookup "iro::Flags", function(decl)
 $   local subtype = decl.args[1]:desugar()
 $   local subdecl = subtype.decl
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
     sdata->setObject(nil);
 
 $   for elem in subdecl.elems:each() do
+$     if not elem.metadata.hidden and elem.name ~= "COUNT" then
     if (data.test($(subdecl.qname)::$(elem.name)))
     {
       sdata->addStringValue(*sfile, "$(elem.name)"_str);
     }
-$   end
-  }
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putTemplateSpecUnpacker(decl)
-$   for arg in decl.args:each() do
-$     if arg:is(ast.Type) then
-$       putTypeUnpacker(arg)
 $     end
 $   end
-$
-$   local name = decl.specialized.qname
-$   if name == "reflect::Array" then
-$     putArrayUnpacker(decl)
-$   elseif name == "reflect::StringMap" then
-$     putStringMapUnpacker(decl)
-$   elseif name == "reflect::TypedPtr" then
-$     putTypedPtrUnpacker(decl)
-$   elseif name == "iro::Flags" then
-$     putFlagsUnpacker(decl)
-$   end
-$ end
+  }
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ local function putRecordUnpacker(decl)
-$   if decl:findMetadata "ref" then
-$     putLinkUnpacker(decl)
-$   elseif decl:is(ast.TemplateSpec) then
-$     putTemplateSpecUnpacker(decl)
-$   elseif decl:is(ast.Struct) then
-$     putStructUnpacker(decl)
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ local function putTypedefDeclUnpacker(decl)
-$   local subtype = decl.subtype:desugar()
-$   local subdecl
-$   if subtype:is(ast.TagType) then
-$     subdecl = subtype.decl
-$     putDeclUnpacker(subdecl)
-$   end
+$ av:visit(ast.TypedefDecl, function(decl)
   /* --------------------------------------------------------------------------
    */
-  $(unpackerFuncDecl(decl))
+  $(unpack.declare(decl))
   {
-    $(getUnpackerName(subdecl))(data, sdata);
+    $(unpack.call(decl.subtype))(data, sdata);
   }
-$ end
+$ end)
 
 $ -- * ------------------------------------------------------------------------
 
-$ putDeclUnpacker = function(decl)
-$   decl.user = decl.user or {}
-$   if decl.user.unpacker_placed then
-$     return
-$   end
-$   if decl.metadata.hidden then
-$     return
-$   end
-$   
-$   decl.user.unpacker_placed = true
-$
-$   if decl:is(ast.TagDecl) then
-$     if decl:is(ast.Record) then
-$       putRecordUnpacker(decl)
-$     elseif decl:is(ast.Enum) then
-$       putEnumUnpacker(decl)
-$     end
-$   elseif decl:is(ast.TypedefDecl) then
-$     putTypedefDeclUnpacker(decl)
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ putTypeUnpacker = function(type)
-$   type = type:desugar()
-$   if type:is(ast.TagType) then
-$     putDeclUnpacker(type.decl)
-$   end
-$ end
-
-$ -- * ------------------------------------------------------------------------
-
-$ for decl in astctx.type_decls:each() do
-$   if decl.metadata.def then
-$     putDeclUnpacker(decl)
-$   end
-$ end
+$ av:begin(function(decl)
+$   return decl.metadata.def ~= nil
+$ end)
 
 }; // struct Unpacker
 
@@ -434,29 +351,20 @@ SourceData* unpackData(const UnpackParams& params)
 
   switch (params.type.val)
   {
-$ for decl in astctx.type_decls:each() do
-$   if decl.user.unpacker_placed then
-$     if decl.typedefs then
-$       for typedef in decl.typedefs:each() do
-$         if not typedef.user.unpacker_placed and not 
-$            typedef.parent then
-  case "$(typedef.type.qname)"_hashed:
-$         end
-$       end
-$     end
-  case "$(decl.type.qname)"_hashed:
+$ av:eachVisited(function(decl)
+$   local name = decl.type.qname
+  case "$(name)"_typeid_val:
     {
-      auto* data = ($(decl.type.qname)*)params.data.ptr;
-      unpacker.$(getUnpackerName(decl))(*data, unpacked_data);
+      auto* data = ($(name)*)params.data.ptr;
+      unpacker.$(unpack.call(decl))(*data, unpacked_data);
     }
     break;
-$   end
-$ end
-  default:
+$ end)
+  default: 
     assert(!"unhandled type given to unpackData");
   }
 
   return unpacked_data;
 }
 
-}
+} // namespace reflect

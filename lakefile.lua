@@ -121,6 +121,8 @@ else
   error "unhandled os"
 end
 
+defines.IRO_ENABLE_INTERNAL_LOGGING = 1
+
 if cfg.gen_pretty_print then
   defines.ECS_GEN_PRETTY_PRINT = 1
 end

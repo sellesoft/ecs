@@ -639,6 +639,9 @@ static void putToolMenu(
  */
 void serializeSceneState(SceneEditor& self)
 {
+  if (notnil(self.placement_entity))
+    self.entity_mgr.destroyEntity(self.placement_entity);
+
   SerializeSceneParams params = 
   {
     .entity_mgr = self.entity_mgr,
@@ -661,7 +664,15 @@ void serializeSceneState(SceneEditor& self)
   };
 
   SourceData* unpacked = reflect::unpackData(unpack_params);
-  unpacked->dump();
+
+  sfile.returned_data = unpacked;
+
+  auto file = 
+    fs::File::createForTruncatedWriting("assets/scenes/Test.scene"_str);
+  sfile.dump(&file);
+  file.close();
+
+  replacePlacementEntity(self);
 }
 
 /* ----------------------------------------------------------------------------

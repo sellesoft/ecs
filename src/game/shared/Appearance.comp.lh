@@ -12,14 +12,16 @@ $ local metadata = require "reflect.Metadata"
 @lpp.import "core/StringHash.lh"
 @lpp.import "reflect/types/StringMap.lh"
 
+typedef reflect::StringMap<StringHash> AppearanceData;
+
 /* ============================================================================
  */
 struct Appearance : Component
 {
   b8 is_dirty = false;
   
-  reflect::StringMap<StringHash> data;
+  AppearanceData data;
 
   @metadata.data_field
-  reflect::StringMap<StringHash> initial_data;
+  AppearanceData initial_data;
 };

@@ -502,6 +502,18 @@ void EntityMgr::loadEntity(
     switch (comp.type.val)
     {
 $ eachComp(function(comp)
+$   if comp.qname == "Transform" then
+    case "Transform"_typeid_val:
+      {
+        // TODO(sushi) add a helper for applying a prototype to a Component
+        //             w/o overriding its owner id so we aren't doing this.
+        Transform& transform = getTransform(id);
+        Transform* prototype = (Transform*)comp.ptr;
+        transform.pos = prototype->pos;
+        transform.rotation = prototype->rotation;
+      }
+      break;
+$   else
     case "$(comp.qname)"_typeid_val:
       {
         addComp_$(comp.cname)(
@@ -511,6 +523,7 @@ $ eachComp(function(comp)
           ($(comp.qname)*)comp.ptr);
       }
       break;
+$   end
 $ end)
     default:
       @log.error(game, "unknown Component type");
@@ -556,6 +569,9 @@ void EntityMgr::loadEntity(
     const ComponentArray& components)
 {
   loadEntity(id, *l_def, components); 
+
+  EntitySlot* slot = getEntitySlot(*world, id);
+  slot->defname = l_def.name.allocateCopy();
 }
 
 /* ----------------------------------------------------------------------------
@@ -593,7 +609,7 @@ EntityId EntityMgr::spawnEntity(
   //
   // TODO(sushi) need to do this better eventually, and also don't need to
   //             support this outside of development builds.
-  slot->defname = def.name;
+  slot->defname = def.name.allocateCopy();
 
   return id;
 }

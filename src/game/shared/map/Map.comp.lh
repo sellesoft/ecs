@@ -21,6 +21,8 @@ struct TileKindDef
 @metadata.links(tile_kind.data)
 struct TileKindLink : reflect::TypedCompiledDataLink<TileKindDef> {};
 
+typedef reflect::Array<TileKindLink> TileKindArray;
+
 /* ============================================================================
  */
 struct Tile
@@ -34,7 +36,7 @@ struct MapLayer : Component
   vec2u dimensions;
 
   @metadata.data_field
-  reflect::Array<TileKindLink> tiles;
+  TileKindArray tiles;
 };
 
 struct Map : Component 

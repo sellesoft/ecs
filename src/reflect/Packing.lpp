@@ -190,10 +190,22 @@ $   markNoDefaults(decl)
    */
   $(f.declare(decl))
   {
-    if (!data.hasStringValue())
-      return error(data, "expected a string value to pack StringHash");
-
-    out->val = data.val.str.hash();
+    if (data.hasNumberValue())
+    {
+      // NOTE(sushi) supporting number values with StringHash as Unpacking
+      //             isnt currently able to recover the original String that
+      //             we hashed. This should never be used in hand-written data.
+      out->val = strtoll((char*)data.val.str.ptr, nullptr, 10);
+    }
+    else if (data.hasStringValue())
+    {
+      out->val = data.val.str.hash();
+    }
+    else
+    {
+      return error(data, 
+        "expected a string or number value to pack StringHash");
+    }
 
     return true;
   }
@@ -781,7 +793,7 @@ b8 packSourceDataFromType(const SourceData& data, PackParams& ctx)
   {
 $ av:eachVisited(function(decl)
 $   local name = decl.type.qname
-  case "$(name)"_hashed:
+  case "$(name)"_typeid_val:
     packed->data.ptr = (u8*)packed->buffer.allocateType<$(name)>();
     if (!packer.$(f.call(decl))(data, ($(name)*)packed->data.ptr))
       return false;

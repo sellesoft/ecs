@@ -63,6 +63,15 @@ struct SceneEditor : Doc
 
   Tool selected_tool;
 
+  enum class EntityBuildState
+  {
+    None,
+    Requested,
+    Failed,
+  };
+
+  EntityBuildState entity_build_state;
+
   void onOpen() override { init(); }
 
   b8 init();

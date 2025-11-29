@@ -175,8 +175,8 @@ return SceneDef
           {
             IsOpen = 
             {
-              True = 14022189011650784819,
-              False = 13684675388348544099,
+              True = 9223372036854775807,
+              False = 9223372036854775807,
             },
           },
         },
@@ -193,8 +193,8 @@ return SceneDef
         {
           pos = vec2f
           {
-            x = 2.59375,
-            y = 3.05469,
+            x = 2.04688,
+            y = 2.83594,
           },
           rotation = 0,
         },
@@ -215,39 +215,27 @@ return SceneDef
     {
       uid = 4,
       parent = 2,
-      def = "assets/entities/locker/Locker",
+      def = "assets/entities/walls/iron/Wall",
       components = ComponentArray
       {
         cl::Sprite
         {
-          states = "assets/entities/locker/Locker",
+          states = "assets/entities/walls/iron/Wall",
         },
-        cl::Visualizer
+        ExtendableStructure
         {
-          visuals = cl::VisualsMap
-          {
-            IsOpen = 
-            {
-              True = 14022189011650784819,
-              False = 13684675388348544099,
-            },
-          },
+          kind = 10041089696604218305,
         },
         Appearance
         {
           initial_data = AppearanceData{},
         },
-        Openable
-        {
-          open = false,
-        },
-        Interactable{},
         Transform
         {
           pos = vec2f
           {
-            x = 4.59375,
-            y = 3.03906,
+            x = 0,
+            y = 9,
           },
           rotation = 0,
         },
@@ -260,7 +248,7 @@ return SceneDef
             w = 1,
             h = 1,
           },
-          static_pos = false,
+          static_pos = true,
         },
       },
     },
@@ -268,39 +256,27 @@ return SceneDef
     {
       uid = 5,
       parent = 2,
-      def = "assets/entities/locker/Locker",
+      def = "assets/entities/walls/iron/Wall",
       components = ComponentArray
       {
         cl::Sprite
         {
-          states = "assets/entities/locker/Locker",
+          states = "assets/entities/walls/iron/Wall",
         },
-        cl::Visualizer
+        ExtendableStructure
         {
-          visuals = cl::VisualsMap
-          {
-            IsOpen = 
-            {
-              True = 14022189011650784819,
-              False = 13684675388348544099,
-            },
-          },
+          kind = 10041089696604218305,
         },
         Appearance
         {
           initial_data = AppearanceData{},
         },
-        Openable
-        {
-          open = false,
-        },
-        Interactable{},
         Transform
         {
           pos = vec2f
           {
-            x = 4.84375,
-            y = 1.41406,
+            x = 0,
+            y = 8,
           },
           rotation = 0,
         },
@@ -313,7 +289,1401 @@ return SceneDef
             w = 1,
             h = 1,
           },
-          static_pos = false,
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 6,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 7,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 7,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 5,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 8,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 6,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 9,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 4,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 10,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 3,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 11,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 2,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 12,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 1,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 13,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 0,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 14,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 1,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 15,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 2,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 16,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 3,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 17,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 4,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 18,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 5,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 19,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 6,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 20,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 7,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 21,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 8,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 22,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 0,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 23,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 1,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 24,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 2,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 25,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 3,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 26,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 4,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 27,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 5,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 28,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 6,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 29,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 7,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 30,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 8,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 31,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 9,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 32,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 8,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 33,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 7,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 34,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 6,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 35,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 5,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 36,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 4,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 37,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 3,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 38,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 1,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
+        },
+      },
+    },
+    SceneEntity_External
+    {
+      uid = 39,
+      parent = 2,
+      def = "assets/entities/walls/iron/Wall",
+      components = ComponentArray
+      {
+        cl::Sprite
+        {
+          states = "assets/entities/walls/iron/Wall",
+        },
+        ExtendableStructure
+        {
+          kind = 10041089696604218305,
+        },
+        Appearance
+        {
+          initial_data = AppearanceData{},
+        },
+        Transform
+        {
+          pos = vec2f
+          {
+            x = 2,
+            y = 9,
+          },
+          rotation = 0,
+        },
+        Collider
+        {
+          bounds = Rect
+          {
+            x = 0,
+            y = 0,
+            w = 1,
+            h = 1,
+          },
+          static_pos = true,
         },
       },
     },

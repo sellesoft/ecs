@@ -7,6 +7,7 @@ $                          .fromGlobs { "src/editor/docs/SceneEditor.lh" }
 $(imported)
 
 @lpp.import "editor/Editor.lh"
+@lpp.import "editor/EditorUIFuncs.lh"
 
 @lpp.import "game/client/structure/StructureVisualizer.sys.lh"
 @lpp.import "game/shared/map/Map.sys.lh"
@@ -32,6 +33,7 @@ namespace editor
 {
 
 using Tool = SceneEditor::Tool;
+using EntityBuildState = SceneEditor::EntityBuildState;
 
 static const f32 c_map_render_w = 2048;
 static const f32 c_map_render_h = 2048;
@@ -383,16 +385,21 @@ static void spawnPlacementEntity(SceneEditor& self)
 }
 
 /* ----------------------------------------------------------------------------
- *  Replaces the current placement entity (if any) with a new one.
  */
-static void replacePlacementEntity(SceneEditor& self)
+static void clearPlacementEntity(SceneEditor& self)
 {
-  // Check if we already have an active placement entity and destroy it
-  // before spawning another one.
   if (notnil(self.placement_entity))
     self.entity_mgr.destroyEntity(self.placement_entity);
 
   self.placement_entity = nil;
+}
+
+/* ----------------------------------------------------------------------------
+ *  Replaces the current placement entity (if any) with a new one.
+ */
+static void replacePlacementEntity(SceneEditor& self)
+{
+  clearPlacementEntity(self);
 
   if (isnil(self.placement_entity_def_path))
     return;
@@ -407,6 +414,9 @@ static void handleEntityPlacement(
     ui::UI& ui,
     const MapViewState& state)
 {
+  if (self.entity_build_state != EntityBuildState::None)
+    return;
+
   if (state.focus.isHovered())
   {
     auto& placement_sys = self.getSys<PlacementSys>();
@@ -529,14 +539,104 @@ $ end
 
 /* ----------------------------------------------------------------------------
  */
+static void handleEntityBuildResult(
+    SceneEditor& self, 
+    String name,
+    String type,
+    Editor::BuildRequestResult result)
+{
+  // Check that the request matches the currently selected entity; user could
+  // have changed entity selection during the build.
+  if (name != String(self.placement_entity_def_path))
+    return;
+
+  if (result == Editor::BuildRequestResult::Failed)
+  {
+    self.editor->log.error("failed to build selected entity");
+    self.entity_build_state = EntityBuildState::Failed;
+    return;
+  }
+
+  self.entity_build_state = EntityBuildState::None;
+  replacePlacementEntity(self);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void requestPlacementEntityBuild(SceneEditor& self)
+{
+  // Clear placement entity so that it doesn't follow the cursor while 
+  // a build is in progress and we aren't placing them while building.
+  clearPlacementEntity(self);
+  
+  b8 request_success = self.editor->requestBuild<SceneEditor>(
+    String(self.placement_entity_def_path),
+    "entity.data"_str,
+    &self,
+    handleEntityBuildResult);
+
+  if (!request_success)
+  {
+    self.editor->log.error("SceneEditor failed to request entity build");
+    return;
+  }
+  
+  self.entity_build_state = EntityBuildState::Requested;
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void putEntityDefSelection(
     SceneEditor& self,
     ui::UI& ui,
     Rect bounds,
     const EditorSkinDef& skin)
 {
+  static const f32 icon_size = 16.f;
+  static const f32 icon_dropdown_spacing = 2.f;
+
+  Rect dropdown_bounds = Rect::from(bounds)
+    .contractedRight(icon_size + icon_dropdown_spacing);
+
+  Rect icon_bounds = Rect::from(bounds)
+    .setSqSize(icon_size)
+    .alignRightOutside(dropdown_bounds, icon_dropdown_spacing)
+    .alignCenteredYInside(dropdown_bounds);
+
+  ui::Focus icon_focus = ui.putFocusableBounds(
+    "scene-editor.build-result-icon"_fid,
+    icon_bounds);
+
+  if (self.entity_build_state != EntityBuildState::Requested &&
+      icon_focus.isHovered())
+  {
+    ui.putItem(icon_bounds, skin.icons.redo);   
+
+    if (icon_focus.wasPrimaryPressed())
+      requestPlacementEntityBuild(self);
+  }
+  else
+  {
+    switch (self.entity_build_state)
+    {
+    case EntityBuildState::None:
+      ui.putItem(icon_bounds, skin.icons.checkmark);
+      break;
+    case EntityBuildState::Requested:
+      placeLoadingDots(
+        ui, 
+        icon_bounds, 
+        time::since(self.editor->start_time).toSeconds(),
+        skin);
+      break;
+    case EntityBuildState::Failed:
+      ui.putItem(icon_bounds, skin.icons.error_triangle);
+      break;
+    }
+  }
+
   if (ui.beginDropDown("scene-editor.select-entity-def"_fid,
-        bounds,
+        dropdown_bounds,
         99.f,
         String(self.placement_entity_def_path),
         skin.dropdown))
@@ -562,7 +662,7 @@ static void putEntityDefSelection(
         io::format(&self.placement_entity_def_path, 
           fs::path::removeExtension(path));
 
-        replacePlacementEntity(self);
+        requestPlacementEntityBuild(self);
 
         ui.closePopup();
       }
@@ -639,8 +739,8 @@ static void putToolMenu(
  */
 void serializeSceneState(SceneEditor& self)
 {
-  if (notnil(self.placement_entity))
-    self.entity_mgr.destroyEntity(self.placement_entity);
+  // Remove possible placement entity so its not serialized in to the scene.
+  clearPlacementEntity(self);
 
   SerializeSceneParams params = 
   {

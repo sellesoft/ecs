@@ -201,7 +201,47 @@ b8 BuildSystem::loadAssetList(String path)
 
 /* ----------------------------------------------------------------------------
  */
-b8 BuildSystem::build(TargetList* built_targets)
+b8 BuildSystem::addTarget(String name, String type)
+{
+  if (isnil(type))
+    return @logerr("BuildSystem::addTarget called with a nil type");
+
+  TargetKind asset_kind = TargetKind::Unknown;
+
+  if (type.endsWith(".compiled"_str))
+    asset_kind = TargetKind::CompiledAsset;
+  else if (type.endsWith(".data"_str))
+    asset_kind = TargetKind::CompiledData;
+
+  if (asset_kind == TargetKind::Unknown)
+    return @logerr(
+      "BuildSystem::addTarget called with a type that cannot be resolved "
+      "to any known TargetKind: '", type, "'");
+
+  findOrCreateTarget(
+    name.allocateCopy(&string_pool),
+    type.allocateCopy(&string_pool),
+    asset_kind,
+    nullptr);
+
+  return true;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::addTarget(String path)
+{
+  String asset_name = fs::path::removeExtension(path);
+  String asset_type = fs::path::getExtension(path);
+
+  return addTarget(asset_name, asset_type);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 BuildSystem::build(
+    TargetList* built_targets,
+    TargetList* failed_targets)
 {
   @loginfo("building available targets...");
 
@@ -209,7 +249,7 @@ b8 BuildSystem::build(TargetList* built_targets)
 
   resetTargetState();
 
-  b8 result = buildTargets(built_targets);
+  b8 result = buildTargets(built_targets, failed_targets);
 
   @loginfo("build ", 
     result? "succeeded"_str : "failed"_str,
@@ -250,7 +290,9 @@ b8 BuildSystem::anyTargetHasNewerPrereqs()
  *  The primary build loop which runs until there are no more targets in the 
  *  queue.
  */
-b8 BuildSystem::buildTargets(TargetList* built_targets)
+b8 BuildSystem::buildTargets(
+    TargetList* built_targets,
+    TargetList* failed_targets)
 {
   b8 success = true;
   for (;;)
@@ -340,6 +382,22 @@ b8 BuildSystem::buildTargets(TargetList* built_targets)
         //             specifically important for multithreading.
 
         @logerr(String(errmsg));
+        
+
+        // TODO(sushi) maybe just store these lists internally and use the 
+        //             failed list to report errors after the build is 
+        //             finished. Also, it would be nice to output more 
+        //             structured error information for assets that could 
+        //             support it, like SourceData packing. This could then
+        //             be used by other tools, like the SourceDataEditor to 
+        //             show diagnostics graphically, like a language server.
+        if (failed_targets != nullptr)
+        {
+          failed_targets->pushTail(next_target);
+
+          for (Target& target : next_target->secondary_targets)
+            failed_targets->pushTail(&target);
+        }
 
         next_target->flags.set(Target::Flag::FailedLastBuild);
         success = false;

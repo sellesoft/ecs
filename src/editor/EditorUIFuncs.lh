@@ -1,0 +1,38 @@
+/*
+ *  Collection of helpers to place common UI elements of the Editor.
+ */
+
+$ require "common"
+
+@lpp.import "ui/UI.lh"
+@lpp.import "editor/Editor.lh"
+
+#include "iro/time/Time.h"
+
+namespace editor
+{
+
+/* ----------------------------------------------------------------------------
+ */
+static void placeLoadingDots(
+  ui::UI& ui,
+  Rect bounds,
+  f32 time,
+  const EditorSkinDef& skin)
+{
+  static const u64 frame_time_ms = 400;
+
+  const ui::ItemSkin* dots[3] = 
+  {
+    &skin.icons.loading_dots.one,  
+    &skin.icons.loading_dots.two,  
+    &skin.icons.loading_dots.three,  
+  };
+
+  u64 time_ms = time * u64(iro::time::ms_p_s);
+  u64 frame = (time_ms / frame_time_ms) % 3;
+  
+  ui.putItem(bounds, *dots[frame]);
+}
+
+}

@@ -18,7 +18,6 @@ b8 InteractionSys::update()
   return true;
 }
 
-
 /* ----------------------------------------------------------------------------
  */
 void InteractionSys::onUsePrimary(UsePrimaryInputEvent& ev)
@@ -31,7 +30,7 @@ void InteractionSys::onUsePrimary(UsePrimaryInputEvent& ev)
     auto* sprite = tryComp<cl::Sprite>(interactable.owner);
     if (sprite == nullptr)
       continue;
-  
+
     vec2i size = getSpriteTextureSize(*sprite);   
     
     vec2f world_pos = computeWorldPos(interactable.owner);

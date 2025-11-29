@@ -89,6 +89,9 @@ struct BuildSystem
   // TODO(sushi) I think this is used way more than it should be and we are 
   //             probably leaking memory each build since the editor keeps 
   //             this alive on a thread. Should prob look into that soon!!
+  // TODO(sushi) we should probably just have Target own the Strings it 
+  //             stores. Outside of that its somewhat more difficult as this
+  //             is used in variety of places.
   mem::LenientBump string_pool;
 
   logging::Channel* log;
@@ -113,11 +116,25 @@ struct BuildSystem
   // Loads all Targets from the asset list file at the given path.
   b8 loadAssetList(String path);
 
+  // Adds a Target with the given `name` and `type`.
+  b8 addTarget(String name, String type);
+
+  // Adds a Target with the given path. The path must have an extension 
+  // that the BuildSystem can resolve to an asset type. Currently this is 
+  // '.data' for CompiledData and '.compiled' for CompiledAsset.
+  b8 addTarget(String path);
+
   // Executes a fresh build on all currently cached Targets. This clears 
   // their state and reevaluates if any needs built.
-  // A TargetList may be provided, which will have each Target built within
-  // this call added to it.
-  b8 build(TargetList* built_targets = nullptr);
+  //
+  // `built_targets` and `failed_targets`, if provided, will be 
+  // populated with targets that were built and those that failed to build
+  // respectively. When iterating the lists, it can be assumed that any 
+  // Targets not found in either were either unknown to the BuildSystem or 
+  // were up-to-date.
+  b8 build(
+    TargetList* built_targets = nullptr,
+    TargetList* failed_targets = nullptr);
 
   void resetTargetState();
   b8 anyTargetHasNewerPrereqs();
@@ -125,7 +142,9 @@ struct BuildSystem
   // The primary build loop of the BuildSystem. Searches for Targets to queue
   // for build, then builds them, until no more targets are found to need 
   // built.
-  b8 buildTargets(TargetList* built_targets = nullptr);
+  b8 buildTargets(
+    TargetList* built_targets = nullptr,
+    TargetList* failed_targets = nullptr);
 
   // Contains logic for finding Targets to queue for building.
   b8 queueTargets();

@@ -114,7 +114,6 @@ b8 serializeScene(SceneDef* def, const SerializeSceneParams& params)
       ptr->ptr = external;
 
       external->def.name = defname;
-      println("external: ", external->def.name);
     
       u32 component_count = countComponents(entmgr, id);
 

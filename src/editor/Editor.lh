@@ -26,6 +26,7 @@ $ require "common"
 @lpp.import "graphics/vk.lh"
 
 #include "iro/os/FileWatcher.h"
+#include "iro/containers/StackArray.h"
 
 struct BroadcastEventBus;
 
@@ -162,6 +163,66 @@ struct Editor
   // Helpers for saving and loading a SourceDataFile from .ecs-cache.
   b8 cacheSourceDataFile(SourceDataFile& file, String path);
   b8 loadCachedSourceDataFile(SourceDataFile* file, String path);
+  
+  enum class BuildRequestResult
+  {
+    Failed,
+    Success,
+  };
+
+  struct BuildRequest
+  {
+    template<typename T>
+    using Callback = void (*)(T, String name, String type, BuildRequestResult);
+
+    fs::PathBuffer name;
+    fs::PathBuffer type;
+
+    void* requester;
+    Callback<void*> cb;
+  };
+
+  StackArray<BuildRequest, 4> pending_build_requests;
+  StackArray<BuildRequest, 4> active_build_requests;
+
+  template<typename TRequester>
+  b8 requestBuild(
+      String name, 
+      String type,
+      TRequester* requester,
+      BuildRequest::Callback<TRequester&> callback)
+  {
+    if (!pending_build_requests.isFull())
+    {
+      BuildRequest* req = pending_build_requests.push();
+
+      if (name.len != io::format(&req->name, name))
+      {
+        log.error("name passed to Editor::requestBuild is too long: ", name);
+        pending_build_requests.pop();
+        return false;
+      }
+
+      if (type.len != io::format(&req->type, type))
+      {
+        log.error("type passed to Editor::requestBuild is too long: ", type);
+        pending_build_requests.pop();
+        return false;
+      }
+
+      req->requester = requester;
+      req->cb = (BuildRequest::Callback<void*>)callback;
+
+      log.info("build requested: '", name, "'");
+      return true;
+    }
+    else
+    {
+      log.warn("request to build ", name, " ignored: too many pending "
+               "build requests");
+      return false;
+    }
+  }
 
   reflect::Linker getLinker()
   {

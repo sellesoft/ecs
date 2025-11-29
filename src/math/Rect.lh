@@ -126,6 +126,7 @@ struct Rect
   }
 
   Rect contractedLeft(f32 v) const { return { x + v, y, w - v, h }; }
+  Rect contractedRight(f32 v) const { return { x, y, w - v, h }; }
 
   b8 containsPoint(f32 px, f32 py) const
   {

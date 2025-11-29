@@ -112,6 +112,26 @@ struct EditorFileExplSkin
 
 /* ============================================================================
  */
+struct EditorLoadingDots
+{
+  ui::ItemSkin one;
+  ui::ItemSkin two;
+  ui::ItemSkin three;
+};
+
+/* ============================================================================
+ */
+struct EditorIcons
+{
+  ui::ItemSkin warning_triangle;
+  ui::ItemSkin error_triangle;
+  ui::ItemSkin checkmark;
+  EditorLoadingDots loading_dots;
+  ui::ItemSkin redo;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -129,6 +149,8 @@ struct EditorSkinDef
   ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
+
+  EditorIcons icons;
 
   EditorConsoleSkin console;
   EditorMenuBarSkin menu_bar;

@@ -449,6 +449,53 @@ return EditorSkinDef
 
   text = text,
 
+  icons = 
+  {
+    warning_triangle = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=32,y=64,w=16,h=16 },
+    },
+
+    error_triangle = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=32,y=80,w=16,h=16 },
+    },
+
+    checkmark = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=32,y=96,w=16,h=16 },
+    },
+
+    loading_dots = 
+    {
+      one = 
+      {
+        texture = "assets/editor/icons",
+        uv = { x=48,y=96,w=16,h=16 },
+      },
+      two = 
+      {
+        texture = "assets/editor/icons",
+        uv = { x=48,y=80,w=16,h=16 },
+      },
+      three = 
+      {
+        texture = "assets/editor/icons",
+        uv = { x=48,y=64,w=16,h=16 },
+      },
+    },
+
+    redo = 
+    {
+      texture = "assets/editor/icons",
+      uv = { x=32,y=112,w=16,h=16 },
+    },
+  },
+
+
   menu_bar = menu_bar,
   console = console,
   sdata_edit = sdata_edit,

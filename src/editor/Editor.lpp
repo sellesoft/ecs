@@ -60,6 +60,7 @@ struct BuildThread
   // Cleared before each build.
   // This should not be accessed until the thread is idle.
   build::TargetList built_targets;
+  build::TargetList failed_targets;
 
   build::BuildSystem* build_system;
 
@@ -76,6 +77,7 @@ struct BuildThread
     mutex = conc::Mutex::create();
 
     built_targets.init();
+    failed_targets.init();
 
     thread = conc::Thread::create(this, [](void* opaque)
     {
@@ -94,6 +96,7 @@ struct BuildThread
     thread.join();
 
     built_targets.deinit();
+    failed_targets.deinit();
     thread = nil;
     signal.destroy();
     mutex.destroy();
@@ -112,8 +115,25 @@ struct BuildThread
   {
     assert(isIdle());
     built_targets.clear();
+    failed_targets.clear();
     state.storeSeqCst(State::RequestBuild);
     signal.signalOne();
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 requestTarget(String path)
+  {
+    assert(isIdle());
+    return build_system->addTarget(path);
+  }
+
+  /* --------------------------------------------------------------------------
+   */
+  b8 requestTarget(String name, String type)
+  {
+    assert(isIdle());
+    return build_system->addTarget(name, type);
   }
 
   /* --------------------------------------------------------------------------
@@ -166,7 +186,7 @@ struct BuildThread
 
       state.storeSeqCst(State::Building);
 
-      b8 success = build_system->build(&built_targets);
+      b8 success = build_system->build(&built_targets, &failed_targets);
 
       state.storeSeqCst(success? State::BuildSuccess : State::BuildFailed);
     }
@@ -460,6 +480,108 @@ b8 Editor::render(this Editor& self)
   return true;
 }
 
+/* ----------------------------------------------------------------------------
+ */
+static Editor::BuildRequest* findActiveBuildRequestFromTarget(
+    Editor& self,
+    const build::Target& target)
+{
+  for (Editor::BuildRequest& request : self.active_build_requests)
+  {
+    if (String(request.name) == target.name &&
+        String(request.type) == target.type)
+      return &request;
+  }
+  return nullptr;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleActiveBuildRequests(Editor& self)
+{
+  // Check if the BuildSystem is done, early out if not.
+  if (!self.build_thread->hasResult())
+    return;
+
+  self.build_thread->consumeResult();
+
+  for (build::Target& built_target : self.build_thread->built_targets)
+  {
+    Editor::BuildRequest* request = findActiveBuildRequestFromTarget(
+      self,
+      built_target);
+
+    if (request == nullptr)
+      continue;
+
+    request->cb(
+      request->requester,
+      built_target.name,
+      built_target.type,
+      Editor::BuildRequestResult::Success);
+
+    self.active_build_requests.removeUnordered(request);
+  }
+
+  for (build::Target& failed_target : self.build_thread->failed_targets)
+  {
+    Editor::BuildRequest* request = findActiveBuildRequestFromTarget(
+      self,
+      failed_target);
+
+    if (request == nullptr)
+      continue;
+
+    request->cb(
+      request->requester,
+      failed_target.name,
+      failed_target.type,
+      Editor::BuildRequestResult::Failed);
+
+    self.active_build_requests.removeUnordered(request);
+  }
+
+  // Any requests remaining in the array are assumed to have been up-to-date,
+  // so we just report that they succeeded.
+  for (Editor::BuildRequest& request : self.active_build_requests)
+  {
+    request.cb(
+      request.requester,
+      String(request.name),
+      String(request.type),
+      Editor::BuildRequestResult::Success);
+  }
+
+  self.active_build_requests.clear();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handlePendingBuildRequests(Editor& self)
+{
+  if (self.pending_build_requests.isEmpty() || !self.build_thread->isIdle())
+    return;
+
+  for (Editor::BuildRequest& request : self.pending_build_requests)
+  {
+    self.build_thread->requestTarget(
+      String(request.name), 
+      String(request.type));
+  }
+
+  self.pending_build_requests.moveTo(&self.active_build_requests);
+  self.build_thread->requestBuild();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleBuildRequests(Editor& self)
+{
+  if (!self.active_build_requests.isEmpty())
+    handleActiveBuildRequests(self);
+  else
+    handlePendingBuildRequests(self);
+}
 
 /* ----------------------------------------------------------------------------
  */
@@ -603,6 +725,8 @@ $ end
     if (build_thread->isIdle())
       build_thread->requestBuild();
   }
+
+  handleBuildRequests(*this);
 
   if (build_thread->hasResult())
   {

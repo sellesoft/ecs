@@ -3,6 +3,7 @@ $ local cmn = require "common"
 #include "iro/time/Time.h"
 #include "iro/fs/fs.h"
 #include "iro/fs/File.h"
+#include "iro/hash/Hash.h"
 #include "iro/io/Memory.h"
 #include "iro/print.h"
 #include "iro/sort.h"
@@ -91,6 +92,8 @@ $ if ECS_WAIT_FOR_TRACY_CONNECTION then
     platform::sleep(TimeSpan::fromMilliseconds(1));
 $ end
 
+  iro::hash::loadCache("_data/hash.cache"_str);
+
   LaunchArgs launch_args = {};
   if (argc > 1)
   {
@@ -147,6 +150,9 @@ $ end
   }
 
   engine.deinit();
+
+  iro::hash::saveCache();
+  iro::hash::unloadCache();
 
   return 0;
 }

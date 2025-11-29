@@ -134,6 +134,7 @@ end
 
 if cfg.cpp.debug_info then
   defines.ECS_DEBUG = 1
+  defines.HASH_CACHE_ENABLED = 1
 end
 
 -- if cfg.cpp.opt == "speed" then

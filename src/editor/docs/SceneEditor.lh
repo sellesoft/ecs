@@ -13,6 +13,7 @@ $ require "common"
 @lpp.import "game/shared/entity/Entity.defs.lh"
 @lpp.import "game/client/graphics/GameRenderer.lh"
 @lpp.import "game/client/entity/EntitySysMgr.lh"
+@lpp.import "editor/Editor.lh"
 
 namespace editor
 {
@@ -32,21 +33,23 @@ struct SceneEditor : Doc
   reflect::PackedData scene_def_packed;
   SourceDataFile sdf_scene_def;
 
-  // The size at which the scene view should be rendered.
+  // The size at which the scene view should be rendered, controlled
+  // by the size of the ui quad we draw in putUI().
   vec2f view_size;
 
   SourceDataFile sdf_selected_entity_def;
+  EntityDefLink selected_entity_def;
+
   SourceDataEditor sd_editor;
 
-  enum class ControlState
-  {
-    None,
-    DraggingView,
-  };
+  b8 dragging_view;
+  b8 dragging_entity;
 
-  ControlState control_state;
   vec2f drag_start_world;
   vec2f drag_start_viewport;
+
+  vec2f entity_select_pos_viewport;
+  vec2f entity_select_pos_entity_local;
 
   EntityId selected_entity;
   EntityId hovered_entity;
@@ -54,6 +57,8 @@ struct SceneEditor : Doc
   fs::PathBuffer placement_entity_def_path;
   EntityDefLink placement_entity_def;
   EntityId placement_entity;
+
+  PlacementMode placement_mode;
 
   enum Tool
   {
@@ -89,6 +94,12 @@ struct SceneEditor : Doc
   T& getSys()
   {
     return entity_sys_mgr.get<T>();
+  }
+
+  template<typename T>
+  b8 link(rtr::TypeId type, String name, T* data)
+  {
+    return editor->getLinker().link(type, name, data);
   }
 };
 

@@ -40,15 +40,6 @@ $ end
 
 @log.import
 
-$ -- Generate a struct containing placeholder component defs to handle cases
-$ -- when Components are added to an Entity programatically. Ideally we 
-$ -- shouldn't be storing pointers to defs on every component but it is 
-$ -- simple and I don't have any better ideas atm.
-$ -- TODO(sushi) figure out a better way to handle this, would just rather 
-$ --             systems be able to assed Component::def is never nullptr 
-$ --             so that they don't have to test if its there everytime they
-$ --             use it.
-
 $$$
 
 local max_entities = 100000
@@ -58,6 +49,11 @@ local comp_counts =
   Transform = max_entities,
 }
 
+-- TODO(sushi) 'tag' components (those with no data) should instead be 
+--             stored as booleans (or, even better, a bit array) on the 
+--             ComponentIndexes struct and so can be applied to all Entities.
+--             Somewhat difficult atm given that `Component` always stores
+--             its owner. Though, I guess we need that to iterate them..
 local default_comp_count = 0xff
 
 eachComp(function(comp)

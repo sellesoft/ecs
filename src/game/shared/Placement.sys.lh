@@ -18,14 +18,42 @@ struct PlacementSys : EntitySys
   MapSys* map;
 
   b8 init() { return true; }
+  
+  // Performs placement of entity `id`. Given a `desired_point` and a 
+  // `desired_offset`, the entity is placed based on the given placement 
+  // `mode`. 
+  //
+  // `desired_point` is the position at which the user is attempting to place
+  // the entity with their cursor in world space. `desired_offset` is the 
+  // offset to apply to the entity's position, when appropriate for the given
+  // placement `mode`. 
+  //
+  // The reason for this distinction is because we want to ensure that the 
+  // entity is parented to that which is underneath the `desired_point` (the 
+  // cursor) and not the entity that happens to be at the point computed 
+  // after the placement `mode` constraints are applied. To do this, we need
+  // to pass in what the `desired_offset` is rather than having code using
+  // this api compute the offset'd `desired_point` before calling it.
+  //
+  // An example of this is dragging entites around in the SceneEditor. When 
+  // dragging an entity around we want to offset the placement position by 
+  // the cursor's position relative to the entity when it started dragging it,
+  // so that it appears that you grabbed the entity at whatever point the 
+  // cursor was at when you clicked. When in SnapToGrid mode, if the offset 
+  // is applied externally, then we do not have enough information in this 
+  // function to determine where the cursor actually is and weird behavior 
+  // occurs.
+  void placeEntity(
+    EntityId id, 
+    PlacementMode mode, 
+    vec2f desired_point,
+    vec2f desired_offset);
 
-  // Performs placement of entity with `id`. Translates the `desired_point`
-  // to an appropriate value based on the placement `mode`, sets its transform
-  // position and reparents it as necessary.
-  // `desired_point` is expected to be in world space.
-  // TODO(sushi) take in parent relative points at some point (ha).
-  void placeEntity(EntityId id, PlacementMode mode, vec2f desired_point);
-  void placeEntity(EntityId id, const EntityDef& def, vec2f desired_point);
+  void placeEntity(
+    EntityId id, 
+    const EntityDef& def, 
+    vec2f desired_point,
+    vec2f desired_offset);
 };
 
 

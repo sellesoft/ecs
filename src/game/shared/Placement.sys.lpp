@@ -19,10 +19,11 @@ struct EntityPlacement
  */
 static EntityPlacement computeFreePlacement(
     PlacementSys& self,
-    vec2f desired_point)
+    vec2f desired_point,
+    vec2f desired_offset)
 {
   EntityPlacement placement = {};
-  placement.position = desired_point;
+  placement.position = desired_point + desired_offset;
 
   if (const MapLayer* layer = self.map->tryGetLayerAtPos(desired_point))
   {
@@ -38,20 +39,25 @@ static EntityPlacement computeFreePlacement(
  */
 static EntityPlacement computeSnapToGridPlacement(
     PlacementSys& self, 
-    vec2f desired_point)
+    vec2f desired_point,
+    vec2f desired_offset)
 {
   EntityPlacement placement = {};
   placement.position = desired_point;
 
-  vec2f translated = desired_point;
   if (const MapLayer* layer = self.map->tryGetLayerAtPos(desired_point))
   {
+    // If we find a map layer, we snap the position to it and ignore 
+    // the offset.
     Transform& layer_transform = self.getTransform(layer->owner);
-    placement.position -= layer_transform.pos;
+    placement.position = floor(placement.position - layer_transform.pos);
     placement.parent = layer->owner;
   }
-  
-  placement.position = floor(placement.position);
+  else
+  {
+    // Otherwise, we are basically placing freely.
+    placement.position += desired_offset;
+  }
   
   return placement;
 }
@@ -61,14 +67,15 @@ static EntityPlacement computeSnapToGridPlacement(
 static EntityPlacement computePlacement(
     PlacementSys& self,
     PlacementMode mode,
-    vec2f desired_point)
+    vec2f desired_point,
+    vec2f desired_offset)
 {
   switch (mode)
   {
   case PlacementMode::Free:
-    return computeFreePlacement(self, desired_point);
+    return computeFreePlacement(self, desired_point, desired_offset);
   case PlacementMode::SnapToGrid:
-    return computeSnapToGridPlacement(self, desired_point);
+    return computeSnapToGridPlacement(self, desired_point, desired_offset);
   }
 
   assert(!"invalid PlacementMode");
@@ -80,9 +87,14 @@ static EntityPlacement computePlacement(
 void PlacementSys::placeEntity(
     EntityId id,
     PlacementMode mode,
-    vec2f desired_point)
+    vec2f desired_point,
+    vec2f desired_offset)
 {
-  EntityPlacement placement = computePlacement(*this, mode, desired_point);
+  EntityPlacement placement = computePlacement(
+    *this, 
+    mode, 
+    desired_point,
+    desired_offset);
 
   auto* transform = tryComp<Transform>(id);
   transform->pos = placement.position;
@@ -98,10 +110,12 @@ void PlacementSys::placeEntity(
 void PlacementSys::placeEntity(
     EntityId id,
     const EntityDef& def,
-    vec2f desired_point)
+    vec2f desired_point,
+    vec2f desired_offset)
 {
   return placeEntity(
     id,
     def.placement,
-    desired_point);
+    desired_point,
+    desired_offset);
 }

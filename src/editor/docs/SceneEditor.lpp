@@ -34,6 +34,7 @@ namespace editor
 
 using Tool = SceneEditor::Tool;
 using EntityBuildState = SceneEditor::EntityBuildState;
+using ControlState = SceneEditor::ControlState;
 
 static const f32 c_map_render_w = 2048;
 static const f32 c_map_render_h = 2048;
@@ -214,34 +215,29 @@ static void handleDragState(
     ui::UI& ui,
     const MapViewState& state)
 {
-  using enum SceneEditor::ControlState;
   using Focus = ui::FocusFlag;
 
-  switch (self.control_state)
+  if (self.dragging_view)
   {
-  case None:
+    vec2f offset = self.view.viewportPointToWorld(
+      self.drag_start_viewport, 
+      self.view_size);
+
+    self.view.pos = self.drag_start_world + offset - state.world_cursor;
+
+    // Check if middle mouse is released anywhere to avoid the drag state 
+    // getting stuck.
+    if (ui.wasTertiaryReleasedGlobally())
+      self.dragging_view = false;
+  }
+  else
+  {
     if (state.focus.wasTertiaryPressed())
     {
       self.drag_start_viewport = state.local_cursor;
       self.drag_start_world = self.view.pos;
-      self.control_state = DraggingView;
+      self.dragging_view = true;
     }
-    break;
-
-  case DraggingView:
-    {
-      vec2f offset = self.view.viewportPointToWorld(
-        self.drag_start_viewport, 
-        self.view_size);
-
-      self.view.pos = self.drag_start_world + offset - state.world_cursor;
-
-      // Check if middle mouse is released anywhere to avoid the drag state 
-      // getting stuck.
-      if (ui.wasTertiaryReleasedGlobally())
-        self.control_state = None;
-    } 
-    break;
   }
 }
 
@@ -315,6 +311,11 @@ static void reloadEntitySourceDataFile(
     sfile->returned_data,
     sfile,
     "EntityDef"_typeid);
+
+  self.link(
+    "EntityDefLink"_typeid, 
+    defname, 
+    &self.selected_entity_def); 
 }
 
 /* ----------------------------------------------------------------------------
@@ -329,6 +330,7 @@ static void handleEntitySelection(
   self.hovered_entity = nil;
   
   vec2f world_cursor = state.world_cursor;
+  vec2f hovered_pos_entity_local = {};
 
   for (auto& sprite : self.entity_mgr.eachComp<cl::Sprite>())
   {
@@ -344,6 +346,7 @@ static void handleEntitySelection(
       if (pixelTestSprite(sprite, world_cursor - world_pos))
       {
         self.hovered_entity = sprite.owner;
+        hovered_pos_entity_local = world_cursor - world_pos;
         break;
       }
     }
@@ -356,7 +359,19 @@ static void handleEntitySelection(
     self.selected_entity = self.hovered_entity;
 
     if (new_selection)
+    {
       reloadEntitySourceDataFile(self, self.selected_entity);
+      self.entity_select_pos_viewport = state.local_cursor;
+      self.entity_select_pos_entity_local = hovered_pos_entity_local;
+      println(hovered_pos_entity_local);
+    }
+  }
+  else if (ui.frame_input.isMouseButtonDown(MouseButton::Left) &&
+           notnil(self.selected_entity))
+  {
+    vec2f delta = state.local_cursor - self.entity_select_pos_viewport;
+    if (delta.mag() > 3.f)
+      self.dragging_entity = true;
   }
 }
 
@@ -412,6 +427,21 @@ static void replacePlacementEntity(SceneEditor& self)
 static void handleEntityPlacement(
     SceneEditor& self,
     ui::UI& ui,
+    EntityId id,
+    vec2f pos,
+    vec2f offset,
+    PlacementMode placement_mode,
+    const MapViewState& state)
+{
+  auto& placement_sys = self.getSys<PlacementSys>();
+  placement_sys.placeEntity(id, placement_mode, pos, offset);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleEntitySpawning(
+    SceneEditor& self,
+    ui::UI& ui,
     const MapViewState& state)
 {
   if (self.entity_build_state != EntityBuildState::None)
@@ -419,15 +449,43 @@ static void handleEntityPlacement(
 
   if (state.focus.isHovered())
   {
-    auto& placement_sys = self.getSys<PlacementSys>();
-
-    placement_sys.placeEntity(
-      self.placement_entity, 
-      *self.placement_entity_def,
-      state.world_cursor);
+    handleEntityPlacement(
+      self,
+      ui,
+      self.placement_entity,
+      state.world_cursor,
+      vec2f(0.f),
+      self.placement_entity_def->placement,
+      state);
 
     if (state.focus.wasPrimaryPressed())
       spawnPlacementEntity(self);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void handleEntityDrag(
+    SceneEditor& self,
+    ui::UI& ui,
+    const MapViewState& state)
+{
+  if (state.focus.isHovered())
+  {
+    handleEntityPlacement(
+      self,
+      ui,
+      self.selected_entity,
+      state.world_cursor,
+      -self.entity_select_pos_entity_local,
+      self.selected_entity_def->placement,
+      state);
+
+    if (ui.wasPrimaryReleasedGlobally())
+    {
+      self.selected_entity = nil;
+      self.dragging_entity = false;
+    }
   }
 }
 
@@ -443,7 +501,11 @@ static void handleMapAndEntityCursorInteraction(
 
   if (notnil(self.placement_entity_def_path))
   {
-    handleEntityPlacement(self, ui, state);
+    handleEntitySpawning(self, ui, state);
+  }
+  else if (self.dragging_entity)
+  {
+    handleEntityDrag(self, ui, state);
   }
   else
   {
@@ -657,7 +719,6 @@ static void putEntityDefSelection(
             path,
             skin.dropdown_option))
       {
-        println("select ", path);
         self.placement_entity_def_path.clear();
         io::format(&self.placement_entity_def_path, 
           fs::path::removeExtension(path));

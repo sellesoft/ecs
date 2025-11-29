@@ -1,8 +1,12 @@
+// TODO(sushi) remove this file 
+
 $ local cmn = require "common"
 $ local ast = require "reflect.ast"
 $ local List = require "iro.List"
 $ local glob = require "iro.fs.glob"
 $ local dumpValue = require "iro.util".dumpValue
+
+
 
 $$$
 local astctx, imported = require "reflect.AstContext" .fromGlobs
@@ -27,12 +31,3 @@ $     end
 $   end
 $ end
 
-$ eachComp(function(decl)
-/* ----------------------------------------------------------------------------
- */
-template<>
-u64 getComponentKind<$(decl.qname)>()
-{
-  return "$(decl.qname)"_hashed;
-}
-$ end)

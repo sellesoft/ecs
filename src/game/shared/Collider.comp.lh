@@ -3,16 +3,17 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 @lpp.import "math/Rect.lh"
 
-@comp.def(Collider,
+struct Collider : Component
 {
+  @metadata.data_field
   Rect bounds;
-  b8 static_pos;
-},
-{
 
-})
+  @metadata.data_field
+  b8 static_pos;
+};

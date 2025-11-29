@@ -498,8 +498,7 @@ $ local function callFieldPacker(field, record, i)
     found_fields->set($(i-1));
 $ end
 
-      switch (child->name.hash())
-      {
+$ local function packFields_default_data()
 $   for field, record, i in decl:allFieldsWithIndex() do
       case "$(field.name)"_hashed:
 $     if not field.metadata.hidden then
@@ -510,6 +509,30 @@ $     else
           "field $(decl.qname)::$(field.name) is marked hidden");
 $     end
 $   end
+$ end
+
+$ local function packFields_default_hidden()
+$   for field, record, i in decl:allFieldsWithIndex() do
+    case "$(field.name)"_hashed:
+$     if field.metadata.data_field then
+$       callFieldPacker(field, record, i)
+      break;
+$     else
+        return error(*child,
+          "field $(decl.qname)::$(field.name) is not marked as a 'data_field' "
+          "and so cannot be specified in data ($(decl.qname) has metadata '"
+          "fields_hidden_by_default')");
+$     end
+$   end
+$ end
+
+      switch (child->name.hash())
+      {
+$ if decl:findMetadata "fields_hidden_by_default" then
+$   packFields_default_hidden()
+$ else
+$   packFields_default_data()
+$ end
       default:
         return error(*child,
           "$(decl.qname) has no field '", child->name, "'");

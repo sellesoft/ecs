@@ -2,212 +2,148 @@ return SceneDef
 {
   entities = 
   { 
-    SceneEntity_External
-    {
-      uid = 1,
-      def = "assets/entities/locker/Locker",
-      components = 
-      {
-        TransformDef { pos = { x = 1, y = 1 } },
-      }
-    },
     SceneEntity_Embedded
     {
-      uid = 2,
+      uid = 1,
       def = 
       {
         name = "TestMap",
         components = 
         {
-          TransformDef { pos = { x = 0, y = 0 } },
-          MapDef {},
+          Transform { pos = { x = 0, y = 0 } },
+          Map {},
         }
       },
-      children = 
+    },
+    SceneEntity_Embedded
+    {
+      uid = 2,
+      parent = 1,
+      def = 
       {
-        SceneEntity_Embedded
+        name = "Floor0",
+        components = 
         {
-          uid = 3,
-          children = 
+          Transform { pos = { x = 0, y = 0 } },
+          MapLayer
           {
-            SceneEntity_External
+            dimensions = { x = 10, y = 10 }, 
+            tiles = 
             {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 0, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 1, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 2, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 3, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 4, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 5, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 6, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 7, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 8, y = 0 } } },
-            },
-            SceneEntity_External
-            {
-              def = "assets/entities/walls/iron/Wall",
-              components = { TransformDef { pos = { x = 9, y = 0 } } },
-            },
-          },
-          def = 
-          {
-            name = "Floor0",
-            components = 
-            {
-              TransformDef { pos = { x = 0, y = 0 } },
-              MapLayerDef
-              {
-                dimensions = { x = 10, y = 10 }, 
-                tiles = 
-                {
-                  // 0
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 10
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 20
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 30
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 40
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 50
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 60
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 70
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 80
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 90
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  "assets/floors/tiles/Floor",
-                  // 100
-                }
-              }
+              // 0
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 10
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 20
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 30
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 40
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 50
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 60
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 70
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 80
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 90
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              "assets/floors/tiles/Floor",
+              // 100
             }
           }
-        },
+        }
       }
     },
   }

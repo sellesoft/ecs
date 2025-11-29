@@ -1,4 +1,6 @@
 return build::AssetList
 {
-  "assets/entities/ghost/Ghost.entity.data"
+  "assets/entities/ghost/Ghost.entity.data",
+  "assets/entities/locker/Locker.entity.data",
+  "assets/entities/walls/iron/Wall.entity.data",
 }

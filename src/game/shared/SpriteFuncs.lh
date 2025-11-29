@@ -12,12 +12,10 @@ $ require "common"
  */
 static inline const SpriteTexture* getSpriteTexture(const cl::Sprite& sprite)
 {
-  if (!sprite.def->states.isValid())
+  if (!sprite.states.isValid())
     return nullptr;
 
-  const SpriteStatesDef& states = *sprite.def->states;
-
-  return states.map.getAtIndex(sprite.state);
+  return sprite.states->map.getAtIndex(sprite.state);
 }
 
 /* ----------------------------------------------------------------------------

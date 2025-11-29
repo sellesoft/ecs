@@ -1,0 +1,141 @@
+$ require "common"
+$ local ast = require "reflect.ast"
+
+$$$
+local astctx, imported = require "reflect.AstContext" .fromGlobs
+{
+  "src/**/*.comp.lh"
+}
+$$$
+$(imported)
+
+$ local TComponent = astctx:lookupTypeDecl "Component"
+$ local function eachComp(f)
+$   for decl in TComponent:allDerived() do
+$     f(decl)
+$   end
+$ end
+
+@lpp.import "game/shared/SceneSerializer.lh"
+@lpp.import "game/shared/Scene.defs.lh"
+@lpp.import "game/shared/entity/EntityMgr.lh"
+
+@log.import
+
+#include "iro/containers/Array.h"
+
+/* ----------------------------------------------------------------------------
+ */
+static u32 countComponents(EntityMgr& entmgr, EntityId id)
+{
+  u32 component_count = 0;
+$ eachComp(function(decl)
+  if (entmgr.tryComp<$(decl.qname)>(id))
+    component_count += 1;
+$ end)  
+  return component_count;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void serializeComponents(
+    Array<ComponentPtr>& serialized_components,
+    EntityMgr& entmgr,
+    EntityId id)
+{
+  u32 component_idx = 0;
+$ eachComp(function(decl)
+  if (auto* component = entmgr.tryComp<$(decl.qname)>(id))
+  {
+    defer { component_idx += 1; };
+
+    ComponentPtr& component_ptr = serialized_components[component_idx];
+    component_ptr.type = "$(decl.qname)"_typeid;
+    component_ptr.ptr = ($(decl.qname)*)component;
+  }
+$ end)
+}
+
+/* ----------------------------------------------------------------------------
+ */
+b8 serializeScene(SceneDef* def, const SerializeSceneParams& params)
+{
+  EntityMgr& entmgr = params.entity_mgr;
+  logging::Channel* log = params.log;
+  iro::mem::Allocator* allocator = params.allocator;
+
+  u32 num_entities = 0;
+  for (const auto& transform : entmgr.eachComp<Transform>())
+    num_entities += 1;
+
+  Array<SceneEntityPtr> scene_entities;
+
+  scene_entities.init(num_entities, allocator);
+  scene_entities.resize(num_entities);
+
+  def->entities.arr = scene_entities.arr;
+  def->entities.len = scene_entities.len;
+
+  u32 entity_idx = 0;
+  for (const auto& transform : entmgr.eachComp<Transform>())
+  {
+    defer { entity_idx += 1; };
+
+    EntityId id = transform.owner;
+
+    SceneEntityPtr* ptr = &scene_entities[entity_idx];
+
+    String defname = entmgr.getDefName(id);
+    if (isnil(defname))
+    {
+      auto* embedded = allocator->construct<SceneEntity_Embedded>();
+      ptr->type = "SceneEntity_Embedded"_typeid;
+      ptr->ptr = embedded;
+    
+      u32 component_count = countComponents(entmgr, id);
+
+      auto serialized_components = Array<ComponentPtr>::create(
+        component_count,
+        allocator);
+      serialized_components.resize(component_count);
+      
+      embedded->def.components.arr = serialized_components.arr;
+      embedded->def.components.len = serialized_components.len;
+
+      serializeComponents(
+        serialized_components,
+        entmgr,
+        id);
+  
+    }
+    else
+    {
+      auto* external = allocator->construct<SceneEntity_External>();
+      ptr->type = "SceneEntity_External"_typeid;
+      ptr->ptr = external;
+
+      external->def.name = defname;
+    
+      u32 component_count = countComponents(entmgr, id);
+
+      auto serialized_components = Array<ComponentPtr>::create(
+        component_count,
+        allocator);
+      serialized_components.resize(component_count);
+      
+      external->components.arr = serialized_components.arr;
+      external->components.len = serialized_components.len;
+
+      serializeComponents(
+        serialized_components,
+        entmgr,
+        id);
+    }
+
+    auto* scene_entity = ptr->getAs<SceneEntity>();
+    scene_entity->uid = id.value;
+    scene_entity->parent = transform.parent.value;
+  }
+
+  return true;
+}

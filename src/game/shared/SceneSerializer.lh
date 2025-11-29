@@ -1,0 +1,27 @@
+/*
+ *  API for serializing game state into a SceneDef.
+ */
+
+$ require "common"
+
+@lpp.import "game/shared/Scene.defs.lh"
+
+struct EntityMgr;
+namespace iro::mem { struct Allocator; }
+namespace logging { struct Channel; }
+
+/* ============================================================================
+ */
+struct SerializeSceneParams
+{
+  // EntityMgr who's entities will be included in the resulting SceneDef.
+  EntityMgr& entity_mgr;
+
+  // Allocator used to allocate memory needed to build the SceneDef.
+  // The caller is responsible for freeing any allocated memory.
+  iro::mem::Allocator* allocator;
+
+  logging::Channel* log;
+};
+
+b8 serializeScene(SceneDef* def, const SerializeSceneParams& params);

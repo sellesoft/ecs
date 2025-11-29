@@ -1,11 +1,7 @@
 $ require "common"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
-@comp.def(Mind,
+struct Mind : Component
 {
-
-},
-{
-
-})
+};

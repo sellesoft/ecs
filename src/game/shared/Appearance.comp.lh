@@ -5,21 +5,21 @@
  */
 
 $ require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 @lpp.import "core/StringHash.lh"
 @lpp.import "reflect/types/StringMap.lh"
 
 /* ============================================================================
  */
-@comp.def(Appearance, 
-{
-
-},
+struct Appearance : Component
 {
   b8 is_dirty = false;
-
+  
   reflect::StringMap<StringHash> data;
-})
+
+  @metadata.data_field
+  reflect::StringMap<StringHash> initial_data;
+};

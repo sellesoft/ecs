@@ -4,12 +4,12 @@ return EntityDef
   placement = "SnapToGrid",
   components = 
   {
-    AppearanceDef {},
-    ExtendableStructureDef { kind = "IronWall" },
-    cl::SpriteDef
+    Appearance {},
+    ExtendableStructure { kind = "IronWall" },
+    cl::Sprite
     {
       states = "assets/entities/walls/iron/Wall"
     },
-    ColliderDef { bounds = {x=0,y=0,w=1,h=1}, static_pos = true }
+    Collider { bounds = {x=0,y=0,w=1,h=1}, static_pos = true }
   }
 }

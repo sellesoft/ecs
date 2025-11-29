@@ -21,7 +21,5 @@ struct TransformSys : EntitySys
 
   void onInit(Transform& transform, ComponentInit&)
   {
-    transform.pos = transform.def->pos;
-    transform.rotation = transform.def->rotation;
   }
 };

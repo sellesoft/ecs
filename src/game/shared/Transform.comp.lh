@@ -1,17 +1,17 @@
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
-
+@lpp.import "game/shared/component/Component.lh"
 @lpp.import "math/vec.lh"
 
-@comp.def(Transform,
+struct Transform : Component
 {
+  @metadata.data_field
   vec2f pos;
+
+  @metadata.data_field
   f32 rotation;
-},
-{
-  vec2f pos = {};
-  f32   rotation = 0.f;
+
   EntityId parent = nil;
-})
+};
 

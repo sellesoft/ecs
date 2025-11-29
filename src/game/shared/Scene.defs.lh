@@ -18,14 +18,15 @@ typedef reflect::Array<SceneEntityPtr> SceneEntityArray;
 @metadata.hidden
 struct SceneEntity
 {
-  // Unique id identifying this Entity in the Scene.
+  // Unique id identifying this Entity in the Scene. Ids start at 1.
   u32 uid;
   
-  // Children of this Entity.
-  SceneEntityArray children;
+  // If non-zero, identifies the parent of this Entity.
+  u32 parent;
 };
 
 /* ============================================================================
+ *  A SceneEntity that comes from a entity asset, ie. a '.entity' asset.
  */
 struct SceneEntity_External : SceneEntity
 {
@@ -33,10 +34,11 @@ struct SceneEntity_External : SceneEntity
 
   // A set of Components to apply to the Entity as its loaded. If the def 
   // already contains a Component provided here, then its overridden.
-  ComponentDefArray components;
+  ComponentArray components;
 };
 
 /* ============================================================================
+ *  A SceneEntity defined directly within the SceneDef.
  */
 struct SceneEntity_Embedded : SceneEntity
 {

@@ -49,15 +49,6 @@ $ --             systems be able to assed Component::def is never nullptr
 $ --             so that they don't have to test if its there everytime they
 $ --             use it.
 
-/* ============================================================================
- */
-struct ComponentDefPlaceholders
-{
-$ eachComp(function(comp)
-  $(comp.qname)Def $(comp.cname) = {};
-$ end)
-};
-
 $$$
 
 local max_entities = 100000
@@ -97,7 +88,7 @@ struct $(comp.arrname)
     $(comp.decl.qname)* comp;
   };
 
-  PushResult pushFor(EntityId id)
+  PushResult pushFor(EntityId id, const $(comp.qname)* prototype)
   {
     assert(!isFull());
     
@@ -108,6 +99,9 @@ struct $(comp.arrname)
 
     // Indicates a bug with owner tracking.
     assert(isnil(comp->owner));
+
+    if (prototype != nullptr)
+      mem::copy(comp, prototype, sizeof($(comp.qname)));
     
     comp->owner = id;
 
@@ -167,7 +161,6 @@ struct EntityWorld
 {
   ComponentArrays comp_arrays;
   EntitySlot entities[$(max_entities)];
-  ComponentDefPlaceholders cdef_placeholder;
 };
 
 /* ----------------------------------------------------------------------------
@@ -181,6 +174,9 @@ b8 EntityMgr::init()
 
   @log.info(game, "allocated ", tcolor::green, 
     io::ByteUnits(sizeof(EntityWorld)), tcolor::reset, " for entity world");
+
+  for (u32 slot_idx = 0; slot_idx < $(max_entities); ++slot_idx)
+    world->entities[slot_idx].next_free = slot_idx + 1;
 
   if (!eventbus.init(this))
     return @log.error(game, "failed to init entity event bus");
@@ -199,16 +195,27 @@ void EntityMgr::deinit()
 }
 
 /* ----------------------------------------------------------------------------
+ *  Gets an EntitySlot ignoring the generation validation.
+ */
+static EntitySlot* getEntitySlotById(EntityWorld& world, u32 id)
+{
+  assert(id != 0); 
+  assert(id <= $(max_entities));
+  return &world.entities[id - 1];
+}
+
+/* ----------------------------------------------------------------------------
  */
 static EntitySlot* getEntitySlot(EntityWorld& world, EntityId id)
 {
   assert(notnil(id));
 
-  EntitySlot* slot = &world.entities[id.value - 1];
+  EntitySlot* slot = getEntitySlotById(world, id.value);
   assert(slot->generation == id.generation);
 
   return slot;
 }
+
 
 $ eachComp(function(comp)
 /* ----------------------------------------------------------------------------
@@ -229,12 +236,14 @@ $(comp.decl.qname)* tryComp_$(comp.cname)(
 $(comp.decl.qname)* addComp_$(comp.cname)(
     EntityMgr& self, 
     EntityId id,
-    EntitySlot& slot)
+    EntitySlot& slot,
+    const $(comp.decl.qname)* prototype)
 {
   assert(nullptr == tryComp_$(comp.cname)(self, id, slot) &&
     "addComp called on an entity that already has this Component");
 
-  auto push_result = self.world->comp_arrays.$(comp.cname).pushFor(id);
+  auto push_result = self.world->comp_arrays.$(comp.cname).pushFor(
+    id, prototype);
 
   slot.components.$(comp.cname) = push_result.idx + 1;
 
@@ -304,7 +313,11 @@ void tryRemoveComp_$(comp.cname)(
 template<>
 $(comp.decl.qname)* EntityMgr::addComp<$(comp.decl.qname)>(EntityId id)
 {
-  return addComp_$(comp.cname)(*this, id, *getEntitySlot(*world, id));
+  return addComp_$(comp.cname)(
+    *this, 
+    id, 
+    *getEntitySlot(*world, id),
+    nullptr);
 }
 
 /* ----------------------------------------------------------------------------
@@ -344,11 +357,7 @@ static void initializeEntity(EntityMgr& self, EntityId id, EntitySlot& slot)
 {
 $ eachComp(function(comp)
   if (auto* comp = tryComp_$(comp.cname)(self, id, slot))
-  {
-    if (comp->def == nullptr)
-      comp->def = &self.world->cdef_placeholder.$(comp.cname);
     self.eventbus.raise(*comp, ComponentInit{});
-  }
 $ end)
 }
 
@@ -361,6 +370,71 @@ $ eachComp(function(comp)
   if (auto* comp = tryComp_$(comp.cname)(self, id, slot))
     self.eventbus.raise(*comp, ComponentStartup{});
 $ end)
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void removeSlotFromFreeList(
+    EntityMgr& self,
+    EntitySlot& slot)
+{
+  u32 slot_idx = &slot - self.world->entities;
+
+  if (slot_idx == self.next_slot)
+  {
+    // Fast case where the slot is at the head of the free list.
+    self.next_slot = slot.next_free;
+  }
+  else
+  {
+    // Slow case where we need to find the preceeding slot in the list
+    // and set its `next_free` to this one's.
+    u32 current_slot = self.next_slot;
+    EntitySlot* free_slot = nullptr;
+    for (;;)
+    {
+      free_slot = &self.world->entities[current_slot];
+
+      if (free_slot->next_free == slot_idx)
+      {
+        free_slot->next_free = slot.next_free;
+        break;
+      }
+      
+      current_slot = free_slot->next_free;
+
+      assert(current_slot != $(max_entities));
+    }
+  }
+
+  slot.next_free = EntitySlot::s_used_val;
+  slot.generation += 1;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void initializeUnusedSlot(
+    EntityMgr& self, 
+    EntitySlot& slot)
+{
+  removeSlotFromFreeList(self, slot);
+
+  // Assert that this slot was not left with references to some component.
+$ eachComp(function(comp)
+  assert(slot.components.$(comp.cname) == 0 && 
+    "EntitySlot was free but still references a $(comp.decl.qname) component");
+$ end)
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void ensureHasRequiredComponents(
+    EntityMgr& self,
+    EntityId id,
+    EntitySlot& slot)
+{
+  if (!tryComp_Transform(self, id, slot))
+    addComp_Transform(self, id, slot, nullptr);
 }
 
 /* ----------------------------------------------------------------------------
@@ -380,91 +454,91 @@ EntityId EntityMgr::createEntity()
   // Indicates an error in free slot tracking.
   assert(!slot->isUsed());
 
-  // Assert that this slot was not left with references to some component.
-$ eachComp(function(comp)
-  assert(slot->components.$(comp.cname) == 0 && 
-    "EntitySlot was free but still references a $(comp.decl.qname) component");
-$ end)
+  initializeUnusedSlot(*this, *slot);
+
+  EntityId id = { entity_id, slot->generation };
+
+  ensureHasRequiredComponents(*this, id, *slot);
   
-  // `next_free` is 0 to indicate that the next free slot follows it, otherwise
-  // it is an off-by-one index into the entities array indicating the next 
-  // free slot. This is done this way to prevent needing to initialize all 
-  // `next_slot`s upon allocating EntityWorld.
-  if (slot->next_free == 0)
-    next_slot += 1;
-  else
-    next_slot = slot->next_free - 1;
-
-  // Mark slot as used.
-  slot->next_free = EntitySlot::s_used_val;
-
-  // Bump generation.
-  slot->generation += 1;
-
   @log.debug(game, "allocated entity ", entity_id, ":", slot->generation, " "
                    "next slot: ", next_slot);
 
-  return { entity_id, slot->generation };
+  return id;
 }
 
 /* ----------------------------------------------------------------------------
  */
-EntityId EntityMgr::spawnEntity(
-    const EntityDef& def,
-    const ComponentDefArray& components,
-    EntityId parent)
+EntityId EntityMgr::createEntity(u32 desired_id)
 {
-  EntityId id = createEntity();
-  if (isnil(id))
-    return id;
+  EntitySlot* slot = getEntitySlotById(*world, desired_id);
 
+  // Check if the slot was not already in use. If not, then we need to 
+  // initialize the slot for loading a new entity.
+  if (!slot->isUsed())
+    initializeUnusedSlot(*this, *slot);
+
+  EntityId id = { desired_id, slot->generation };
+
+  ensureHasRequiredComponents(*this, id, *slot);
+
+  @log.debug(game, "allocated entity ", id, 
+                   "next slot: ", next_slot);
+
+  return id;
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EntityMgr::loadEntity(
+    EntityId id,
+    const EntityDef& def,
+    const ComponentArray& components)
+{
   EntitySlot* slot = getEntitySlot(*world, id);
 
   // Apply any provided components first since they get priority.
-  for (auto& compdef : components)
+  for (auto& comp : components)
   {
-    switch (compdef.type.val)
+    switch (comp.type.val)
     {
 $ eachComp(function(comp)
-    case "$(comp.qname)Def"_typeid_val:
+    case "$(comp.qname)"_typeid_val:
       {
-        auto* comp = addComp_$(comp.cname)(*this, id, *slot);
-        comp->def = compdef.getAs<$(comp.qname)Def>();
+        addComp_$(comp.cname)(
+          *this, 
+          id, 
+          *slot,
+          ($(comp.qname)*)comp.ptr);
       }
       break;
 $ end)
     default:
-      @log.error(game, "unknown ComponentDef type");
+      @log.error(game, "unknown Component type");
     }
   }
   
   // Then apply components from the def if they weren't already above.
-  for (auto& compdef : def.components)
+  for (auto& comp : def.components)
   {
-    switch (compdef.type.val)
+    switch (comp.type.val)
     {
 $ eachComp(function(comp)
-    case "$(comp.qname)Def"_typeid_val:
+    case "$(comp.qname)"_typeid_val:
       if (nullptr == tryComp_$(comp.cname)(*this, id, *slot))
       {
-        auto* comp = addComp_$(comp.cname)(*this, id, *slot);
-        comp->def = compdef.getAs<$(comp.qname)Def>();
+        addComp_$(comp.cname)(
+          *this, 
+          id, 
+          *slot,
+          ($(comp.qname)*)comp.ptr);
       }
       break;
 $ end)
     default:
-      @log.error(game, "unknown ComponentDef type");
+      @log.error(game, "unknown Component type");
     }
   }
   
-  // Make sure we have a Transform component, and that its parent is set
-  // before initializing/starting up the entity.
-  Transform* transform = tryComp<Transform>(id);
-  if (nullptr == transform)
-    transform = addComp<Transform>(id);
-
-  transform->parent = parent;
-
   // Initialize and startup the entity, this is where we raise the 
   // ComponentInit and ComponentStartup events so that entity systems may 
   // perform any special initialization or tracking of Components.
@@ -472,7 +546,31 @@ $ end)
   startupEntity(*this, id, *slot);
 
   assert(tryComp_Transform(*this, id, *slot) != nullptr);
-  
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void EntityMgr::loadEntity(
+    EntityId id,
+    const EntityDefLink& l_def,
+    const ComponentArray& components)
+{
+  loadEntity(id, *l_def, components); 
+}
+
+/* ----------------------------------------------------------------------------
+ */
+EntityId EntityMgr::spawnEntity(
+    const EntityDef& def,
+    const ComponentArray& components,
+    EntityId parent)
+{
+  EntityId id = createEntity();
+  if (isnil(id))
+    return id;
+
+  loadEntity(id, def, components);
+
   return id;
 }
 
@@ -480,7 +578,7 @@ $ end)
  */
 EntityId EntityMgr::spawnEntity(
     const EntityDefLink& def, 
-    const ComponentDefArray& components,
+    const ComponentArray& components,
     EntityId parent)
 {
   EntityId id = spawnEntity(*def, components, parent);
@@ -496,8 +594,6 @@ EntityId EntityMgr::spawnEntity(
   // TODO(sushi) need to do this better eventually, and also don't need to
   //             support this outside of development builds.
   slot->defname = def.name;
-
-  assert(tryComp_Transform(*this, id, *slot) != nullptr);
 
   return id;
 }

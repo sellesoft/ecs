@@ -5,21 +5,14 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 @lpp.import "game/shared/entity/Entity.defs.lh"
 
-// TODO(sushi) this should probably be a part of map data.
-@comp.def(Spawner,
+struct Spawner : Component
 {
-  // Whether want to attach the Mind and Eye to the spawned entity.
-  // NOTE(sushi) this will likely be changed when proper spawning is 
-  //             working, eg. when players spawn as different roles and
-  //             such but for now we just need to get a controllable 
-  //             entity spawned in the world w/o assuming we just 
-  //             attach to each spawned entity.
+  @metadata.data_field
   b8 attach;
 
+  @metadata.data_field
   EntityDefLink kind;
-},
-{
-})
+};

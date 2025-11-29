@@ -25,16 +25,6 @@ void MapSys::deinit()
  */
 void MapSys::onLayerInit(MapLayer& layer, ComponentInit&)
 {
-  vec2u dimensions = layer.def->dimensions;
-
-  u64 num_tiles = dimensions.x * dimensions.y;
-
-  // TODO(sushi) properly allocate these somewhere.
-  layer.tiles.init(num_tiles);
-  layer.tiles.resize(num_tiles);
-
-  for (u64 i = 0; i < num_tiles; ++i)
-    layer.tiles[i].kind = layer.def->tiles[i];
 }
 
 /* ----------------------------------------------------------------------------
@@ -43,7 +33,7 @@ MapLayer* MapSys::tryGetLayerAtPos(vec2f pos)
 {
   for (auto& layer : eachComp<MapLayer>())
   {
-    vec2u dimensions = layer.def->dimensions;
+    vec2u dimensions = layer.dimensions;
 
     vec2f layer_pos = computeWorldPos(layer.owner);
     vec2f layer_extent = layer_pos + vec2f(dimensions);

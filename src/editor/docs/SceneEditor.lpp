@@ -13,6 +13,7 @@ $(imported)
 @lpp.import "game/shared/SpriteFuncs.lh"
 @lpp.import "game/shared/Collider.comp.lh"
 @lpp.import "game/shared/SceneLoader.lh"
+@lpp.import "game/shared/SceneSerializer.lh"
 @lpp.import "game/shared/Placement.sys.lh"
 
 @lpp.import "graphics/Geo.lh"
@@ -636,6 +637,35 @@ static void putToolMenu(
 
 /* ----------------------------------------------------------------------------
  */
+void serializeSceneState(SceneEditor& self)
+{
+  SerializeSceneParams params = 
+  {
+    .entity_mgr = self.entity_mgr,
+    .allocator = &mem::stl_allocator,
+    .log = &self.game_log,
+  };
+
+  SceneDef scene_def;
+
+  serializeScene(&scene_def, params);
+
+  SourceDataFile sfile;
+  sfile.init();
+
+  reflect::UnpackParams unpack_params = 
+  {
+    .type = "SceneDef"_typeid,
+    .data = bytesOf(scene_def),
+    .sfile = &sfile
+  };
+
+  SourceData* unpacked = reflect::unpackData(unpack_params);
+  unpacked->dump();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 void SceneEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
 {
   const f32 tool_menu_width = 400.f;
@@ -682,6 +712,9 @@ void SceneEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
       skin);
   }
   ui.endPanel();
+
+  if (ui.frame_input.wasKeyPressed(Key::F4))
+    serializeSceneState(*this);
 }
 
 /* ----------------------------------------------------------------------------

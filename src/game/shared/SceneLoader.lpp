@@ -6,52 +6,83 @@ $ require "common"
 
 @log.import
 
+#include "iro/containers/Array.h"
+
 /* ----------------------------------------------------------------------------
  */
-static b8 loadSceneEntityArray(
+struct AllocatedEntity
+{
+  EntityId id;
+  const SceneEntityPtr* ptr;
+};
+
+/* ----------------------------------------------------------------------------
+ */
+static b8 allocateEntities(
     const SceneEntityArray& array,
-    EntityId parent,
-    EntityMgr& entmgr,
-    logging::Channel* log)
+    EntityMgr& entmgr, 
+    logging::Channel* log,
+    Array<AllocatedEntity>& allocated_entities)
 {
   for (const SceneEntityPtr& entity_ptr : array)
   {
-    EntityId spawned_entity = nil;
-    if (entity_ptr.type == "SceneEntity_Embedded"_typeid)
-    {
-      auto* entity = entity_ptr.getAs<SceneEntity_Embedded>();
+    const auto* scene_entity = entity_ptr.getAs<SceneEntity>();
 
-      spawned_entity = entmgr.spawnEntity(
-        entity->def,
-        parent);
-    }
-    else if (entity_ptr.type == "SceneEntity_External"_typeid)
-    {
-      auto* entity = entity_ptr.getAs<SceneEntity_External>();
+    EntityId allocated = entmgr.createEntity(scene_entity->uid);
 
-      spawned_entity = entmgr.spawnEntity(
-        entity->def,
-        entity->components,
-        parent);
+    for (AllocatedEntity& already_allocated : allocated_entities)
+    {
+      if (already_allocated.id == allocated)
+      {
+        @log.chan.error(log, game,
+          "duplicate uid specified in scene (", scene_entity->uid, ")");
+        return false;
+      }
     }
 
-    if (isnil(spawned_entity))
-      return false;
+    allocated_entities.push({ allocated, &entity_ptr });
+  }
+  
+  u32 ent_count = allocated_entities.len;
+  @log.chan.info(log, game, 
+    "allocated ", ent_count, ent_count == 1? "entity" : "entities", "for "
+    "scene");
 
-    auto* scene_entity = entity_ptr.getAs<SceneEntity>();
+  return true;
+}
 
-    @log.chan.info(log, game, 
-      "spawned scene entity with uid ", scene_entity->uid, " "
-      "entity id ", spawned_entity);
+/* ----------------------------------------------------------------------------
+ */
+static b8 loadEntities(
+    const Array<AllocatedEntity>& entities,
+    EntityMgr& entmgr,
+    logging::Channel* log)
+{
+  for (const AllocatedEntity& entity : entities)
+  {
+    if (entity.ptr->type == "SceneEntity_Embedded"_typeid)
+    {
+      auto* scene_entity = entity.ptr->getAs<SceneEntity_Embedded>();
+      entmgr.loadEntity(entity.id, scene_entity->def);
+    }
+    else if (entity.ptr->type == "SceneEntity_External"_typeid)
+    {
+      auto* scene_entity = entity.ptr->getAs<SceneEntity_External>();
 
-    if (!loadSceneEntityArray(
-          scene_entity->children, 
-          spawned_entity, 
-          entmgr,
-          log))
-      return false;
+      entmgr.loadEntity(
+        entity.id,
+        scene_entity->def,
+        scene_entity->components);
+    }
+
+    auto* scene_entity = entity.ptr->getAs<SceneEntity>();
+    if (scene_entity->parent != 0)
+    {
+      entmgr.reparent(entity.id, entities[scene_entity->parent - 1].id);
+    }
   }
   return true;
+
 }
 
 /* ----------------------------------------------------------------------------
@@ -61,5 +92,15 @@ b8 loadScene(const SceneDef& def, const SceneLoadParams& params)
   EntityMgr& entmgr = params.entmgr;
   logging::Channel* log = params.log;
 
-  return loadSceneEntityArray(def.entities, nil, entmgr, log);
+  Array<AllocatedEntity> allocated_entities;
+  allocated_entities.init(def.entities.len);
+  defer { allocated_entities.destroy(); };
+
+  if (!allocateEntities(def.entities, entmgr, log, allocated_entities))
+    return false;
+
+  if (!loadEntities(allocated_entities, entmgr, log))
+    return false;
+
+  return true;
 }

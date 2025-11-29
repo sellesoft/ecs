@@ -5,7 +5,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 @lpp.import "graphics/Texture.resource.lh"
 @lpp.import "reflect/types/StringMap.lh"
 @lpp.import "reflect/CompiledData.lh"
@@ -48,15 +48,14 @@ namespace cl
 
 /* ============================================================================
  */
-@comp.def(Sprite,
+struct Sprite : Component
 {
-  SpriteStatesLink states;
-},
-{
-  $(metadata.default "{255,255,255,255}")
   Color color;
 
   u32 state;
-})
+
+  @metadata.data_field
+  SpriteStatesLink states;
+};
 
 }

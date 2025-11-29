@@ -19,43 +19,16 @@ using namespace iro;
 /* ============================================================================
  */
 @metadata.hidden
+$ -- Mark all fields of Component types as being hidden by default. Rather than
+$ -- needing to mark fields as 'hidden' when they shouldn't be in data, we 
+$ -- are instead assuming that the majority of Component fields are runtime 
+$ -- only and that we mark fields specifiable in data with 'data_field'.
+@metadata.fields_hidden_by_default
 struct Component
 {
   EntityId owner;
 };
 
-/* ----------------------------------------------------------------------------
- */
-template<typename T>
-u64 getComponentKind();
+typedef reflect::TypedPtr<Component> ComponentPtr;
+typedef reflect::Array<ComponentPtr> ComponentArray;
 
-/* ----------------------------------------------------------------------------
- */
-struct ComponentDef {};
-
-$ local m = {}
-
-$ m.def = function(name, def, data)
-
-@metadata.def
-struct $(name)Def : ComponentDef
-$(def);
-
-$ local datavars = data:match "%b{}" :sub(2,-2)
-
-@metadata.component
-struct $(name) : Component
-{
-  using Def = $(name)Def;
-
-  const $(name)Def* def;
-
-  $(datavars)
-};
-
-$ end
-
-typedef reflect::TypedPtr<ComponentDef> ComponentDefPtr;
-typedef reflect::Array<ComponentDefPtr> ComponentDefArray;
-
-$ return m

@@ -3,13 +3,13 @@
  */
 
 $ require "common"
+$ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
-@comp.def(Openable,
+struct Openable : Component
 {
-  b8 open = false;
-},
-{
-  b8 open = false;
-})
+  @metadata.data_field
+  @metadata.default "false"
+  b8 open;
+};

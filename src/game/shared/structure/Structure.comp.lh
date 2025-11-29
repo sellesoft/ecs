@@ -3,9 +3,9 @@
  */
 
 $ require "common"
-$ local m = require "reflect.Metadata"
+$ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 @lpp.import "core/StringHash.lh"
 
@@ -15,19 +15,19 @@ enum class ExtendableConnection
 {
   // A state in which a structure is standing alone, this is also the default
   // state used when other states cannot be found.
-  Island, //
+  Island,
 
   // Straight formations. If a cap is not specified, the basic 
   // vertical/horizontal state will be used instead.
-  Horizontal, //
+  Horizontal, 
   HorizontalLeftCap,  
   HorizontalRightCap, 
-  Vertical, //      
+  Vertical, 
   VerticalBottomCap,  
   VerticalTopCap,     
 
   // Corners.
-  BottomLeft, //        
+  BottomLeft, 
   BottomRight,        
   TopLeft,            
   TopRight,           
@@ -40,11 +40,11 @@ enum class ExtendableConnection
 
   // State used when the structure is bordered on all cardinal sides,
   // eg. north, south, east, and west.
-  FourWay, //
+  FourWay, 
 
   // State used when the structure is bordered on all sides (including 
   // diagonals).
-  Surrounded, //
+  Surrounded, 
 };
 
 /* ============================================================================
@@ -64,9 +64,8 @@ enum class ExtendableConnection
  *              likely change or be removed.
  */
 
-@comp.def(ExtendableStructure,
-{ 
+struct ExtendableStructure : Component
+{
+  @metadata.data_field
   StringHash kind;
-},
-{ 
-})
+};

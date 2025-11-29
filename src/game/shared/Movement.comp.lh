@@ -1,7 +1,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 #include "iro/Flags.h"
 
@@ -9,12 +9,11 @@ $ local metadata = require "reflect.Metadata"
 enum class Dir { Left, Right, Up, Down, COUNT };
 typedef iro::Flags<Dir> Dirs;
 
-@comp.def(Movement,
+struct Movement : Component
 {
+  @metadata.data_field
   f32 speed;
-},
-{
-  f32 speed;
+
   Dirs held_dirs;
-})
+};
 

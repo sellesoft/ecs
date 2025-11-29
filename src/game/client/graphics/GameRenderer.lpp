@@ -261,21 +261,19 @@ void GameRenderer::renderMapLayers(
   for (auto& layer : entmgr.eachComp<MapLayer>())
   { 
     vec2f world_pos = computeEntityWorldPos(entmgr, layer.owner);
-    for (u32 x = 0; x < layer.def->dimensions.x; ++x)
+    for (u32 x = 0; x < layer.dimensions.x; ++x)
     {
-      for (u32 y = 0; y < layer.def->dimensions.y; ++y)
+      for (u32 y = 0; y < layer.dimensions.y; ++y)
       {
         u32 idx = x * y;
-        Tile* tile = &layer.tiles[idx];
-        if (!tile->kind.isValid())
+        TileKindLink& l_tile = layer.tiles[idx];
+        if (!l_tile.isValid())
           continue;
-
-        const TileKindDef& kind = *tile->kind;
 
         vec2f tile_pos = world_pos + vec2f(x, y);
 
-        gfx::TextureHandle texture = kind.texture.isValid()
-          ? kind.texture.getHandle()
+        gfx::TextureHandle texture = l_tile->texture.isValid()
+          ? l_tile->texture.getHandle()
           : null_texture.getHandle();
 
         drawQuad(
@@ -312,10 +310,10 @@ void GameRenderer::renderSprites(
     gfx::TextureHandle texture = null_texture.getHandle();
     vec4f uv = {0.f, 0.f, 1.f, 1.f};
     Color color = 0xff0000ff;
-    if (sprite.def->states.isValid())
+    if (sprite.states.isValid())
     {
       const SpriteTexture* stex =
-        sprite.def->states->map.getAtIndex(sprite.state);
+        sprite.states->map.getAtIndex(sprite.state);
 
       if (stex != nullptr && stex->texture.isValid())
       {

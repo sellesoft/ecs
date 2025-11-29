@@ -49,9 +49,33 @@ struct EntityMgr
   b8 init();
   void deinit();
   
-  // Reserves an Entity slot with a plain Entity (no components) and returns
-  // its id.
+  // Reserves an Entity slot and allocates its required components (currently
+  // just Transform).
   EntityId createEntity();
+
+  // Reserves an Entity slot with the desired id.
+  EntityId createEntity(u32 desired_id);
+
+  // Loads an Entity with the provided def.
+  void loadEntity(
+    EntityId id,
+    const EntityDef& def,
+    const ComponentArray& components);
+
+  void loadEntity(
+    u32 raw_id,
+    const EntityDefLink& l_def,
+    const ComponentArray& components);
+
+  void loadEntity(
+    EntityId id,
+    const EntityDefLink& l_def,
+    const ComponentArray& components);
+
+  void loadEntity(EntityId id, const EntityDef& def) 
+    { loadEntity(id, def, {}); }
+  void loadEntity(EntityId id, const EntityDefLink& l_def) 
+    { loadEntity(id, l_def, {}); }
   
   // Spawns an Entity using the provided def. 
   // 
@@ -61,7 +85,7 @@ struct EntityMgr
   // in code, idk though!
   EntityId spawnEntity(
     const EntityDef& def,
-    const ComponentDefArray& components,
+    const ComponentArray& components,
     EntityId parent);
 
   // Similar to the above, but uses a link to an EntityDef. The provided 
@@ -70,7 +94,7 @@ struct EntityMgr
   // is relevent to an Entity.
   EntityId spawnEntity(
     const EntityDefLink& def,
-    const ComponentDefArray& components,
+    const ComponentArray& components,
     EntityId parent);
   
   // Shorthands for not specifying the Component array.
@@ -124,6 +148,13 @@ struct EntityMgr
   vec2f computeWorldPos(const Transform& transform)
   {
     return transform.pos + computeWorldPos(transform.parent);
+  }
+
+  void reparent(EntityId child, EntityId parent)
+  {
+    assert(notnil(child));
+    assert(notnil(parent));
+    getTransform(child).parent = parent;
   }
 
   // Retrieves the name of the def that the Entity was created from. May 

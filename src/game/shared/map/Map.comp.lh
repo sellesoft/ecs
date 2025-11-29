@@ -1,7 +1,7 @@
 $ require "common"
 $ local metadata = require "reflect.Metadata"
 
-@[comp] lpp.import "game/shared/component/Component.lh"
+@lpp.import "game/shared/component/Component.lh"
 
 @lpp.import "math/vec.lh"
 @lpp.import "reflect/types/Array.lh"
@@ -28,20 +28,15 @@ struct Tile
   TileKindLink kind;
 };
   
-/* ============================================================================
- */
-@comp.def(MapLayer,
+struct MapLayer : Component
 {
+  @metadata.data_field
   vec2u dimensions;
-  reflect::Array<TileKindLink> tiles;
-},
-{
-  iro::Array<Tile> tiles;
-})
 
-/* ============================================================================
- */
-@comp.def(Map,
+  @metadata.data_field
+  reflect::Array<TileKindLink> tiles;
+};
+
+struct Map : Component 
 {
-},
-{})
+};

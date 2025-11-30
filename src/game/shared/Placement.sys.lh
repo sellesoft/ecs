@@ -41,8 +41,8 @@ struct PlacementSys : EntitySys
   // so that it appears that you grabbed the entity at whatever point the 
   // cursor was at when you clicked. When in SnapToGrid mode, if the offset 
   // is applied externally, then we do not have enough information in this 
-  // function to determine where the cursor actually is and weird behavior 
-  // occurs.
+  // function to determine where the cursor actually is, and will snap the 
+  // entity to MapLayers somewhere other than where the cursor actually is.
   void placeEntity(
     EntityId id, 
     PlacementMode mode, 

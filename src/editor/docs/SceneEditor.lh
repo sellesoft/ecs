@@ -20,8 +20,17 @@ namespace editor
 
 /* ============================================================================
  */
+struct SceneSnapshot
+{
+  reflect::PackedData packed;
+};
+
+/* ============================================================================
+ */
 struct SceneEditor : Doc
 {
+  fs::PathBuffer loaded_scene_name;
+
   cl::GameRenderer game_renderer;
   EntityMgr entity_mgr;
   cl::EntitySysMgr entity_sys_mgr;
@@ -29,9 +38,6 @@ struct SceneEditor : Doc
   GameLog game_log;
 
   gfx::Texture scene_render;
-
-  reflect::PackedData scene_def_packed;
-  SourceDataFile sdf_scene_def;
 
   // The size at which the scene view should be rendered, controlled
   // by the size of the ui quad we draw in putUI().
@@ -60,6 +66,18 @@ struct SceneEditor : Doc
 
   PlacementMode placement_mode;
 
+  b8 save_failed;
+
+  // An array of SceneSnapshots created each time we make a change to 
+  // the scene. 
+  Array<SceneSnapshot> scene_snapshots;
+
+  // The current scene snapshot loaded in the game state.
+  u32 current_snapshot;
+
+  // The snapshot that was active the last time the scene was saved to disk.
+  u32 saved_snapshot;
+
   enum Tool
   {
     None,
@@ -82,7 +100,11 @@ struct SceneEditor : Doc
   b8 init();
   void deinit();
 
+  b8 loadScene(String name);
+
   void putUI(ui::UI& ui, const EditorSkinDef& skin) override;
+  void putHeaderUI(ui::UI& ui, const EditorSkinDef& skin) override;
+
   void render(gfx::Vulkan& vk) override;
 
   vec2f viewportToWorld(vec2f point)
@@ -100,6 +122,11 @@ struct SceneEditor : Doc
   b8 link(rtr::TypeId type, String name, T* data)
   {
     return editor->getLinker().link(type, name, data);
+  }
+
+  b8 link(rtr::TypeId type, void* data)
+  {
+    return editor->getLinker().link(type, data);
   }
 };
 

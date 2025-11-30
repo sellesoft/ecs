@@ -25,6 +25,12 @@ struct GameLog : public logging::Channel
     return true;
   }
 
+  void deinit()
+  {
+    string_buffer.deinit();
+    entries.destroy();
+  }
+
   void clear()
   {
     entries.clear();

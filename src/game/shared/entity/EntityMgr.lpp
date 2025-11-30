@@ -17,6 +17,7 @@ $(imported)
 
 @lpp.import "game/shared/entity/EntityLoader.lh"
 @lpp.import "game/shared/component/Component.events.lh"
+@lpp.import "game/shared/GameLog.lh"
 
 #include "iro/fs/File.h"
 #include "iro/containers/StackArray.h"
@@ -161,21 +162,24 @@ struct EntityWorld
 
 /* ----------------------------------------------------------------------------
  */
-b8 EntityMgr::init()
+b8 EntityMgr::init(GameLog* log)
 {
+  this->log = log;
+
   // TODO(sushi) take an allocator that we can save and reload.
   world = mem::stl_allocator.construct<EntityWorld>();
   if (world == nullptr)
-    return @log.error(game, "failed to allocate entity world");
+    return log->error("failed to allocate entity world");
 
-  @log.info(game, "allocated ", tcolor::green, 
-    io::ByteUnits(sizeof(EntityWorld)), tcolor::reset, " for entity world");
+  log->info("allocated ", 
+    tcolor::green, io::ByteUnits(sizeof(EntityWorld)), tcolor::reset,
+    " for entity world");
 
   for (u32 slot_idx = 0; slot_idx < $(max_entities); ++slot_idx)
     world->entities[slot_idx].next_free = slot_idx + 1;
 
   if (!eventbus.init(this))
-    return @log.error(game, "failed to init entity event bus");
+    return log->error("failed to init entity event bus");
 
   next_slot = 0; 
 
@@ -187,6 +191,8 @@ b8 EntityMgr::init()
 void EntityMgr::deinit()
 {
   mem::stl_allocator.free(world);
+  world = nullptr;
+
   // TODO(sushi) actual clean up 
 }
 
@@ -507,6 +513,8 @@ $   if comp.qname == "Transform" then
         Transform* prototype = (Transform*)comp.ptr;
         transform.pos = prototype->pos;
         transform.rotation = prototype->rotation;
+        @log.debug(game, 
+          "entity ", id, " transform overriden ", transform.pos);
       }
       break;
 $   else
@@ -551,8 +559,13 @@ $ end)
   // Initialize and startup the entity, this is where we raise the 
   // ComponentInit and ComponentStartup events so that entity systems may 
   // perform any special initialization or tracking of Components.
+  @log.debug(game, "initializing entity ", id);
   initializeEntity(*this, id, *slot);
+  @log.debug(game, "starting up entity ", id);
   startupEntity(*this, id, *slot);
+
+  auto& transform = getTransform(id);
+  @log.debug(game, "entity loaded with position ", transform.pos);
 
   assert(tryComp_Transform(*this, id, *slot) != nullptr);
 }

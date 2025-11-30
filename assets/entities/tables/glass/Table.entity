@@ -1,14 +1,15 @@
 return EntityDef
 {
   name = "GlassWorkTable",
+  placement = "SnapToGrid",
   components = 
   {
-    AppearanceDef {},
-    ExtendableStructureDef { kind = "GlassTable" },
-    cl::SpriteDef 
+    Appearance {},
+    ExtendableStructure { kind = "GlassTable" },
+    cl::Sprite 
     { 
       states = "assets/entities/tables/glass/Table",
     },
-    ColliderDef { bounds = { x=0,y=0,w=1,h=1 }, static_pos = true, },
+    Collider { bounds = { x=0,y=0,w=1,h=1 }, static_pos = true, },
   }
 }

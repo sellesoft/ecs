@@ -65,7 +65,6 @@ elseif lake.os == "linux" then
     "vulkan",
     "shaderc_combined",
     "luajit",
-    "hreload",
     "stdc++",
     "m",
   }

@@ -548,7 +548,7 @@ struct UI
   vec2f putText(Rect bounds, String text, const TextSkin& skin);
 
   // Places text with a background and various other decor (eventually).
-  void putTextItem(Rect bounds, String text, const TextItemSkin& skin);
+  vec2f putTextItem(Rect bounds, String text, const TextItemSkin& skin);
 
   vec2f measureText(Rect bounds, String text, const TextSkin& skin);
 
@@ -595,6 +595,12 @@ struct UI
     const DropDownSkin& skin);
   
   void endDropDown();
+
+  void putTooltip(
+    ItemId id,
+    Rect bounds,
+    String text,
+    const TextItemSkin& skin);
 
   void beginScrollGroup(ItemId id, Rect bounds, const ScrollBarSkin& skin);
   void endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end = false);

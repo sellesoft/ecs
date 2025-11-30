@@ -98,6 +98,10 @@ local objs = List {}
 
 local shared_libs = List(cfg.link.libs)
 
+if cfg.hreload then
+  shared_libs:push "hreload"
+end
+
 local lib_dirs = List(cfg.link.lib_dirs)
 local include_dirs = List(cfg.cpp.include_dirs)
 
@@ -137,9 +141,9 @@ if cfg.cpp.debug_info then
   defines.HASH_CACHE_ENABLED = 1
 end
 
--- if cfg.cpp.opt == "speed" then
---   defines.NDEBUG = true
--- end
+if cfg.cpp.opt == "speed" then
+  defines.NDEBUG = true
+end
 
 if cfg.tracy.enabled then
   defines.TRACY_ENABLE = 1

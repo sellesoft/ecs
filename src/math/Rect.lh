@@ -119,6 +119,7 @@ struct Rect
   Rect expandedX(f32 v) const { return { x - v, y, w + 2.f * v, h }; }
   Rect expandedY(f32 v) const { return { x, y + v, w, h + 2.f * v }; }
   Rect expanded(f32 v) const { return expandedX(v).expandedY(v); }
+  Rect expanded(vec2f v) const { return expandedX(v.x).expandedY(v.y); }
 
   Rect contracted(vec2f padding) const
   {

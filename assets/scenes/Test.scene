@@ -193,8 +193,8 @@ return SceneDef
         {
           pos = vec2f
           {
-            x = 2.04688,
-            y = 2.83594,
+            x = 3.99002,
+            y = 3.30067,
           },
           rotation = 0,
         },
@@ -224,7 +224,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -265,7 +265,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -306,7 +306,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -347,7 +347,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -388,7 +388,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -429,7 +429,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -470,7 +470,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -511,7 +511,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -552,7 +552,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -593,7 +593,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -634,7 +634,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -675,7 +675,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -716,7 +716,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -757,7 +757,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -798,7 +798,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -839,7 +839,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -880,7 +880,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -921,7 +921,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -962,7 +962,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1003,7 +1003,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1044,7 +1044,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1085,7 +1085,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1126,7 +1126,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1167,7 +1167,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1208,7 +1208,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1249,7 +1249,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1290,7 +1290,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1331,7 +1331,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1372,7 +1372,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1413,7 +1413,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1454,7 +1454,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1495,7 +1495,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1536,7 +1536,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1577,7 +1577,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1618,7 +1618,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {
@@ -1659,7 +1659,7 @@ return SceneDef
         },
         ExtendableStructure
         {
-          kind = 10041089696604218305,
+          kind = 9223372036854775807,
         },
         Appearance
         {

@@ -41,17 +41,22 @@ $ end)
 static void serializeComponents(
     Array<ComponentPtr>& serialized_components,
     EntityMgr& entmgr,
-    EntityId id)
+    EntityId id,
+    mem::Allocator* allocator)
 {
   u32 component_idx = 0;
 $ eachComp(function(decl)
   if (auto* component = entmgr.tryComp<$(decl.qname)>(id))
   {
-    defer { component_idx += 1; };
-
     ComponentPtr& component_ptr = serialized_components[component_idx];
     component_ptr.type = "$(decl.qname)"_typeid;
-    component_ptr.ptr = ($(decl.qname)*)component;
+    
+    auto* copy = allocator->construct<$(decl.qname)>();
+    mem::copy(copy, component, sizeof($(decl.qname)));
+
+    component_ptr.ptr = copy;
+
+    component_idx += 1;
   }
 $ end)
 }
@@ -105,7 +110,8 @@ b8 serializeScene(SceneDef* def, const SerializeSceneParams& params)
       serializeComponents(
         serialized_components,
         entmgr,
-        id);
+        id,
+        allocator);
     }
     else
     {
@@ -128,7 +134,8 @@ b8 serializeScene(SceneDef* def, const SerializeSceneParams& params)
       serializeComponents(
         serialized_components,
         entmgr,
-        id);
+        id,
+        allocator);
     }
 
     auto* scene_entity = ptr->getAs<SceneEntity>();

@@ -88,6 +88,10 @@ struct Doc
   // Called within a group that will contain this document's contents.
   virtual void putUI(ui::UI& ui, const EditorSkinDef& skin) { }
 
+  // Called within a group that encompasses the free space in the Document's
+  // header.
+  virtual void putHeaderUI(ui::UI& ui, const EditorSkinDef& skin) { }
+
   // Not sure where will be called yet.
   virtual void update()  { }
 

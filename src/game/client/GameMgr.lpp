@@ -66,7 +66,7 @@ b8 GameMgr::init(const InitParams& params)
 {
   log = &params.log;
 
-  if (!entmgr.init())
+  if (!entmgr.init(log))
     return log->error("failed to initialize entmgr");
 
   EntitySysMgr::InitParams ent_sys_mgr_params = 

@@ -1205,10 +1205,10 @@ vec2f UI::measureText(Rect bounds, String text, const TextSkin& skin)
 
 /* ----------------------------------------------------------------------------
  */
-void UI::putTextItem(Rect bounds, String text, const TextItemSkin& skin)
+vec2f UI::putTextItem(Rect bounds, String text, const TextItemSkin& skin)
 {
   putItem(bounds, skin.item);
-  putText(bounds.contracted(skin.text_padding), text, skin.text);
+  return putText(bounds.contracted(skin.text_padding), text, skin.text);
 }
 
 /* ----------------------------------------------------------------------------
@@ -1596,6 +1596,41 @@ b8 UI::beginDropDown(
 void UI::endDropDown()
 {
   endPopup();
+}
+
+/* ----------------------------------------------------------------------------
+ */
+void UI::putTooltip(
+    ItemId id,
+    Rect bounds,
+    String text,
+    const TextItemSkin& skin)
+{
+  Focus focus = putFocusableBounds(id, bounds);
+
+  if (focus.hasBeenIdleHoveredFor(*this, TimeSpan::fromMilliseconds(500)))
+    openPopup(id);
+  else
+    closePopup(id);
+
+  if (isPopupOpen(id))
+  {
+    vec2f text_size = measureText(
+      Rect::from(vec2f(0.f), vec2f(100.f)),
+      text,
+      skin.text);
+
+    Rect popup_bounds = Rect::zero()
+      .setSize(text_size)
+      .expanded(skin.text_padding + vec2f(2.f))
+      .alignBottomOutside(bounds, 4.f);
+
+    beginPopup(id, popup_bounds);
+    {
+      putTextItem(getBounds(), text, skin);
+    }
+    endPopup();
+  }
 }
 
 /* ----------------------------------------------------------------------------

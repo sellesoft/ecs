@@ -779,9 +779,17 @@ static void putDocTreeNodeSingle(
   header_bounds.x = 0.f;
   header_bounds.y = 0.f;
   header_bounds.w = ui.getWidth();
-  header_bounds.h = 15.f;
+  header_bounds.h = 20.f;
+  
+  ui.putItem(header_bounds, skin.doc.header.background);
 
-  ui.putTextItem(header_bounds, node->doc->title, skin.doc.header.text_item);
+  auto text_bounds = Rect::from(header_bounds)
+    .contracted(vec2f(2.f, 2.f));
+  
+  vec2f header_text_size = ui.putText(
+    text_bounds, 
+    node->doc->title, 
+    skin.doc.header.text);
 
   const f32 close_button_size = 16.f;
 
@@ -826,6 +834,13 @@ static void putDocTreeNodeSingle(
 
   ui.beginGroup(content_bounds);
   node->doc->putUI(ui, skin);
+  ui.endGroup();
+
+  auto header_content_bounds = Rect::from(text_bounds)
+    .contractedLeft(header_text_size.x + 5.f);
+
+  ui.beginGroup(header_content_bounds);
+  node->doc->putHeaderUI(ui, skin);
   ui.endGroup();
 
   auto type_menu_bounds = Rect::zero()

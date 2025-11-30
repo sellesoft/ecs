@@ -66,7 +66,8 @@ struct EditorDocHeader
 {
   ui::ButtonSkin close_button;
   ui::CheckboxSkin type_button;
-  ui::TextItemSkin text_item;
+  ui::TextSkin text;
+  ui::ItemSkin background;
 };
 
 /* ============================================================================
@@ -149,6 +150,8 @@ struct EditorSkinDef
   ui::TextFieldSkin text_field;
 
   ui::TextSkin text;
+
+  ui::TextItemSkin tooltip;
 
   EditorIcons icons;
 

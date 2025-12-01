@@ -31,7 +31,16 @@ text =
   color = white,
 }
 
-text_button_base = { text = text : { align = {x=0.5, y=0.5} } }
+text_button_centered_base = { text = text : { align = {x=0.5, y=0.5} } }
+
+text_button_centered = 
+{
+  normal  = text_button_centered_base : { item = { color = dark_blue,  } },
+  hovered = text_button_centered_base : { item = { color = blue,       } },
+  pressed = text_button_centered_base : { item = { color = light_blue, } },
+}
+
+text_button_base = { text = text : { align = {x=0, y=0.5} } }
 
 text_button = 
 {
@@ -398,6 +407,69 @@ filex = EditorFileExplSkin
   },
 }
 
+scene_editor_tool_icon = 
+{
+  texture = "assets/editor/SceneEditorIcons"
+}
+
+scene_editor_entity_asset = 
+{
+  text = text : { align = {x=0,y=0.5} },
+  text_padding = { x=4, y=0 },
+}
+
+scene_editor = SceneEditorSkin
+{
+  tool_add = 
+  {
+    disabled = scene_editor_tool_icon :
+    { uv = { x=0,y=0,w=16,h=16 } },
+    hovered = scene_editor_tool_icon :
+    { uv = { x=16,y=0,w=16,h=16 } },
+    enabled = scene_editor_tool_icon :
+    { uv = { x=32,y=0,w=16,h=16 } },
+  },
+
+  tool_move = 
+  {
+    disabled = scene_editor_tool_icon :
+    { uv = { x=0,y=16,w=16,h=16 } },
+    hovered = scene_editor_tool_icon :
+    { uv = { x=16,y=16,w=16,h=16 } },
+    enabled = scene_editor_tool_icon :
+    { uv = { x=32,y=16,w=16,h=16 } },
+  },
+
+  tool_pick = 
+  {
+    disabled = scene_editor_tool_icon :
+    { uv = { x=0,y=32,w=16,h=16 } },
+    hovered = scene_editor_tool_icon :
+    { uv = { x=16,y=32,w=16,h=16 } },
+    enabled = scene_editor_tool_icon :
+    { uv = { x=32,y=32,w=16,h=16 } },
+  },
+
+  tool_delete = 
+  {
+    disabled = scene_editor_tool_icon :
+    { uv = { x=0,y=48,w=16,h=16 } },
+    hovered = scene_editor_tool_icon :
+    { uv = { x=16,y=48,w=16,h=16 } },
+    enabled = scene_editor_tool_icon :
+    { uv = { x=32,y=48,w=16,h=16 } },
+  },
+
+  selected_entity_asset = scene_editor_entity_asset :
+  { item = { color = dark_blue } },
+
+  entity_asset = scene_editor_entity_asset :
+  { item = { color = black } },
+
+  hovered_entity_asset = scene_editor_entity_asset :
+  { item = { color = rich_black } },
+}
+
 return EditorSkinDef
 {
   bg_color = black,
@@ -511,6 +583,7 @@ return EditorSkinDef
   console = console,
   sdata_edit = sdata_edit,
   doc = doc,
+  scene_editor = scene_editor,
   cursor = cursor,
   filex = filex,
 }

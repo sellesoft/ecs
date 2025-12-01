@@ -1292,7 +1292,13 @@ b8 UI::putCheckbox(
     *enabled = !*enabled;
   }
 
-  const ItemSkin* state_skin = *enabled? &skin.enabled : &skin.disabled;
+  const ItemSkin* state_skin = nullptr;
+  if (focus.isHovered())
+    state_skin = &skin.hovered;
+  else if (*enabled)
+    state_skin = &skin.enabled;
+  else 
+    state_skin = &skin.disabled;
 
   putItem(bounds, *state_skin);
   

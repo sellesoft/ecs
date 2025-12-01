@@ -67,8 +67,8 @@ struct Rect
   }
 
   void set(vec2f pos, vec2f size) { setPos(pos); setSize(size); }
-  void setPos(vec2f pos) { x = pos.x; y = pos.y; }
-  void setPos(f32 x, f32 y) { this->x = x; this->y = y; }
+  Rect& setPos(vec2f pos) { x = pos.x; y = pos.y; return *this; }
+  Rect& setPos(f32 x, f32 y) { this->x = x; this->y = y; return *this; }
   Rect& setSize(vec2f size) { w = size.x; h = size.y; return *this; }
   Rect& setSize(f32 x, f32 y) { w = x; h = y; return *this; }
   Rect& setWidth(f32 w) { this->w = w; return *this; }
@@ -191,6 +191,12 @@ struct Rect
   Rect& alignRightOutside(const Rect& rhs, f32 offset)
   {
     x = rhs.extentX() + offset;
+    return *this;
+  }
+
+  Rect& alignLeftInside(const Rect& rhs, f32 offset)
+  {
+    x = rhs.x + offset;
     return *this;
   }
 

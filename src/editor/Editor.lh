@@ -103,6 +103,7 @@ struct Editor
 
   EditorSkinDefLink l_skin;
   gfx::TextureLink l_white_texture;
+  gfx::TextureLink l_null_texture;
 
   build::BuildSystem build_system;
   BuildThread* build_thread;
@@ -182,8 +183,8 @@ struct Editor
     Callback<void*> cb;
   };
 
-  StackArray<BuildRequest, 4> pending_build_requests;
-  StackArray<BuildRequest, 4> active_build_requests;
+  Array<BuildRequest> pending_build_requests;
+  Array<BuildRequest> active_build_requests;
 
   template<typename TRequester>
   b8 requestBuild(
@@ -192,36 +193,27 @@ struct Editor
       TRequester* requester,
       BuildRequest::Callback<TRequester&> callback)
   {
-    if (!pending_build_requests.isFull())
+    BuildRequest* req = pending_build_requests.push();
+
+    if (name.len != io::format(&req->name, name))
     {
-      BuildRequest* req = pending_build_requests.push();
-
-      if (name.len != io::format(&req->name, name))
-      {
-        log.error("name passed to Editor::requestBuild is too long: ", name);
-        pending_build_requests.pop();
-        return false;
-      }
-
-      if (type.len != io::format(&req->type, type))
-      {
-        log.error("type passed to Editor::requestBuild is too long: ", type);
-        pending_build_requests.pop();
-        return false;
-      }
-
-      req->requester = requester;
-      req->cb = (BuildRequest::Callback<void*>)callback;
-
-      log.info("build requested: '", name, "'");
-      return true;
-    }
-    else
-    {
-      log.warn("request to build ", name, " ignored: too many pending "
-               "build requests");
+      log.error("name passed to Editor::requestBuild is too long: ", name);
+      pending_build_requests.pop();
       return false;
     }
+
+    if (type.len != io::format(&req->type, type))
+    {
+      log.error("type passed to Editor::requestBuild is too long: ", type);
+      pending_build_requests.pop();
+      return false;
+    }
+
+    req->requester = requester;
+    req->cb = (BuildRequest::Callback<void*>)callback;
+
+    log.info("build requested: '", name, "'");
+    return true;
   }
 
   reflect::Linker getLinker()

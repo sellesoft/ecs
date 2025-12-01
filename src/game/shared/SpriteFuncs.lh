@@ -100,4 +100,46 @@ static b8 pixelTestSprite(const cl::Sprite& sprite, vec2f point)
   return pixel_color.a != 0;
 }
 
+/* ----------------------------------------------------------------------------
+ *  TODO(sushi) this should be removed as its really only for putting the 
+ *              uv computation in one place. Eventually we need to store 
+ *              a computed uv on SpriteTexture that is cached when the 
+ *              data is loaded, so we only compute the proper uv's once.
+ */
+struct SpriteTextureDraw
+{
+  gfx::TextureHandle texture = {};
+  vec4f uv = {};
+  Color color = {};
+};
+
+static SpriteTextureDraw computeSpriteTextureDrawForState(
+    const cl::Sprite& sprite,
+    u32 state,
+    SpriteTextureDraw placeholder)
+{
+  SpriteTextureDraw draw = placeholder;
+  if (sprite.states.isValid())
+  {
+    const SpriteTexture* stex = sprite.states->map.getAtIndex(state);
+    if (stex != nullptr && stex->texture.isValid())
+    {
+      const gfx::CompiledTexture& data = stex->texture->compiled_texture.get();
+
+      draw.texture = stex->texture.getHandle();
+      draw.color = stex->color;
+
+      vec2f uv_min = stex->uv.pos();
+      vec2f uv_max = stex->uv.extent();
+
+      // TODO(sushi) we need to set up something during data compiling 
+      //             that caches these somewhere for us.
+      draw.uv.x = uv_min.x / f32(data.width);
+      draw.uv.y = uv_min.y / f32(data.height);
+      draw.uv.z = uv_max.x / f32(data.width);
+      draw.uv.w = uv_max.y / f32(data.height);
+    }
+  }
+  return draw;
+}
 

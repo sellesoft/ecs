@@ -335,6 +335,11 @@ $ end
     "assets/textures/white"_str,
     &l_white_texture);
 
+  linker.link(
+    "gfx::TextureLink"_typeid,
+    "assets/textures/null"_str,
+    &l_null_texture);
+
   ui::UI::InitParams ui_params = 
   {
     .vk = *vk,
@@ -397,6 +402,9 @@ $ end
 
   file_explorer.onAllocated();
   file_explorer.changeDir(cwd);
+
+  active_build_requests.init();
+  pending_build_requests.init();
 
   start_time = TimePoint::monotonic();
 
@@ -569,7 +577,7 @@ static void handlePendingBuildRequests(Editor& self)
       String(request.type));
   }
 
-  self.pending_build_requests.moveTo(&self.active_build_requests);
+  self.pending_build_requests.swapTo(self.active_build_requests);
   self.build_thread->requestBuild();
 }
 

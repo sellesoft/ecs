@@ -110,6 +110,7 @@ struct CheckboxSkin
 {
   ItemSkin enabled;
   ItemSkin disabled;
+  ItemSkin hovered;
 };
 
 /* ============================================================================

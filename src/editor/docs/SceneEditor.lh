@@ -20,6 +20,34 @@ namespace editor
 
 /* ============================================================================
  */
+enum class EntityBuildState
+{
+  None,
+  Requested,
+  RequestFailed,
+  Failed,
+};
+
+/* ============================================================================
+ */
+struct EntityAsset
+{
+  EntityDefLink l_def;
+  gfx::TextureLink icon;
+  EntityBuildState build_state;
+};
+
+/* ============================================================================
+ */
+struct EntityAssetList
+{
+  // Timestamp of the last time we cached this list from the filesystem.
+  TimePoint last_cache;
+  Array<EntityAsset> list;
+};
+
+/* ============================================================================
+ */
 struct SceneSnapshot
 {
   reflect::PackedData packed;
@@ -60,9 +88,21 @@ struct SceneEditor : Doc
   EntityId selected_entity;
   EntityId hovered_entity;
 
-  fs::PathBuffer placement_entity_def_path;
-  EntityDefLink placement_entity_def;
   EntityId placement_entity;
+
+  EntityAssetList entity_assets;
+
+  EntityAsset* selected_entity_asset;
+
+  b8 hasSelectedEntity() const
+  {
+    return selected_entity_asset != nullptr;
+  }
+
+  b8 hasLoadableSelectedEntity() const
+  {
+    return hasSelectedEntity() && selected_entity_asset->l_def.isValid();
+  }
 
   PlacementMode placement_mode;
 
@@ -80,20 +120,13 @@ struct SceneEditor : Doc
 
   enum Tool
   {
-    None,
-    PaintTile,
+    Add,
+    Move,
+    Pick,
+    Delete,
   };
 
   Tool selected_tool;
-
-  enum class EntityBuildState
-  {
-    None,
-    Requested,
-    Failed,
-  };
-
-  EntityBuildState entity_build_state;
 
   void onOpen() override { init(); }
 

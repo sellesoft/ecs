@@ -595,12 +595,26 @@ struct UI
     const DropDownSkin& skin);
   
   void endDropDown();
-
+  
+  // Places a focusable area that when hovered for some time displays a 
+  // text box containing `text` near `bounds`. If you want to display a tooltip
+  // for an already existing item with some `id`, use the below function 
+  // `putTooltipForItem`, as this will create a new focusable bounds that 
+  // blocks input to items below it.
   void putTooltip(
     ItemId id,
     Rect bounds,
     String text,
     const TextItemSkin& skin);
+
+  // TODO(sushi) implement this. Don't really need to focus on this atm but the
+  //             issue is that we need to be able to lookup the Item with `id`
+  //             but the way we store Items atm (on Groups) makes it difficult 
+  //             to guarantee we can find the Item.
+  // void putTooltipForItem(
+  //   ItemId id,
+  //   String text,
+  //   const TextItemSkin& skin);
 
   void beginScrollGroup(ItemId id, Rect bounds, const ScrollBarSkin& skin);
   void endScrollGroup(const ScrollBarSkin& skin, b8 scroll_to_end = false);

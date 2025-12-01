@@ -33,7 +33,6 @@ namespace editor
 {
 
 using Tool = SceneEditor::Tool;
-using EntityBuildState = SceneEditor::EntityBuildState;
 using ControlState = SceneEditor::ControlState;
 
 static const f32 c_map_render_w = 2048;
@@ -117,28 +116,19 @@ static b8 reloadSceneFromDef(SceneEditor& self, SceneDef& def)
 
 /* ----------------------------------------------------------------------------
  */
-static void spawnPlacementEntity(SceneEditor& self)
+static void beginSelectedEntityPlacement(SceneEditor& self)
 {
-  if (isnil(self.placement_entity_def_path))
+  if (!self.hasLoadableSelectedEntity())
     return;
 
-  // We must have just selected an entity def to place so try and load 
-  // its def and create a prototype entity to display for placement.
-  reflect::Linker linker = self.editor->getLinker();
-
-  linker.link(
-    "EntityDefLink"_typeid,
-    String(self.placement_entity_def_path),
-    &self.placement_entity_def);
-
   self.placement_entity = self.entity_mgr.spawnEntity(
-    self.placement_entity_def,
+    self.selected_entity_asset->l_def,
     nil);
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void clearPlacementEntity(SceneEditor& self)
+static void endSelectedEntityPlacement(SceneEditor& self)
 {
   if (notnil(self.placement_entity))
     self.entity_mgr.destroyEntity(self.placement_entity);
@@ -151,12 +141,8 @@ static void clearPlacementEntity(SceneEditor& self)
  */
 static void replacePlacementEntity(SceneEditor& self)
 {
-  clearPlacementEntity(self);
-
-  if (isnil(self.placement_entity_def_path))
-    return;
-
-  spawnPlacementEntity(self);
+  endSelectedEntityPlacement(self);
+  beginSelectedEntityPlacement(self);
 }
 
 /* ----------------------------------------------------------------------------
@@ -167,7 +153,7 @@ void serializeSceneState(
     mem::Bump* allocator)
 {
   // Remove possible placement entity so its not serialized in to the scene.
-  clearPlacementEntity(self);
+  endSelectedEntityPlacement(self);
 
   SerializeSceneParams params = 
   {
@@ -339,6 +325,12 @@ static void onChange(SceneEditor& self)
 {
   if (self.current_snapshot < self.scene_snapshots.len - 1)
   {
+    // If there are snapshots ahead of the current one, clear them.
+    // TODO(sushi) it would be nice to experiment with forming a tree of 
+    //             states rather than just throwing away future ones. 
+    //             Not sure how practical that is, since I've never used
+    //             a program that does that and especially with how our 
+    //             current undo/redo stuff works atm.
     for (s32 i = self.scene_snapshots.len - 1; i > self.current_snapshot; --i)
     {
       destroySceneSnapshot(self, &self.scene_snapshots[i]);
@@ -358,7 +350,7 @@ static void reloadCurrentSnapshot(SceneEditor& self)
   SceneSnapshot* current = &self.scene_snapshots[self.current_snapshot];
   SceneDef* def = current->packed.getDataAs<SceneDef>();
 
-  clearPlacementEntity(self);
+  endSelectedEntityPlacement(self);
   reloadSceneFromDef(self, *def);
   replacePlacementEntity(self);
 }
@@ -416,6 +408,8 @@ b8 SceneEditor::init()
     return editor->log.error("failed to create map texture");
 
   sd_editor.init();
+
+  entity_assets.list.init();
 
   editor->event_bus->subscribeTo<WindowFocusChange, SceneEditor>(this,
     [](auto& self, auto& ev) -> void
@@ -634,8 +628,6 @@ static void handleEntitySelection(
   }
 }
 
-
-
 /* ----------------------------------------------------------------------------
  */
 static void handleEntityPlacement(
@@ -658,25 +650,25 @@ static void handleEntitySpawning(
     ui::UI& ui,
     const MapViewState& state)
 {
-  if (self.entity_build_state != EntityBuildState::None)
+  if (!self.hasLoadableSelectedEntity())
     return;
 
-  if (state.focus.isHovered())
-  {
-    handleEntityPlacement(
-      self,
-      ui,
-      self.placement_entity,
-      state.world_cursor,
-      vec2f(0.f),
-      self.placement_entity_def->placement,
-      state);
+  if (!state.focus.isHovered())
+    return;
 
-    if (state.focus.wasPrimaryPressed())
-    {
-      spawnPlacementEntity(self);
-      onChange(self);
-    }
+  handleEntityPlacement(
+    self,
+    ui,
+    self.placement_entity,
+    state.world_cursor,
+    vec2f(0.f),
+    self.selected_entity_asset->l_def->placement,
+    state);
+
+  if (state.focus.wasPrimaryPressed())
+  {
+    beginSelectedEntityPlacement(self);
+    onChange(self);
   }
 }
 
@@ -687,23 +679,26 @@ static void handleEntityDrag(
     ui::UI& ui,
     const MapViewState& state)
 {
-  if (state.focus.isHovered())
-  {
-    handleEntityPlacement(
-      self,
-      ui,
-      self.selected_entity,
-      state.world_cursor,
-      -self.entity_select_pos_entity_local,
-      self.selected_entity_def->placement,
-      state);
+  if (!state.focus.isHovered())
+    return;
 
-    if (ui.wasPrimaryReleasedGlobally())
-    {
-      self.selected_entity = nil;
-      self.dragging_entity = false;
-      onChange(self);
-    }
+  if (isnil(self.selected_entity))
+    return;
+
+  handleEntityPlacement(
+    self,
+    ui,
+    self.selected_entity,
+    state.world_cursor,
+    -self.entity_select_pos_entity_local,
+    self.selected_entity_def->placement,
+    state);
+
+  if (ui.wasPrimaryReleasedGlobally())
+  {
+    self.selected_entity = nil;
+    self.dragging_entity = false;
+    onChange(self);
   }
 }
 
@@ -717,16 +712,18 @@ static void handleMapAndEntityCursorInteraction(
 {
   auto& map = self.getSys<MapSys>();
 
-  if (notnil(self.placement_entity_def_path))
+  if (!state.focus.isHovered())
+    return;
+
+  switch (self.selected_tool)
   {
+  case Tool::Add:
     handleEntitySpawning(self, ui, state);
-  }
-  else if (self.dragging_entity)
-  {
+    break;
+  case Tool::Move:
     handleEntityDrag(self, ui, state);
-  }
-  else
-  {
+    break;
+  default:
     handleEntitySelection(self, ui, state);
   }
 }
@@ -743,6 +740,46 @@ static void handleControlInputs(
   handleDragState(self, ui, state);
   handleScrollState(self, ui, state);
   handleMapAndEntityCursorInteraction(self, ui, state, result);
+}
+
+/* ----------------------------------------------------------------------------
+ */
+static void putToolSelectIcons(
+    SceneEditor& self,
+    ui::UI& ui,
+    Rect bounds,
+    const EditorSkinDef& skin)
+{
+  static const f32 icon_size = 16.f;
+  static const f32 icon_spacing = 4.f;
+  static const f32 icon_stride = icon_size + icon_spacing;
+
+  auto icon_bounds = Rect::zero()
+    .setPos(bounds.pos())
+    .setSqSize(icon_size)
+    .alignCenteredYInside(bounds)
+    .alignLeftInside(bounds, 4.f);
+
+$ local function placeIcon(tool, skin)
+  {
+    b8 enabled = self.selected_tool == Tool::$(tool);
+    if (ui.putCheckbox("scene-editor.select-tool-$(tool)"_fid,
+          icon_bounds,
+          &enabled,
+          skin.scene_editor.$(skin)))
+    {
+      if (enabled)
+        self.selected_tool = Tool::$(tool);
+    }
+
+    icon_bounds.x += icon_stride;
+  }
+$ end
+  
+  @placeIcon(Add,    tool_add)
+  @placeIcon(Move,   tool_move)
+  @placeIcon(Pick,   tool_pick)
+  @placeIcon(Delete, tool_delete)
 }
 
 /* ----------------------------------------------------------------------------
@@ -764,57 +801,16 @@ static void putMapView(
 
   ui.putQuad(bounds, self.scene_render.getHandle(), uv, 0xffffffff);
 
+  Rect tool_select_bounds = Rect::zero()
+    .setPos(bounds.pos())
+    .setHeight(26.f)
+    .setWidth(bounds.w)
+    .contractedX(10.f)
+    .alignTopInside(bounds, 4.f);
+
+  putToolSelectIcons(self, ui, tool_select_bounds, skin);
+
   handleControlInputs(self, ui, state, result, skin);
-}
-
-/* ----------------------------------------------------------------------------
- */
-static void putToolSelect(
-    SceneEditor& self,
-    ui::UI& ui,
-    Rect bounds,
-    const EditorSkinDef& skin)
-{
-  String selected_text = nil;
-  switch (self.selected_tool)
-  {
-$ for elem in TTool.elems:each() do
-  case Tool::$(elem.name):
-    selected_text = "$(elem.name)"_str;
-    break;
-$ end
-  }
-
-  if (ui.beginDropDown("scene-editor.tool_select"_fid,
-        bounds,
-        90.f,
-        selected_text,
-        skin.dropdown))
-  {
-    Rect button_bounds;
-    button_bounds.x = 0.f;
-    button_bounds.y = 0.f;
-    button_bounds.w = ui.getWidth();
-    button_bounds.h = 14.f;
-
-$ for elem in TTool.elems:each() do
-    if (self.selected_tool != Tool::$(elem.name))
-    {
-      if (ui.putButton("scene-editor.tool_select.$(elem.name)"_fid,
-            button_bounds,
-            "$(elem.name)"_str,
-            skin.text_button))
-      {
-        self.selected_tool = Tool::$(elem.name);
-        ui.closePopup();
-      }
-
-      button_bounds.y += button_bounds.h;
-    }
-$ end
-
-    ui.endDropDown();
-  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -825,43 +821,40 @@ static void handleEntityBuildResult(
     String type,
     Editor::BuildRequestResult result)
 {
-  // Check that the request matches the currently selected entity; user could
-  // have changed entity selection during the build.
-  if (name != String(self.placement_entity_def_path))
-    return;
-
-  if (result == Editor::BuildRequestResult::Failed)
+  for (EntityAsset& asset : self.entity_assets.list)
   {
-    self.editor->log.error("failed to build selected entity");
-    self.entity_build_state = EntityBuildState::Failed;
-    return;
-  }
+    if (name != String(asset.l_def.name))
+      continue;
 
-  self.entity_build_state = EntityBuildState::None;
-  replacePlacementEntity(self);
+    b8 success = result == Editor::BuildRequestResult::Success;
+
+    if (success)
+    {
+      asset.build_state = EntityBuildState::None;
+
+      self.link("EntityDefLink"_typeid, &asset.l_def);
+    }
+    else
+      asset.build_state = EntityBuildState::Failed;
+
+    break;
+  }
 }
 
 /* ----------------------------------------------------------------------------
  */
-static void requestPlacementEntityBuild(SceneEditor& self)
+static void requestEntityAssetBuild(SceneEditor& self, EntityAsset& asset)
 {
-  // Clear placement entity so that it doesn't follow the cursor while 
-  // a build is in progress and we aren't placing them while building.
-  clearPlacementEntity(self);
-  
   b8 request_success = self.editor->requestBuild<SceneEditor>(
-    String(self.placement_entity_def_path),
+    asset.l_def.name,
     "entity.data"_str,
     &self,
     handleEntityBuildResult);
-
-  if (!request_success)
-  {
-    self.editor->log.error("SceneEditor failed to request entity build");
-    return;
-  }
   
-  self.entity_build_state = EntityBuildState::Requested;
+  if (request_success)
+    asset.build_state = EntityBuildState::Requested;
+  else
+    asset.build_state = EntityBuildState::RequestFailed;
 }
 
 /* ----------------------------------------------------------------------------
@@ -870,23 +863,27 @@ static void putBuildIcon(
     SceneEditor& self,
     ui::UI& ui,
     Rect bounds,
+    EntityAsset& asset,
     const EditorSkinDef& skin)
 {
+  ui.pushId(ui.generateIdFromPointer(&asset));
+  defer { ui.popId(); };
+
   ui::Focus icon_focus = ui.putFocusableBounds(
     "scene-editor.build-result-icon"_fid,
     bounds);
 
-  if (self.entity_build_state != EntityBuildState::Requested &&
+  if (asset.build_state != EntityBuildState::Requested &&
       icon_focus.isHovered())
   {
     ui.putItem(bounds, skin.icons.redo);   
 
     if (icon_focus.wasPrimaryPressed())
-      requestPlacementEntityBuild(self);
+      requestEntityAssetBuild(self, asset);
   }
   else
   {
-    switch (self.entity_build_state)
+    switch (asset.build_state)
     {
     case EntityBuildState::None:
       ui.putItem(bounds, skin.icons.checkmark);
@@ -929,6 +926,25 @@ static void putBuildIcon(
 
 /* ----------------------------------------------------------------------------
  */
+static void cacheEntityAssetList(SceneEditor& self)
+{
+  self.entity_assets.last_cache = TimePoint::monotonic();
+
+  auto glob = fs::Globber::create("assets/**/*.entity"_str);
+
+  glob.run([&](String path)
+  {
+    EntityAsset* asset = self.entity_assets.list.push();
+    asset->l_def.name = path.removeSuffix(".entity"_str).allocateCopy();
+    requestEntityAssetBuild(self, *asset);
+    return true;
+  });
+
+  glob.destroy();
+}
+
+/* ----------------------------------------------------------------------------
+ */
 static void putEntityDefSelection(
     SceneEditor& self,
     ui::UI& ui,
@@ -938,56 +954,107 @@ static void putEntityDefSelection(
   static const f32 icon_size = 16.f;
   static const f32 icon_dropdown_spacing = 2.f;
 
-  Rect dropdown_bounds = Rect::from(bounds)
-    .contractedRight(icon_size + icon_dropdown_spacing);
+  static const f32 row_size = 20.f;
+  static const f32 row_spacing = 2.f;
+  static const f32 row_stride = row_size + row_spacing;
 
-  Rect icon_bounds = Rect::from(bounds)
-    .setSqSize(icon_size)
-    .alignRightOutside(dropdown_bounds, icon_dropdown_spacing)
-    .alignCenteredYInside(dropdown_bounds);
+  static const f32 preview_size = row_size;
+  static const u64 preview_state_time_ms = 1000;
 
-  putBuildIcon(self, ui, icon_bounds, skin);
-
-  if (ui.beginDropDown("scene-editor.select-entity-def"_fid,
-        dropdown_bounds,
-        99.f,
-        String(self.placement_entity_def_path),
-        skin.dropdown))
+  SpriteTextureDraw null_sprite_draw = 
   {
-    // TODO(sushi) cache this search.
-    auto glob = fs::Globber::create("assets/**/*.entity"_str);
+    .texture = self.editor->l_null_texture.getHandle(),
+    .uv = vec4f(0.f, 0.f, 1.f, 1.f),
+    .color = 0xff0000ff,
+  };
 
-    Rect button_bounds = {};
-    button_bounds.x = 0.f;
-    button_bounds.y = 0.f;
-    button_bounds.w = ui.getWidth();
-    button_bounds.h = 20.f;
+  f32 preview_time = time::since(self.editor->start_time).toSeconds();
 
-    glob.run([&](String path)
+  ui.beginScrollGroup("scene-editor.entity-asset-scroll"_fid,
+    bounds,
+    skin.scroll_bar);
+  {
+    auto row_bounds = Rect::zero()
+      .setSize(ui.getWidth(), row_size);
+
+    for (EntityAsset& asset : self.entity_assets.list)
     {
-      if (ui.putButton(ui.generateIdFromString(path),
-            button_bounds,
-            path,
-            skin.dropdown_option))
-      {
-        self.placement_entity_def_path.clear();
-        io::format(&self.placement_entity_def_path, 
-          fs::path::removeExtension(path));
+      auto preview_bounds = Rect::zero()
+        .setSqSize(preview_size)
+        .alignLeftInside(row_bounds, 2.f)
+        .alignCenteredYInside(row_bounds);
 
-        requestPlacementEntityBuild(self);
+      auto icon_bounds = Rect::zero()
+        .setSqSize(icon_size)
+        .alignRightInside(row_bounds, 2.f)
+        .alignCenteredYInside(row_bounds);
 
-        ui.closePopup();
-      }
+      auto name_bounds = Rect::from(row_bounds)
+        .contractedLeft(preview_bounds.extentX() + 4.f)
+        .contractedRight(icon_bounds.w + 4.f);
+
+      SpriteTextureDraw sprite_draw = null_sprite_draw;
       
-      button_bounds.y += button_bounds.h;
+      if (asset.build_state == EntityBuildState::None)
+      {
+        for (const ComponentPtr& cptr : asset.l_def->components)
+        {
+          if (cptr.type != "cl::Sprite"_typeid)
+            continue;
 
-      return true;
-    });
+          const auto* sprite = cptr.getAs<cl::Sprite>();
 
-    glob.destroy();
+          if (!sprite->states.isValid())
+            continue;
 
-    ui.endDropDown();
+          u64 num_states = sprite->states->map.len;
+          u64 time_ms = preview_time * u64(time::ms_p_s);
+          u64 state = (time_ms / preview_state_time_ms) % num_states;
+
+          sprite_draw = computeSpriteTextureDrawForState(
+            *sprite,
+            state,
+            null_sprite_draw);
+        }
+      }
+
+      ui.putQuad(
+        preview_bounds, 
+        sprite_draw.texture,
+        sprite_draw.uv,
+        sprite_draw.color);
+
+      ui::Focus name_focus = ui.putFocusableBounds(
+        ui.generateIdFromString(asset.l_def.name),
+        name_bounds);
+
+      if (name_focus.wasPrimaryPressed())
+        self.selected_entity_asset = &asset;
+
+      b8 is_selected = &asset == self.selected_entity_asset;
+
+      const ui::TextItemSkin* name_skin = nullptr;
+
+      if (is_selected)
+      {
+        name_skin = &skin.scene_editor.selected_entity_asset;
+      }
+      else
+      {
+        if (name_focus.isHovered())
+          name_skin = &skin.scene_editor.hovered_entity_asset;
+        else
+          name_skin = &skin.scene_editor.entity_asset;
+      }
+
+      ui.putTextItem(name_bounds, asset.l_def.name, *name_skin);
+
+      putBuildIcon(self, ui, icon_bounds, asset, skin);
+
+      row_bounds.y += row_stride;
+    }
   }
+  ui.endScrollGroup(skin.scroll_bar);
 }
 
 /* ----------------------------------------------------------------------------
@@ -1013,38 +1080,36 @@ static void putToolMenu(
 
   f32 y = text_size.y + 4.f;
 
-  Rect placement_selection_bounds = {};
-  placement_selection_bounds.x = 2.f;
-  placement_selection_bounds.y = y;
-  placement_selection_bounds.w = 
-    ui.getWidth() - 2.f * placement_selection_bounds.x;
-  placement_selection_bounds.h = 20.f;
+  Rect entity_asset_list_bounds = {};
+  entity_asset_list_bounds.x = 2.f;
+  entity_asset_list_bounds.y = y;
+  entity_asset_list_bounds.w = 
+    ui.getWidth() - 2.f * entity_asset_list_bounds.x;
+  entity_asset_list_bounds.h = 200.f;
 
   putEntityDefSelection(
     self,
     ui, 
-    placement_selection_bounds,
+    entity_asset_list_bounds,
     skin);
 
-  y = placement_selection_bounds.extentY() + 4.f;
+  y = entity_asset_list_bounds.extentY() + 4.f;
 
-  Rect sde_bounds;
-  sde_bounds.x = 2.f;
-  sde_bounds.y = y;
-  sde_bounds.w = ui.getWidth() - 2.f * sde_bounds.x;
-  sde_bounds.h = sde_height;
-
-  self.sd_editor.put(ui, sde_bounds, skin.sdata_edit);
-
-  y += sde_height + 4.f;
-
-  Rect select_bounds;
-  select_bounds.x = 2.f;
-  select_bounds.y = y;
-  select_bounds.w = ui.getWidth() - 2.f * select_bounds.x;
-  select_bounds.h = 14.f;
-
-  putToolSelect(self, ui, select_bounds, skin);
+  // Rect sde_bounds;
+  // sde_bounds.x = 2.f;
+  // sde_bounds.y = y;
+  // sde_bounds.w = ui.getWidth() - 2.f * sde_bounds.x;
+  // sde_bounds.h = sde_height;
+  //
+  // self.sd_editor.put(ui, sde_bounds, skin.sdata_edit);
+  //
+  // y += sde_height + 4.f;
+  //
+  // Rect select_bounds;
+  // select_bounds.x = 2.f;
+  // select_bounds.y = y;
+  // select_bounds.w = ui.getWidth() - 2.f * select_bounds.x;
+  // select_bounds.h = 14.f;
 }
 
 /* ----------------------------------------------------------------------------
@@ -1058,6 +1123,12 @@ void SceneEditor::putUI(ui::UI& ui, const EditorSkinDef& skin)
       redo(*this);
     else
       undo(*this);
+  }
+
+  if (time::since(entity_assets.last_cache) > TimeSpan::fromMinutes(9999.f))
+  {
+    entity_assets.list.clear();
+    cacheEntityAssetList(*this);
   }
 
   const f32 tool_menu_width = 400.f;

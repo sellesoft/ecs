@@ -133,6 +133,20 @@ struct EditorIcons
 
 /* ============================================================================
  */
+struct SceneEditorSkin
+{
+  ui::CheckboxSkin tool_add;
+  ui::CheckboxSkin tool_move;
+  ui::CheckboxSkin tool_pick;
+  ui::CheckboxSkin tool_delete;
+
+  ui::TextItemSkin selected_entity_asset;
+  ui::TextItemSkin entity_asset;
+  ui::TextItemSkin hovered_entity_asset;
+};
+
+/* ============================================================================
+ */
 @metadata.def
 struct EditorSkinDef
 {
@@ -158,6 +172,7 @@ struct EditorSkinDef
   EditorConsoleSkin console;
   EditorMenuBarSkin menu_bar;
   EditorDocSkin doc;
+  SceneEditorSkin scene_editor;
 
   SourceDataEditorSkinDef sdata_edit;
 
